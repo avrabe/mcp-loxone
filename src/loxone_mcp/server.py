@@ -1,21 +1,22 @@
 """Loxone MCP Server - Main server implementation."""
 
-import asyncio
-import sys
-import os
 import json
 import logging
-from typing import Dict, List, Optional, Any, Union
+import os
+import sys
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from typing import Any
 
 from mcp.server.fastmcp import FastMCP
+
 from loxone_mcp.secrets import LoxoneSecrets
 
 # Set up logging
 logging.basicConfig(
     level=os.getenv("LOXONE_LOG_LEVEL", "INFO"),
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -26,113 +27,109 @@ mcp = FastMCP("Loxone Controller")
 @dataclass
 class LoxoneDevice:
     """Represents a Loxone device with its properties."""
+
     uuid: str
     name: str
     type: str
     room: str
     room_uuid: str
-    category: Optional[str] = None
-    states: Optional[Dict[str, Any]] = None
-    details: Optional[Dict[str, Any]] = None
+    category: str | None = None
+    states: dict[str, Any] | None = None
+    details: dict[str, Any] | None = None
 
 
 @dataclass
 class ServerContext:
     """Server context with Loxone connection and device cache."""
+
     loxone: Any  # PyLoxone instance
-    structure: Dict[str, Any]
-    devices: Dict[str, LoxoneDevice]
-    rooms: Dict[str, str]  # uuid -> name mapping
+    structure: dict[str, Any]
+    devices: dict[str, LoxoneDevice]
+    rooms: dict[str, str]  # uuid -> name mapping
 
 
 # Global context storage
-_context: Optional[ServerContext] = None
+_context: ServerContext | None = None
 
 
 @asynccontextmanager
-async def lifespan(server: FastMCP):
+async def lifespan(_server: FastMCP) -> AsyncGenerator[Any, None]:
     """Manage server lifecycle - initialize Loxone connection."""
     global _context
-    
+
     logger.info("Starting Loxone MCP Server...")
-    
+
     # Validate credentials
     if not LoxoneSecrets.validate():
         raise ValueError("Missing Loxone credentials. Run 'setup' command first.")
-    
+
     # Get credentials
     host = LoxoneSecrets.get(LoxoneSecrets.HOST_KEY)
     username = LoxoneSecrets.get(LoxoneSecrets.USER_KEY)
     password = LoxoneSecrets.get(LoxoneSecrets.PASS_KEY)
-    
+
     logger.info(f"Connecting to Loxone Miniserver at {host}...")
-    
+
     try:
         # Import our Loxone client
         # Use HTTP client since WebSocket requires encrypted auth
         from loxone_mcp.loxone_http_client import Loxone
-        
+
         # Create connection
         loxone = Loxone(host=host, username=username, password=password)
-        
+
         # Connect and start
         await loxone.connect()
         await loxone.start()
-        
+
         logger.info("Successfully connected to Loxone Miniserver")
-        
+
         # Get structure file
         structure = await loxone.get_structure_file()
-        
+
         # Parse rooms
         rooms = {
-            uuid: data.get('name', 'Unknown')
-            for uuid, data in structure.get('rooms', {}).items()
+            uuid: data.get("name", "Unknown") for uuid, data in structure.get("rooms", {}).items()
         }
         logger.info(f"Found {len(rooms)} rooms")
-        
+
         # Parse devices
         devices = {}
-        for uuid, control in structure.get('controls', {}).items():
-            room_uuid = control.get('room', '')
-            room_name = rooms.get(room_uuid, 'Unknown')
-            
+        for uuid, control in structure.get("controls", {}).items():
+            room_uuid = control.get("room", "")
+            room_name = rooms.get(room_uuid, "Unknown")
+
             device = LoxoneDevice(
                 uuid=uuid,
-                name=control.get('name', 'Unknown'),
-                type=control.get('type', 'Unknown'),
+                name=control.get("name", "Unknown"),
+                type=control.get("type", "Unknown"),
                 room=room_name,
                 room_uuid=room_uuid,
-                category=control.get('cat'),
-                states=control.get('states', {}),
-                details=control.get('details', {})
+                category=control.get("cat"),
+                states=control.get("states", {}),
+                details=control.get("details", {}),
             )
             devices[uuid] = device
-        
+
         logger.info(f"Found {len(devices)} devices")
-        
+
         # Log device type summary
         device_types = {}
         for device in devices.values():
             device_types[device.type] = device_types.get(device.type, 0) + 1
-        
+
         logger.info("Device types found:")
         for dtype, count in sorted(device_types.items()):
             logger.info(f"  - {dtype}: {count}")
-        
+
         # Create context
-        context = ServerContext(
-            loxone=loxone,
-            structure=structure,
-            devices=devices,
-            rooms=rooms
-        )
-        
+        context = ServerContext(loxone=loxone, structure=structure, devices=devices, rooms=rooms)
+
         # Store globally
         _context = context
-        
+
         yield context
-        
+
     except ImportError as e:
         logger.error(f"Failed to import required module: {e}")
         raise
@@ -145,7 +142,7 @@ async def lifespan(server: FastMCP):
         try:
             await loxone.stop()
             await loxone.close()
-        except:
+        except Exception:
             pass
 
 
@@ -155,116 +152,107 @@ mcp = FastMCP("Loxone Controller", lifespan=lifespan)
 
 # === Room Management Tools ===
 
+
 @mcp.tool()
-async def list_rooms() -> List[Dict[str, str]]:
+async def list_rooms() -> list[dict[str, str]]:
     """
     List all available rooms in the Loxone system.
-    
+
     Returns a list of rooms with their UUID and name.
     """
     if not _context:
         return [{"error": "Not connected to Loxone"}]
-    
-    return [
-        {"uuid": uuid, "name": name}
-        for uuid, name in _context.rooms.items()
-    ]
+
+    return [{"uuid": uuid, "name": name} for uuid, name in _context.rooms.items()]
 
 
 @mcp.tool()
-async def get_room_devices(
-    room: str,
-    device_type: Optional[str] = None
-) -> List[Dict[str, Any]]:
+async def get_room_devices(room: str, device_type: str | None = None) -> list[dict[str, Any]]:
     """
     Get all devices in a specific room.
-    
+
     Args:
         room: Room name (partial match supported)
         device_type: Optional filter by device type (e.g., "Light", "Jalousie")
-    
+
     Returns:
         List of devices with their properties
     """
     ctx: ServerContext = _context
     if not ctx:
         return []
-    
+
     # Find matching room(s)
     room_lower = room.lower()
     matching_rooms = [
-        (uuid, name) for uuid, name in ctx.rooms.items()
-        if room_lower in name.lower()
+        (uuid, name) for uuid, name in ctx.rooms.items() if room_lower in name.lower()
     ]
-    
+
     if not matching_rooms:
         return []
-    
+
     # Get devices in matching rooms
     devices = []
-    for room_uuid, room_name in matching_rooms:
+    for room_uuid, _room_name in matching_rooms:
         room_devices = [
             {
                 "uuid": device.uuid,
                 "name": device.name,
                 "type": device.type,
                 "room": device.room,
-                "category": device.category
+                "category": device.category,
             }
             for device in ctx.devices.values()
-            if device.room_uuid == room_uuid
-            and (device_type is None or device.type == device_type)
+            if device.room_uuid == room_uuid and (device_type is None or device.type == device_type)
         ]
         devices.extend(room_devices)
-    
+
     return devices
 
 
 # === Rolladen (Blinds) Control ===
 
+
 @mcp.tool()
 async def control_rolladen(
-    room: str,
-    device: Optional[str] = None,
-    action: str = "stop",
-    position: Optional[int] = None
-) -> Dict[str, Any]:
+    room: str, device: str | None = None, action: str = "stop", position: int | None = None
+) -> dict[str, Any]:
     """
     Control rolladen (blinds) in a room.
-    
+
     Args:
         room: Room name (partial match)
         device: Specific device name (optional, controls all if not specified)
         action: "up", "down", "stop", or "position"
         position: Position 0-100 (only used with action="position")
-    
+
     Returns:
         Result of the control operation
     """
     ctx: ServerContext = _context
     if not ctx:
         return {"error": "Not connected to Loxone"}
-    
+
     # Get rolladen devices in room
     devices = await get_room_devices(room, "Jalousie")
-    
+
     if not devices:
         return {"error": f"No rolladen found in room '{room}'"}
-    
+
     # Filter by device name if specified
     if device:
         device_lower = device.lower()
         devices = [d for d in devices if device_lower in d["name"].lower()]
-        
+
         if not devices:
             return {"error": f"No rolladen named '{device}' found in room '{room}'"}
-    
+
     # Execute commands
     results = []
     for dev in devices:
         try:
             uuid = dev["uuid"]
-            
+
             # Map action to Loxone command
             if action == "position" and position is not None:
                 command = f"moveToPosition/{position}"
@@ -275,44 +263,40 @@ async def control_rolladen(
             elif action == "stop":
                 command = "Stop"
             else:
-                results.append({
-                    "device": dev["name"],
-                    "error": f"Invalid action: {action}"
-                })
+                results.append({"device": dev["name"], "error": f"Invalid action: {action}"})
                 continue
-            
+
             # Send command
             await ctx.loxone.send_command(f"jdev/sps/io/{uuid}/{command}")
-            
-            results.append({
-                "device": dev["name"],
-                "action": action,
-                "success": True,
-                "position": position if action == "position" else None
-            })
-            
+
+            results.append(
+                {
+                    "device": dev["name"],
+                    "action": action,
+                    "success": True,
+                    "position": position if action == "position" else None,
+                }
+            )
+
         except Exception as e:
-            results.append({
-                "device": dev["name"],
-                "error": str(e)
-            })
-    
+            results.append({"device": dev["name"], "error": str(e)})
+
     return {
         "room": room,
         "controlled": len([r for r in results if r.get("success")]),
-        "results": results
+        "results": results,
     }
 
 
 @mcp.tool()
-async def control_room_rolladen(room: str, action: str = "stop") -> Dict[str, Any]:
+async def control_room_rolladen(room: str, action: str = "stop") -> dict[str, Any]:
     """
     Control all rolladen in a room with a simple command.
-    
+
     Args:
         room: Room name
         action: "up", "down", or "stop"
-    
+
     Returns:
         Result of the control operation
     """
@@ -321,40 +305,38 @@ async def control_room_rolladen(room: str, action: str = "stop") -> Dict[str, An
 
 # === Light Control ===
 
+
 @mcp.tool()
 async def control_light(
-    room: str,
-    device: Optional[str] = None,
-    action: str = "toggle",
-    brightness: Optional[int] = None
-) -> Dict[str, Any]:
+    room: str, device: str | None = None, action: str = "toggle", brightness: int | None = None
+) -> dict[str, Any]:
     """
     Control lights in a room.
-    
+
     Args:
         room: Room name (partial match)
         device: Specific device name (optional)
         action: "on", "off", "toggle", or "dim"
         brightness: Brightness 0-100 (only used with action="dim")
-    
+
     Returns:
         Result of the control operation
     """
     ctx: ServerContext = _context
     if not ctx:
         return {"error": "Not connected to Loxone"}
-    
+
     # Get light devices - handle different light types
     light_types = ["Light", "LightController", "Dimmer", "Switch"]
     all_devices = []
-    
+
     for light_type in light_types:
         devices = await get_room_devices(room, light_type)
         all_devices.extend(devices)
-    
+
     if not all_devices:
         return {"error": f"No lights found in room '{room}'"}
-    
+
     # Remove duplicates
     seen = set()
     devices = []
@@ -362,21 +344,21 @@ async def control_light(
         if d["uuid"] not in seen:
             seen.add(d["uuid"])
             devices.append(d)
-    
+
     # Filter by device name if specified
     if device:
         device_lower = device.lower()
         devices = [d for d in devices if device_lower in d["name"].lower()]
-        
+
         if not devices:
             return {"error": f"No light named '{device}' found in room '{room}'"}
-    
+
     # Execute commands
     results = []
     for dev in devices:
         try:
             uuid = dev["uuid"]
-            
+
             # Map action to Loxone command
             if action == "on":
                 command = "On"
@@ -387,49 +369,43 @@ async def control_light(
             elif action == "dim" and brightness is not None:
                 command = str(brightness)  # Direct value for dimmers
             else:
-                results.append({
-                    "device": dev["name"],
-                    "error": f"Invalid action: {action}"
-                })
+                results.append({"device": dev["name"], "error": f"Invalid action: {action}"})
                 continue
-            
+
             # Send command
             await ctx.loxone.send_command(f"jdev/sps/io/{uuid}/{command}")
-            
-            results.append({
-                "device": dev["name"],
-                "action": action,
-                "success": True,
-                "brightness": brightness if action == "dim" else None
-            })
-            
+
+            results.append(
+                {
+                    "device": dev["name"],
+                    "action": action,
+                    "success": True,
+                    "brightness": brightness if action == "dim" else None,
+                }
+            )
+
         except Exception as e:
-            results.append({
-                "device": dev["name"],
-                "error": str(e)
-            })
-    
+            results.append({"device": dev["name"], "error": str(e)})
+
     return {
         "room": room,
         "controlled": len([r for r in results if r.get("success")]),
-        "results": results
+        "results": results,
     }
 
 
 @mcp.tool()
 async def control_room_lights(
-    room: str,
-    action: str = "toggle",
-    brightness: Optional[int] = None
-) -> Dict[str, Any]:
+    room: str, action: str = "toggle", brightness: int | None = None
+) -> dict[str, Any]:
     """
     Control all lights in a room.
-    
+
     Args:
         room: Room name
         action: "on", "off", or "toggle"
         brightness: Optional brightness for dimmable lights
-    
+
     Returns:
         Result of the control operation
     """
@@ -438,26 +414,27 @@ async def control_room_lights(
 
 # === Device Status ===
 
+
 @mcp.tool()
-async def get_device_status(device_uuid: str) -> Dict[str, Any]:
+async def get_device_status(device_uuid: str) -> dict[str, Any]:
     """
     Get the current status of a specific device.
-    
+
     Args:
         device_uuid: The UUID of the device
-    
+
     Returns:
         Current device status and states
     """
     ctx: ServerContext = _context
     if not ctx:
         return {"error": "Not connected to Loxone"}
-    
+
     if device_uuid not in ctx.devices:
         return {"error": f"Device {device_uuid} not found"}
-    
+
     device = ctx.devices[device_uuid]
-    
+
     # Get current states
     states = {}
     if device.states:
@@ -467,68 +444,65 @@ async def get_device_status(device_uuid: str) -> Dict[str, Any]:
                 value = await ctx.loxone.get_state(state_uuid)
                 states[state_name] = value
             except Exception as e:
-                states[state_name] = f"Error: {str(e)}"
-    
+                states[state_name] = f"Error: {e!s}"
+
     return {
         "uuid": device.uuid,
         "name": device.name,
         "type": device.type,
         "room": device.room,
         "category": device.category,
-        "states": states
+        "states": states,
     }
 
 
 @mcp.tool()
-async def get_all_devices() -> List[Dict[str, Any]]:
+async def get_all_devices() -> list[dict[str, Any]]:
     """
     Get a list of all available devices grouped by room.
-    
+
     Returns:
         All devices organized by room
     """
     ctx: ServerContext = _context
     if not ctx:
         return []
-    
+
     # Group devices by room
     rooms = {}
     for device in ctx.devices.values():
         room_name = device.room
         if room_name not in rooms:
             rooms[room_name] = []
-        
-        rooms[room_name].append({
-            "uuid": device.uuid,
-            "name": device.name,
-            "type": device.type,
-            "category": device.category
-        })
-    
+
+        rooms[room_name].append(
+            {
+                "uuid": device.uuid,
+                "name": device.name,
+                "type": device.type,
+                "category": device.category,
+            }
+        )
+
     # Sort devices within each room
     for room_devices in rooms.values():
         room_devices.sort(key=lambda x: x["name"])
-    
-    return [
-        {
-            "room": room,
-            "devices": devices
-        }
-        for room, devices in sorted(rooms.items())
-    ]
+
+    return [{"room": room, "devices": devices} for room, devices in sorted(rooms.items())]
 
 
 # === MCP Prompts ===
+
 
 @mcp.prompt("room-status")
 async def prompt_room_status(room_name: str) -> str:
     """
     Check the status of all devices in a specific room.
-    
+
     Args:
         room_name: Name of the room to check
     """
-    return f"""Please check the status of all devices in the {room_name}. 
+    return f"""Please check the status of all devices in the {room_name}.
 
 List all:
 1. Lights - are they on/off?
@@ -542,7 +516,7 @@ Provide a clear summary of the current state of the room."""
 async def prompt_movie_mode(room_name: str, light_level: int = 20) -> str:
     """
     Set up a room for watching movies (dim lights, close blinds).
-    
+
     Args:
         room_name: Room to set up for movie watching
         light_level: Desired light level (0-100, default 20)
@@ -560,7 +534,7 @@ Create the perfect movie atmosphere!"""
 async def prompt_goodnight(rooms: str = "all") -> str:
     """
     Turn off all lights and close blinds in specified rooms or whole house.
-    
+
     Args:
         rooms: Comma-separated list of rooms, or 'all' for whole house
     """
@@ -586,7 +560,7 @@ Prepare these rooms for the night."""
 async def prompt_morning_routine(rooms: str, blind_position: int = 80) -> str:
     """
     Open blinds and turn on lights for the morning.
-    
+
     Args:
         rooms: Comma-separated list of rooms to prepare for morning
         blind_position: How far to open blinds (0-100, default 80)
@@ -604,7 +578,7 @@ Let's brighten up the home for a new day!"""
 async def prompt_energy_save(exclude_rooms: str = "") -> str:
     """
     Turn off all unnecessary devices to save energy.
-    
+
     Args:
         exclude_rooms: Comma-separated list of rooms to exclude (optional)
     """
@@ -620,7 +594,7 @@ Help save energy while keeping essential rooms lit."""
         return """Activate energy saving mode:
 
 1. Turn off ALL lights in the entire house
-2. Set all blinds to 50% (balanced position for energy efficiency)  
+2. Set all blinds to 50% (balanced position for energy efficiency)
 3. Report total energy savings actions taken
 
 Maximize energy efficiency throughout the home."""
@@ -630,7 +604,7 @@ Maximize energy efficiency throughout the home."""
 async def prompt_leaving_home(duration: str = "short") -> str:
     """
     Prepare the house for when you're leaving.
-    
+
     Args:
         duration: How long you'll be away (short/long/vacation)
     """
@@ -662,6 +636,7 @@ Quick setup for short absence."""
 
 # === MCP Resources ===
 
+
 @mcp.resource("loxone://structure")
 async def get_structure() -> str:
     """Get the complete Loxone structure file as a resource."""
@@ -686,12 +661,13 @@ async def get_devices_resource() -> str:
 
 # === Entry Point ===
 
-def run():
+
+def run() -> None:
     """Main entry point for the MCP server."""
     # Handle command line arguments
     if len(sys.argv) > 1:
         command = sys.argv[1]
-        
+
         if command == "setup":
             LoxoneSecrets.setup()
             sys.exit(0)
@@ -716,7 +692,7 @@ def run():
             print(f"Unknown command: {command}")
             print("Use --help for available commands")
             sys.exit(1)
-    
+
     # Run the MCP server
     try:
         logger.info("Starting Loxone MCP Server...")

@@ -1,40 +1,39 @@
 """Secure credential management using system keychain."""
 
-import keyring
-import os
-import sys
-import getpass
-import socket
 import asyncio
+import getpass
 import json
-import struct
-from typing import Optional, List, Dict
-import httpx
 import logging
+import os
+import socket
+import sys
+
+import httpx
+import keyring
 
 logger = logging.getLogger(__name__)
 
 
 class LoxoneSecrets:
     """Manages Loxone credentials using the system keychain."""
-    
+
     SERVICE_NAME = "LoxoneMCP"
-    
+
     # Credential keys
     HOST_KEY = "LOXONE_HOST"
     USER_KEY = "LOXONE_USER"
     PASS_KEY = "LOXONE_PASS"
-    
+
     @classmethod
-    def get(cls, key: str) -> Optional[str]:
+    def get(cls, key: str) -> str | None:
         """
         Retrieve a secret from environment variables or system keychain.
-        
+
         Environment variables take precedence for CI/CD compatibility.
-        
+
         Args:
             key: The credential key to retrieve
-            
+
         Returns:
             The credential value or None if not found
         """
@@ -42,14 +41,14 @@ class LoxoneSecrets:
         value = os.getenv(key)
         if value:
             return value
-            
+
         # Then check system keychain
         try:
             return keyring.get_password(cls.SERVICE_NAME, key)
         except Exception as e:
             print(f"Warning: Could not access keychain: {e}", file=sys.stderr)
             return None
-    
+
     @classmethod
     def set(cls, key: str, value: str) -> None:
         """Store a secret in the system keychain."""
@@ -58,7 +57,7 @@ class LoxoneSecrets:
         except Exception as e:
             print(f"Error: Could not store credential in keychain: {e}", file=sys.stderr)
             raise
-    
+
     @classmethod
     def delete(cls, key: str) -> None:
         """Remove a secret from the system keychain."""
@@ -68,14 +67,14 @@ class LoxoneSecrets:
             pass  # Already deleted
         except Exception as e:
             print(f"Warning: Could not delete credential: {e}", file=sys.stderr)
-    
+
     @classmethod
-    async def discover_loxone_servers(cls, timeout: float = 5.0) -> List[Dict[str, str]]:
+    async def discover_loxone_servers(cls, timeout: float = 5.0) -> list[dict[str, str]]:
         """Discover Loxone Miniservers on the local network using multiple methods."""
         servers = []
-        
+
         print("🔍 Discovering Loxone Miniservers on your network...")
-        
+
         # Method 1: UDP Discovery (Loxone specific protocol)
         print("   • Trying UDP discovery...", end=" ", flush=True)
         udp_servers = await cls._udp_discovery(timeout=2.0)
@@ -84,206 +83,205 @@ class LoxoneSecrets:
             servers.extend(udp_servers)
         else:
             print("⏭️  No response")
-        
+
         # Method 2: Network scan for HTTP endpoints
         print("   • Scanning network for HTTP endpoints...", end=" ", flush=True)
-        http_servers = await cls._http_discovery(timeout=max(1.0, timeout-2.0))
-        
+        http_servers = await cls._http_discovery(timeout=max(1.0, timeout - 2.0))
+
         # Merge results, avoiding duplicates
-        existing_ips = {s['ip'] for s in servers}
+        existing_ips = {s["ip"] for s in servers}
         new_servers = []
         for server in http_servers:
-            if server['ip'] not in existing_ips:
+            if server["ip"] not in existing_ips:
                 servers.append(server)
                 new_servers.append(server)
-        
+
         if new_servers:
             print(f"✅ Found {len(new_servers)} additional server(s)")
         elif not udp_servers:
             print("❌ No servers found")
         else:
             print("⏭️  No additional servers")
-        
+
         # Sort servers by IP for consistent ordering
-        servers.sort(key=lambda x: tuple(map(int, x['ip'].split('.'))))
-        
+        servers.sort(key=lambda x: tuple(map(int, x["ip"].split("."))))
+
         return servers
-    
+
     @classmethod
-    async def _udp_discovery(cls, timeout: float = 2.0) -> List[Dict[str, str]]:
+    async def _udp_discovery(cls, timeout: float = 2.0) -> list[dict[str, str]]:
         """Discover Loxone servers using UDP broadcast."""
         servers = []
-        
+
         try:
             # Create UDP socket for discovery
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.settimeout(timeout)
-            
+
             # Loxone discovery message (varies by version, try common ones)
             discovery_messages = [
                 b"LoxLIVE",  # Common discovery message
                 b"eWeLink",  # Alternative discovery
                 b"\x00\x00\x00\x00",  # Simple broadcast
             ]
-            
+
             # Send discovery packets to common ports
             for port in [7777, 7700, 80, 8080]:
                 for msg in discovery_messages:
                     try:
-                        sock.sendto(msg, ('<broadcast>', port))
-                    except:
+                        sock.sendto(msg, ("<broadcast>", port))
+                    except Exception:
                         continue
-            
+
             # Listen for responses
             start_time = asyncio.get_event_loop().time()
             responses = []
-            
+
             while asyncio.get_event_loop().time() - start_time < timeout:
                 try:
                     data, addr = sock.recvfrom(1024)
                     if addr[0] not in [r[1][0] for r in responses]:
                         responses.append((data, addr))
-                except socket.timeout:
+                except TimeoutError:
                     break
-                except:
+                except Exception:
                     continue
-            
+
             sock.close()
-            
+
             # Process responses
             for data, addr in responses:
                 try:
                     # Try to parse as JSON
-                    if data.startswith(b'{'):
+                    if data.startswith(b"{"):
                         info = json.loads(data.decode())
-                        name = info.get('name', 'Loxone Miniserver')
+                        name = info.get("name", "Loxone Miniserver")
                     else:
                         name = "Loxone Miniserver"
-                    
-                    servers.append({
-                        "ip": addr[0],
-                        "name": name,
-                        "port": "80",
-                        "method": "UDP Discovery"
-                    })
-                except:
+
+                    servers.append(
+                        {"ip": addr[0], "name": name, "port": "80", "method": "UDP Discovery"}
+                    )
+                except Exception:
                     # Even if we can't parse the response, it's likely a Loxone device
-                    servers.append({
-                        "ip": addr[0],
-                        "name": "Loxone Miniserver",
-                        "port": "80",
-                        "method": "UDP Discovery"
-                    })
-        
+                    servers.append(
+                        {
+                            "ip": addr[0],
+                            "name": "Loxone Miniserver",
+                            "port": "80",
+                            "method": "UDP Discovery",
+                        }
+                    )
+
         except Exception as e:
             logger.debug(f"UDP discovery error: {e}")
-        
+
         return servers
-    
+
     @classmethod
-    async def _http_discovery(cls, timeout: float = 3.0) -> List[Dict[str, str]]:
+    async def _http_discovery(cls, timeout: float = 3.0) -> list[dict[str, str]]:
         """Discover Loxone servers by scanning network for HTTP endpoints."""
         servers = []
-        
+
         try:
             # Get local network range
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
             s.close()
-            
+
             # Extract network prefix (e.g., 192.168.1.x -> 192.168.1)
-            ip_parts = local_ip.split('.')
-            network_prefix = '.'.join(ip_parts[:3])
-            
+            ip_parts = local_ip.split(".")
+            network_prefix = ".".join(ip_parts[:3])
+
             # Scan common IP ranges
-            async def check_ip(ip: str) -> Optional[Dict[str, str]]:
+            async def check_ip(ip: str) -> dict[str, str] | None:
                 try:
                     async with httpx.AsyncClient(timeout=0.5) as client:
                         # First check if port 80 responds
                         response = await client.get(f"http://{ip}/", follow_redirects=False)
-                        
+
                         # Check if it's likely a Loxone (returns 401 for unauthorized access)
                         if response.status_code in [401, 200]:
                             # Try to get Miniserver info
                             name = "Loxone Miniserver"
                             version = "Unknown"
-                            
+
                             try:
                                 # Try to get version info without auth
                                 info_response = await client.get(f"http://{ip}/jdev/sys/getversion")
                                 if info_response.status_code == 200:
                                     data = info_response.json()
-                                    version = data.get('LL', {}).get('value', 'Unknown')
-                                
+                                    version = data.get("LL", {}).get("value", "Unknown")
+
                                 # Try to get project name (might require auth)
                                 cfg_response = await client.get(f"http://{ip}/jdev/cfg/api")
                                 if cfg_response.status_code == 200:
                                     data = cfg_response.json()
-                                    name = data.get('LL', {}).get('value', {}).get('name', name)
-                            except:
+                                    name = data.get("LL", {}).get("value", {}).get("name", name)
+                            except Exception:
                                 pass
-                            
+
                             return {
                                 "ip": ip,
                                 "name": f"{name} (v{version})" if version != "Unknown" else name,
                                 "port": "80",
-                                "method": "HTTP Scan"
+                                "method": "HTTP Scan",
                             }
-                except:
+                except Exception:
                     pass
                 return None
-            
+
             # Scan common IP ranges (limit to reasonable subset for speed)
             tasks = []
             # Check common router/device IPs first
-            priority_ips = [f"{network_prefix}.{i}" for i in [1, 2, 10, 100, 101, 102, 200, 201, 202]]
+            priority_ips = [
+                f"{network_prefix}.{i}" for i in [1, 2, 10, 100, 101, 102, 200, 201, 202]
+            ]
             for ip in priority_ips:
                 tasks.append(check_ip(ip))
-            
+
             # Then scan broader range
             for i in range(3, 255):
                 ip = f"{network_prefix}.{i}"
                 if ip not in priority_ips:
                     tasks.append(check_ip(ip))
-            
+
             # Wait for results with timeout
             try:
                 results = await asyncio.wait_for(
-                    asyncio.gather(*tasks, return_exceptions=True), 
-                    timeout=timeout
+                    asyncio.gather(*tasks, return_exceptions=True), timeout=timeout
                 )
                 servers = [s for s in results if s is not None and isinstance(s, dict)]
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.debug("HTTP discovery timed out")
-                
+
         except Exception as e:
             logger.debug(f"HTTP discovery error: {e}")
-        
+
         return servers
-    
+
     @classmethod
-    async def _test_connection(cls, host: str, username: str, password: str) -> Dict[str, any]:
+    async def _test_connection(cls, host: str, username: str, password: str) -> dict[str, any]:
         """Test connection to Loxone Miniserver."""
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 # Try to get structure file with credentials
                 response = await client.get(
-                    f"http://{host}/data/LoxAPP3.json",
-                    auth=(username, password)
+                    f"http://{host}/data/LoxAPP3.json", auth=(username, password)
                 )
-                
+
                 if response.status_code == 200:
                     # Success! Try to get some info
                     try:
                         data = response.json()
                         info = {
                             "name": data.get("msInfo", {}).get("projectName", "Unknown"),
-                            "version": data.get("msInfo", {}).get("swVersion", "Unknown")
+                            "version": data.get("msInfo", {}).get("swVersion", "Unknown"),
                         }
                         return {"success": True, "info": info}
-                    except:
+                    except Exception:
                         return {"success": True}
                 elif response.status_code == 401:
                     return {"success": False, "error": "Invalid username or password"}
@@ -295,29 +293,31 @@ class LoxoneSecrets:
             return {"success": False, "error": "Connection timeout"}
         except Exception as e:
             return {"success": False, "error": str(e)}
-    
+
     @classmethod
     def setup(cls) -> None:
         """Interactive setup wizard for configuring Loxone credentials."""
         print("🔐 Loxone MCP Server Setup")
         print("=" * 40)
-        
+
         # Try to discover Loxone servers first
         discovered_servers = asyncio.run(cls.discover_loxone_servers())
-        
+
         host = None
         if discovered_servers:
             print(f"\n✅ Found {len(discovered_servers)} Loxone Miniserver(s) on your network:\n")
             for i, server in enumerate(discovered_servers, 1):
-                method_info = f" ({server.get('method', 'Detected')})" if server.get('method') else ""
+                method = server.get("method")
+                method_info = f" ({method})" if method else ""
                 print(f"  {i}. {server['name']} at {server['ip']}{method_info}")
-            
+
             print(f"\n  {len(discovered_servers) + 1}. Enter IP address manually")
-            print(f"\n  0. Cancel setup")
-            
+            print("\n  0. Cancel setup")
+
             while True:
-                choice = input(f"\nSelect an option (1-{len(discovered_servers) + 1}, or 0 to cancel): ").strip()
-                
+                max_option = len(discovered_servers) + 1
+                choice = input(f"\nSelect an option (1-{max_option}, or 0 to cancel): ").strip()
+
                 if choice == "0":
                     print("Setup cancelled.")
                     return
@@ -325,14 +325,18 @@ class LoxoneSecrets:
                     choice_num = int(choice)
                     if 1 <= choice_num <= len(discovered_servers):
                         selected = discovered_servers[choice_num - 1]
-                        host = selected['ip']
+                        host = selected["ip"]
                         print(f"\n✅ Selected: {selected['name']} at {host}")
                         break
                     elif choice_num == len(discovered_servers) + 1:
                         # User wants to enter manually
                         break
                     else:
-                        print(f"Invalid choice. Please enter a number between 1 and {len(discovered_servers) + 1}, or 0 to cancel.")
+                        max_choice = len(discovered_servers) + 1
+                        print(
+                            f"Invalid choice. Please enter a number between 1 and {max_choice}, "
+                            "or 0 to cancel."
+                        )
                 else:
                     print("Please enter a valid number.")
         else:
@@ -342,94 +346,94 @@ class LoxoneSecrets:
             print("   • The Miniserver is using a non-standard port")
             print("   • Firewall is blocking discovery")
             print("\n   You can still enter the IP address manually below.")
-        
+
         print("\nThis wizard will securely store your Loxone credentials")
         print("in your system keychain.\n")
-        
+
         # Check for existing credentials
         existing = cls.get(cls.HOST_KEY) is not None
         if existing:
             response = input("Credentials already exist. Replace them? [y/N]: ")
-            if response.lower() != 'y':
+            if response.lower() != "y":
                 print("Setup cancelled.")
                 return
             print()
-        
+
         # Collect credentials
         print("Please enter your Loxone Miniserver details:\n")
-        
+
         # If no host was selected from discovery, ask for it
         if not host:
             host = input("Miniserver IP address (e.g., 192.168.1.100): ").strip()
             if not host:
                 print("Error: Host cannot be empty")
                 sys.exit(1)
-            
+
         username = input("Username: ").strip()
         if not username:
             print("Error: Username cannot be empty")
             sys.exit(1)
-            
+
         password = getpass.getpass("Password: ")
         if not password:
             print("Error: Password cannot be empty")
             sys.exit(1)
-        
+
         # Test connection before saving
         print("\n🔌 Testing connection...")
         test_result = asyncio.run(cls._test_connection(host, username, password))
-        
-        if not test_result['success']:
+
+        if not test_result["success"]:
             print(f"\n❌ Connection failed: {test_result['error']}")
             retry = input("\nWould you like to try again? [Y/n]: ")
-            if retry.lower() != 'n':
+            if retry.lower() != "n":
                 cls.setup()  # Restart setup
                 return
             else:
                 sys.exit(1)
-        
-        print(f"\n✅ Successfully connected to Loxone Miniserver!")
-        if test_result.get('info'):
+
+        print("\n✅ Successfully connected to Loxone Miniserver!")
+        if test_result.get("info"):
             print(f"   Miniserver: {test_result['info'].get('name', 'Unknown')}")
             print(f"   Version: {test_result['info'].get('version', 'Unknown')}")
-        
+
         # Store credentials
         try:
             cls.set(cls.HOST_KEY, host)
             cls.set(cls.USER_KEY, username)
             cls.set(cls.PASS_KEY, password)
-            
+
             print("\n✅ Credentials stored successfully!")
             print(f"   Host: {host}")
             print(f"   User: {username}")
             print(f"   Pass: {'*' * len(password)}")
-            
+
             print("\n📝 Next steps:")
             print("1. Test the server: uv run mcp dev src/loxone_mcp/server.py")
             print("2. Configure in Claude Desktop (see README.md)")
-            
+
         except Exception as e:
             print(f"\n❌ Error storing credentials: {e}")
             sys.exit(1)
-    
+
     @classmethod
     def clear_all(cls) -> None:
         """Remove all stored credentials."""
         for key in [cls.HOST_KEY, cls.USER_KEY, cls.PASS_KEY]:
             cls.delete(key)
         print("✅ All credentials cleared")
-    
+
     @classmethod
     def validate(cls) -> bool:
         """Check if all required credentials are available."""
         required = [cls.HOST_KEY, cls.USER_KEY, cls.PASS_KEY]
         missing = [key for key in required if not cls.get(key)]
-        
+
         if missing:
             print(f"❌ Missing credentials: {', '.join(missing)}")
             print("Run 'uvx --from . loxone-mcp setup' to configure")
             return False
-            
+
         return True
 
 

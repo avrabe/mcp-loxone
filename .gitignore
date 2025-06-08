@@ -68,3 +68,7 @@ credentials.json
 secrets.json
 *.key
 *.pem
+
+# AI tool configurations
+.claude/
+.cursor/

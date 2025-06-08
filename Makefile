@@ -49,7 +49,7 @@ type-check:
 
 # Run tests
 test:
-	uv run pytest tests/ -v --cov=loxone_mcp --cov-report=term-missing
+	uv run pytest tests/ -v --cov=src/loxone_mcp --cov-report=term-missing
 
 # Run security checks
 security:

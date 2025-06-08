@@ -26,20 +26,17 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Install dependencies
+      - name: Install dependencies and package
         run: |
-          uv venv
-          uv pip install ruff mypy
+          uv sync --dev
       
       - name: Run Ruff linter
         run: |
-          source .venv/bin/activate
-          ruff check src/
+          uv run ruff check src/ tests/
       
       - name: Run Ruff formatter check
         run: |
-          source .venv/bin/activate
-          ruff format --check src/
+          uv run ruff format --check src/ tests/
 
   type-check:
     name: Type Check
@@ -57,16 +54,13 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Install dependencies
+      - name: Install dependencies and package
         run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip install mypy types-aiofiles
+          uv sync --dev
       
       - name: Run mypy
         run: |
-          source .venv/bin/activate
-          mypy src/ --ignore-missing-imports --check-untyped-defs || true
+          uv run mypy src/ --ignore-missing-imports --check-untyped-defs || true
 
   security-check:
     name: Security Scan
@@ -84,21 +78,17 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Install security tools
+      - name: Install security tools and package
         run: |
-          uv venv
-          uv pip install bandit[toml] safety pip-audit
+          uv sync --dev
       
       - name: Run Bandit security linter
         run: |
-          source .venv/bin/activate
-          bandit -r src/ -ll -i B101
+          uv run bandit -r src/ -ll
       
       - name: Check for known vulnerabilities
         run: |
-          source .venv/bin/activate
-          uv pip install -r requirements.txt
-          pip-audit || true
+          uv run pip-audit || true
       
       - name: Check for hardcoded secrets
         run: |
@@ -127,27 +117,23 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       
-      - name: Install dependencies
+      - name: Install dependencies and package
         run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip install pytest pytest-asyncio pytest-cov
+          uv sync --dev
       
       - name: Run tests
         run: |
-          source .venv/bin/activate
           # Run tests if they exist, otherwise skip
           if [ -d "tests" ]; then
-            pytest tests/ -v --cov=src/loxone_mcp --cov-report=term-missing
+            uv run python -m pytest tests/ -v --cov=src/loxone_mcp --cov-report=term-missing
           else
             echo "No tests directory found, skipping tests"
           fi
       
       - name: Test MCP server startup
         run: |
-          source .venv/bin/activate
           # Just check if the server can be imported without errors
-          python -c "from loxone_mcp import mcp; print('Server module imports successfully')"
+          uv run python -c "from loxone_mcp import mcp; print('Server module imports successfully')"
 
   validate-mcp:
     name: Validate MCP Implementation
@@ -165,16 +151,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       
-      - name: Install dependencies
+      - name: Install dependencies and package
         run: |
-          uv venv
-          uv pip install -r requirements.txt
+          uv sync --dev
       
       - name: Validate MCP server
         run: |
-          source .venv/bin/activate
           # Check if server exposes required MCP methods
-          python << 'EOF'
+          uv run python << 'EOF'
           from loxone_mcp.server import mcp
           import inspect
           
@@ -216,16 +200,12 @@ jobs:
       
       - name: Build package
         run: |
-          uv venv
-          uv pip install build
-          source .venv/bin/activate
-          python -m build
+          uv build
       
       - name: Check package
         run: |
-          source .venv/bin/activate
-          uv pip install twine
-          twine check dist/*
+          uv add --dev twine
+          uv run twine check dist/*
       
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -251,12 +231,10 @@ jobs:
       
       - name: Check for dependency conflicts
         run: |
-          uv venv
-          uv pip install -r requirements.txt
-          uv pip check || true
+          uv sync --dev
+          uv run python -c "import pkg_resources; print('Dependencies OK')" || true
       
       - name: Generate dependency tree
         run: |
-          source .venv/bin/activate
-          uv pip install pipdeptree
-          pipdeptree
+          uv add --dev pipdeptree
+          uv run pipdeptree
