@@ -655,6 +655,7 @@
                 <a href="#features">Features</a>
                 <a href="#installation">Setup</a>
                 <a href="#examples">Examples</a>
+                <a href="#security">Security</a>
                 <a href="#docs">Docs</a>
             </div>
         </div>
@@ -735,8 +736,8 @@
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🔒</div>
-                <h3>Secure Integration</h3>
-                <p>System keychain credential storage, comprehensive error handling, and safe device state management.</p>
+                <h3>Local Keychain Security</h3>
+                <p>Credentials stored securely in your system's local keychain (macOS Keychain, Windows Credential Manager). No cloud storage or external servers involved - your Loxone credentials never leave your machine.</p>
             </div>
         </div>
 
@@ -777,7 +778,7 @@
                 <div class="step-number">2</div>
                 <div class="step-content">
                     <h4>Configure Credentials</h4>
-                    <p>Secure setup of your Loxone Miniserver connection details</p>
+                    <p>Secure setup storing credentials in your local system keychain - never in files or cloud</p>
                 </div>
             </div>
             <div class="install-step">
@@ -880,6 +881,49 @@ get_humidity_overview("Bad")           # Bathroom humidity levels
 
 # Environmental analysis
 get_environmental_summary()            # Combined indoor/outdoor assessment</code></pre>
+        </div>
+    </section>
+
+    <!-- Security Notice Section -->
+    <section class="section animate-on-scroll" id="security">
+        <h2>Security & Compatibility</h2>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔐</div>
+                <h3>Local Credential Storage</h3>
+                <p><strong>Your credentials stay local:</strong> Stored in system keychain (macOS Keychain Access, Windows Credential Manager, Linux Secret Service). No cloud sync, no external servers - complete privacy.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚠️</div>
+                <h3>Generation 1 API Limitations</h3>
+                <p><strong>Important:</strong> Loxone Gen 1 Miniservers use basic HTTP authentication without encryption. This MCP server is designed for <em>local network use only</em> - not suitable for internet exposure.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏠</div>
+                <h3>Network Security Recommendations</h3>
+                <p><strong>Best Practices:</strong> Use within your home network. For remote access, connect via VPN. Gen 1 systems lack the encrypted token authentication available in newer Loxone generations.</p>
+            </div>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Security Architecture</span>
+            </div>
+            <pre><code># Local-only credential flow
+System Keychain ← Stored credentials (encrypted by OS)
+     ↓
+MCP Server ← Retrieves credentials securely  
+     ↓
+Local Network ← HTTP Basic Auth to Loxone Gen 1
+     ↓
+Miniserver ← Direct communication (192.168.x.x)
+
+# What's NOT exposed:
+✗ No cloud storage
+✗ No external API calls  
+✗ No credential transmission outside your network
+✗ No internet-facing endpoints</code></pre>
         </div>
     </section>
 
