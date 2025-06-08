@@ -159,28 +159,28 @@ jobs:
         run: |
           # Check if server exposes required MCP methods
           uv run python << 'EOF'
+          import inspect
           from loxone_mcp.server import mcp
+          import loxone_mcp.server as server_module
           
           print('Checking MCP server implementation...')
           
-          # Get all tools directly from the mcp instance
           tools = []
           prompts = []
           resources = []
           
-          # Safely check for MCP decorators without triggering lazy properties
-          for attr_name in dir(mcp):
-              if not attr_name.startswith('_'):
+          # Check for decorated functions by examining source code
+          for name, obj in inspect.getmembers(server_module):
+              if inspect.isfunction(obj) and not name.startswith('_'):
                   try:
-                      attr = getattr(mcp, attr_name)
-                      if hasattr(attr, '__mcp_tool__'):
-                          tools.append(attr_name)
-                      elif hasattr(attr, '__mcp_prompt__'):
-                          prompts.append(attr_name)
-                      elif hasattr(attr, '__mcp_resource__'):
-                          resources.append(attr_name)
-                  except (RuntimeError, AttributeError):
-                      # Skip attributes that can't be accessed safely
+                      source = inspect.getsource(obj)
+                      if '@mcp.tool(' in source or '@mcp.tool()' in source:
+                          tools.append(name)
+                      elif '@mcp.prompt(' in source:
+                          prompts.append(name)
+                      elif '@mcp.resource(' in source:
+                          resources.append(name)
+                  except (OSError, TypeError):
                       continue
           
           print(f'Found {len(tools)} tools: {tools}')
