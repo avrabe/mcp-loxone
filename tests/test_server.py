@@ -201,7 +201,7 @@ class TestSecrets:
 
     def test_secrets_import(self) -> None:
         """Test that secrets module can be imported."""
-        from loxone_mcp.secrets import LoxoneSecrets
+        from loxone_mcp.credentials import LoxoneSecrets
 
         # Verify class exists and has expected methods
         assert hasattr(LoxoneSecrets, "get")
@@ -211,7 +211,7 @@ class TestSecrets:
     @patch.dict("os.environ", {"LOXONE_HOST": "192.168.1.100"})
     def test_get_from_environment(self) -> None:
         """Test getting credentials from environment variables."""
-        from loxone_mcp.secrets import LoxoneSecrets
+        from loxone_mcp.credentials import LoxoneSecrets
 
         # Should get from environment
         host = LoxoneSecrets.get(LoxoneSecrets.HOST_KEY)
