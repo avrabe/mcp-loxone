@@ -3,21 +3,19 @@
   
   # Loxone MCP Server
 
-  A Model Context Protocol (MCP) server for controlling Loxone Generation 1 home automation systems. This server enables AI assistants like Claude Desktop to interact with your Loxone Miniserver, providing natural language control over lights, blinds (rolladen), and other connected devices.
+  Model Context Protocol (MCP) server for Loxone Generation 1 home automation systems. Enables AI assistants to control lights, blinds, sensors, and weather data through natural language commands.
 
-  **[📖 View Landing Page](https://avrabe.github.io/mcp-loxone-gen1/)** | **[🚀 Quick Start](#installation)** | **[📋 Documentation](CLAUDE.md)**
+  **[📖 Landing Page](https://avrabe.github.io/mcp-loxone-gen1/)** | **[⚡ Quick Start](#quick-start)** | **[📋 Documentation](CLAUDE.md)** | **[🔧 Development Guide](DEVELOPMENT.md)**
 </div>
 
-## Features
+## Key Features
 
-- 🏠 **Room-based control** - Control devices organized by room
-- 🪟 **Rolladen (blinds) control** - Up/Down/Stop commands with position support
-- 💡 **Light control** - On/Off/Dim functionality 
-- 🔐 **Secure credential storage** - Uses system keychain instead of plaintext files
-- 🔄 **Real-time updates** - WebSocket connection for live state synchronization
-- 🧩 **Extensible** - Easy to add support for more device types
-- 🌐 **Multilingual support** - Accepts commands in German, English, or mixed languages
-- 🤖 **LLM optimized** - Special support for Qwen3:14b, Llama 3.2, and other models
+- **27 MCP Tools**: Room control, lighting presets, weather forecasts, security monitoring
+- **4 Deployment Modes**: Claude Desktop, HTTP/SSE server, STDIN CLI, Docker
+- **Multiple Languages**: German, English, and mixed-language command support  
+- **Secure Storage**: System keychain credential management (no plaintext files)
+- **117 Device Support**: Lights, blinds, sensors, weather station, alarms
+- **Gen 1 API**: HTTP basic auth for Loxone Generation 1 Miniservers
 
 ## Prerequisites
 
@@ -25,63 +23,54 @@
 - Loxone Miniserver Generation 1
 - `uv` package manager ([install instructions](https://github.com/astral-sh/uv))
 
-## Installation
-
-### 1. Clone the repository
+## Quick Start
 
 ```bash
 git clone https://github.com/avrabe/mcp-loxone-gen1.git
 cd mcp-loxone-gen1
+uv sync
+uvx --from . loxone-mcp setup  # Configure credentials
 ```
 
-### 2. Set up credentials (one-time setup)
-
+**Test Installation:**
 ```bash
-uvx --from . loxone-mcp setup
+uv run mcp dev src/loxone_mcp/server.py  # Opens MCP Inspector
 ```
 
-This will prompt you for:
-- Loxone Miniserver IP address
-- Username
-- Password
+## Deployment Options
 
-Credentials are stored securely in your system keychain.
-
-### 3. Test the server
-
-```bash
-uv run mcp dev src/loxone_mcp/server.py
-```
-
-This opens the MCP Inspector where you can test available tools.
-
-## Configuration
-
-### Claude Desktop
-
-Add to your Claude Desktop configuration (`~/Library/Application Support/Claude/claude_desktop_config.json`):
-
+### 1. Claude Desktop
 ```json
+// ~/Library/Application Support/Claude/claude_desktop_config.json
 {
   "mcpServers": {
     "loxone": {
-      "command": "uvx",
-      "args": ["--from", "/Users/r/git/mcp-loxone-gen1", "loxone-mcp-server"],
-      "env": {
-        "LOXONE_LOG_LEVEL": "INFO"
-      }
+      "command": "uvx", 
+      "args": ["--from", "/path/to/mcp-loxone-gen1", "loxone-mcp-server"]
     }
   }
 }
 ```
 
-### Environment Variables (Optional)
+### 2. HTTP Server (SSE)
+```bash
+uvx --from . loxone-mcp-sse  # Starts on http://localhost:8080
+```
 
-For CI/CD or when you prefer environment variables over keychain:
+### 3. Command Line (STDIN)
+```bash
+echo '{"method":"list_rooms","params":{},"id":1}' | uvx --from . loxone-mcp-server
+```
 
+### 4. Docker
+```bash
+docker-compose -f docker-compose.sse.yml up
+```
+
+### Environment Variables
 ```bash
 export LOXONE_HOST="192.168.1.100"
-export LOXONE_USER="your-username"
+export LOXONE_USER="your-username" 
 export LOXONE_PASS="your-password"
 ```
 

@@ -654,9 +654,9 @@
                 <a href="#home">Home</a>
                 <a href="#features">Features</a>
                 <a href="#installation">Setup</a>
+                <a href="#deployment">Deploy</a>
                 <a href="#examples">Examples</a>
                 <a href="#security">Security</a>
-                <a href="#docs">Docs</a>
             </div>
         </div>
     </nav>
@@ -764,8 +764,31 @@
 
     <!-- Installation Section -->
     <section class="section animate-on-scroll" id="installation">
-        <h2>Quick Setup</h2>
+        <h2>Deployment Options</h2>
         
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🤖</div>
+                <h3>Claude Desktop Integration</h3>
+                <p>Direct integration with Claude Desktop app for conversational smart home control through natural language.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>HTTP Server (SSE)</h3>
+                <p>Web-based API server for integration with n8n, Home Assistant, webhooks, and browser applications.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⌨️</div>
+                <h3>Command Line (STDIN)</h3>
+                <p>Direct command-line interface for scripting, automation, and integration with shell scripts.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🐳</div>
+                <h3>Docker Deployment</h3>
+                <p>Containerized deployment with Docker Compose for production environments and service integration.</p>
+            </div>
+        </div>
+
         <div class="install-steps">
             <div class="install-step">
                 <div class="step-number">1</div>
@@ -784,29 +807,109 @@
             <div class="install-step">
                 <div class="step-number">3</div>
                 <div class="step-content">
-                    <h4>Connect & Control</h4>
-                    <p>Start using natural language commands with your AI assistant</p>
+                    <h4>Choose Deployment</h4>
+                    <p>Select your preferred deployment method: Claude Desktop, HTTP Server, CLI, or Docker</p>
                 </div>
             </div>
         </div>
 
         <div class="code-container">
             <div class="code-header">
-                <span class="code-title">Installation Commands</span>
+                <span class="code-title">Quick Installation</span>
                 <button class="copy-btn" onclick="copyCode('install-code')">Copy</button>
             </div>
-            <pre id="install-code"><code># Clone the repository
+            <pre id="install-code"><code># Clone and setup
 git clone https://github.com/avrabe/mcp-loxone-gen1.git
 cd mcp-loxone-gen1
-
-# Install dependencies
 uv sync
 
-# Configure Loxone credentials
-uvx --from . loxone-mcp setup
+# Configure credentials (one-time)
+uvx --from . loxone-mcp setup</code></pre>
+        </div>
+    </section>
 
-# Start the MCP server
-uv run mcp dev src/loxone_mcp/server.py</code></pre>
+    <!-- Deployment Methods Section -->
+    <section class="section animate-on-scroll" id="deployment">
+        <h2>Deployment Methods</h2>
+        
+        <div class="language-examples">
+            <div class="language-card">
+                <h4>🤖 Claude Desktop</h4>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-title">claude_desktop_config.json</span>
+                        <button class="copy-btn" onclick="copyCode('claude-config')">Copy</button>
+                    </div>
+                    <pre id="claude-config"><code>{
+  "mcpServers": {
+    "loxone": {
+      "command": "uvx",
+      "args": ["--from", "/path/to/mcp-loxone-gen1", "loxone-mcp-server"],
+      "env": {
+        "LOXONE_LOG_LEVEL": "INFO"
+      }
+    }
+  }
+}</code></pre>
+                </div>
+            </div>
+            
+            <div class="language-card">
+                <h4>🌐 HTTP Server (SSE)</h4>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-title">Start HTTP Server</span>
+                        <button class="copy-btn" onclick="copyCode('sse-server')">Copy</button>
+                    </div>
+                    <pre id="sse-server"><code># Start SSE server for web integration
+uvx --from . loxone-mcp-sse
+
+# Or with custom settings
+LOXONE_SSE_PORT=8080 uvx --from . loxone-mcp-sse
+
+# Available at http://localhost:8080
+# API endpoints for n8n, Home Assistant, webhooks</code></pre>
+                </div>
+            </div>
+            
+            <div class="language-card">
+                <h4>⌨️ Command Line (STDIN)</h4>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-title">CLI Usage</span>
+                        <button class="copy-btn" onclick="copyCode('stdin-mode')">Copy</button>
+                    </div>
+                    <pre id="stdin-mode"><code># Direct MCP protocol via STDIN
+echo '{"method":"list_rooms","params":{},"id":1}' | \
+  uvx --from . loxone-mcp-server
+
+# For scripts and automation
+uv run python -m loxone_mcp
+
+# Pipe commands from files
+cat commands.json | uvx --from . loxone-mcp-server</code></pre>
+                </div>
+            </div>
+            
+            <div class="language-card">
+                <h4>🐳 Docker Deployment</h4>
+                <div class="code-container">
+                    <div class="code-header">
+                        <span class="code-title">Docker Compose</span>
+                        <button class="copy-btn" onclick="copyCode('docker-deploy')">Copy</button>
+                    </div>
+                    <pre id="docker-deploy"><code># Using Docker Compose
+docker-compose -f docker-compose.sse.yml up
+
+# Environment variables
+LOXONE_HOST=192.168.1.100
+LOXONE_USER=your-username  
+LOXONE_PASS=your-password
+
+# Production deployment with systemd
+sudo systemctl enable loxone-mcp-sse</code></pre>
+                </div>
+            </div>
         </div>
     </section>
 
