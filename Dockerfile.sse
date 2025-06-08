@@ -1,0 +1,22 @@
+FROM python:3.11-slim
+
+# Install uv
+RUN pip install uv
+
+# Set working directory
+WORKDIR /app
+
+# Copy project files
+COPY . .
+
+# Install dependencies
+RUN uv sync
+
+# Expose FastMCP SSE port
+EXPOSE 8000
+
+# Set environment variables
+ENV LOXONE_LOG_LEVEL=INFO
+
+# Run SSE server
+CMD ["uv", "run", "python", "-m", "loxone_mcp.sse_server"]

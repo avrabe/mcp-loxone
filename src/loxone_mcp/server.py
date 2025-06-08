@@ -11,7 +11,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from loxone_mcp.secrets import LoxoneSecrets
+from loxone_mcp.credentials import LoxoneSecrets
 
 # Set up logging
 logging.basicConfig(

@@ -52,6 +52,7 @@ Issues = "https://github.com/r/mcp-loxone-gen1/issues"
 [project.scripts]
 loxone-mcp = "loxone_mcp:run"
 loxone-mcp-server = "loxone_mcp.server:run"
+loxone-mcp-sse = "loxone_mcp.sse_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

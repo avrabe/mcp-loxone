@@ -446,7 +446,7 @@ if __name__ == "__main__":
             LoxoneSecrets.clear_all()
         else:
             print(f"Unknown command: {sys.argv[1]}")
-            print("Usage: python secrets.py [setup|clear]")
+            print("Usage: python credentials.py [setup|clear]")
     else:
         # Validate existing credentials
         if LoxoneSecrets.validate():

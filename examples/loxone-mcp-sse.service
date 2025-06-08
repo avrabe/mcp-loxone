@@ -1,0 +1,15 @@
+[Unit]
+Description=Loxone MCP SSE Server
+After=network.target
+
+[Service]
+Type=simple
+User=YOUR_USERNAME
+WorkingDirectory=/Users/r/git/mcp-loxone-gen1
+Environment="LOXONE_LOG_LEVEL=INFO"
+ExecStart=/usr/bin/env uv run python -m loxone_mcp.sse_server
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
