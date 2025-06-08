@@ -14,6 +14,8 @@
 - 🔐 **Secure credential storage** - Uses system keychain instead of plaintext files
 - 🔄 **Real-time updates** - WebSocket connection for live state synchronization
 - 🧩 **Extensible** - Easy to add support for more device types
+- 🌐 **Multilingual support** - Accepts commands in German, English, or mixed languages
+- 🤖 **LLM optimized** - Special support for Qwen3:14b, Llama 3.2, and other models
 
 ## Prerequisites
 
@@ -85,10 +87,27 @@ export LOXONE_PASS="your-password"
 
 Once configured in Claude Desktop, you can use natural language commands:
 
+### English Commands
 - "Turn on all lights in the living room"
 - "Close all rolladen in the bedroom"
 - "What's the status of lights in the kitchen?"
 - "Open the rolladen in the office to 50%"
+
+### German Commands (Deutsche Befehle)
+- "Licht im Wohnzimmer einschalten"
+- "Alle Rolladen im Schlafzimmer schließen"
+- "Rolladen OG Büro runter"
+- "Dimme die Lichter im Bad auf 30%"
+
+### Mixed Language (Gemischte Sprache)
+- "Turn off Licht in Küche"
+- "Rolladen in living room hochfahren"
+- "Dimmen OG bedroom lights auf 20%"
+
+### Floor-based Commands (Stockwerk-Befehle)
+- "All lights upstairs off" (Alle Lichter im OG aus)
+- "Close all OG blinds" (Alle Rolladen im Obergeschoss zu)
+- "Turn on lights in OG Büro" (Licht im OG Büro an)
 
 ## Available Tools
 
@@ -138,10 +157,22 @@ uv sync
 uv run python -m loxone_mcp
 ```
 
+### Testing multilingual support
+```bash
+python test_multilingual.py
+```
+
 ### Adding new device types
 1. Add control logic in `src/loxone_mcp/devices/`
 2. Register new tools in `server.py`
 3. Update README with examples
+4. Add multilingual aliases in `i18n_aliases.py`
+
+### LLM Integration
+For optimal integration with language models like Qwen3:14b:
+1. See `QWEN3_SETUP.md` for specific setup instructions
+2. Check `LLM_INTEGRATION.md` for general LLM integration guide
+3. Use the provided templates in `llm_templates.py`
 
 ## License
 
