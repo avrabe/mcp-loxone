@@ -33,6 +33,9 @@ uv run pytest tests/ -v --cov=loxone_mcp --cov-report=term-missing
 
 # Basic integration test
 uv run python test_server.py
+
+# Validate MCP implementation (for CI)
+uv run python validate_mcp.py
 ```
 
 ### Code Quality
