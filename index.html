@@ -1,0 +1,1016 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Loxone Gen1 - Model Context Protocol for Loxone Home Automation</title>
+    <style>
+        /* Atkinson Font Import */
+        @font-face {
+            font-family: 'Atkinson Hyperlegible';
+            src: url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap');
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        /* CSS Variables for Home Automation Theme */
+        :root {
+            --primary-color: #059669;
+            --secondary-color: #0891b2;
+            --accent-color: #f59e0b;
+            --warning-color: #dc2626;
+            --bg-primary: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --gradient-1: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+            --gradient-2: linear-gradient(135deg, #f59e0b 0%, #059669 100%);
+            --gradient-3: linear-gradient(135deg, #0891b2 0%, #059669 50%, #f59e0b 100%);
+            --shadow-glow: 0 0 20px rgba(5, 150, 105, 0.3);
+            --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        /* Animated Background Pattern */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 15% 25%, rgba(5, 150, 105, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 85% 75%, rgba(8, 145, 178, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 45% 60%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+            animation: backgroundPulse 15s ease-in-out infinite;
+            z-index: -1;
+        }
+
+        @keyframes backgroundPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.05); }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            padding: 1rem 2rem;
+            background: rgba(12, 24, 33, 0.9);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(5, 150, 105, 0.2);
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            background: rgba(12, 24, 33, 0.95);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo::before {
+            content: '🏠';
+            font-size: 1.2rem;
+            filter: none;
+            -webkit-text-fill-color: initial;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            position: relative;
+            padding: 0.5rem 0;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--gradient-1);
+            transition: width 0.3s ease;
+        }
+
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            position: relative;
+            padding: 0 2rem;
+        }
+
+        .hero-content {
+            max-width: 900px;
+            animation: fadeInUp 1s ease-out;
+        }
+
+        .hero-badge {
+            display: inline-block;
+            background: rgba(5, 150, 105, 0.1);
+            border: 1px solid var(--primary-color);
+            color: var(--primary-color);
+            padding: 0.5rem 1rem;
+            border-radius: 2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            animation: fadeInUp 1s ease-out 0.2s both;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+            background: var(--gradient-3);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: glow 3s ease-in-out infinite alternate;
+        }
+
+        @keyframes glow {
+            from { filter: drop-shadow(0 0 5px rgba(5, 150, 105, 0.3)); }
+            to { filter: drop-shadow(0 0 15px rgba(5, 150, 105, 0.6)); }
+        }
+
+        .hero p {
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            animation: fadeInUp 1s ease-out 0.4s both;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            animation: fadeInUp 1s ease-out 0.6s both;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--primary-color);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        /* Home Icons Animation */
+        .home-icons {
+            position: absolute;
+            bottom: 10%;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 2rem;
+            opacity: 0.6;
+        }
+
+        .home-icon {
+            font-size: 2rem;
+            animation: float 3s ease-in-out infinite;
+        }
+
+        .home-icon:nth-child(2) { animation-delay: -1s; }
+        .home-icon:nth-child(3) { animation-delay: -2s; }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* Section Styles */
+        .section {
+            padding: 5rem 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section h2 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: 12px;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-1);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--primary-color);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .feature-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .feature-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-card h3 {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+        }
+
+        /* Stats Section */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 3rem 0;
+        }
+
+        .stat-card {
+            text-align: center;
+            padding: 2rem 1rem;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            border: 1px solid rgba(5, 150, 105, 0.1);
+        }
+
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: var(--gradient-2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            display: block;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Installation Steps */
+        .install-steps {
+            display: grid;
+            gap: 1.5rem;
+            margin: 2rem 0;
+        }
+
+        .install-step {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 8px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        .step-number {
+            background: var(--gradient-1);
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .step-content h4 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .step-content p {
+            color: var(--text-secondary);
+        }
+
+        /* Code Block */
+        .code-container {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin: 2rem 0;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .code-title {
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .copy-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.25rem 0.75rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--secondary-color);
+        }
+
+        pre {
+            margin: 0;
+            font-family: 'Fira Code', 'Courier New', monospace;
+            color: var(--text-primary);
+            overflow-x: auto;
+            font-size: 0.9rem;
+        }
+
+        /* Language Examples */
+        .language-examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin: 2rem 0;
+        }
+
+        .language-card {
+            background: var(--bg-card);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .language-card h4 {
+            color: var(--accent-color);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .language-card ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        .language-card li {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            padding-left: 1rem;
+            position: relative;
+        }
+
+        .language-card li::before {
+            content: '→';
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-secondary);
+            padding: 3rem 2rem 1rem;
+            text-align: center;
+            border-top: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary-color);
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-on-scroll {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: all 0.8s ease-out;
+        }
+
+        .animate-on-scroll.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Pulse Animation for Indicators */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(5, 150, 105, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(5, 150, 105, 0); }
+        }
+
+        .btn-primary:hover {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .hero-content {
+                padding: 0 1rem;
+            }
+            
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+                justify-content: center;
+            }
+            
+            .section {
+                padding: 3rem 1rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .home-icons {
+                display: none;
+            }
+        }
+
+        /* Device Status Indicators */
+        .device-status {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin: 2rem 0;
+            flex-wrap: wrap;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            background: var(--bg-card);
+            border-radius: 6px;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--primary-color);
+            animation: pulse-dot 2s infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav id="navbar">
+        <div class="nav-container">
+            <div class="logo">MCP Loxone Gen1</div>
+            <div class="nav-links">
+                <a href="#home">Home</a>
+                <a href="#features">Features</a>
+                <a href="#installation">Setup</a>
+                <a href="#examples">Examples</a>
+                <a href="#docs">Docs</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-content">
+            <div class="hero-badge">Model Context Protocol</div>
+            <h1>Smart Home Automation for LLMs</h1>
+            <p>Control your Loxone Generation 1 Miniserver through AI assistants with natural language commands in German, English, or mixed languages.</p>
+            <div class="cta-buttons">
+                <a href="#installation" class="btn btn-primary">
+                    🚀 Quick Start
+                </a>
+                <a href="https://github.com/avrabe/mcp-loxone-gen1" class="btn btn-secondary">
+                    📂 View on GitHub
+                </a>
+            </div>
+        </div>
+        <div class="home-icons">
+            <div class="home-icon">💡</div>
+            <div class="home-icon">🏠</div>
+            <div class="home-icon">🔧</div>
+        </div>
+    </section>
+
+    <!-- Stats Section -->
+    <section class="section animate-on-scroll">
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-number">117</span>
+                <div class="stat-label">Connected Devices</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">20+</span>
+                <div class="stat-label">MCP Tools</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">7</span>
+                <div class="stat-label">Scene Types</div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-number">30</span>
+                <div class="stat-label">Sensor Monitors</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="section animate-on-scroll" id="features">
+        <h2>Comprehensive Home Control</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🌍</div>
+                <h3>Multilingual Support</h3>
+                <p>Natural commands in German, English, or mixed languages. "Licht an", "turn off lights", or "Rolladen OG runter" - all work seamlessly.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🎭</div>
+                <h3>Scene Management</h3>
+                <p>Orchestrate complex house-wide scenes: night mode, morning routine, or "movie time" with centralized lighting and blinds control.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">📊</div>
+                <h3>Sensor Monitoring</h3>
+                <p>Track temperature, humidity, security status, and weather conditions across 16 temperature and 10 humidity sensors.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">💡</div>
+                <h3>Lighting Presets</h3>
+                <p>Control mood lighting across 13 room controllers with preset activation and central house lighting management.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🏠</div>
+                <h3>Room Intelligence</h3>
+                <p>Floor-based commands like "OG" (upstairs) or "EG" (ground floor) with smart room matching and device filtering.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Secure Integration</h3>
+                <p>System keychain credential storage, comprehensive error handling, and safe device state management.</p>
+            </div>
+        </div>
+
+        <!-- Device Status -->
+        <div class="device-status">
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>12 Lights Connected</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>18 Blinds/Rolladen</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>6 Weather Sensors</span>
+            </div>
+            <div class="status-item">
+                <div class="status-dot"></div>
+                <span>2 Alarm Clocks</span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation Section -->
+    <section class="section animate-on-scroll" id="installation">
+        <h2>Quick Setup</h2>
+        
+        <div class="install-steps">
+            <div class="install-step">
+                <div class="step-number">1</div>
+                <div class="step-content">
+                    <h4>Install Dependencies</h4>
+                    <p>Set up Python environment and install the MCP Loxone package</p>
+                </div>
+            </div>
+            <div class="install-step">
+                <div class="step-number">2</div>
+                <div class="step-content">
+                    <h4>Configure Credentials</h4>
+                    <p>Secure setup of your Loxone Miniserver connection details</p>
+                </div>
+            </div>
+            <div class="install-step">
+                <div class="step-number">3</div>
+                <div class="step-content">
+                    <h4>Connect & Control</h4>
+                    <p>Start using natural language commands with your AI assistant</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Installation Commands</span>
+                <button class="copy-btn" onclick="copyCode('install-code')">Copy</button>
+            </div>
+            <pre id="install-code"><code># Clone the repository
+git clone https://github.com/avrabe/mcp-loxone-gen1.git
+cd mcp-loxone-gen1
+
+# Install dependencies
+uv sync
+
+# Configure Loxone credentials
+uvx --from . loxone-mcp setup
+
+# Start the MCP server
+uv run mcp dev src/loxone_mcp/server.py</code></pre>
+        </div>
+    </section>
+
+    <!-- Examples Section -->
+    <section class="section animate-on-scroll" id="examples">
+        <h2>Natural Language Examples</h2>
+        
+        <div class="language-examples">
+            <div class="language-card">
+                <h4>🇬🇧 English Commands</h4>
+                <ul>
+                    <li>"Turn on all lights in the living room"</li>
+                    <li>"Close all blinds upstairs"</li>
+                    <li>"Set bedroom lights to 30%"</li>
+                    <li>"Activate night mode"</li>
+                    <li>"Check temperature in office"</li>
+                </ul>
+            </div>
+            <div class="language-card">
+                <h4>🇩🇪 Deutsche Befehle</h4>
+                <ul>
+                    <li>"Licht im Wohnzimmer einschalten"</li>
+                    <li>"Alle Rolladen im OG runter"</li>
+                    <li>"Schlafzimmer auf 30% dimmen"</li>
+                    <li>"Nachtmodus aktivieren"</li>
+                    <li>"Temperatur im Büro prüfen"</li>
+                </ul>
+            </div>
+            <div class="language-card">
+                <h4>🌍 Mixed Language</h4>
+                <ul>
+                    <li>"Turn off Licht in Küche"</li>
+                    <li>"Rolladen in living room hoch"</li>
+                    <li>"Dimme OG bathroom auf 20%"</li>
+                    <li>"Morning routine starten"</li>
+                    <li>"Check Luftfeuchtigkeit upstairs"</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Scene Management Example</span>
+                <button class="copy-btn" onclick="copyCode('scene-code')">Copy</button>
+            </div>
+            <pre id="scene-code"><code># Activate complex house scenes
+activate_house_scene("night_mode")    # Lights off, blinds closed, sleep mode on
+activate_house_scene("morning_mode")  # Lights on, blinds open, sleep mode off
+activate_house_scene("all_off")       # Turn everything off
+
+# Check current scene status
+get_scene_status_overview()
+
+# Control specific components
+set_lighting_mood("Wohnzimmer", 2)    # Activate preset 2 in living room
+control_central_lighting("on")        # Turn on all house lights</code></pre>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Sensor Monitoring</span>
+                <button class="copy-btn" onclick="copyCode('sensor-code')">Copy</button>
+            </div>
+            <pre id="sensor-code"><code># Comprehensive climate monitoring
+get_climate_summary()                  # Temperature & humidity overview
+get_security_status()                  # Alarms, smoke detectors, windows
+get_weather_overview()                 # Outdoor conditions & brightness
+
+# Room-specific monitoring  
+get_temperature_overview("OG Büro")    # Office temperature only
+get_humidity_overview("Bad")           # Bathroom humidity levels
+
+# Environmental analysis
+get_environmental_summary()            # Combined indoor/outdoor assessment</code></pre>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-links">
+            <a href="https://github.com/avrabe/mcp-loxone-gen1">GitHub Repository</a>
+            <a href="https://github.com/avrabe/mcp-loxone-gen1/issues">Report Issues</a>
+            <a href="https://github.com/avrabe/mcp-loxone-gen1/wiki">Documentation</a>
+            <a href="https://github.com/avrabe/mcp-loxone-gen1/discussions">Community</a>
+        </div>
+        <p>&copy; 2024 MCP Loxone Gen1. Released under MIT License.</p>
+    </footer>
+
+    <script>
+        // Navigation scroll effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animate-on-scroll elements
+        document.querySelectorAll('.animate-on-scroll').forEach(el => {
+            observer.observe(el);
+        });
+
+        // Copy code functionality
+        function copyCode(elementId) {
+            const codeElement = document.getElementById(elementId);
+            const text = codeElement.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = '#059669';
+                
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            });
+        }
+
+        // Smooth scrolling for navigation links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Add subtle parallax effect to hero
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const hero = document.querySelector('.hero');
+            const rate = scrolled * -0.3;
+            if (hero) {
+                hero.style.transform = `translateY(${rate}px)`;
+            }
+        });
+
+        // Animate feature cards on hover
+        document.querySelectorAll('.feature-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-8px) scale(1.02)';
+            });
+            
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+
+        // Animate stats on scroll
+        const animateStats = () => {
+            const statNumbers = document.querySelectorAll('.stat-number');
+            statNumbers.forEach(stat => {
+                const target = parseInt(stat.textContent);
+                const increment = target / 100;
+                let current = 0;
+                
+                const timer = setInterval(() => {
+                    current += increment;
+                    if (current >= target) {
+                        stat.textContent = target + (target === 117 ? '' : '+');
+                        clearInterval(timer);
+                    } else {
+                        stat.textContent = Math.floor(current) + (target === 117 ? '' : '+');
+                    }
+                }, 20);
+            });
+        };
+
+        // Trigger stats animation when stats section is visible
+        const statsObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    animateStats();
+                    statsObserver.unobserve(entry.target);
+                }
+            });
+        });
+
+        const statsSection = document.querySelector('.stats-grid');
+        if (statsSection) {
+            statsObserver.observe(statsSection);
+        }
+    </script>
+</body>
+</html>

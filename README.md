@@ -4,6 +4,8 @@
   # Loxone MCP Server
 
   A Model Context Protocol (MCP) server for controlling Loxone Generation 1 home automation systems. This server enables AI assistants like Claude Desktop to interact with your Loxone Miniserver, providing natural language control over lights, blinds (rolladen), and other connected devices.
+
+  **[📖 View Landing Page](https://avrabe.github.io/mcp-loxone-gen1/)** | **[🚀 Quick Start](#installation)** | **[📋 Documentation](CLAUDE.md)**
 </div>
 
 ## Features
@@ -28,7 +30,7 @@
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/yourusername/mcp-loxone-gen1.git
+git clone https://github.com/avrabe/mcp-loxone-gen1.git
 cd mcp-loxone-gen1
 ```
 
