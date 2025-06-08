@@ -18,33 +18,33 @@ logger = logging.getLogger(__name__)
 
 # SSE configuration
 SSE_PORT = int(os.getenv("LOXONE_SSE_PORT", "8080"))
-SSE_HOST = os.getenv("LOXONE_SSE_HOST", "0.0.0.0")
+SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Use localhost instead of all interfaces
 
 
-async def run_sse_server():
+async def run_sse_server() -> None:
     """Run the SSE server using FastMCP's built-in SSE support."""
     logger.info("Starting FastMCP SSE server...")
-    
+
     # Import the FastMCP server instance from the main server module
     from loxone_mcp.server import mcp
-    
+
     # Run FastMCP's built-in SSE server
     logger.info("✅ Starting FastMCP SSE server...")
     logger.info("🔌 SSE endpoint will be available at the default FastMCP port")
     logger.info("📨 Use FastMCP's standard SSE endpoints")
-    
+
     await mcp.run_sse_async()
 
 
-def main():
+def main() -> None:
     """Main entry point."""
     from loxone_mcp.credentials import LoxoneSecrets
-    
+
     # Validate credentials first
     if not LoxoneSecrets.validate():
         print("❌ Missing Loxone credentials. Run 'uvx --from . loxone-mcp setup' first.")
         sys.exit(1)
-        
+
     # Run the server
     try:
         asyncio.run(run_sse_server())
@@ -57,3 +57,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
