@@ -16,9 +16,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# SSE configuration
-SSE_PORT = int(os.getenv("LOXONE_SSE_PORT", "8080"))
-SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Use localhost instead of all interfaces
+# SSE configuration - These are not used by FastMCP but kept for compatibility
+SSE_PORT = int(os.getenv("LOXONE_SSE_PORT", "8000"))  # FastMCP default port
+SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Localhost only for security
 
 
 async def run_sse_server() -> None:
