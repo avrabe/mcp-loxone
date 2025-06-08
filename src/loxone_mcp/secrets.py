@@ -70,16 +70,124 @@ class LoxoneSecrets:
             print(f"Warning: Could not delete credential: {e}", file=sys.stderr)
     
     @classmethod
-    async def discover_loxone_servers(cls, timeout: float = 3.0) -> List[Dict[str, str]]:
-        """Discover Loxone Miniservers on the local network."""
+    async def discover_loxone_servers(cls, timeout: float = 5.0) -> List[Dict[str, str]]:
+        """Discover Loxone Miniservers on the local network using multiple methods."""
         servers = []
         
-        # Method 1: Try common HTTP ports
-        print("🔍 Scanning network for Loxone Miniservers...")
+        print("🔍 Discovering Loxone Miniservers on your network...")
         
-        # Get local network range
+        # Method 1: UDP Discovery (Loxone specific protocol)
+        print("   • Trying UDP discovery...", end=" ", flush=True)
+        udp_servers = await cls._udp_discovery(timeout=2.0)
+        if udp_servers:
+            print(f"✅ Found {len(udp_servers)} server(s)")
+            servers.extend(udp_servers)
+        else:
+            print("⏭️  No response")
+        
+        # Method 2: Network scan for HTTP endpoints
+        print("   • Scanning network for HTTP endpoints...", end=" ", flush=True)
+        http_servers = await cls._http_discovery(timeout=max(1.0, timeout-2.0))
+        
+        # Merge results, avoiding duplicates
+        existing_ips = {s['ip'] for s in servers}
+        new_servers = []
+        for server in http_servers:
+            if server['ip'] not in existing_ips:
+                servers.append(server)
+                new_servers.append(server)
+        
+        if new_servers:
+            print(f"✅ Found {len(new_servers)} additional server(s)")
+        elif not udp_servers:
+            print("❌ No servers found")
+        else:
+            print("⏭️  No additional servers")
+        
+        # Sort servers by IP for consistent ordering
+        servers.sort(key=lambda x: tuple(map(int, x['ip'].split('.'))))
+        
+        return servers
+    
+    @classmethod
+    async def _udp_discovery(cls, timeout: float = 2.0) -> List[Dict[str, str]]:
+        """Discover Loxone servers using UDP broadcast."""
+        servers = []
+        
         try:
-            # Get local IP
+            # Create UDP socket for discovery
+            sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.settimeout(timeout)
+            
+            # Loxone discovery message (varies by version, try common ones)
+            discovery_messages = [
+                b"LoxLIVE",  # Common discovery message
+                b"eWeLink",  # Alternative discovery
+                b"\x00\x00\x00\x00",  # Simple broadcast
+            ]
+            
+            # Send discovery packets to common ports
+            for port in [7777, 7700, 80, 8080]:
+                for msg in discovery_messages:
+                    try:
+                        sock.sendto(msg, ('<broadcast>', port))
+                    except:
+                        continue
+            
+            # Listen for responses
+            start_time = asyncio.get_event_loop().time()
+            responses = []
+            
+            while asyncio.get_event_loop().time() - start_time < timeout:
+                try:
+                    data, addr = sock.recvfrom(1024)
+                    if addr[0] not in [r[1][0] for r in responses]:
+                        responses.append((data, addr))
+                except socket.timeout:
+                    break
+                except:
+                    continue
+            
+            sock.close()
+            
+            # Process responses
+            for data, addr in responses:
+                try:
+                    # Try to parse as JSON
+                    if data.startswith(b'{'):
+                        info = json.loads(data.decode())
+                        name = info.get('name', 'Loxone Miniserver')
+                    else:
+                        name = "Loxone Miniserver"
+                    
+                    servers.append({
+                        "ip": addr[0],
+                        "name": name,
+                        "port": "80",
+                        "method": "UDP Discovery"
+                    })
+                except:
+                    # Even if we can't parse the response, it's likely a Loxone device
+                    servers.append({
+                        "ip": addr[0],
+                        "name": "Loxone Miniserver",
+                        "port": "80",
+                        "method": "UDP Discovery"
+                    })
+        
+        except Exception as e:
+            logger.debug(f"UDP discovery error: {e}")
+        
+        return servers
+    
+    @classmethod
+    async def _http_discovery(cls, timeout: float = 3.0) -> List[Dict[str, str]]:
+        """Discover Loxone servers by scanning network for HTTP endpoints."""
+        servers = []
+        
+        try:
+            # Get local network range
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
@@ -92,47 +200,66 @@ class LoxoneSecrets:
             # Scan common IP ranges
             async def check_ip(ip: str) -> Optional[Dict[str, str]]:
                 try:
-                    # Try to connect to Loxone web interface
-                    url = f"http://{ip}/data/LoxAPP3.json"
-                    async with httpx.AsyncClient(timeout=1.0) as client:
-                        # First check if port 80 is open
+                    async with httpx.AsyncClient(timeout=0.5) as client:
+                        # First check if port 80 responds
                         response = await client.get(f"http://{ip}/", follow_redirects=False)
                         
-                        # Check if it's likely a Loxone (returns 401 for unauthorized)
+                        # Check if it's likely a Loxone (returns 401 for unauthorized access)
                         if response.status_code in [401, 200]:
-                            # Try to get more info
+                            # Try to get Miniserver info
+                            name = "Loxone Miniserver"
+                            version = "Unknown"
+                            
                             try:
-                                # Some Loxone servers have a config endpoint
-                                config_response = await client.get(f"http://{ip}/jdev/cfg/api", auth=("", ""))
-                                if config_response.status_code == 200:
-                                    data = config_response.json()
-                                    name = data.get('LL', {}).get('value', {}).get('name', 'Loxone Miniserver')
-                                else:
-                                    name = "Loxone Miniserver"
+                                # Try to get version info without auth
+                                info_response = await client.get(f"http://{ip}/jdev/sys/getversion")
+                                if info_response.status_code == 200:
+                                    data = info_response.json()
+                                    version = data.get('LL', {}).get('value', 'Unknown')
+                                
+                                # Try to get project name (might require auth)
+                                cfg_response = await client.get(f"http://{ip}/jdev/cfg/api")
+                                if cfg_response.status_code == 200:
+                                    data = cfg_response.json()
+                                    name = data.get('LL', {}).get('value', {}).get('name', name)
                             except:
-                                name = "Loxone Miniserver"
+                                pass
                             
                             return {
                                 "ip": ip,
-                                "name": name,
-                                "port": "80"
+                                "name": f"{name} (v{version})" if version != "Unknown" else name,
+                                "port": "80",
+                                "method": "HTTP Scan"
                             }
                 except:
                     pass
                 return None
             
-            # Scan network (common IPs)
+            # Scan common IP ranges (limit to reasonable subset for speed)
             tasks = []
-            for i in range(1, 255):
-                ip = f"{network_prefix}.{i}"
+            # Check common router/device IPs first
+            priority_ips = [f"{network_prefix}.{i}" for i in [1, 2, 10, 100, 101, 102, 200, 201, 202]]
+            for ip in priority_ips:
                 tasks.append(check_ip(ip))
             
-            # Wait for results
-            results = await asyncio.gather(*tasks)
-            servers = [s for s in results if s is not None]
+            # Then scan broader range
+            for i in range(3, 255):
+                ip = f"{network_prefix}.{i}"
+                if ip not in priority_ips:
+                    tasks.append(check_ip(ip))
             
+            # Wait for results with timeout
+            try:
+                results = await asyncio.wait_for(
+                    asyncio.gather(*tasks, return_exceptions=True), 
+                    timeout=timeout
+                )
+                servers = [s for s in results if s is not None and isinstance(s, dict)]
+            except asyncio.TimeoutError:
+                logger.debug("HTTP discovery timed out")
+                
         except Exception as e:
-            logger.debug(f"Network discovery error: {e}")
+            logger.debug(f"HTTP discovery error: {e}")
         
         return servers
     
@@ -182,18 +309,39 @@ class LoxoneSecrets:
         if discovered_servers:
             print(f"\n✅ Found {len(discovered_servers)} Loxone Miniserver(s) on your network:\n")
             for i, server in enumerate(discovered_servers, 1):
-                print(f"  {i}. {server['name']} at {server['ip']}")
+                method_info = f" ({server.get('method', 'Detected')})" if server.get('method') else ""
+                print(f"  {i}. {server['name']} at {server['ip']}{method_info}")
             
-            print("\nWould you like to use one of these servers?")
-            choice = input("Enter the number (or press Enter to enter manually): ").strip()
+            print(f"\n  {len(discovered_servers) + 1}. Enter IP address manually")
+            print(f"\n  0. Cancel setup")
             
-            if choice.isdigit() and 1 <= int(choice) <= len(discovered_servers):
-                selected = discovered_servers[int(choice) - 1]
-                host = selected['ip']
-                print(f"\nSelected: {selected['name']} at {host}")
+            while True:
+                choice = input(f"\nSelect an option (1-{len(discovered_servers) + 1}, or 0 to cancel): ").strip()
+                
+                if choice == "0":
+                    print("Setup cancelled.")
+                    return
+                elif choice.isdigit():
+                    choice_num = int(choice)
+                    if 1 <= choice_num <= len(discovered_servers):
+                        selected = discovered_servers[choice_num - 1]
+                        host = selected['ip']
+                        print(f"\n✅ Selected: {selected['name']} at {host}")
+                        break
+                    elif choice_num == len(discovered_servers) + 1:
+                        # User wants to enter manually
+                        break
+                    else:
+                        print(f"Invalid choice. Please enter a number between 1 and {len(discovered_servers) + 1}, or 0 to cancel.")
+                else:
+                    print("Please enter a valid number.")
         else:
-            print("\nNo Loxone Miniservers found on the network.")
-            print("You'll need to enter the IP address manually.")
+            print("\n❌ No Loxone Miniservers found on the network.")
+            print("   This could happen if:")
+            print("   • Your Miniserver is on a different network segment")
+            print("   • The Miniserver is using a non-standard port")
+            print("   • Firewall is blocking discovery")
+            print("\n   You can still enter the IP address manually below.")
         
         print("\nThis wizard will securely store your Loxone credentials")
         print("in your system keychain.\n")

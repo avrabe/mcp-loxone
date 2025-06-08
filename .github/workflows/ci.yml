@@ -174,29 +174,29 @@ jobs:
         run: |
           source .venv/bin/activate
           # Check if server exposes required MCP methods
-          python -c "
-from loxone_mcp.server import mcp
-import inspect
-
-print('Checking MCP server implementation...')
-
-# Get all tools
-tools = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_tool__')]
-print(f'Found {len(tools)} tools: {tools}')
-
-# Get all prompts  
-prompts = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_prompt__')]
-print(f'Found {len(prompts)} prompts: {prompts}')
-
-# Get all resources
-resources = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_resource__')]
-print(f'Found {len(resources)} resources: {resources}')
-
-# Basic validation
-assert len(tools) > 0, 'No MCP tools found!'
-assert len(prompts) > 0, 'No MCP prompts found!'
-print('✅ MCP server validation passed!')
-"
+          python << 'EOF'
+          from loxone_mcp.server import mcp
+          import inspect
+          
+          print('Checking MCP server implementation...')
+          
+          # Get all tools
+          tools = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_tool__')]
+          print(f'Found {len(tools)} tools: {tools}')
+          
+          # Get all prompts  
+          prompts = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_prompt__')]
+          print(f'Found {len(prompts)} prompts: {prompts}')
+          
+          # Get all resources
+          resources = [name for name, obj in inspect.getmembers(mcp) if hasattr(obj, '__mcp_resource__')]
+          print(f'Found {len(resources)} resources: {resources}')
+          
+          # Basic validation
+          assert len(tools) > 0, 'No MCP tools found!'
+          assert len(prompts) > 0, 'No MCP prompts found!'
+          print('✅ MCP server validation passed!')
+          EOF
 
   build:
     name: Build Package

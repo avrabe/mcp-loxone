@@ -1,6 +1,10 @@
-# Loxone MCP Server
+<div align="center">
+  <img src="mcp-loxone-gen1.png" alt="Loxone MCP Server" width="250"/>
+  
+  # Loxone MCP Server
 
-A Model Context Protocol (MCP) server for controlling Loxone Generation 1 home automation systems. This server enables AI assistants like Claude Desktop to interact with your Loxone Miniserver, providing natural language control over lights, blinds (rolladen), and other connected devices.
+  A Model Context Protocol (MCP) server for controlling Loxone Generation 1 home automation systems. This server enables AI assistants like Claude Desktop to interact with your Loxone Miniserver, providing natural language control over lights, blinds (rolladen), and other connected devices.
+</div>
 
 ## Features
 
