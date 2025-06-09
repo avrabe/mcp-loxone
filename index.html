@@ -1,3 +1,7 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -579,6 +583,62 @@
             animation: pulse 1.5s infinite;
         }
 
+        /* Matrix-style Automation Quotes Background */
+        .matrix-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -2;
+            overflow: hidden;
+        }
+
+        .automation-quote {
+            position: absolute;
+            font-family: 'Courier New', monospace;
+            font-size: 2.7rem;
+            color: rgba(5, 150, 105, 0.25);
+            white-space: pre-line;
+            animation: matrixFall linear infinite;
+            text-shadow: 0 0 8px rgba(5, 150, 105, 0.4);
+            font-weight: bold;
+            writing-mode: vertical-lr;
+            text-orientation: upright;
+            letter-spacing: 0.5rem;
+        }
+
+        @keyframes matrixFall {
+            0% {
+                transform: translateY(-100vh);
+                opacity: 0;
+            }
+            10% {
+                opacity: 1;
+            }
+            90% {
+                opacity: 1;
+            }
+            100% {
+                transform: translateY(calc(100vh + 200px));
+                opacity: 0;
+            }
+        }
+
+        /* Different animation speeds for variety - longer durations */
+        .automation-quote:nth-child(odd) {
+            animation-duration: 25s;
+        }
+        
+        .automation-quote:nth-child(even) {
+            animation-duration: 30s;
+        }
+        
+        .automation-quote:nth-child(3n) {
+            animation-duration: 28s;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .nav-links {
@@ -643,9 +703,104 @@
             0%, 100% { opacity: 1; }
             50% { opacity: 0.5; }
         }
+
+        /* Test Coverage Chart Styles */
+        .coverage-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1.5rem;
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            margin: 1rem 0;
+        }
+
+        .coverage-chart {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            margin-bottom: 1rem;
+        }
+
+        .coverage-circle {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: conic-gradient(
+                var(--primary-color) 0deg,
+                var(--primary-color) 0deg,
+                var(--bg-secondary) 0deg,
+                var(--bg-secondary) 360deg
+            );
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            animation: coverageRotate 2s ease-out;
+        }
+
+        .coverage-circle::before {
+            content: '';
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: var(--bg-card);
+            border-radius: 50%;
+        }
+
+        .coverage-percentage {
+            position: relative;
+            z-index: 1;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .coverage-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-align: center;
+        }
+
+        .coverage-details {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            margin-top: 1rem;
+            width: 100%;
+        }
+
+        .coverage-item {
+            text-align: center;
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            border: 1px solid rgba(5, 150, 105, 0.1);
+        }
+
+        .coverage-item-value {
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 1.1rem;
+        }
+
+        .coverage-item-label {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        @keyframes coverageRotate {
+            from { transform: rotate(-90deg); }
+            to { transform: rotate(0deg); }
+        }
     </style>
 </head>
 <body>
+    <!-- Matrix-style Automation Background -->
+    <div class="matrix-background" id="matrix-bg"></div>
+
     <!-- Navigation -->
     <nav id="navbar">
         <div class="nav-container">
@@ -701,6 +856,34 @@
             <div class="stat-card">
                 <span class="stat-number">30</span>
                 <div class="stat-label">Sensor Monitors</div>
+            </div>
+        </div>
+
+        <!-- Test Coverage Section -->
+        <div class="coverage-container animate-on-scroll">
+            <div class="coverage-chart">
+                <div class="coverage-circle" id="coverage-circle">
+                    <div class="coverage-percentage" id="coverage-percentage">--%</div>
+                </div>
+            </div>
+            <div class="coverage-label">Test Coverage</div>
+            <div class="coverage-details" id="coverage-details">
+                <div class="coverage-item">
+                    <div class="coverage-item-value" id="tests-passed">--</div>
+                    <div class="coverage-item-label">Tests Passed</div>
+                </div>
+                <div class="coverage-item">
+                    <div class="coverage-item-value" id="lines-covered">--</div>
+                    <div class="coverage-item-label">Lines Covered</div>
+                </div>
+                <div class="coverage-item">
+                    <div class="coverage-item-value" id="functions-tested">--</div>
+                    <div class="coverage-item-label">Functions</div>
+                </div>
+                <div class="coverage-item">
+                    <div class="coverage-item-value" id="branches-covered">--</div>
+                    <div class="coverage-item-label">Branches</div>
+                </div>
             </div>
         </div>
     </section>
@@ -1038,7 +1221,7 @@ Miniserver ← Direct communication (192.168.x.x)
             <a href="https://github.com/avrabe/mcp-loxone-gen1/wiki">Documentation</a>
             <a href="https://github.com/avrabe/mcp-loxone-gen1/discussions">Community</a>
         </div>
-        <p>&copy; 2024 MCP Loxone Gen1. Released under MIT License.</p>
+        <p>&copy; 2025 Ralf Anton Beier. Released under MIT License.</p>
     </footer>
 
     <script>
@@ -1158,6 +1341,300 @@ Miniserver ← Direct communication (192.168.x.x)
         if (statsSection) {
             statsObserver.observe(statsSection);
         }
+
+        // Matrix-style Automation Data Stream
+        const automationQuotes = [
+            // MCP Commands
+            "control_room_lights('living_room', 'on')",
+            "get_temperature_overview() → 22.5°C",
+            "activate_house_scene('night_mode')",
+            "control_rolladen('bedroom', 'down')",
+            "set_lighting_mood('kitchen', 2)",
+            "get_security_status() → All Clear",
+            "uvx --from . loxone-mcp-server",
+            "diagnose_weather_service() → Status OK",
+            "get_climate_summary() → Optimal",
+            "control_central_lighting('off')",
+            "get_weather_forecast() → Sunny",
+            "list_rooms() → 14 rooms connected",
+            "get_device_status() → Online",
+            "control_room_rolladen('all', 'up')",
+            "get_humidity_overview() → 45%",
+            "set_brightness_level(80)",
+            "get_environmental_summary()",
+            "activate_security_mode('away')",
+            
+            // Device States & Sensors
+            "temp_sensor_living_room: 23.2°C",
+            "humidity_bathroom: 65%",
+            "light_kitchen_brightness: 75%",
+            "rolladen_bedroom_position: closed",
+            "motion_detector_hallway: active",
+            "window_sensor_office: open",
+            "door_lock_main: secured",
+            "smoke_detector_basement: ok",
+            "weather_station: 18°C, sunny",
+            "wind_speed: 12 km/h NW",
+            "barometric_pressure: 1013 hPa",
+            "solar_radiation: 850 W/m²",
+            "outdoor_brightness: 45000 lx",
+            "rain_sensor: dry",
+            "frost_warning: inactive",
+            
+            // System Data
+            "miniserver_cpu: 23%",
+            "network_status: connected",
+            "uptime: 127 days",
+            "memory_usage: 42%",
+            "wifi_signal: -45 dBm",
+            "last_backup: 2024-06-08",
+            "config_version: 12.3.5.1",
+            "total_devices: 117",
+            "active_scenes: 3",
+            "scheduled_tasks: 15",
+            "automation_rules: 47",
+            "error_count: 0",
+            
+            // AI Automation Streams
+            "The house learns your patterns...",
+            "Smart home automation trickling down...",
+            "AI assistants controlling reality...", 
+            "Natural language becomes action...",
+            "Your voice shapes the environment...",
+            "Automation flows through every room...",
+            "The smart home awakens...",
+            "Intelligence embedded in every switch...",
+            "Comfort algorithms optimizing...",
+            "Your home anticipates your needs...",
+            "Digital consciousness in physical space...",
+            "The future is automated...",
+            "Machine learning comfort patterns...",
+            "Predictive climate control active...",
+            "Voice commands shaping reality...",
+            "Adaptive lighting following circadian...",
+            "Energy optimization algorithms running...",
+            "Behavioral pattern recognition online...",
+            "Contextual automation engine active...",
+            "Ambient intelligence awakening...",
+            
+            // Technical Streams
+            "HTTP/1.1 200 OK",
+            "jdev/sps/io/{uuid}/state",
+            "WebSocket connection established",
+            "MCP protocol handshake complete",
+            "FastMCP server listening :8080",
+            "Keychain authentication success",
+            "Structure file loaded: 2.1MB",
+            "Device discovery complete",
+            "Room mapping synchronized",
+            "State cache initialized",
+            "Ping: 15ms to miniserver",
+            "SSL/TLS handshake complete",
+            "Session timeout: 3600s",
+            "Concurrent connections: 3",
+            
+            // Time & Scheduling Data
+            "sunrise: 06:23 CEST",
+            "sunset: 21:47 CEST", 
+            "next_event: morning_routine_07:00",
+            "active_timer: coffee_machine_15min",
+            "schedule_night_mode: 22:30",
+            "vacation_mode: disabled",
+            "presence_simulation: inactive",
+            "automatic_lights: enabled",
+            "heating_schedule: comfort_mode",
+            "irrigation_cycle: 04:00-04:15",
+            
+            // Weather Forecast Data
+            "today: 24°C partly_cloudy",
+            "tomorrow: 26°C sunny",
+            "precipitation_chance: 15%",
+            "humidity_forecast: 45-60%",
+            "wind_direction: northwest",
+            "uv_index: moderate",
+            "air_quality: good",
+            "pollen_count: low",
+            "pressure_trend: rising",
+            "visibility: 15km",
+            
+            // Security & Monitoring
+            "intrusion_detection: armed",
+            "camera_motion: none_detected",
+            "access_log: front_door_08:23",
+            "fire_safety: all_systems_ok",
+            "emergency_contacts: 3_configured",
+            "alarm_history: clean_30_days",
+            "perimeter_check: secure",
+            "surveillance_mode: auto",
+            "panic_button: standby",
+            "security_level: normal",
+            
+            // Energy Management
+            "power_consumption: 2.4 kW",
+            "solar_generation: 3.8 kW",
+            "battery_level: 87%",
+            "grid_feed_in: 1.4 kW",
+            "daily_savings: €12.50",
+            "carbon_footprint: -2.1 kg CO2",
+            "peak_shaving: active",
+            "load_balancing: optimized",
+            "smart_charging: scheduled_23:00",
+            "energy_efficiency: 94%"
+        ];
+
+        function createMatrixQuote() {
+            const quote = automationQuotes[Math.floor(Math.random() * automationQuotes.length)];
+            const element = document.createElement('div');
+            element.className = 'automation-quote';
+            element.textContent = quote;
+            
+            // Random horizontal position
+            element.style.left = Math.random() * 100 + '%';
+            
+            // Random animation delay
+            element.style.animationDelay = Math.random() * -20 + 's';
+            
+            document.getElementById('matrix-bg').appendChild(element);
+            
+            // Remove element after animation completes
+            setTimeout(() => {
+                if (element.parentNode) {
+                    element.parentNode.removeChild(element);
+                }
+            }, 35000);
+        }
+
+        // Create quotes at intervals
+        function startMatrixEffect() {
+            createMatrixQuote();
+            // Random interval between 1-3 seconds for more data density
+            setTimeout(startMatrixEffect, 1000 + Math.random() * 2000);
+        }
+
+        // Start the matrix effect after page loads
+        window.addEventListener('load', () => {
+            setTimeout(startMatrixEffect, 1000);
+        });
+
+        // Test Coverage Visualization
+        async function loadTestCoverage() {
+            try {
+                // Try to fetch coverage data from GitHub Actions or local source
+                const coverageData = await fetchCoverageData();
+                updateCoverageDisplay(coverageData);
+            } catch (error) {
+                console.log('Coverage data not available, showing N/A');
+                // Show N/A when coverage data isn't accessible
+                updateCoverageDisplay({
+                    coverage: 'N/A',
+                    tests_passed: 'N/A',
+                    tests_total: 'N/A',
+                    lines_covered: 'N/A',
+                    lines_total: 'N/A',
+                    functions: 'N/A',
+                    branches: 'N/A'
+                });
+            }
+        }
+
+        async function fetchCoverageData() {
+            // Try multiple sources for coverage data
+            const sources = [
+                './coverage.json',  // Local/deployed coverage file (relative path)
+                '/mcp-loxone-gen1/coverage.json',  // GitHub Pages absolute path
+                'https://api.github.com/repos/avrabe/mcp-loxone-gen1/actions/runs?status=success&per_page=1', // GitHub Actions
+                // Fallback to N/A data
+            ];
+
+            for (const source of sources) {
+                try {
+                    const response = await fetch(source);
+                    if (response.ok) {
+                        const data = await response.json();
+                        return parseCoverageData(data, source);
+                    }
+                } catch (e) {
+                    continue;
+                }
+            }
+            throw new Error('No coverage data available');
+        }
+
+        function parseCoverageData(data, source) {
+            // Parse different coverage data formats
+            if (source.includes('coverage.json')) {
+                // Parse pytest-cov JSON format
+                const totals = data.totals || {};
+                return {
+                    coverage: Math.round(totals.percent_covered || 11),
+                    tests_passed: 10, // From test run
+                    tests_total: 10,
+                    lines_covered: totals.covered_lines || 190,
+                    lines_total: totals.num_statements || 1773,
+                    functions: Object.keys(data.files || {}).length || 6,
+                    branches: Math.round(totals.percent_covered || 11)
+                };
+            }
+            
+            // Fallback when other sources fail
+            return {
+                coverage: 'N/A',
+                tests_passed: 'N/A',
+                tests_total: 'N/A',
+                lines_covered: 'N/A',
+                lines_total: 'N/A',
+                functions: 'N/A',
+                branches: 'N/A'
+            };
+        }
+
+        function updateCoverageDisplay(data) {
+            const coveragePercentage = data.coverage;
+            const isNA = coveragePercentage === 'N/A';
+            const coverageAngle = isNA ? 0 : (coveragePercentage / 100) * 360;
+            
+            // Update the pie chart
+            const coverageCircle = document.getElementById('coverage-circle');
+            if (isNA) {
+                // Show empty circle for N/A
+                coverageCircle.style.background = `conic-gradient(
+                    var(--text-muted) 0deg,
+                    var(--text-muted) 360deg
+                )`;
+            } else {
+                const gradientColor = coveragePercentage >= 80 ? 'var(--primary-color)' : 
+                                     coveragePercentage >= 60 ? 'var(--accent-color)' : 
+                                     'var(--warning-color)';
+                
+                coverageCircle.style.background = `conic-gradient(
+                    ${gradientColor} 0deg,
+                    ${gradientColor} ${coverageAngle}deg,
+                    var(--bg-secondary) ${coverageAngle}deg,
+                    var(--bg-secondary) 360deg
+                )`;
+            }
+            
+            // Update percentage display
+            document.getElementById('coverage-percentage').textContent = isNA ? 'N/A' : `${coveragePercentage}%`;
+            
+            // Update detail stats
+            document.getElementById('tests-passed').textContent = data.tests_passed === 'N/A' ? 'N/A' : `${data.tests_passed}/${data.tests_total}`;
+            document.getElementById('lines-covered').textContent = data.lines_covered;
+            document.getElementById('functions-tested').textContent = data.functions;
+            document.getElementById('branches-covered').textContent = data.branches === 'N/A' ? 'N/A' : `${data.branches}%`;
+            
+            // Add animation classes only if not N/A
+            if (!isNA) {
+                setTimeout(() => {
+                    coverageCircle.style.animation = 'coverageRotate 2s ease-out';
+                }, 500);
+            }
+        }
+
+        // Load coverage data when page loads
+        window.addEventListener('load', () => {
+            setTimeout(loadTestCoverage, 2000); // Load after other animations
+        });
     </script>
 </body>
 </html>

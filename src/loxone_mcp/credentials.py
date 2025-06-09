@@ -1,4 +1,8 @@
-"""Secure credential management using system keychain."""
+"""Secure credential management using system keychain.
+
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+"""
 
 import asyncio
 import getpass

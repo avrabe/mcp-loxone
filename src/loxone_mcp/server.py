@@ -1,4 +1,8 @@
-"""Loxone MCP Server - Main server implementation."""
+"""Loxone MCP Server - Main server implementation.
+
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+"""
 
 import json
 import logging
@@ -1458,6 +1462,459 @@ async def get_environmental_summary() -> dict[str, Any]:
     environmental_summary["recommendations"] = recommendations
 
     return environmental_summary
+
+
+# === Weather Service Tools ===
+
+
+@mcp.tool()
+async def get_weather_service_status() -> dict[str, Any]:
+    """
+    Get the status of the Loxone Weather Service.
+    Ruft den Status des Loxone Wetterdienstes ab.
+
+    Returns:
+        Weather service status, configuration, and available data types
+        Wetterdienst-Status, Konfiguration und verfügbare Datentypen
+
+    Examples:
+        - get_weather_service_status() - Check if weather service is working
+        Shows status, location, and available weather data types
+    """
+    ctx: ServerContext = _context
+    if not ctx:
+        return {"error": "Not connected to Loxone"}
+
+    weather_server = ctx.structure.get("weatherServer", {})
+
+    if not weather_server:
+        return {
+            "status": "not_configured",
+            "message": "Weather Service is not configured in this Loxone system",
+            "recommendation": "Add a Weather Service block in Loxone Config",
+        }
+
+    # Get weather service states
+    weather_states = weather_server.get("states", {})
+    actual_uuid = weather_states.get("actual")
+    forecast_uuid = weather_states.get("forecast")
+
+    status_info = {
+        "status": "configured",
+        "location": ctx.structure.get("msInfo", {}).get("location", "Not set"),
+        "states": {"actual_uuid": actual_uuid, "forecast_uuid": forecast_uuid},
+        "field_types": {},
+        "weather_types": {},
+        "formats": weather_server.get("format", {}),
+    }
+
+    # Get current status values
+    if actual_uuid:
+        try:
+            actual_status = await ctx.loxone.send_command(f"jdev/sps/state/{actual_uuid}")
+            status_info["actual_status"] = actual_status
+
+            # Interpret status codes
+            if actual_status == 5:
+                status_info["status"] = "error_or_inactive"
+                status_info["message"] = (
+                    "Weather Service appears to be inactive or has an error (status code 5)"
+                )
+                status_info["recommendations"] = [
+                    "Check internet connection on Miniserver",
+                    "Verify location is properly set in project properties",
+                    "Check if Weather Service block is enabled in Loxone Config",
+                    "Restart Weather Service block if needed",
+                ]
+        except Exception as e:
+            status_info["actual_status_error"] = str(e)
+
+    if forecast_uuid:
+        try:
+            forecast_status = await ctx.loxone.send_command(f"jdev/sps/state/{forecast_uuid}")
+            status_info["forecast_status"] = forecast_status
+        except Exception as e:
+            status_info["forecast_status_error"] = str(e)
+
+    # Add available field types (translated to English)
+    field_types = weather_server.get("weatherFieldTypes", {})
+    for field_id, field_info in field_types.items():
+        field_name = field_info.get("name", "Unknown")
+        # Translate German field names to English
+        translations = {
+            "Temperatur": "Temperature",
+            "Taupunkt": "Dewpoint",
+            "Relative Luftfeuchte": "Relative Humidity",
+            "Windgeschwindigkeit": "Wind Speed",
+            "Windrichtung": "Wind Direction",
+            "Böen": "Wind Gusts",
+            "Absolute Bestrahlungsstärke": "Absolute Solar Radiation",
+            "Relative Bestrahlungsstärke": "Relative Solar Radiation",
+            "Niederschlag": "Precipitation",
+            "Wettertyp": "Weather Type",
+            "Luftdruck": "Barometric Pressure",
+            "Gefühlte Temperatur": "Perceived Temperature",
+            "Solare Bestrahlungsstärke": "Solar Radiation",
+            "Niederschlagswahrscheinlichkeit": "Precipitation Probability",
+            "Schneeanteil": "Snow Percentage",
+            "Niedrige Bewölkung": "Low Clouds",
+            "Mittlere Bewölkung": "Medium Clouds",
+            "Hohe Bewölkung": "High Clouds",
+            "Sonnenschein": "Sunshine",
+            "Feinstaubbelastung": "Fine Dust Pollution",
+            "Gefahrenwarnung": "Weather Warning",
+        }
+
+        english_name = translations.get(field_name, field_name)
+        status_info["field_types"][field_id] = {
+            "name": english_name,
+            "german_name": field_name,
+            "unit": field_info.get("unit", ""),
+            "format": field_info.get("format", ""),
+            "analog": field_info.get("analog", True),
+        }
+
+    # Add weather type descriptions (translated)
+    weather_types = weather_server.get("weatherTypeTexts", {})
+    for type_id, german_desc in weather_types.items():
+        # Translate weather descriptions
+        translations = {
+            "wolkenlos": "clear sky",
+            "heiter": "fair",
+            "wolkig": "cloudy",
+            "stark bewölkt": "heavily cloudy",
+            "bedeckt": "overcast",
+            "Nebel": "fog",
+            "Hochnebel": "high fog",
+            "leichter Regen": "light rain",
+            "Regen": "rain",
+            "starker Regen": "heavy rain",
+            "Nieseln": "drizzle",
+            "leichter gefrierender Regen": "light freezing rain",
+            "starker gefrierender Regen": "heavy freezing rain",
+            "leichter Regenschauer": "light showers",
+            "kräftiger Regenschauer": "heavy showers",
+            "Gewitter": "thunderstorm",
+            "kräftiges Gewitter": "severe thunderstorm",
+            "leichter Schneefall": "light snow",
+            "Schneefall": "snow",
+            "starker Schneefall": "heavy snow",
+            "leichter Schneeschauer": "light snow showers",
+            "starker Schneeschauer": "heavy snow showers",
+            "leichter Schneeregen": "light sleet",
+            "Schneeregen": "sleet",
+            "starker Schneeregen": "heavy sleet",
+            "leichter Schneeregenschauer": "light snow/rain showers",
+            "kräftiger Schneeregenschauer": "heavy snow/rain showers",
+        }
+
+        english_desc = translations.get(german_desc, german_desc)
+        status_info["weather_types"][type_id] = {
+            "description": english_desc,
+            "german_description": german_desc,
+        }
+
+    return status_info
+
+
+@mcp.tool()
+async def get_weather_forecast() -> dict[str, Any]:
+    """
+    Get weather forecast data from the Loxone Weather Service.
+    Ruft Wettervorhersagedaten vom Loxone Wetterdienst ab.
+
+    Returns:
+        Weather forecast data including temperature, precipitation, wind forecasts
+        Wettervorhersagedaten einschließlich Temperatur-, Niederschlags- und Windvorhersagen
+
+    Examples:
+        - get_weather_forecast() - Get forecast for upcoming days
+        Shows weather predictions and conditions
+    """
+    ctx: ServerContext = _context
+    if not ctx:
+        return {"error": "Not connected to Loxone"}
+
+    weather_server = ctx.structure.get("weatherServer", {})
+    if not weather_server:
+        return {"error": "Weather Service not configured"}
+
+    weather_states = weather_server.get("states", {})
+    forecast_uuid = weather_states.get("forecast")
+
+    if not forecast_uuid:
+        return {"error": "Weather forecast state not found"}
+
+    forecast_data = {"service_status": "checking", "forecast_available": False, "message": ""}
+
+    try:
+        # Get forecast state value
+        forecast_value = await ctx.loxone.send_command(f"jdev/sps/state/{forecast_uuid}")
+        forecast_data["raw_forecast_value"] = forecast_value
+
+        if forecast_value == 5:
+            forecast_data["service_status"] = "inactive_or_error"
+            forecast_data["message"] = "Weather Service appears to be inactive or has an error"
+            forecast_data["recommendations"] = [
+                "Check if Weather Service is properly configured in Loxone Config",
+                "Verify internet connection on the Miniserver",
+                "Ensure location coordinates are set in project properties",
+                "Try restarting the Weather Service block",
+            ]
+        elif isinstance(forecast_value, int | float) and forecast_value != 5:
+            forecast_data["service_status"] = "active"
+            forecast_data["message"] = f"Weather Service is responding (status: {forecast_value})"
+
+            # Note: The actual forecast data might be available through other methods
+            # or require WebSocket connection for real-time updates
+            forecast_data["note"] = (
+                "Forecast data access may require WebSocket connection or additional configuration"
+            )
+        else:
+            forecast_data["service_status"] = "unknown"
+            forecast_data["message"] = f"Unexpected forecast value: {forecast_value}"
+
+    except Exception as e:
+        forecast_data["error"] = f"Failed to access forecast data: {e!s}"
+
+    # Add information about weather field types available
+    field_types = weather_server.get("weatherFieldTypes", {})
+    if field_types:
+        forecast_data["available_data_types"] = []
+        for field_id, field_info in field_types.items():
+            forecast_data["available_data_types"].append(
+                {
+                    "id": field_id,
+                    "name": field_info.get("name", "Unknown"),
+                    "unit": field_info.get("unit", ""),
+                    "format": field_info.get("format", ""),
+                }
+            )
+
+    return forecast_data
+
+
+@mcp.tool()
+async def get_weather_current() -> dict[str, Any]:
+    """
+    Get current weather conditions from the Loxone Weather Service.
+    Ruft aktuelle Wetterbedingungen vom Loxone Wetterdienst ab.
+
+    Returns:
+        Current weather data including temperature, humidity, wind, precipitation
+        Aktuelle Wetterdaten einschließlich Temperatur, Luftfeuchtigkeit, Wind, Niederschlag
+
+    Examples:
+        - get_weather_current() - Get current weather conditions
+        Shows real-time weather measurements
+    """
+    ctx: ServerContext = _context
+    if not ctx:
+        return {"error": "Not connected to Loxone"}
+
+    weather_server = ctx.structure.get("weatherServer", {})
+    if not weather_server:
+        return {"error": "Weather Service not configured"}
+
+    weather_states = weather_server.get("states", {})
+    actual_uuid = weather_states.get("actual")
+
+    if not actual_uuid:
+        return {"error": "Weather actual state not found"}
+
+    current_data = {"service_status": "checking", "weather_available": False, "measurements": {}}
+
+    try:
+        # Get current weather state value
+        actual_value = await ctx.loxone.send_command(f"jdev/sps/state/{actual_uuid}")
+        current_data["raw_actual_value"] = actual_value
+
+        if actual_value == 5:
+            current_data["service_status"] = "inactive_or_error"
+            current_data["message"] = "Weather Service appears to be inactive or has an error"
+            current_data["recommendations"] = [
+                "Check if Weather Service is properly configured",
+                "Verify internet connection",
+                "Ensure location is set in project properties",
+                "Check Weather Service block in Loxone Config",
+            ]
+        else:
+            current_data["service_status"] = "responding"
+            current_data["message"] = f"Weather Service is responding (status: {actual_value})"
+
+    except Exception as e:
+        current_data["error"] = f"Failed to access current weather data: {e!s}"
+
+    # Look for weather-related InfoOnlyAnalog controls that might contain weather data
+    weather_controls = []
+    for device in ctx.devices.values():
+        if device.type == "InfoOnlyAnalog" and any(
+            keyword in device.name.lower()
+            for keyword in ["rel.luftfeuchte", "humidity", "weather", "wetter", "outdoor", "außen"]
+        ):
+            try:
+                value = await ctx.loxone.send_command(f"jdev/sps/state/{device.uuid}")
+                weather_controls.append(
+                    {"name": device.name, "uuid": device.uuid, "room": device.room, "value": value}
+                )
+            except Exception:
+                pass
+
+    if weather_controls:
+        current_data["weather_controls"] = weather_controls
+
+    # Add format information for interpreting values when they become available
+    formats = weather_server.get("format", {})
+    if formats:
+        current_data["value_formats"] = formats
+
+    return current_data
+
+
+@mcp.tool()
+async def diagnose_weather_service() -> dict[str, Any]:
+    """
+    Diagnose Weather Service issues and provide troubleshooting guidance.
+    Diagnostiziert Probleme mit dem Wetterdienst und bietet Anleitung zur Fehlerbehebung.
+
+    Returns:
+        Diagnostic information and troubleshooting steps for Weather Service
+        Diagnoseinformationen und Fehlerbehebungsschritte für den Wetterdienst
+
+    Examples:
+        - diagnose_weather_service() - Troubleshoot weather service issues
+        Provides detailed diagnosis and recommendations
+    """
+    ctx: ServerContext = _context
+    if not ctx:
+        return {"error": "Not connected to Loxone"}
+
+    diagnosis = {
+        "weather_service_configured": False,
+        "location_set": False,
+        "internet_connectivity": "unknown",
+        "service_status": "unknown",
+        "issues_found": [],
+        "recommendations": [],
+    }
+
+    # Check if Weather Service is configured
+    weather_server = ctx.structure.get("weatherServer", {})
+    if weather_server:
+        diagnosis["weather_service_configured"] = True
+        diagnosis["configuration"] = {
+            "states_available": list(weather_server.get("states", {}).keys()),
+            "field_types_count": len(weather_server.get("weatherFieldTypes", {})),
+            "weather_types_count": len(weather_server.get("weatherTypeTexts", {})),
+            "formats_available": list(weather_server.get("format", {}).keys()),
+        }
+    else:
+        diagnosis["issues_found"].append("Weather Service is not configured")
+        diagnosis["recommendations"].append("Add a Weather Service block in Loxone Config")
+
+    # Check location setting
+    location = ctx.structure.get("msInfo", {}).get("location")
+    if location:
+        diagnosis["location_set"] = True
+        diagnosis["location"] = location
+    else:
+        diagnosis["issues_found"].append("Location not set in project properties")
+        diagnosis["recommendations"].append(
+            "Set location coordinates in Loxone Config project properties"
+        )
+
+    # Test Weather Service states
+    if weather_server:
+        weather_states = weather_server.get("states", {})
+        actual_uuid = weather_states.get("actual")
+        forecast_uuid = weather_states.get("forecast")
+
+        state_results = {}
+
+        if actual_uuid:
+            try:
+                actual_value = await ctx.loxone.send_command(f"jdev/sps/state/{actual_uuid}")
+                state_results["actual"] = actual_value
+
+                if actual_value == 5:
+                    diagnosis["issues_found"].append(
+                        "Weather Service actual state returns error code 5"
+                    )
+                    diagnosis["service_status"] = "error"
+                elif actual_value == 0:
+                    diagnosis["service_status"] = "inactive"
+                else:
+                    diagnosis["service_status"] = "active"
+
+            except Exception as e:
+                state_results["actual_error"] = str(e)
+                diagnosis["issues_found"].append(f"Cannot access actual weather state: {e}")
+
+        if forecast_uuid:
+            try:
+                forecast_value = await ctx.loxone.send_command(f"jdev/sps/state/{forecast_uuid}")
+                state_results["forecast"] = forecast_value
+
+                if forecast_value == 5:
+                    diagnosis["issues_found"].append(
+                        "Weather Service forecast state returns error code 5"
+                    )
+
+            except Exception as e:
+                state_results["forecast_error"] = str(e)
+                diagnosis["issues_found"].append(f"Cannot access forecast state: {e}")
+
+        diagnosis["state_test_results"] = state_results
+
+    # Check for weather-related controls
+    weather_related_controls = []
+    for device in ctx.devices.values():
+        if any(
+            keyword in device.name.lower()
+            for keyword in ["weather", "wetter", "rel.luftfeuchte", "humidity", "outdoor", "außen"]
+        ):
+            weather_related_controls.append(
+                {"name": device.name, "type": device.type, "uuid": device.uuid, "room": device.room}
+            )
+
+    diagnosis["weather_related_controls"] = weather_related_controls
+
+    # Add comprehensive recommendations
+    if diagnosis["service_status"] == "error":
+        diagnosis["recommendations"].extend(
+            [
+                "Check Miniserver internet connection",
+                "Verify Weather Service block is enabled in Loxone Config",
+                "Restart the Weather Service block",
+                "Check if location coordinates are valid",
+                "Verify Loxone Cloud access is working",
+                "Check for any firewall blocking weather service access",
+            ]
+        )
+    elif diagnosis["service_status"] == "inactive":
+        diagnosis["recommendations"].extend(
+            [
+                "Enable Weather Service block in Loxone Config",
+                "Check if automatic updates are enabled",
+                "Verify internet connection on Miniserver",
+            ]
+        )
+
+    # Priority recommendations
+    if not diagnosis["weather_service_configured"]:
+        diagnosis["priority"] = "high"
+        diagnosis["main_issue"] = "Weather Service not configured"
+    elif not diagnosis["location_set"]:
+        diagnosis["priority"] = "high"
+        diagnosis["main_issue"] = "Location not set - required for weather data"
+    elif diagnosis["service_status"] == "error":
+        diagnosis["priority"] = "medium"
+        diagnosis["main_issue"] = "Weather Service configured but not working"
+    else:
+        diagnosis["priority"] = "low"
+        diagnosis["main_issue"] = "Weather Service appears functional"
+
+    return diagnosis
 
 
 # === Lighting Presets & Moods ===

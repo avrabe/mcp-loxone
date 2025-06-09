@@ -1,4 +1,8 @@
-"""Simple HTTP-based Loxone client for Gen 1 Miniservers."""
+"""Simple HTTP-based Loxone client for Gen 1 Miniservers.
+
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+"""
 
 import logging
 from typing import Any

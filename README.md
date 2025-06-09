@@ -1,3 +1,8 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+-->
+
 <div align="center">
   <img src="mcp-loxone-gen1.png" alt="Loxone MCP Server" width="250"/>
   
@@ -167,7 +172,7 @@ For optimal integration with language models like Qwen3:14b:
 
 ## License
 
-MIT
+MIT License - Copyright (c) 2025 Ralf Anton Beier
 
 ## Acknowledgments
 

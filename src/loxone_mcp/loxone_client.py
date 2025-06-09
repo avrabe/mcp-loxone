@@ -1,4 +1,8 @@
-"""Simple Loxone WebSocket client for Generation 1 Miniservers."""
+"""Simple Loxone WebSocket client for Generation 1 Miniservers.
+
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+"""
 
 import asyncio
 import contextlib
