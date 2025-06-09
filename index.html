@@ -795,6 +795,137 @@ Copyright (c) 2025 Ralf Anton Beier
             from { transform: rotate(-90deg); }
             to { transform: rotate(0deg); }
         }
+
+        /* Virtual Terminal Styles */
+        .terminal-demo {
+            background: #1a1a1a;
+            border-radius: 12px;
+            margin: 2rem 0;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            border: 1px solid #333;
+            font-family: 'Atkinson Hyperlegible', 'Courier New', monospace;
+        }
+
+        .terminal-header {
+            background: #2d2d2d;
+            padding: 0.75rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #444;
+        }
+
+        .terminal-title {
+            color: #e0e0e0;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .terminal-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .terminal-btn {
+            background: #4a4a4a;
+            color: #e0e0e0;
+            border: none;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background 0.2s ease;
+        }
+
+        .terminal-btn:hover {
+            background: #5a5a5a;
+        }
+
+        .terminal-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            opacity: 0.6;
+        }
+
+        .terminal-light.red { background: #ff5f56; }
+        .terminal-light.yellow { background: #ffbd2e; }
+        .terminal-light.green { background: #27ca3f; }
+
+        .terminal-body {
+            background: #1a1a1a;
+            padding: 1rem;
+            min-height: 400px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        .terminal-line {
+            color: #e0e0e0;
+            margin-bottom: 0.2rem;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        .terminal-prompt {
+            color: #27ca3f;
+        }
+
+        .terminal-input {
+            color: #61dafb;
+        }
+
+        .terminal-output {
+            color: #e0e0e0;
+        }
+
+        .terminal-success {
+            color: #27ca3f;
+        }
+
+        .terminal-info {
+            color: #61dafb;
+        }
+
+        .terminal-warning {
+            color: #ffbd2e;
+        }
+
+        .terminal-cursor {
+            background: #e0e0e0;
+            animation: blink 1s infinite;
+            padding: 0 2px;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        .terminal-typing {
+            display: inline;
+        }
+
+        /* Responsive terminal */
+        @media (max-width: 768px) {
+            .terminal-body {
+                font-size: 0.8rem;
+                padding: 0.75rem;
+                min-height: 350px;
+            }
+            
+            .terminal-header {
+                padding: 0.5rem 0.75rem;
+            }
+            
+            .terminal-title {
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1008,6 +1139,22 @@ uv sync
 
 # Configure credentials (one-time)
 uvx --from . loxone-mcp setup</code></pre>
+        </div>
+
+        <!-- Virtual Terminal Demo -->
+        <div class="terminal-demo">
+            <div class="terminal-header">
+                <span class="terminal-title">💻 Interactive Setup Demo</span>
+                <div class="terminal-controls">
+                    <button class="terminal-btn restart-btn" onclick="restartTerminalDemo()">⟲ Restart</button>
+                    <div class="terminal-light green"></div>
+                    <div class="terminal-light yellow"></div>
+                    <div class="terminal-light red"></div>
+                </div>
+            </div>
+            <div class="terminal-body" id="terminal-output">
+                <div class="terminal-line">$ <span class="terminal-cursor">_</span></div>
+            </div>
         </div>
     </section>
 
@@ -1634,6 +1781,184 @@ Miniserver ← Direct communication (192.168.x.x)
         // Load coverage data when page loads
         window.addEventListener('load', () => {
             setTimeout(loadTestCoverage, 2000); // Load after other animations
+        });
+
+        // Virtual Terminal Demo
+        let terminalDemo = null;
+        let terminalRunning = false;
+
+        const terminalScript = [
+            { type: 'command', text: 'uvx --from . loxone-mcp setup', delay: 80 },
+            { type: 'output', text: '', delay: 800 },
+            { type: 'output', text: '🔐 Loxone MCP Server Setup', delay: 50 },
+            { type: 'output', text: '========================================', delay: 50 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: '🔍 Discovering Loxone Miniservers on your network...', delay: 100 },
+            { type: 'progress', text: '   • Trying UDP discovery...', delay: 1000 },
+            { type: 'output', text: ' ⏭️  No response', delay: 50 },
+            { type: 'progress', text: '   • Scanning network for HTTP endpoints...', delay: 1500 },
+            { type: 'output', text: ' ✅ Found 2 server(s)', delay: 50 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: '✅ Found 2 Loxone Miniserver(s) on your network:', delay: 50 },
+            { type: 'output', text: '', delay: 200 },
+            { type: 'output', text: '  1. Loxone Miniserver (v14.2.5.8) at 192.168.1.42 (HTTP Scan)', delay: 50 },
+            { type: 'output', text: '  2. Loxone Miniserver at 192.168.1.85 (HTTP Scan)', delay: 50 },
+            { type: 'output', text: '', delay: 200 },
+            { type: 'output', text: '  3. Enter IP address manually', delay: 50 },
+            { type: 'output', text: '', delay: 200 },
+            { type: 'output', text: '  0. Cancel setup', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'prompt', text: 'Select an option (1-3, or 0 to cancel): ', delay: 100 },
+            { type: 'input', text: '1', delay: 800 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: '✅ Selected: Loxone Miniserver (v14.2.5.8) at 192.168.1.42', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: 'This wizard will securely store your Loxone credentials', delay: 50 },
+            { type: 'output', text: 'in your system keychain.', delay: 50 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: 'Please enter your Loxone Miniserver details:', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'prompt', text: 'Username: ', delay: 100 },
+            { type: 'input', text: 'homeowner', delay: 1200 },
+            { type: 'prompt', text: 'Password: ', delay: 100 },
+            { type: 'input', text: '••••••••••••', delay: 1000 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: '🔌 Testing connection...', delay: 100 },
+            { type: 'output', text: '', delay: 2000 },
+            { type: 'output', text: '✅ Successfully connected to Loxone Miniserver!', delay: 50 },
+            { type: 'output', text: '   Miniserver: Smart Home Controller', delay: 50 },
+            { type: 'output', text: '   Version: 14.2.5.8', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: '✅ Credentials stored successfully!', delay: 50 },
+            { type: 'output', text: '   Host: 192.168.1.42', delay: 50 },
+            { type: 'output', text: '   User: homeowner', delay: 50 },
+            { type: 'output', text: '   Pass: ************', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: '📝 Next steps:', delay: 50 },
+            { type: 'output', text: '1. Test the server: uv run mcp dev src/loxone_mcp/server.py', delay: 50 },
+            { type: 'output', text: '2. Configure in Claude Desktop (see README.md)', delay: 50 },
+            { type: 'output', text: '', delay: 3000 },
+            { type: 'command', text: '', delay: 500 }
+        ];
+
+        function typeText(element, text, speed = 50) {
+            return new Promise(resolve => {
+                let i = 0;
+                const timer = setInterval(() => {
+                    if (i < text.length) {
+                        element.textContent += text.charAt(i);
+                        i++;
+                    } else {
+                        clearInterval(timer);
+                        resolve();
+                    }
+                }, speed);
+            });
+        }
+
+        function addTerminalLine(content, className = 'terminal-output') {
+            const terminalBody = document.getElementById('terminal-output');
+            const line = document.createElement('div');
+            line.className = `terminal-line ${className}`;
+            line.textContent = content;
+            terminalBody.appendChild(line);
+            
+            // Auto-scroll to bottom
+            terminalBody.scrollTop = terminalBody.scrollHeight;
+            return line;
+        }
+
+        function removeCursor() {
+            const cursor = document.querySelector('.terminal-cursor');
+            if (cursor) cursor.remove();
+        }
+
+        function addCursor(element) {
+            const cursor = document.createElement('span');
+            cursor.className = 'terminal-cursor';
+            cursor.textContent = '_';
+            element.appendChild(cursor);
+        }
+
+        async function runTerminalDemo() {
+            if (terminalRunning) return;
+            terminalRunning = true;
+
+            const terminalBody = document.getElementById('terminal-output');
+            terminalBody.innerHTML = '';
+
+            for (let i = 0; i < terminalScript.length; i++) {
+                const step = terminalScript[i];
+                
+                if (!terminalRunning) break; // Stop if demo was restarted
+
+                await new Promise(resolve => setTimeout(resolve, step.delay));
+
+                switch (step.type) {
+                    case 'command':
+                        if (step.text) {
+                            const line = addTerminalLine('$ ', 'terminal-prompt');
+                            await typeText(line, step.text, 80);
+                        } else {
+                            addTerminalLine('$ ', 'terminal-prompt');
+                            addCursor(terminalBody.lastElementChild);
+                        }
+                        break;
+                    
+                    case 'output':
+                        addTerminalLine(step.text, 'terminal-output');
+                        break;
+                    
+                    case 'progress':
+                        const progressLine = addTerminalLine(step.text, 'terminal-info');
+                        break;
+                    
+                    case 'prompt':
+                        const promptLine = addTerminalLine(step.text, 'terminal-output');
+                        promptLine.style.display = 'inline';
+                        break;
+                    
+                    case 'input':
+                        const inputLine = document.createElement('span');
+                        inputLine.className = 'terminal-input';
+                        terminalBody.lastElementChild.appendChild(inputLine);
+                        await typeText(inputLine, step.text, 150);
+                        addTerminalLine('', 'terminal-output');
+                        break;
+                }
+            }
+
+            // Wait 5 seconds then restart
+            setTimeout(() => {
+                if (terminalRunning) {
+                    runTerminalDemo();
+                }
+            }, 5000);
+        }
+
+        function restartTerminalDemo() {
+            terminalRunning = false;
+            setTimeout(() => {
+                terminalRunning = false;
+                runTerminalDemo();
+            }, 100);
+        }
+
+        // Start terminal demo when section becomes visible
+        const terminalObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && !terminalRunning) {
+                    setTimeout(() => runTerminalDemo(), 1000);
+                    terminalObserver.unobserve(entry.target);
+                }
+            });
+        });
+
+        window.addEventListener('load', () => {
+            const terminalDemo = document.querySelector('.terminal-demo');
+            if (terminalDemo) {
+                terminalObserver.observe(terminalDemo);
+            }
         });
     </script>
 </body>
