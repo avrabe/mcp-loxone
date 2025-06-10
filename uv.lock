@@ -744,6 +744,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "aiohttp" },
+    { name = "cryptography" },
     { name = "fastmcp" },
     { name = "httpx" },
     { name = "keyring" },
@@ -778,6 +779,7 @@ dev = [
 requires-dist = [
     { name = "aiohttp", specifier = ">=3.8.0" },
     { name = "bandit", extras = ["toml"], marker = "extra == 'dev'", specifier = ">=1.7" },
+    { name = "cryptography", specifier = ">=45.0.3" },
     { name = "fastmcp", specifier = ">=2.0" },
     { name = "httpx", specifier = ">=0.25.0" },
     { name = "keyring", specifier = ">=24.0.0" },

@@ -72,3 +72,4 @@ secrets.json
 # AI tool configurations
 .claude/
 .cursor/
+p.md
