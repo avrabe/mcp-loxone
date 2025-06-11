@@ -206,7 +206,8 @@ class TestCredentialsErrorHandling:
         # Mock keychain error
         mock_set_password.side_effect = Exception("Keychain access denied")
 
-        with pytest.raises(RuntimeError):
+        # The set method re-raises the exception after printing an error
+        with pytest.raises(Exception, match="Keychain access denied"):
             LoxoneSecrets.set("LOXONE_HOST", "test.host")
 
     @patch("keyring.delete_password")

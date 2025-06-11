@@ -284,10 +284,10 @@ class TestServerImportsAndStructure:
         assert loxone_mcp.server is not None
 
         # Test key classes can be imported
-        from loxone_mcp.server import LoxoneDevice, ServerContext
+        from loxone_mcp.server import ServerContext, SystemCapabilities
 
-        assert LoxoneDevice is not None
         assert ServerContext is not None
+        assert SystemCapabilities is not None
 
     def test_server_global_variables_exist(self) -> None:
         """Test server global variables exist."""
@@ -305,5 +305,5 @@ class TestServerImportsAndStructure:
         assert hasattr(server, "ACTION_ALIASES")
         assert isinstance(server.ACTION_ALIASES, dict)
 
-        assert hasattr(server, "FLOOR_PATTERNS")
-        assert isinstance(server.FLOOR_PATTERNS, dict)
+        # FLOOR_PATTERNS was removed, test other constants instead
+        assert len(server.ACTION_ALIASES) > 0

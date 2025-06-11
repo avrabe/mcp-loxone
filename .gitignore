@@ -73,3 +73,4 @@ secrets.json
 .claude/
 .cursor/
 p.md
+.hypothesis/

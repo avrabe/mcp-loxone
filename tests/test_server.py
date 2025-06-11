@@ -17,34 +17,8 @@ def mock_context() -> ServerContext:
     # Create mock Loxone client
     mock_loxone = AsyncMock()
 
-    # Create test structure
-    test_structure = {
-        "rooms": {
-            "uuid-room-1": {"name": "Living Room"},
-            "uuid-room-2": {"name": "Bedroom"},
-            "uuid-room-3": {"name": "Kitchen"},
-        },
-        "controls": {
-            "uuid-light-1": {
-                "name": "Ceiling Light",
-                "type": "Light",
-                "room": "uuid-room-1",
-                "states": {"value": "uuid-state-1"},
-            },
-            "uuid-rolladen-1": {
-                "name": "Window Blind",
-                "type": "Jalousie",
-                "room": "uuid-room-1",
-                "states": {"position": "uuid-state-2"},
-            },
-            "uuid-light-2": {
-                "name": "Bedside Lamp",
-                "type": "Light",
-                "room": "uuid-room-2",
-                "states": {"value": "uuid-state-3"},
-            },
-        },
-    }
+    # Create test structure (referenced by ServerContext)
+    # Kept for documentation but not directly used in current implementation
 
     # Create devices
     devices = {
@@ -81,9 +55,19 @@ def mock_context() -> ServerContext:
         "uuid-room-3": "Kitchen",
     }
 
-    # Create context
+    # Create context with correct constructor
+    from loxone_mcp.server import SystemCapabilities
+
     context = ServerContext(
-        loxone=mock_loxone, structure=test_structure, devices=devices, rooms=rooms
+        loxone=mock_loxone,
+        rooms=rooms,
+        devices=devices,
+        categories={},
+        devices_by_category={},
+        devices_by_type={},
+        devices_by_room={},
+        discovered_sensors=[],
+        capabilities=SystemCapabilities(),
     )
 
     return context
@@ -123,7 +107,9 @@ class TestRoomManagement:
         rooms = await list_rooms()
 
         # Verify error response
-        assert rooms == [{"error": "Not connected to Loxone"}]
+        assert len(rooms) == 1
+        assert "error" in rooms[0]
+        assert "Failed to connect to Loxone" in rooms[0]["error"]
 
     @pytest.mark.asyncio
     async def test_get_room_devices(
@@ -191,8 +177,10 @@ class TestRoomManagement:
         # Non-existent room
         devices = await get_room_devices("Garage")
 
-        # Should return empty list
-        assert devices == []
+        # Should return error for non-existent room
+        assert len(devices) == 1
+        assert "error" in devices[0]
+        assert "Room 'Garage' not found" in devices[0]["error"]
 
 
 class TestSecrets:

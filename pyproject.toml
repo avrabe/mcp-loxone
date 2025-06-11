@@ -25,6 +25,7 @@ classifiers = [
 ]
 dependencies = [
     "fastmcp>=2.0",
+    "fastapi>=0.104.0",
     "keyring>=24.0.0",
     "httpx>=0.25.0",
     "python-dotenv>=1.0.0",
@@ -43,6 +44,7 @@ dev = [
     "bandit[toml]>=1.7",
     "safety>=2.3",
     "pip-audit>=2.0",
+    "hypothesis>=6.0",
 ]
 
 [project.urls]
@@ -199,6 +201,7 @@ skips = ["B101", "B324", "B601"]
 [dependency-groups]
 dev = [
     "bandit[toml]>=1.8.3",
+    "hypothesis>=6.135.6",
     "mypy>=1.16.0",
     "pip-audit>=2.9.0",
     "pytest>=8.4.0",

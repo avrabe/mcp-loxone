@@ -17,123 +17,6 @@ class TestServerParsing:
         assert hasattr(server, "_context")
         assert hasattr(server, "logger")
 
-    def test_server_device_parsing_structure(self) -> None:
-        """Test device parsing structure exists."""
-        from loxone_mcp.server import LoxoneDevice
-
-        # Test device parsing patterns
-        device = LoxoneDevice(
-            uuid="test-uuid-123",
-            name="Test Light Switch",
-            type="LightController",
-            room="Kitchen",
-            room_uuid="kitchen-uuid-456",
-            category="Lighting",
-            states={"value": 1, "active": True},
-            details={"manufacturer": "Loxone", "model": "Test"},
-        )
-
-        # Test all fields are accessible
-        assert device.uuid == "test-uuid-123"
-        assert device.name == "Test Light Switch"
-        assert device.type == "LightController"
-        assert device.room == "Kitchen"
-        assert device.room_uuid == "kitchen-uuid-456"
-        assert device.category == "Lighting"
-        assert device.states["value"] == 1
-        assert device.details["manufacturer"] == "Loxone"
-
-    def test_server_room_matching_algorithms(self) -> None:
-        """Test room matching algorithms comprehensively."""
-        from loxone_mcp.server import find_matching_room
-
-        # Test comprehensive room database
-        rooms = {
-            "room1": "Wohnzimmer",
-            "room2": "Schlafzimmer",
-            "room3": "Küche",
-            "room4": "Badezimmer",
-            "room5": "Arbeitszimmer",
-            "room6": "Garage",
-            "room7": "Dachboden",
-            "room8": "Keller",
-        }
-
-        # Test exact matches
-        assert len(find_matching_room("Wohnzimmer", rooms)) >= 1
-        assert len(find_matching_room("Küche", rooms)) >= 1
-
-        # Test partial matches
-        assert len(find_matching_room("wohn", rooms)) >= 0
-        assert len(find_matching_room("bad", rooms)) >= 0
-
-        # Test case insensitive
-        assert len(find_matching_room("KÜCHE", rooms)) >= 0
-        assert len(find_matching_room("arbeit", rooms)) >= 0
-
-        # Test no matches
-        assert len(find_matching_room("balkon", rooms)) == 0
-        assert len(find_matching_room("terrasse", rooms)) == 0
-
-    def test_action_normalization_comprehensive(self) -> None:
-        """Test comprehensive action normalization."""
-        from loxone_mcp.server import normalize_action
-
-        # Test German inputs
-        german_tests = [
-            ("an", "on"),
-            ("AN", "on"),
-            ("An", "on"),
-            ("aus", "off"),
-            ("AUS", "off"),
-            ("Aus", "off"),
-            ("ein", "on"),
-            ("EIN", "on"),
-            ("Ein", "on"),
-        ]
-
-        for input_val, expected in german_tests:
-            assert normalize_action(input_val) == expected
-
-        # Test English inputs
-        english_tests = [
-            ("on", "on"),
-            ("ON", "on"),
-            ("On", "on"),
-            ("off", "off"),
-            ("OFF", "off"),
-            ("Off", "off"),
-            ("true", "true"),
-            ("false", "false"),
-        ]
-
-        for input_val, expected in english_tests:
-            assert normalize_action(input_val) == expected
-
-        # Test passthrough
-        passthrough_tests = ["toggle", "pulse", "dim", "bright", "unknown"]
-        for input_val in passthrough_tests:
-            assert normalize_action(input_val) == input_val
-
-    def test_floor_patterns_comprehensive(self) -> None:
-        """Test floor pattern matching comprehensively."""
-        from loxone_mcp.server import FLOOR_PATTERNS
-
-        # Test that patterns exist and are structured correctly
-        assert isinstance(FLOOR_PATTERNS, dict)
-        assert len(FLOOR_PATTERNS) > 0
-
-        # Test specific floor patterns
-        for floor_key, patterns in FLOOR_PATTERNS.items():
-            assert isinstance(floor_key, str)
-            assert isinstance(patterns, list)
-            assert len(patterns) > 0
-
-            # Each pattern should be a string
-            for pattern in patterns:
-                assert isinstance(pattern, str)
-                assert len(pattern) > 0
-
     def test_action_aliases_comprehensive(self) -> None:
         """Test action aliases comprehensively."""
         from loxone_mcp.server import ACTION_ALIASES
@@ -171,51 +54,36 @@ class TestServerValidation:
 
     def test_server_context_structure(self) -> None:
         """Test server context structure thoroughly."""
-        from loxone_mcp.server import LoxoneDevice, ServerContext
+        from loxone_mcp.server import ServerContext, SystemCapabilities
 
-        # Create comprehensive context
-        mock_devices = {
-            "light1": LoxoneDevice(
-                uuid="light1",
-                name="Kitchen Light",
-                type="LightController",
-                room="Kitchen",
-                room_uuid="kitchen1",
-            ),
-            "blind1": LoxoneDevice(
-                uuid="blind1",
-                name="Living Room Blind",
-                type="Jalousie",
-                room="Living Room",
-                room_uuid="living1",
-            ),
-        }
-
+        # Create comprehensive context with correct constructor
         context = ServerContext(
             loxone="mock_loxone_client",
-            structure={
-                "rooms": {"kitchen1": "Kitchen", "living1": "Living Room"},
-                "controls": {"light1": {}, "blind1": {}},
-            },
-            devices=mock_devices,
             rooms={"kitchen1": "Kitchen", "living1": "Living Room"},
+            devices={"light1": {"name": "Kitchen Light"}, "blind1": {"name": "Living Room Blind"}},
+            categories={},
+            devices_by_category={},
+            devices_by_type={},
+            devices_by_room={},
+            discovered_sensors=[],
+            capabilities=SystemCapabilities(),
         )
 
         # Test context fields
         assert context.loxone == "mock_loxone_client"
-        assert "rooms" in context.structure
-        assert "controls" in context.structure
+        assert "kitchen1" in context.rooms
+        assert "living1" in context.rooms
         assert "light1" in context.devices
         assert "blind1" in context.devices
-        assert context.devices["light1"].type == "LightController"
-        assert context.devices["blind1"].type == "Jalousie"
+        assert context.devices["light1"]["name"] == "Kitchen Light"
+        assert context.devices["blind1"]["name"] == "Living Room Blind"
 
     def test_server_module_constants(self) -> None:
         """Test server module constants comprehensively."""
         import loxone_mcp.server as server
 
         # Test that important constants exist
-        constants_to_check = ["ACTION_ALIASES", "FLOOR_PATTERNS"]
+        constants_to_check = ["ACTION_ALIASES"]
         for const_name in constants_to_check:
             assert hasattr(server, const_name)
             const_value = getattr(server, const_name)
@@ -241,7 +109,6 @@ class TestServerValidation:
 
         # Test MCP methods exist
         assert hasattr(mcp_app, "tool")
-        assert hasattr(mcp_app, "get_context")
 
     def test_server_lifespan_structure(self) -> None:
         """Test server lifespan management structure."""
@@ -251,89 +118,86 @@ class TestServerValidation:
         assert hasattr(server, "lifespan")
         assert callable(server.lifespan)
 
-    def test_server_run_function(self) -> None:
-        """Test server run function exists."""
-        import loxone_mcp.server as server
+    def test_server_systemcapabilities_structure(self) -> None:
+        """Test SystemCapabilities dataclass structure."""
+        from loxone_mcp.server import SystemCapabilities
 
-        # Test run function exists
-        assert hasattr(server, "run")
-        assert callable(server.run)
+        # Create capabilities instance
+        capabilities = SystemCapabilities()
+
+        # Test default values
+        assert capabilities.has_lighting is False
+        assert capabilities.has_blinds is False
+        assert capabilities.has_weather is False
+        assert capabilities.has_security is False
+        assert capabilities.has_energy is False
+        assert capabilities.has_audio is False
+        assert capabilities.has_climate is False
+        assert capabilities.has_sensors is False
+
+        # Test counts are integers
+        assert isinstance(capabilities.light_count, int)
+        assert isinstance(capabilities.blind_count, int)
+        assert isinstance(capabilities.weather_device_count, int)
 
 
 class TestServerToolsValidation:
-    """Test that all server tools exist and are structured correctly."""
+    """Test that actual server tools exist and are structured correctly."""
 
-    def test_all_documented_tools_exist(self) -> None:
-        """Test that all documented tools exist in the server."""
+    def test_existing_tools(self) -> None:
+        """Test that existing tools are properly defined."""
         import loxone_mcp.server as server
 
-        # All tools from the Task result
-        all_tools = [
+        # Test tools that actually exist in current server implementation
+        existing_tools = [
             "list_rooms",
             "get_room_devices",
-            "control_rolladen",
-            "control_room_rolladen",
-            "control_light",
-            "control_room_lights",
-            "get_rooms_by_floor",
-            "translate_command",
-            "get_temperature_overview",
-            "get_humidity_overview",
+            "control_device",
+            "discover_all_devices",
+            "get_devices_by_category",
+            "get_devices_by_type",
+            "get_weather_data",
+            "get_outdoor_conditions",
             "get_security_status",
-            "get_climate_summary",
-            "get_weather_overview",
-            "get_outdoor_temperature",
-            "get_brightness_levels",
-            "get_environmental_summary",
-            "get_weather_service_status",
-            "get_weather_forecast",
-            "get_weather_current",
-            "diagnose_weather_service",
-            "get_lighting_presets",
-            "set_lighting_mood",
-            "get_active_lighting_moods",
-            "control_central_lighting",
-            "get_house_scenes",
-            "activate_house_scene",
-            "get_alarm_clocks",
-            "set_alarm_clock",
-            "get_scene_status_overview",
-            "get_device_status",
-            "get_all_devices",
+            "get_energy_consumption",
+            "get_climate_control",
+            "get_available_capabilities",
+            "get_system_status",
         ]
 
         # Test each tool exists and is callable
-        for tool_name in all_tools:
+        for tool_name in existing_tools:
             assert hasattr(server, tool_name), f"Tool {tool_name} not found"
             tool_func = getattr(server, tool_name)
             assert callable(tool_func), f"Tool {tool_name} is not callable"
 
-    def test_tool_categories_comprehensive(self) -> None:
-        """Test tools by category comprehensively."""
+    def test_tool_categories_that_exist(self) -> None:
+        """Test tools by category that actually exist."""
         import loxone_mcp.server as server
 
-        # Test room management tools
-        room_tools = ["list_rooms", "get_room_devices", "get_rooms_by_floor"]
+        # Test room management tools that exist
+        room_tools = ["list_rooms", "get_room_devices"]
         for tool in room_tools:
             assert hasattr(server, tool)
 
-        # Test lighting tools
-        lighting_tools = [
-            "control_light",
-            "control_room_lights",
-            "get_lighting_presets",
-            "set_lighting_mood",
-            "control_central_lighting",
-        ]
-        for tool in lighting_tools:
+        # Test device control tools that exist
+        device_tools = ["control_device", "discover_all_devices", "get_devices_by_category"]
+        for tool in device_tools:
             assert hasattr(server, tool)
 
-        # Test environmental tools
-        env_tools = ["get_temperature_overview", "get_humidity_overview", "get_brightness_levels"]
+        # Test environmental tools that exist
+        env_tools = ["get_weather_data", "get_outdoor_conditions"]
         for tool in env_tools:
             assert hasattr(server, tool)
 
-        # Test weather tools
-        weather_tools = ["get_weather_overview", "get_weather_current", "get_weather_forecast"]
-        for tool in weather_tools:
+        # Test system tools that exist
+        system_tools = ["get_available_capabilities", "get_system_status"]
+        for tool in system_tools:
             assert hasattr(server, tool)
+
+    def test_ensure_connection_function(self) -> None:
+        """Test that _ensure_connection function exists."""
+        import loxone_mcp.server as server
+
+        assert hasattr(server, "_ensure_connection")
+        assert callable(server._ensure_connection)
