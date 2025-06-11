@@ -79,8 +79,12 @@ class TestMCPStdioTransport:
 
     def test_verify_command(self) -> None:
         """Test that verify command works."""
-        # Mock credentials to ensure verify works
-        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):
+        # Test with environment variables (subprocess will see these)
+        with patch.dict("os.environ", {
+            "LOXONE_HOST": "192.168.1.100",
+            "LOXONE_USER": "test",
+            "LOXONE_PASS": "test"
+        }):
             result = subprocess.run(  # noqa: S603
                 [sys.executable, "-m", "loxone_mcp", "verify"],
                 capture_output=True,
