@@ -18,6 +18,12 @@ uv sync
 uvx --from . loxone-mcp setup
 # Or directly:
 ./setup.sh
+
+# Verify existing credentials
+uvx --from . loxone-mcp verify
+
+# Clear all stored credentials (if needed)
+uvx --from . loxone-mcp clear
 ```
 
 ### Running the Server

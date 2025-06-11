@@ -1,9 +1,7 @@
 """Test MCP transport modes (stdio and SSE) for CI validation."""
 
-import asyncio
-import json
 import subprocess
-import time
+import sys
 from unittest.mock import patch
 
 import httpx
@@ -29,36 +27,72 @@ class TestMCPStdioTransport:
         from loxone_mcp.server import mcp
 
         # Mock credentials to avoid setup requirements
-        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):
+        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):  # noqa: SIM117
             with patch("loxone_mcp.credentials.LoxoneSecrets.get") as mock_get:
                 mock_get.side_effect = lambda key: {
                     "LOXONE_HOST": "192.168.1.100",
                     "LOXONE_USER": "test",
-                    "LOXONE_PASS": "test"
+                    "LOXONE_PASS": "test",
                 }.get(key)
 
                 # Test that run_stdio_async exists and is callable
                 assert callable(mcp.run_stdio_async)
-                
+
                 # We can't actually run it in tests since it would block,
                 # but we can verify the method signature
                 import inspect
+
                 sig = inspect.signature(mcp.run_stdio_async)
                 assert sig is not None
 
     def test_stdio_server_executable(self) -> None:
         """Test that the server can be executed as a module."""
         # Test that the module can be run (will fail without credentials, which is expected)
-        result = subprocess.run(
-            ["python", "-m", "loxone_mcp", "--help"],
+        result = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "loxone_mcp", "--help"],
             capture_output=True,
             text=True,
             timeout=10,
-            cwd="/Users/r/git/mcp-loxone-gen1"
+            cwd="/Users/r/git/mcp-loxone-gen1",
         )
-        
+
         # Should show help or fail gracefully
         assert result.returncode in [0, 1, 2]  # Help shown or credential error
+
+    def test_cli_commands_available(self) -> None:
+        """Test that all CLI commands are available."""
+        # Test showing usage (no command provided)
+        result = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "loxone_mcp"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd="/Users/r/git/mcp-loxone-gen1",
+        )
+
+        # Should show usage and include all expected commands
+        assert result.returncode == 1  # Usage shown with exit code 1
+        output = result.stdout + result.stderr  # Check both stdout and stderr
+        assert "setup" in output
+        assert "verify" in output
+        assert "clear" in output
+        assert "server" in output
+        assert "sse" in output
+
+    def test_verify_command(self) -> None:
+        """Test that verify command works."""
+        # Mock credentials to ensure verify works
+        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):
+            result = subprocess.run(  # noqa: S603
+                [sys.executable, "-m", "loxone_mcp", "verify"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd="/Users/r/git/mcp-loxone-gen1",
+            )
+
+            assert result.returncode == 0
+            assert "✅" in result.stdout or "✅" in result.stderr
 
     @pytest.mark.asyncio
     async def test_server_mcp_tools_exist(self) -> None:
@@ -67,16 +101,16 @@ class TestMCPStdioTransport:
 
         # Get list of tools (this should work even without connection)
         tools = await mcp.list_tools()
-        
+
         # Verify basic tools exist
         tool_names = [tool.name for tool in tools]
         expected_tools = [
             "list_rooms",
-            "get_room_devices", 
+            "get_room_devices",
             "control_device",
-            "discover_all_devices"
+            "discover_all_devices",
         ]
-        
+
         for expected_tool in expected_tools:
             assert expected_tool in tool_names, f"Missing tool: {expected_tool}"
 
@@ -110,12 +144,12 @@ class TestMCPSSETransport:
         from loxone_mcp.sse_server import run_sse_server
 
         # Mock all external dependencies
-        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):
+        with patch("loxone_mcp.credentials.LoxoneSecrets.validate", return_value=True):  # noqa: SIM117
             with patch("loxone_mcp.credentials.LoxoneSecrets.get") as mock_get:
                 mock_get.side_effect = lambda key: {
                     "LOXONE_HOST": "192.168.1.100",
-                    "LOXONE_USER": "test", 
-                    "LOXONE_PASS": "test"
+                    "LOXONE_USER": "test",
+                    "LOXONE_PASS": "test",
                 }.get(key)
 
                 with patch("loxone_mcp.server.mcp.run_sse_async") as mock_run_sse:
@@ -135,14 +169,18 @@ class TestMCPSSETransport:
     def test_sse_server_executable(self) -> None:
         """Test that SSE server can be executed as a module."""
         # Test that the module can be imported and help can be shown
-        result = subprocess.run(
-            ["python", "-c", "import loxone_mcp.sse_server; print('SSE server module imported successfully')"],
+        result = subprocess.run(  # noqa: S603
+            [
+                sys.executable,
+                "-c",
+                "import loxone_mcp.sse_server; print('SSE server module imported successfully')",
+            ],
             capture_output=True,
             text=True,
             timeout=10,
-            cwd="/Users/r/git/mcp-loxone-gen1"
+            cwd="/Users/r/git/mcp-loxone-gen1",
         )
-        
+
         assert result.returncode == 0
         assert "imported successfully" in result.stdout
 
@@ -160,7 +198,7 @@ class TestMCPSSETransport:
         # Test SSE app creation
         sse_app = mcp.sse_app()
         assert sse_app is not None
-        
+
         # Verify it's a Starlette application
         assert hasattr(sse_app, "routes")
         assert hasattr(sse_app, "add_route")
@@ -187,11 +225,11 @@ class TestMCPTransportIntegration:
 
         # Get tools list
         tools = await mcp.list_tools()
-        
+
         # Should have reasonable number of tools
         assert len(tools) > 5
         assert len(tools) < 50  # Sanity check
-        
+
         # All tools should have required attributes
         for tool in tools:
             assert hasattr(tool, "name")
@@ -208,17 +246,15 @@ class TestMCPTransportIntegration:
         assert callable(LoxoneSecrets.validate)
 
         # With no credentials, should return False
-        with patch.dict("os.environ", {}, clear=True):
+        with patch.dict("os.environ", {}, clear=True):  # noqa: SIM117
             with patch("keyring.get_password", return_value=None):
                 result = LoxoneSecrets.validate()
                 assert result is False
 
         # With credentials, should return True
-        with patch.dict("os.environ", {
-            "LOXONE_HOST": "test",
-            "LOXONE_USER": "test", 
-            "LOXONE_PASS": "test"
-        }):
+        with patch.dict(
+            "os.environ", {"LOXONE_HOST": "test", "LOXONE_USER": "test", "LOXONE_PASS": "test"}
+        ):
             result = LoxoneSecrets.validate()
             assert result is True
 
@@ -232,11 +268,11 @@ class TestMCPServerHTTPEndpoints:
         from loxone_mcp.server import mcp
 
         app = mcp.sse_app()
-        
+
         # Should have at least the SSE route
         routes = list(app.routes)
         assert len(routes) > 0
-        
+
         # Look for SSE route
         sse_routes = [r for r in routes if hasattr(r, "path") and "/sse" in r.path]
         assert len(sse_routes) > 0
@@ -247,10 +283,10 @@ class TestMCPServerHTTPEndpoints:
         from loxone_mcp.server import mcp
 
         prompts = await mcp.list_prompts()
-        
+
         # Should have at least one prompt
         assert len(prompts) > 0
-        
+
         # Check for the system overview prompt
         prompt_names = [p.name for p in prompts]
         assert "loxone_system_overview" in prompt_names
@@ -285,6 +321,7 @@ class TestMCPServerConfiguration:
     def test_environment_variable_handling(self) -> None:
         """Test environment variable configuration."""
         import os
+
         from loxone_mcp.sse_server import SSE_HOST, SSE_PORT
 
         # Test default values
@@ -308,6 +345,7 @@ class TestMCPServerConfiguration:
 
         # Test that logger exists
         from loxone_mcp.sse_server import logger
+
         assert isinstance(logger, logging.Logger)
         assert logger.name is not None
 

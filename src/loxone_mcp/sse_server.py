@@ -30,14 +30,15 @@ logger = logging.getLogger(__name__)
 SSE_PORT = int(os.getenv("LOXONE_SSE_PORT", "8000"))  # FastMCP default port
 SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Localhost only for security
 
-# SSL/HTTPS configuration
+# SSL/HTTPS configuration - placeholder for future SSL support
+SSL_AVAILABLE = False
 try:
-    from loxone_mcp.ssl_config import get_server_urls, get_ssl_config, validate_ssl_setup
+    import importlib.util
 
-    SSL_AVAILABLE = True
+    if importlib.util.find_spec("loxone_mcp.ssl_config"):
+        SSL_AVAILABLE = True
 except ImportError:
     logger.warning("SSL configuration module not available")
-    SSL_AVAILABLE = False
 
 
 # Authentication configuration
@@ -153,7 +154,7 @@ async def setup_api_key() -> str:
 async def run_sse_server() -> None:
     """Run the SSE server using FastMCP's built-in SSE support."""
     logger.info("Starting FastMCP SSE server with authentication...")
-    
+
     # Display server info
     logger.info("🌐 Server will be available at:")
     logger.info(f"   http://{SSE_HOST}:{SSE_PORT}")
@@ -179,19 +180,34 @@ async def run_sse_server() -> None:
     # Run FastMCP's built-in SSE server
     logger.info("✅ Starting FastMCP SSE server...")
     logger.info("📨 SSE endpoint will be available at: /sse")
-    
+
     if SSE_REQUIRE_AUTH:
         logger.warning("⚠️  Note: Authentication middleware not yet integrated with FastMCP SSE")
-        logger.warning("⚠️  This is a known limitation - authentication will be added in a future update")
-    
-    # FastMCP's run_sse_async() only accepts mount_path parameter
-    # It doesn't support custom host, port, or SSL configuration
-    # For full control, we would need to use uvicorn directly with mcp.sse_app()
+        logger.warning(
+            "⚠️  This is a known limitation - authentication will be added in a future update"
+        )
+
+    # Use FastMCP's run_sse_async which should provide the proper MCP SSE protocol
+    # The issue might be that MCP Inspector expects a different URL pattern
+    import uvicorn
+
+    logger.info("🚀 Starting MCP SSE server with FastMCP...")
+    logger.info("📨 SSE endpoint will be available at: /sse")
+
+    # For testing with MCP Inspector, let's run FastMCP's SSE server directly
+    # and see what endpoints it actually provides
     try:
-        await mcp.run_sse_async(mount_path="/sse")
+        # Run with default settings - FastMCP should handle the full MCP protocol
+        await mcp.run_sse_async()
     except Exception as e:
         logger.error(f"Failed to start SSE server: {e}")
-        raise
+        logger.info("Falling back to uvicorn with SSE app...")
+
+        # Fallback: run with uvicorn for more control
+        app = mcp.sse_app()
+        config = uvicorn.Config(app=app, host=SSE_HOST, port=SSE_PORT, log_level="info")
+        server = uvicorn.Server(config)
+        await server.serve()
 
 
 def main() -> None:
