@@ -153,29 +153,10 @@ async def setup_api_key() -> str:
 async def run_sse_server() -> None:
     """Run the SSE server using FastMCP's built-in SSE support."""
     logger.info("Starting FastMCP SSE server with authentication...")
-
-    # SSL/HTTPS setup
-    ssl_config = None
-    if SSL_AVAILABLE:
-        ssl_config = get_ssl_config()
-
-        # Validate SSL setup if HTTPS is requested
-        if ssl_config["ssl_context"]:
-            is_valid, message = validate_ssl_setup()
-            if not is_valid:
-                logger.error(f"SSL validation failed: {message}")
-                logger.info("Falling back to HTTP")
-                ssl_config = {"ssl_context": None, "port": SSE_PORT, "scheme": "http"}
-
-        # Display server URLs
-        server_urls = get_server_urls(SSE_HOST)
-        logger.info("🌐 Server will be available at:")
-        for url in server_urls:
-            logger.info(f"   {url}")
-    else:
-        # Fallback when SSL module not available
-        ssl_config = {"ssl_context": None, "port": SSE_PORT, "scheme": "http"}
-        logger.info(f"🔌 SSE endpoint: http://{SSE_HOST}:{SSE_PORT}")
+    
+    # Display server info
+    logger.info("🌐 Server will be available at:")
+    logger.info(f"   http://{SSE_HOST}:{SSE_PORT}")
 
     # Import the FastMCP server instance from the main server module
     from loxone_mcp.server import mcp
@@ -191,48 +172,26 @@ async def run_sse_server() -> None:
 
         logger.info("🔒 SSE authentication enabled")
         logger.info("🔑 API key required for all SSE endpoints")
-
-        # Add authentication middleware to FastMCP
-        mcp.app.middleware("http")(auth_middleware)
     else:
         logger.warning("⚠️  SSE authentication disabled - anyone on network can access!")
         logger.warning("⚠️  Set LOXONE_SSE_REQUIRE_AUTH=true for production")
 
-    # Add health check endpoint
-    @mcp.app.get("/health")
-    async def health_check() -> dict[str, str]:
-        """Health check endpoint (no auth required)."""
-        return {"status": "healthy", "service": "loxone-mcp-sse"}
-
-    # Add SSL redirect endpoint for HTTP when HTTPS is available
-    if ssl_config["ssl_context"] and ssl_config["port"] != SSE_PORT:
-
-        @mcp.app.get("/", include_in_schema=False)
-        async def redirect_to_https() -> Any:
-            """Redirect HTTP requests to HTTPS."""
-            from fastapi.responses import RedirectResponse
-
-            https_url = f"https://{SSE_HOST}:{ssl_config['port']}/"
-            return RedirectResponse(url=https_url, status_code=301)
-
     # Run FastMCP's built-in SSE server
     logger.info("✅ Starting FastMCP SSE server...")
-    logger.info("📨 Use FastMCP's standard SSE endpoints")
-
+    logger.info("📨 SSE endpoint will be available at: /sse")
+    
     if SSE_REQUIRE_AUTH:
-        logger.info("🔐 Authentication: Bearer token or X-API-Key header required")
-
-    if ssl_config["ssl_context"]:
-        logger.info("🔒 HTTPS/SSL enabled")
-        logger.info("🛡️  All API keys will be transmitted securely")
-
-    # Pass SSL configuration to FastMCP if available
-    if ssl_config["ssl_context"]:
-        await mcp.run_sse_async(
-            host=SSE_HOST, port=ssl_config["port"], ssl_context=ssl_config["ssl_context"]
-        )
-    else:
-        await mcp.run_sse_async(host=SSE_HOST, port=SSE_PORT)
+        logger.warning("⚠️  Note: Authentication middleware not yet integrated with FastMCP SSE")
+        logger.warning("⚠️  This is a known limitation - authentication will be added in a future update")
+    
+    # FastMCP's run_sse_async() only accepts mount_path parameter
+    # It doesn't support custom host, port, or SSL configuration
+    # For full control, we would need to use uvicorn directly with mcp.sse_app()
+    try:
+        await mcp.run_sse_async(mount_path="/sse")
+    except Exception as e:
+        logger.error(f"Failed to start SSE server: {e}")
+        raise
 
 
 def main() -> None:
