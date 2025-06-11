@@ -33,10 +33,12 @@ SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Localhost only for secur
 # SSL/HTTPS configuration
 try:
     from loxone_mcp.ssl_config import get_server_urls, get_ssl_config, validate_ssl_setup
+
     SSL_AVAILABLE = True
 except ImportError:
     logger.warning("SSL configuration module not available")
     SSL_AVAILABLE = False
+
 
 # Authentication configuration
 def get_sse_api_key() -> str | None:
@@ -49,9 +51,11 @@ def get_sse_api_key() -> str | None:
     # Then check keychain
     try:
         from loxone_mcp.credentials import LoxoneSecrets
+
         return LoxoneSecrets.get(LoxoneSecrets.SSE_API_KEY)
     except ImportError:
         return None
+
 
 SSE_API_KEY = get_sse_api_key()  # Get from env or keychain
 SSE_REQUIRE_AUTH = os.getenv("LOXONE_SSE_REQUIRE_AUTH", "true").lower() == "true"
@@ -115,7 +119,7 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
         raise HTTPException(
             status_code=401,
             detail="Invalid or missing API key. "
-                   "Use Authorization: Bearer <key> or X-API-Key header.",
+            "Use Authorization: Bearer <key> or X-API-Key header.",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -202,10 +206,12 @@ async def run_sse_server() -> None:
 
     # Add SSL redirect endpoint for HTTP when HTTPS is available
     if ssl_config["ssl_context"] and ssl_config["port"] != SSE_PORT:
+
         @mcp.app.get("/", include_in_schema=False)
         async def redirect_to_https() -> Any:
             """Redirect HTTP requests to HTTPS."""
             from fastapi.responses import RedirectResponse
+
             https_url = f"https://{SSE_HOST}:{ssl_config['port']}/"
             return RedirectResponse(url=https_url, status_code=301)
 
@@ -223,9 +229,7 @@ async def run_sse_server() -> None:
     # Pass SSL configuration to FastMCP if available
     if ssl_config["ssl_context"]:
         await mcp.run_sse_async(
-            host=SSE_HOST,
-            port=ssl_config["port"],
-            ssl_context=ssl_config["ssl_context"]
+            host=SSE_HOST, port=ssl_config["port"], ssl_context=ssl_config["ssl_context"]
         )
     else:
         await mcp.run_sse_async(host=SSE_HOST, port=SSE_PORT)

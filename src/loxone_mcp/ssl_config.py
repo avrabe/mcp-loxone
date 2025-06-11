@@ -49,7 +49,7 @@ def create_ssl_context() -> ssl.SSLContext | None:
 
         # Security settings
         context.minimum_version = ssl.TLSVersion.TLSv1_2
-        context.set_ciphers('ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS')
+        context.set_ciphers("ECDHE+AESGCM:ECDHE+CHACHA20:DHE+AESGCM:DHE+CHACHA20:!aNULL:!MD5:!DSS")
 
         logger.info("✅ SSL context created successfully")
         logger.info(f"   Certificate: {cert_path}")
@@ -75,16 +75,12 @@ def get_ssl_config() -> dict[str, Any]:
     ssl_context = create_ssl_context()
 
     if ssl_context:
-        return {
-            "ssl_context": ssl_context,
-            "port": SSL_PORT,
-            "scheme": "https"
-        }
+        return {"ssl_context": ssl_context, "port": SSL_PORT, "scheme": "https"}
     else:
         return {
             "ssl_context": None,
             "port": int(os.getenv("LOXONE_SSE_PORT", "8000")),
-            "scheme": "http"
+            "scheme": "http",
         }
 
 
@@ -101,7 +97,9 @@ def validate_ssl_setup() -> tuple[bool, str]:
     key_path = Path(SSL_KEY_FILE)
 
     if not cert_path.exists():
-        return False, f"""
+        return (
+            False,
+            f"""
 SSL certificate not found: {cert_path}
 
 To set up HTTPS for development:
@@ -115,7 +113,8 @@ For production:
 1. Use Let's Encrypt with reverse proxy (recommended)
 2. Or obtain certificates from your CA
 3. Set LOXONE_SSL_CERT and LOXONE_SSL_KEY paths
-"""
+""",
+        )
 
     if not key_path.exists():
         return False, f"SSL private key not found: {key_path}"

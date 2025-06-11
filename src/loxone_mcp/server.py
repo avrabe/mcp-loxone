@@ -2397,16 +2397,16 @@ async def loxone_system_overview() -> str:
         overview = f"""# Loxone System Overview
 
 ## System Status
-{system_status.get('content', 'Unable to retrieve system status')}
+{system_status.get("content", "Unable to retrieve system status")}
 
-## Available Rooms ({len(rooms.get('rooms', []))})
-{rooms.get('content', 'No rooms found')}
+## Available Rooms ({len(rooms.get("rooms", []))})
+{rooms.get("content", "No rooms found")}
 
 ## System Capabilities
-{capabilities.get('content', 'No capabilities detected')}
+{capabilities.get("content", "No capabilities detected")}
 
 ## Device Categories
-{categories.get('content', 'No categories found')}
+{categories.get("content", "No categories found")}
 
 ## Getting Started
 Use these tools to explore and control your system:
