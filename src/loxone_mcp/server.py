@@ -512,6 +512,528 @@ async def control_device(device: str, action: str, room: str | None = None) -> d
         return {"error": f"Failed to control device: {e}"}
 
 
+@mcp.tool()
+async def control_all_rolladen(action: str) -> dict[str, Any]:
+    """
+    Control all rolladen/blinds in the system simultaneously.
+
+    Args:
+        action: Action to perform (up/down/stop)
+
+    Returns:
+        Results of controlling all rolladen devices
+    """
+    try:
+        context = await _ensure_connection()
+    except Exception as e:
+        return {"error": f"Failed to connect to Loxone: {e}"}
+
+    # Normalize action using aliases
+    action = ACTION_ALIASES.get(action.lower(), action.lower())
+
+    # Find all rolladen devices
+    rolladen_devices = []
+    for device_uuid, device_data in context.devices.items():
+        device_type = device_data.get("type", "").lower()
+        if "jalousie" in device_type or "rolladen" in device_type:
+            rolladen_devices.append((device_uuid, device_data))
+
+    if not rolladen_devices:
+        return {"error": "No rolladen/blinds found in the system"}
+
+    # Validate action
+    if action not in ["up", "down", "stop", "hoch", "runter", "stopp", "öffnen", "schließen"]:
+        return {"error": f"Invalid action '{action}'. Use: up, down, stop"}
+
+    # Determine command
+    if action in ["up", "hoch", "rauf", "öffnen", "auf"]:
+        command_suffix = "Up"
+    elif action in ["down", "runter", "zu", "schließen"]:
+        command_suffix = "Down"
+    elif action in ["stop", "stopp", "anhalten"]:
+        command_suffix = "stop"
+    else:
+        return {"error": f"Invalid action '{action}' for rolladen. Use: up, down, stop"}
+
+    # Execute all commands in parallel
+    async def control_single_rolladen(device_uuid: str, device_data: dict) -> dict[str, Any]:
+        try:
+            cmd = f"jdev/sps/io/{device_uuid}/{command_suffix}"
+            result = await context.loxone.send_command(cmd)
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "result": result,
+                "status": "success"
+            }
+        except Exception as e:
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "error": str(e),
+                "status": "failed"
+            }
+
+    # Execute all controls in parallel using asyncio.gather
+    tasks = [
+        control_single_rolladen(device_uuid, device_data)
+        for device_uuid, device_data in rolladen_devices
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results
+    successful = [r for r in results if isinstance(r, dict) and r.get("status") == "success"]
+    failed = [r for r in results if isinstance(r, dict) and r.get("status") == "failed"]
+    exceptions = [r for r in results if not isinstance(r, dict)]
+
+    return {
+        "action": action,
+        "total_devices": len(rolladen_devices),
+        "successful": len(successful),
+        "failed": len(failed) + len(exceptions),
+        "results": results,
+        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen devices"
+    }
+
+
+@mcp.tool()
+async def control_room_rolladen(room: str, action: str) -> dict[str, Any]:
+    """
+    Control all rolladen/blinds in a specific room simultaneously.
+
+    Args:
+        room: Room name to control rolladen in
+        action: Action to perform (up/down/stop)
+
+    Returns:
+        Results of controlling room rolladen devices
+    """
+    try:
+        context = await _ensure_connection()
+    except Exception as e:
+        return {"error": f"Failed to connect to Loxone: {e}"}
+
+    # Normalize action using aliases
+    action = ACTION_ALIASES.get(action.lower(), action.lower())
+
+    # Find room UUID
+    room_uuid = None
+    for uuid, room_name in context.rooms.items():
+        if room.lower() in room_name.lower():
+            room_uuid = uuid
+            break
+
+    if not room_uuid:
+        return {"error": f"Room '{room}' not found"}
+
+    # Find rolladen devices in the specified room
+    rolladen_devices = []
+    for device_uuid, device_data in context.devices.items():
+        device_type = device_data.get("type", "").lower()
+        device_room_uuid = device_data.get("room")
+
+        is_rolladen = "jalousie" in device_type or "rolladen" in device_type
+        if is_rolladen and device_room_uuid == room_uuid:
+            rolladen_devices.append((device_uuid, device_data))
+
+    if not rolladen_devices:
+        return {"error": f"No rolladen/blinds found in room '{room}'"}
+
+    # Validate action
+    if action not in ["up", "down", "stop", "hoch", "runter", "stopp", "öffnen", "schließen"]:
+        return {"error": f"Invalid action '{action}'. Use: up, down, stop"}
+
+    # Determine command
+    if action in ["up", "hoch", "rauf", "öffnen", "auf"]:
+        command_suffix = "Up"
+    elif action in ["down", "runter", "zu", "schließen"]:
+        command_suffix = "Down"
+    elif action in ["stop", "stopp", "anhalten"]:
+        command_suffix = "stop"
+    else:
+        return {"error": f"Invalid action '{action}' for rolladen. Use: up, down, stop"}
+
+    # Execute all commands in parallel
+    async def control_single_rolladen(device_uuid: str, device_data: dict) -> dict[str, Any]:
+        try:
+            cmd = f"jdev/sps/io/{device_uuid}/{command_suffix}"
+            result = await context.loxone.send_command(cmd)
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "action": action,
+                "result": result,
+                "status": "success"
+            }
+        except Exception as e:
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "action": action,
+                "error": str(e),
+                "status": "failed"
+            }
+
+    # Execute all controls in parallel using asyncio.gather
+    tasks = [
+        control_single_rolladen(device_uuid, device_data)
+        for device_uuid, device_data in rolladen_devices
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results
+    successful = [r for r in results if isinstance(r, dict) and r.get("status") == "success"]
+    failed = [r for r in results if isinstance(r, dict) and r.get("status") == "failed"]
+    exceptions = [r for r in results if not isinstance(r, dict)]
+
+    return {
+        "room": room,
+        "action": action,
+        "total_devices": len(rolladen_devices),
+        "successful": len(successful),
+        "failed": len(failed) + len(exceptions),
+        "results": results,
+        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen in {room}"
+    }
+
+
+@mcp.tool()
+async def control_multiple_devices(
+    devices: list[str], action: str, room: str | None = None
+) -> dict[str, Any]:
+    """
+    Control multiple devices simultaneously by name or UUID.
+
+    Args:
+        devices: List of device names or UUIDs to control
+        action: Action to perform on all devices
+        room: Optional room name to narrow search
+
+    Returns:
+        Results of controlling all specified devices
+    """
+    try:
+        context = await _ensure_connection()
+    except Exception as e:
+        return {"error": f"Failed to connect to Loxone: {e}"}
+
+    # Normalize action using aliases
+    action = ACTION_ALIASES.get(action.lower(), action.lower())
+
+    if not devices:
+        return {"error": "No devices specified"}
+
+    # Find target devices
+    target_devices = []
+    not_found = []
+
+    for device_identifier in devices:
+        found = False
+        for device_uuid, device_data in context.devices.items():
+            device_name = device_data.get("name", "").lower()
+
+            # Check if device matches
+            if device_identifier.lower() in device_name or device_identifier == device_uuid:
+                # If room specified, check room match
+                if room:
+                    device_room_uuid = device_data.get("room")
+                    if device_room_uuid:
+                        room_name = context.rooms.get(device_room_uuid, "").lower()
+                        if room.lower() not in room_name:
+                            continue
+
+                target_devices.append((device_uuid, device_data))
+                found = True
+                break
+
+        if not found:
+            not_found.append(device_identifier)
+
+    if not target_devices:
+        return {"error": f"No devices found: {', '.join(not_found)}"}
+
+    # Execute all commands in parallel
+    async def control_single_device(device_uuid: str, device_data: dict) -> dict[str, Any]:
+        try:
+            device_type = device_data.get("type", "").lower()
+
+            # Determine command based on device type and action
+            if "jalousie" in device_type or "rolladen" in device_type:
+                # Rolladen/blind control
+                if action in ["up", "hoch", "rauf", "öffnen", "auf"]:
+                    result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/Up")
+                elif action in ["down", "runter", "zu", "schließen"]:
+                    result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/Down")
+                elif action in ["stop", "stopp", "anhalten"]:
+                    result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/stop")
+                else:
+                    return {
+                        "device": device_data.get("name"),
+                        "uuid": device_uuid,
+                        "type": device_data.get("type"),
+                        "action": action,
+                        "error": f"Invalid action '{action}' for rolladen. Use: up, down, stop",
+                        "status": "failed"
+                    }
+            elif "light" in device_type:
+                # Light control
+                if action in ["on", "an", "ein"]:
+                    result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/On")
+                elif action in ["off", "aus"]:
+                    result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/Off")
+                else:
+                    return {
+                        "device": device_data.get("name"),
+                        "uuid": device_uuid,
+                        "type": device_data.get("type"),
+                        "action": action,
+                        "error": f"Invalid action '{action}' for light. Use: on, off",
+                        "status": "failed"
+                    }
+            else:
+                # Generic control
+                result = await context.loxone.send_command(f"jdev/sps/io/{device_uuid}/{action}")
+
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "type": device_data.get("type"),
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "result": result,
+                "status": "success"
+            }
+        except Exception as e:
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "type": device_data.get("type"),
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "error": str(e),
+                "status": "failed"
+            }
+
+    # Execute all controls in parallel using asyncio.gather
+    tasks = [
+        control_single_device(device_uuid, device_data)
+        for device_uuid, device_data in target_devices
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results
+    successful = [r for r in results if isinstance(r, dict) and r.get("status") == "success"]
+    failed = [r for r in results if isinstance(r, dict) and r.get("status") == "failed"]
+    exceptions = [r for r in results if not isinstance(r, dict)]
+
+    summary_parts = []
+    if successful:
+        summary_parts.append(f"{len(successful)} successful")
+    if failed or exceptions:
+        summary_parts.append(f"{len(failed) + len(exceptions)} failed")
+    if not_found:
+        summary_parts.append(f"{len(not_found)} not found")
+
+    return {
+        "action": action,
+        "requested_devices": len(devices),
+        "found_devices": len(target_devices),
+        "successful": len(successful),
+        "failed": len(failed) + len(exceptions),
+        "not_found": not_found,
+        "results": results,
+        "summary": f"Controlled devices: {', '.join(summary_parts)}"
+    }
+
+
+@mcp.tool()
+async def control_all_lights(action: str) -> dict[str, Any]:
+    """
+    Control all lights in the system simultaneously.
+
+    Args:
+        action: Action to perform (on/off)
+
+    Returns:
+        Results of controlling all light devices
+    """
+    try:
+        context = await _ensure_connection()
+    except Exception as e:
+        return {"error": f"Failed to connect to Loxone: {e}"}
+
+    # Normalize action using aliases
+    action = ACTION_ALIASES.get(action.lower(), action.lower())
+
+    # Find all light devices
+    light_devices = []
+    for device_uuid, device_data in context.devices.items():
+        device_type = device_data.get("type", "").lower()
+        if "light" in device_type:
+            light_devices.append((device_uuid, device_data))
+
+    if not light_devices:
+        return {"error": "No lights found in the system"}
+
+    # Validate action
+    if action not in ["on", "off", "an", "aus", "ein"]:
+        return {"error": f"Invalid action '{action}'. Use: on, off"}
+
+    # Determine command
+    if action in ["on", "an", "ein"]:
+        command_suffix = "On"
+    elif action in ["off", "aus"]:
+        command_suffix = "Off"
+    else:
+        return {"error": f"Invalid action '{action}' for lights. Use: on, off"}
+
+    # Execute all commands in parallel
+    async def control_single_light(device_uuid: str, device_data: dict) -> dict[str, Any]:
+        try:
+            cmd = f"jdev/sps/io/{device_uuid}/{command_suffix}"
+            result = await context.loxone.send_command(cmd)
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "result": result,
+                "status": "success"
+            }
+        except Exception as e:
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
+                "action": action,
+                "error": str(e),
+                "status": "failed"
+            }
+
+    # Execute all controls in parallel using asyncio.gather
+    tasks = [
+        control_single_light(device_uuid, device_data)
+        for device_uuid, device_data in light_devices
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results
+    successful = [r for r in results if isinstance(r, dict) and r.get("status") == "success"]
+    failed = [r for r in results if isinstance(r, dict) and r.get("status") == "failed"]
+    exceptions = [r for r in results if not isinstance(r, dict)]
+
+    return {
+        "action": action,
+        "total_devices": len(light_devices),
+        "successful": len(successful),
+        "failed": len(failed) + len(exceptions),
+        "results": results,
+        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices"
+    }
+
+
+@mcp.tool()
+async def control_room_lights(room: str, action: str) -> dict[str, Any]:
+    """
+    Control all lights in a specific room simultaneously.
+
+    Args:
+        room: Room name to control lights in
+        action: Action to perform (on/off)
+
+    Returns:
+        Results of controlling room light devices
+    """
+    try:
+        context = await _ensure_connection()
+    except Exception as e:
+        return {"error": f"Failed to connect to Loxone: {e}"}
+
+    # Normalize action using aliases
+    action = ACTION_ALIASES.get(action.lower(), action.lower())
+
+    # Find room UUID
+    room_uuid = None
+    for uuid, room_name in context.rooms.items():
+        if room.lower() in room_name.lower():
+            room_uuid = uuid
+            break
+
+    if not room_uuid:
+        return {"error": f"Room '{room}' not found"}
+
+    # Find light devices in the specified room
+    light_devices = []
+    for device_uuid, device_data in context.devices.items():
+        device_type = device_data.get("type", "").lower()
+        device_room_uuid = device_data.get("room")
+
+        if "light" in device_type and device_room_uuid == room_uuid:
+            light_devices.append((device_uuid, device_data))
+
+    if not light_devices:
+        return {"error": f"No lights found in room '{room}'"}
+
+    # Validate action
+    if action not in ["on", "off", "an", "aus", "ein"]:
+        return {"error": f"Invalid action '{action}'. Use: on, off"}
+
+    # Determine command
+    if action in ["on", "an", "ein"]:
+        command_suffix = "On"
+    elif action in ["off", "aus"]:
+        command_suffix = "Off"
+    else:
+        return {"error": f"Invalid action '{action}' for lights. Use: on, off"}
+
+    # Execute all commands in parallel
+    async def control_single_light(device_uuid: str, device_data: dict) -> dict[str, Any]:
+        try:
+            cmd = f"jdev/sps/io/{device_uuid}/{command_suffix}"
+            result = await context.loxone.send_command(cmd)
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "action": action,
+                "result": result,
+                "status": "success"
+            }
+        except Exception as e:
+            return {
+                "device": device_data.get("name"),
+                "uuid": device_uuid,
+                "action": action,
+                "error": str(e),
+                "status": "failed"
+            }
+
+    # Execute all controls in parallel using asyncio.gather
+    tasks = [
+        control_single_light(device_uuid, device_data)
+        for device_uuid, device_data in light_devices
+    ]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    # Process results
+    successful = [r for r in results if isinstance(r, dict) and r.get("status") == "success"]
+    failed = [r for r in results if isinstance(r, dict) and r.get("status") == "failed"]
+    exceptions = [r for r in results if not isinstance(r, dict)]
+
+    return {
+        "room": room,
+        "action": action,
+        "total_devices": len(light_devices),
+        "successful": len(successful),
+        "failed": len(failed) + len(exceptions),
+        "results": results,
+        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices in {room}"
+    }
+
+
 # === Generic Device Discovery and Control Tools ===
 
 
