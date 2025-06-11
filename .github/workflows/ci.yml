@@ -134,6 +134,22 @@ jobs:
         run: |
           # Just check if the server can be imported without errors
           uv run python -c "from loxone_mcp import mcp; print('Server module imports successfully')"
+      
+      - name: Test MCP transport modes
+        run: |
+          # Test both stdio and SSE transport modules can be imported
+          uv run python -c "
+          import loxone_mcp.server as server;
+          import loxone_mcp.sse_server as sse;
+          print('✅ stdio transport: server module imported');
+          print('✅ SSE transport: sse_server module imported');
+          print('✅ FastMCP has required methods:', hasattr(server.mcp, 'run_stdio_async'), hasattr(server.mcp, 'run_sse_async'));
+          "
+      
+      - name: Run transport-specific tests
+        run: |
+          # Run the transport tests specifically
+          uv run python -m pytest tests/test_mcp_transports.py -v --tb=short
 
   validate-mcp:
     name: Validate MCP Implementation
