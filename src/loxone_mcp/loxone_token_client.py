@@ -9,6 +9,7 @@ Copyright (c) 2025 Ralf Anton Beier
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import hmac
 import logging
@@ -78,9 +79,17 @@ class LoxoneTokenClient:
         self.websocket_client: Any | None = None
         self.realtime_monitoring = False
 
-        # Connection state
+        # Connection state with thread safety
         self.connected = False
         self.last_successful_command = time.time()
+        self._connection_lock = asyncio.Lock()
+        self._retry_count = 0
+
+        # Circuit breaker for connection failures
+        self._consecutive_failures = 0
+        self._circuit_open_until = 0
+        self._circuit_breaker_threshold = 5  # Open circuit after 5 consecutive failures
+        self._circuit_breaker_timeout = 60  # Keep circuit open for 60 seconds
 
         # Reconnection settings
         self.max_reconnect_attempts = max_reconnect_attempts
@@ -138,6 +147,16 @@ class LoxoneTokenClient:
         """Close HTTP client and kill token."""
         logger.info("Closing Loxone client...")
 
+        # Cancel monitoring task if it exists
+        if self.reconnect_task and not self.reconnect_task.done():
+            try:
+                logger.debug("Cancelling connection monitoring task...")
+                self.reconnect_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await self.reconnect_task
+            except Exception as e:
+                logger.warning(f"Failed to cancel monitoring task: {e}")
+
         # Close WebSocket if active
         if self.websocket_client:
             try:
@@ -148,11 +167,16 @@ class LoxoneTokenClient:
             except Exception as e:
                 logger.warning(f"Failed to close WebSocket: {e}")
 
-        # Kill token with improved error handling
+        # Kill token with improved error handling and shorter timeout
         if self.token:
             try:
                 logger.debug("Killing authentication token...")
-                await self._kill_token()
+                # Use shorter timeout for cleanup to avoid blocking shutdown
+                await asyncio.wait_for(self._kill_token(), timeout=3.0)
+                self.token = None
+                self.key = None
+            except TimeoutError:
+                logger.warning("Token cleanup timed out during shutdown")
                 self.token = None
                 self.key = None
             except Exception as e:
@@ -413,25 +437,33 @@ class LoxoneTokenClient:
                 logger.warning(f"Token refresh failed: {e}, acquiring new token...")
                 await self._acquire_token()
 
-    async def send_command(self, command: str) -> Any:
+    async def send_command(self, command: str, _retry_count: int = 0) -> Any:
         """
         Send command using token authentication with automatic reconnection.
 
         Args:
             command: Command to send (e.g., "jdev/sps/io/uuid/state")
+            _retry_count: Internal retry counter to prevent infinite recursion
 
         Returns:
             Command response value
         """
-        # Check if we need to reconnect
-        if not self.connected:
-            logger.info("Not connected, attempting to reconnect...")
-            await self._ensure_connection()
+        max_retries = 2  # Limit retries to prevent infinite recursion
 
-        await self._refresh_token_if_needed()
+        if _retry_count >= max_retries:
+            raise ConnectionError(f"Failed to send command '{command}' after {max_retries} retries")
 
-        if not self.token or not self.key:
-            raise ValueError("No valid token available")
+        # Use connection lock to prevent concurrent reconnection attempts
+        async with self._connection_lock:
+            # Check if we need to reconnect
+            if not self.connected:
+                logger.info("Not connected, attempting to reconnect...")
+                await self._ensure_connection()
+
+            await self._refresh_token_if_needed()
+
+            if not self.token or not self.key:
+                raise ValueError("No valid token available")
 
         try:
             # Add token authentication to command
@@ -450,21 +482,38 @@ class LoxoneTokenClient:
 
             # Check for authentication errors
             if data.get("LL", {}).get("code") == "401":
-                logger.warning("Authentication failed, refreshing token...")
-                await self._acquire_token()
-                # Retry once with new token
-                return await self.send_command(command)
+                if _retry_count < max_retries:
+                    logger.warning("Authentication failed, refreshing token...")
+                    async with self._connection_lock:
+                        await self._acquire_token()
+                    # Retry once with new token
+                    return await self.send_command(command, _retry_count + 1)
+                else:
+                    raise ConnectionError("Authentication failed after token refresh")
 
-            # Update last successful command time
+            # Update last successful command time and reset retry count
             self.last_successful_command = time.time()
+            self._retry_count = 0
             return data.get("LL", {}).get("value")
 
         except (httpx.NetworkError, httpx.TimeoutException) as e:
             logger.error(f"Network error for command '{command}': {e}")
-            self.connected = False
-            # Try to reconnect and retry
-            await self._ensure_connection()
-            return await self.send_command(command)
+
+            if _retry_count < max_retries:
+                # Mark as disconnected and try to reconnect
+                async with self._connection_lock:
+                    self.connected = False
+                    try:
+                        await self._ensure_connection()
+                    except Exception as conn_error:
+                        logger.error(f"Reconnection failed: {conn_error}")
+                        msg = f"Network error and reconnection failed: {e}"
+                        raise ConnectionError(msg) from conn_error
+
+                # Retry with incremented counter
+                return await self.send_command(command, _retry_count + 1)
+            else:
+                raise ConnectionError(f"Network error after {max_retries} retries: {e}") from e
         except Exception as e:
             logger.error(f"Command '{command}' failed: {e}")
             raise
@@ -571,6 +620,14 @@ class LoxoneTokenClient:
 
     async def _ensure_connection(self) -> None:
         """Ensure we have a valid connection, reconnecting if necessary."""
+        # Check circuit breaker
+        current_time = time.time()
+        if current_time < self._circuit_open_until:
+            raise ConnectionError(
+                f"Circuit breaker open due to {self._consecutive_failures} consecutive failures. "
+                f"Retry after {self._circuit_open_until - current_time:.1f} seconds."
+            )
+
         if not self._reconnection_event.is_set():
             # Wait for ongoing reconnection
             await self._reconnection_event.wait()
@@ -580,6 +637,8 @@ class LoxoneTokenClient:
             # Check if connection is still alive
             try:
                 await self._check_reachability()
+                # Reset circuit breaker on successful check
+                self._consecutive_failures = 0
                 return
             except Exception:
                 logger.info("Connection check failed, marking as disconnected")
@@ -589,6 +648,18 @@ class LoxoneTokenClient:
         self._reconnection_event.clear()
         try:
             await self.connect()
+            # Reset circuit breaker on successful connection
+            self._consecutive_failures = 0
+        except Exception as e:
+            # Increment failure counter and potentially open circuit breaker
+            self._consecutive_failures += 1
+            if self._consecutive_failures >= self._circuit_breaker_threshold:
+                self._circuit_open_until = current_time + self._circuit_breaker_timeout
+                failures = self._consecutive_failures
+                timeout = self._circuit_breaker_timeout
+                msg = f"Circuit breaker opened after {failures} failures. Retry after {timeout}s."
+                logger.warning(msg)
+            raise e
         finally:
             self._reconnection_event.set()
 
@@ -598,17 +669,32 @@ class LoxoneTokenClient:
             try:
                 await asyncio.sleep(60)  # Check every minute
 
+                # Skip monitoring if circuit breaker is open
+                if time.time() < self._circuit_open_until:
+                    continue
+
                 # Check if we've had recent successful commands
                 time_since_last_command = time.time() - self.last_successful_command
                 if time_since_last_command > 300:  # 5 minutes
                     # Do a health check
                     logger.debug("Performing connection health check...")
-                    await self._check_reachability()
-                    self.last_successful_command = time.time()
+                    try:
+                        await self._check_reachability()
+                        self.last_successful_command = time.time()
+                        # Reset circuit breaker on successful health check
+                        self._consecutive_failures = 0
+                    except Exception as e:
+                        logger.warning(f"Connection health check failed: {e}")
+                        self.connected = False
+                        # Don't increment failure counter here as it's done in _ensure_connection
 
+            except asyncio.CancelledError:
+                logger.info("Connection monitoring task cancelled")
+                break
             except Exception as e:
-                logger.warning(f"Connection health check failed: {e}")
-                self.connected = False
+                logger.error(f"Unexpected error in connection monitoring: {e}")
+                # Wait before retrying to avoid tight loop
+                await asyncio.sleep(30)
 
     def get_realtime_state(self, uuid_str: str) -> Any:
         """
