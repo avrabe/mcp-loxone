@@ -10,6 +10,7 @@ import logging
 import os
 import signal
 import sys
+import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
@@ -73,6 +74,10 @@ class ServerContext:
 # Global context
 _context: ServerContext | None = None
 
+# Simple cache for frequently accessed data (following OpenAI MCP best practices)
+_response_cache: dict[str, tuple[float, Any]] = {}  # key -> (timestamp, data)
+_cache_ttl = 30  # 30 seconds cache TTL
+
 
 # Multilingual mappings for better LLM support
 ACTION_ALIASES = {
@@ -103,6 +108,31 @@ _initializing = False
 _initialization_error: Exception | None = None
 _initialization_event = asyncio.Event()
 _initialization_event.set()  # Initially not initializing
+
+
+def _get_cached_or_fetch(cache_key: str, fetch_func: Any, *args: Any, **kwargs: Any) -> Any:
+    """
+    Get data from cache or fetch if expired/missing.
+    Implements caching best practice from OpenAI MCP guide.
+    """
+    current_time = time.time()
+
+    # Check if we have valid cached data
+    if cache_key in _response_cache:
+        timestamp, cached_data = _response_cache[cache_key]
+        if current_time - timestamp < _cache_ttl:
+            return cached_data
+
+    # Fetch new data and cache it
+    fresh_data = fetch_func(*args, **kwargs)
+    _response_cache[cache_key] = (current_time, fresh_data)
+
+    # Clean old cache entries to prevent memory bloat
+    if len(_response_cache) > 100:  # Keep cache size reasonable
+        oldest_key = min(_response_cache.keys(), key=lambda k: _response_cache[k][0])
+        del _response_cache[oldest_key]
+
+    return fresh_data
 
 
 async def _ensure_connection() -> ServerContext:
@@ -351,17 +381,84 @@ mcp = FastMCP("Loxone Controller", lifespan=lifespan)
 
 
 @mcp.tool()
-async def list_rooms() -> list[dict[str, str]]:
+async def list_rooms(limit: int = 20, include_device_count: bool = True) -> dict[str, Any]:
     """
-    List all available rooms in the Loxone system.
+    List all available rooms in the Loxone system with performance optimizations.
 
-    Returns a list of rooms with their UUID and name.
+    Args:
+        limit: Maximum number of rooms to return (default: 20, max: 50)
+        include_device_count: Whether to include device counts per room
+
+    Returns:
+        Dictionary with room information and pagination details
     """
     try:
         context = await _ensure_connection()
-        return [{"uuid": uuid, "name": name} for uuid, name in context.rooms.items()]
+
+        # Apply pagination to prevent large payloads
+        limit = min(max(1, limit), 50)
+
+        # Use caching for basic room lists
+        if not include_device_count:
+            cache_key = f"rooms_simple_{limit}"
+            return _get_cached_or_fetch(cache_key, _get_simple_rooms_list, context, limit)
+
+        # For room lists with device counts
+        rooms_list = list(context.rooms.items())[:limit]
+        has_more = len(context.rooms) > limit
+
+        rooms_with_info = []
+        for uuid, name in rooms_list:
+            room_info = {"uuid": uuid, "name": name}
+
+            if include_device_count:
+                devices_in_room = context.devices_by_room.get(uuid, [])
+                room_info["device_count"] = len(devices_in_room)
+                # Show most common device types in this room
+                device_types = [d.get("type", "Unknown") for d in devices_in_room]
+                type_counts = {}
+                for dt in device_types:
+                    type_counts[dt] = type_counts.get(dt, 0) + 1
+                # Sort by count and take top 3
+                top_types = sorted(type_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+                room_info["main_device_types"] = [t[0] for t in top_types]
+
+            rooms_with_info.append(room_info)
+
+        result = {
+            "total_rooms": len(context.rooms),
+            "showing": len(rooms_list),
+            "has_more": has_more,
+            "rooms": rooms_with_info,
+            "note": "Use get_room_devices(room_name) for detailed device information",
+        }
+
+        if has_more:
+            result["pagination_note"] = (
+                f"Showing {limit} of {len(context.rooms)} rooms. Increase limit to see more."
+            )
+
+        return result
+
     except Exception as e:
-        return [{"error": f"Failed to connect to Loxone: {e}"}]
+        return {
+            "error": f"Failed to connect to Loxone: {e}",
+            "help": "Check your Loxone credentials and network connection",
+        }
+
+
+def _get_simple_rooms_list(context: ServerContext, limit: int) -> dict[str, Any]:
+    """Get simple room list (cacheable)."""
+    rooms_list = list(context.rooms.items())[:limit]
+    has_more = len(context.rooms) > limit
+
+    return {
+        "total_rooms": len(context.rooms),
+        "showing": len(rooms_list),
+        "has_more": has_more,
+        "rooms": [{"uuid": uuid, "name": name} for uuid, name in rooms_list],
+        "note": "Basic room list. Use include_device_count=true for more details.",
+    }
 
 
 @mcp.tool()
@@ -415,15 +512,30 @@ async def get_room_devices(room: str, device_type: str | None = None) -> list[di
 @mcp.tool()
 async def control_device(device: str, action: str, room: str | None = None) -> dict[str, Any]:
     """
-    Control a Loxone device (lights, rolladen, etc.).
+    Control any single Loxone device with intelligent action mapping and multilingual support.
+
+    This is the primary device control function that automatically determines the correct
+    command based on device type. Supports partial name matching and provides helpful
+    error suggestions when devices aren't found.
 
     Args:
-        device: Device name or UUID
-        action: Action to perform (on/off for lights, up/down/stop for rolladen)
-        room: Optional room name to narrow search
+        device: Device name (partial matching supported) or exact UUID
+               Examples: "kitchen light", "living room rolladen", "Küche Licht"
+        action: Action to perform (automatically mapped by device type):
+               • Lights: on/off, an/aus, ein/ausschalten
+               • Rolladen: up/down/stop, hoch/runter/stopp, öffnen/schließen
+               • Generic devices: any valid command for the device type
+        room: Optional room name to narrow search and avoid ambiguous matches
+             Examples: "kitchen", "living room", "Küche", "Wohnzimmer"
 
     Returns:
-        Result of the control action
+        Detailed result including device info, action performed, and command response
+        On error: helpful suggestions for device discovery and similar device names
+
+    Example usage:
+        - control_device("kitchen light", "on")
+        - control_device("rolladen", "down", "bedroom")
+        - control_device("Küche Licht", "aus")
     """
     try:
         context = await _ensure_connection()
@@ -464,7 +576,34 @@ async def control_device(device: str, action: str, room: str | None = None) -> d
             break
 
     if not target_device:
-        return {"error": f"Device '{device}' not found" + (f" in room '{room}'" if room else "")}
+        # Provide helpful suggestions for device discovery
+        suggestions = []
+        all_devices = list(context.devices.values())[:10]  # Sample of devices
+
+        similar_devices = [
+            d.get("name", "") for d in all_devices if device.lower() in d.get("name", "").lower()
+        ][:3]
+
+        if similar_devices:
+            suggestions.append(f"Similar devices found: {', '.join(similar_devices)}")
+
+        if room:
+            room_devices = [
+                d.get("name", "")
+                for d in all_devices
+                if d.get("room")
+                and context.rooms.get(d.get("room", ""), "").lower() == room.lower()
+            ][:5]
+            if room_devices:
+                suggestions.append(f"Devices in {room}: {', '.join(room_devices)}")
+
+        suggestions.append("Use list_rooms() or discover_all_devices() to see available options")
+
+        return {
+            "error": f"Device '{device}' not found" + (f" in room '{room}'" if room else ""),
+            "suggestions": suggestions,
+            "help": "Try using partial device names or check spelling",
+        }
 
     # Determine command based on device type and action
     device_type = target_device.get("type", "").lower()
@@ -515,13 +654,25 @@ async def control_device(device: str, action: str, room: str | None = None) -> d
 @mcp.tool()
 async def control_all_rolladen(action: str) -> dict[str, Any]:
     """
-    Control all rolladen/blinds in the system simultaneously.
+    Control all rolladen/blinds in the system simultaneously for maximum efficiency.
+
+    This function executes commands in parallel across all rolladen devices,
+    making it ideal for scenarios like "close all blinds" or "open all rolladen".
+    Significantly faster than controlling devices individually.
 
     Args:
-        action: Action to perform (up/down/stop)
+        action: Action to perform - accepts both English and German:
+               • up/hoch/öffnen - Open/raise all rolladen
+               • down/runter/schließen - Close/lower all rolladen
+               • stop/stopp - Stop all rolladen movement
 
     Returns:
-        Results of controlling all rolladen devices
+        Comprehensive results showing success/failure for each device with summary statistics
+
+    Example usage:
+        - "Close all rolladen before a storm"
+        - "Open all blinds in the morning"
+        - "Stop all rolladen movement immediately"
     """
     try:
         context = await _ensure_connection()
@@ -566,7 +717,7 @@ async def control_all_rolladen(action: str) -> dict[str, Any]:
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "result": result,
-                "status": "success"
+                "status": "success",
             }
         except Exception as e:
             return {
@@ -575,7 +726,7 @@ async def control_all_rolladen(action: str) -> dict[str, Any]:
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
             }
 
     # Execute all controls in parallel using asyncio.gather
@@ -596,7 +747,7 @@ async def control_all_rolladen(action: str) -> dict[str, Any]:
         "successful": len(successful),
         "failed": len(failed) + len(exceptions),
         "results": results,
-        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen devices"
+        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen devices",
     }
 
 
@@ -667,7 +818,7 @@ async def control_room_rolladen(room: str, action: str) -> dict[str, Any]:
                 "uuid": device_uuid,
                 "action": action,
                 "result": result,
-                "status": "success"
+                "status": "success",
             }
         except Exception as e:
             return {
@@ -675,7 +826,7 @@ async def control_room_rolladen(room: str, action: str) -> dict[str, Any]:
                 "uuid": device_uuid,
                 "action": action,
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
             }
 
     # Execute all controls in parallel using asyncio.gather
@@ -697,7 +848,7 @@ async def control_room_rolladen(room: str, action: str) -> dict[str, Any]:
         "successful": len(successful),
         "failed": len(failed) + len(exceptions),
         "results": results,
-        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen in {room}"
+        "summary": f"Controlled {len(successful)}/{len(rolladen_devices)} rolladen in {room}",
     }
 
 
@@ -777,7 +928,7 @@ async def control_multiple_devices(
                         "type": device_data.get("type"),
                         "action": action,
                         "error": f"Invalid action '{action}' for rolladen. Use: up, down, stop",
-                        "status": "failed"
+                        "status": "failed",
                     }
             elif "light" in device_type:
                 # Light control
@@ -792,7 +943,7 @@ async def control_multiple_devices(
                         "type": device_data.get("type"),
                         "action": action,
                         "error": f"Invalid action '{action}' for light. Use: on, off",
-                        "status": "failed"
+                        "status": "failed",
                     }
             else:
                 # Generic control
@@ -805,7 +956,7 @@ async def control_multiple_devices(
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "result": result,
-                "status": "success"
+                "status": "success",
             }
         except Exception as e:
             return {
@@ -815,7 +966,7 @@ async def control_multiple_devices(
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
             }
 
     # Execute all controls in parallel using asyncio.gather
@@ -846,7 +997,7 @@ async def control_multiple_devices(
         "failed": len(failed) + len(exceptions),
         "not_found": not_found,
         "results": results,
-        "summary": f"Controlled devices: {', '.join(summary_parts)}"
+        "summary": f"Controlled devices: {', '.join(summary_parts)}",
     }
 
 
@@ -902,7 +1053,7 @@ async def control_all_lights(action: str) -> dict[str, Any]:
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "result": result,
-                "status": "success"
+                "status": "success",
             }
         except Exception as e:
             return {
@@ -911,13 +1062,12 @@ async def control_all_lights(action: str) -> dict[str, Any]:
                 "room": context.rooms.get(device_data.get("room", ""), "Unknown"),
                 "action": action,
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
             }
 
     # Execute all controls in parallel using asyncio.gather
     tasks = [
-        control_single_light(device_uuid, device_data)
-        for device_uuid, device_data in light_devices
+        control_single_light(device_uuid, device_data) for device_uuid, device_data in light_devices
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -932,7 +1082,7 @@ async def control_all_lights(action: str) -> dict[str, Any]:
         "successful": len(successful),
         "failed": len(failed) + len(exceptions),
         "results": results,
-        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices"
+        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices",
     }
 
 
@@ -1000,7 +1150,7 @@ async def control_room_lights(room: str, action: str) -> dict[str, Any]:
                 "uuid": device_uuid,
                 "action": action,
                 "result": result,
-                "status": "success"
+                "status": "success",
             }
         except Exception as e:
             return {
@@ -1008,13 +1158,12 @@ async def control_room_lights(room: str, action: str) -> dict[str, Any]:
                 "uuid": device_uuid,
                 "action": action,
                 "error": str(e),
-                "status": "failed"
+                "status": "failed",
             }
 
     # Execute all controls in parallel using asyncio.gather
     tasks = [
-        control_single_light(device_uuid, device_data)
-        for device_uuid, device_data in light_devices
+        control_single_light(device_uuid, device_data) for device_uuid, device_data in light_devices
     ]
     results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -1030,7 +1179,7 @@ async def control_room_lights(room: str, action: str) -> dict[str, Any]:
         "successful": len(successful),
         "failed": len(failed) + len(exceptions),
         "results": results,
-        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices in {room}"
+        "summary": f"Controlled {len(successful)}/{len(light_devices)} light devices in {room}",
     }
 
 
@@ -1083,27 +1232,37 @@ async def discover_all_devices() -> dict[str, Any]:
 
 
 @mcp.tool()
-async def get_devices_by_category(category: str | None = None) -> dict[str, Any]:
+async def get_devices_by_category(
+    category: str | None = None, limit: int = 10, include_state: bool = False
+) -> dict[str, Any]:
     """
-    Get devices filtered by Loxone category.
+    Get devices filtered by Loxone category with pagination to avoid large payloads.
 
     Args:
         category: Category name (e.g., "Überwachung", "Beschattung", "Beleuchtung")
                  If None, returns all categories with device counts
+        limit: Maximum number of devices to return (default: 10, max: 50)
+        include_state: Whether to fetch current device states (slower but more detailed)
 
     Returns:
-        Devices in the specified category with current states
+        Devices in the specified category, optionally with current states
     """
     if not _context:
         return {"error": "Not connected to Loxone"}
 
+    # Validate and cap limit to prevent payload bloat
+    limit = min(max(1, limit), 50)  # Between 1 and 50
+
     if category is None:
-        # Return all categories with counts
+        # Return all categories with counts (limited to most important)
+        categories = _context.devices_by_category.items()
         return {
             "available_categories": {
-                cat_name: len(devices) for cat_name, devices in _context.devices_by_category.items()
+                cat_name: len(devices)
+                for cat_name, devices in list(categories)[:20]  # Top 20 categories
             },
-            "note": "Specify a category name to get detailed device information",
+            "total_categories": len(_context.devices_by_category),
+            "note": "Specify a category name to get detailed device information. Use limit parameter to control result size.",
         }
 
     # Find devices in the specified category
@@ -1113,14 +1272,25 @@ async def get_devices_by_category(category: str | None = None) -> dict[str, Any]
         available = list(_context.devices_by_category.keys())
         return {
             "error": f"Category '{category}' not found",
+            "suggestion": f"Did you mean one of: {', '.join(available[:5])}?",
             "available_categories": available[:10],  # Show first 10
             "total_categories": len(available),
         }
 
-    # Get current states for all devices in category
-    results = {"category": category, "device_count": len(devices_in_category), "devices": []}
+    # Apply limit to prevent large payloads
+    limited_devices = devices_in_category[:limit]
+    has_more = len(devices_in_category) > limit
 
-    for device in devices_in_category:
+    # Get device info (with optional state fetching)
+    results = {
+        "category": category,
+        "showing": len(limited_devices),
+        "total_in_category": len(devices_in_category),
+        "has_more": has_more,
+        "devices": [],
+    }
+
+    for device in limited_devices:
         device_uuid = device["uuid"]
         device_info = {
             "uuid": device_uuid,
@@ -1130,16 +1300,24 @@ async def get_devices_by_category(category: str | None = None) -> dict[str, Any]
             "category": category,
         }
 
-        # Try to get current state
-        try:
-            state = _context.loxone.get_realtime_state(device_uuid)
-            if state is None:
-                state = await _context.loxone.send_command(f"jdev/sps/io/{device_uuid}/state")
-            device_info["current_state"] = state
-        except Exception as e:
-            device_info["state_error"] = str(e)
+        # Conditionally fetch current state to improve performance
+        if include_state:
+            try:
+                state = _context.loxone.get_realtime_state(device_uuid)
+                if state is None:
+                    state = await _context.loxone.send_command(f"jdev/sps/io/{device_uuid}/state")
+                device_info["current_state"] = state
+            except Exception as e:
+                device_info["state_error"] = str(e)
+        else:
+            device_info["note"] = "Use include_state=true to fetch current device states"
 
         results["devices"].append(device_info)
+
+    if has_more:
+        results["pagination_note"] = (
+            f"Showing {limit} of {len(devices_in_category)} devices. Increase limit parameter to see more."
+        )
 
     return results
 
