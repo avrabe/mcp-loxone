@@ -1,6 +1,6 @@
 """Deep HTTP client coverage to boost from 26% to 30%+."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import httpx
 
@@ -8,8 +8,8 @@ import httpx
 class TestHTTPClientAsyncMethods:
     """Test HTTP client async methods for better coverage."""
 
-    @patch('httpx.AsyncClient')
-    async def test_connect_method(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_connect_method(self, _mock_client_class: Mock) -> None:
         """Test connect method implementation."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -33,8 +33,8 @@ class TestHTTPClientAsyncMethods:
             # Connection might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_close_method(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_close_method(self, _mock_client_class: Mock) -> None:
         """Test close method implementation."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -53,8 +53,8 @@ class TestHTTPClientAsyncMethods:
             # Close might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_get_structure_file_method(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_get_structure_file_method(self, _mock_client_class: Mock) -> None:
         """Test get_structure_file method implementation."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -67,7 +67,7 @@ class TestHTTPClientAsyncMethods:
             "LL": {
                 "value": {
                     "controls": {"light1": {"name": "Kitchen Light"}},
-                    "rooms": {"room1": {"name": "Kitchen"}}
+                    "rooms": {"room1": {"name": "Kitchen"}},
                 }
             }
         }
@@ -86,8 +86,8 @@ class TestHTTPClientAsyncMethods:
             # Structure retrieval might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_send_command_method(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_send_command_method(self, _mock_client_class: Mock) -> None:
         """Test send_command method implementation."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -110,8 +110,8 @@ class TestHTTPClientAsyncMethods:
             # Command might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_get_state_method(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_get_state_method(self, _mock_client_class: Mock) -> None:
         """Test get_state method implementation."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -184,8 +184,8 @@ class TestHTTPClientSyncMethods:
 class TestHTTPClientErrorHandling:
     """Test HTTP client error handling for better coverage."""
 
-    @patch('httpx.AsyncClient')
-    async def test_http_timeout_handling(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_http_timeout_handling(self, _mock_client_class: Mock) -> None:
         """Test HTTP timeout handling."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -205,8 +205,8 @@ class TestHTTPClientErrorHandling:
             # Other exceptions are also acceptable
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_http_connection_error(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_http_connection_error(self, _mock_client_class: Mock) -> None:
         """Test HTTP connection error handling."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -226,8 +226,8 @@ class TestHTTPClientErrorHandling:
             # Other exceptions are also acceptable
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_http_auth_error(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_http_auth_error(self, _mock_client_class: Mock) -> None:
         """Test HTTP authentication error handling."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -252,8 +252,8 @@ class TestHTTPClientErrorHandling:
             # Auth errors are expected in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_malformed_response_handling(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_malformed_response_handling(self, _mock_client_class: Mock) -> None:
         """Test malformed response handling."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -288,7 +288,7 @@ class TestHTTPClientConfiguration:
         client = LoxoneHTTPClient("192.168.1.100", "admin", "password")
 
         # Client should be configured with timeout
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert client.client is not None
 
     def test_client_auth_configuration(self) -> None:

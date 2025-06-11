@@ -29,8 +29,15 @@ logger = logging.getLogger(__name__)
 class LoxoneTokenClient:
     """Token-based Loxone HTTP client using JWT authentication."""
 
-    def __init__(self, host: str, username: str, password: str, port: int = 80,
-                 max_reconnect_attempts: int = 5, reconnect_delay: float = 5.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        username: str,
+        password: str,
+        port: int = 80,
+        max_reconnect_attempts: int = 5,
+        reconnect_delay: float = 5.0,
+    ) -> None:
         """
         Initialize Loxone token-based HTTP client.
 
@@ -70,23 +77,27 @@ class LoxoneTokenClient:
         # WebSocket for real-time monitoring
         self.websocket_client: Any | None = None
         self.realtime_monitoring = False
-        
+
         # Connection state
         self.connected = False
         self.last_successful_command = time.time()
-        
+
         # Reconnection settings
         self.max_reconnect_attempts = max_reconnect_attempts
         self.reconnect_delay = reconnect_delay
         self.reconnect_task: asyncio.Task | None = None
-        self._reconnecting = False
+        self._reconnection_event = asyncio.Event()
+        self._reconnection_event.set()  # Initially not reconnecting
 
     async def connect(self) -> None:
         """Initialize connection and acquire token with automatic retry."""
         attempt = 0
         while attempt < self.max_reconnect_attempts:
             try:
-                logger.info(f"Connecting to Loxone at {self.base_url} (attempt {attempt + 1}/{self.max_reconnect_attempts})")
+                logger.info(
+                    f"Connecting to Loxone at {self.base_url} "
+                    f"(attempt {attempt + 1}/{self.max_reconnect_attempts})"
+                )
 
                 # Step 1: Check if Miniserver is reachable
                 await self._check_reachability()
@@ -100,39 +111,61 @@ class LoxoneTokenClient:
 
                 # Step 4: Test connection by loading structure
                 await self.get_structure_file()
-                
+
                 self.connected = True
                 self.last_successful_command = time.time()
-                logger.info("Successfully connected with token authentication" +
-                           (" and encryption" if self.use_encryption else ""))
+                logger.info(
+                    "Successfully connected with token authentication"
+                    + (" and encryption" if self.use_encryption else "")
+                )
                 return
-                
+
             except Exception as e:
                 attempt += 1
                 if attempt < self.max_reconnect_attempts:
-                    logger.warning(f"Connection attempt {attempt} failed: {e}. Retrying in {self.reconnect_delay} seconds...")
+                    logger.warning(
+                        f"Connection attempt {attempt} failed: {e}. "
+                        f"Retrying in {self.reconnect_delay} seconds..."
+                    )
                     await asyncio.sleep(self.reconnect_delay)
                 else:
-                    logger.error(f"Failed to connect after {self.max_reconnect_attempts} attempts: {e}")
+                    logger.error(
+                        f"Failed to connect after {self.max_reconnect_attempts} attempts: {e}"
+                    )
                     raise
 
     async def close(self) -> None:
         """Close HTTP client and kill token."""
+        logger.info("Closing Loxone client...")
+
         # Close WebSocket if active
         if self.websocket_client:
             try:
+                logger.debug("Closing WebSocket connection...")
                 await self.websocket_client.close()
+                self.websocket_client = None
+                self.realtime_monitoring = False
             except Exception as e:
                 logger.warning(f"Failed to close WebSocket: {e}")
 
-        # Kill token
+        # Kill token with improved error handling
         if self.token:
             try:
+                logger.debug("Killing authentication token...")
                 await self._kill_token()
+                self.token = None
+                self.key = None
             except Exception as e:
                 logger.warning(f"Failed to kill token: {e}")
 
-        await self.client.aclose()
+        # Close HTTP client
+        try:
+            await self.client.aclose()
+            logger.info("Loxone client closed successfully")
+        except Exception as e:
+            logger.warning(f"Error closing HTTP client: {e}")
+        finally:
+            self.connected = False
 
     async def _check_reachability(self) -> dict[str, Any]:
         """Check if Miniserver is reachable via jdev/cfg/apiKey."""
@@ -141,11 +174,11 @@ class LoxoneTokenClient:
             response.raise_for_status()
 
             data = response.json()
-            config_version = data.get('LL', {}).get('value', 'unknown')
+            config_version = data.get("LL", {}).get("value", "unknown")
             logger.info(f"Miniserver reachable. Config version: {config_version}")
 
             # Check if it's a local connection
-            if 'local' in data.get('LL', {}):
+            if "local" in data.get("LL", {}):
                 logger.info(f"Connection type: {'local' if data['LL']['local'] else 'remote'}")
 
             return data
@@ -163,14 +196,14 @@ class LoxoneTokenClient:
 
             # Parse JSON response
             key_data = key_response.json()
-            if key_data.get('LL', {}).get('Code') != '200':
+            if key_data.get("LL", {}).get("Code") != "200":
                 raise ValueError(f"Failed to get public key: {key_data}")
 
             # Extract certificate from response
-            cert_pem = key_data['LL']['value']
+            cert_pem = key_data["LL"]["value"]
 
             # Load certificate and extract public key
-            cert = x509.load_pem_x509_certificate(cert_pem.encode('utf-8'))
+            cert = x509.load_pem_x509_certificate(cert_pem.encode("utf-8"))
             self.public_key = cert.public_key()
 
             logger.debug("Successfully loaded RSA public key from certificate")
@@ -190,34 +223,30 @@ class LoxoneTokenClient:
             key_response.raise_for_status()
 
             key_data = key_response.json()
-            if key_data.get('LL', {}).get('code') != '200':
+            if key_data.get("LL", {}).get("code") != "200":
                 raise ValueError(f"Failed to get key: {key_data}")
 
-            key_info = key_data['LL']['value']  # Data is nested under 'value'
-            key = key_info['key']
-            user_salt = key_info['salt']
-            hash_alg = key_info.get('hashAlg', 'SHA1')  # Default to SHA1 for older versions
+            key_info = key_data["LL"]["value"]  # Data is nested under 'value'
+            key = key_info["key"]
+            user_salt = key_info["salt"]
+            hash_alg = key_info.get("hashAlg", "SHA1")  # Default to SHA1 for older versions
 
             logger.debug(f"Retrieved key, salt, hash algorithm: {hash_alg}")
 
             # Step 2: Hash password with user salt
-            hasher = hashlib.sha256() if hash_alg.upper() == 'SHA256' else hashlib.sha1()
+            hasher = hashlib.sha256() if hash_alg.upper() == "SHA256" else hashlib.sha1()
 
             hasher.update(f"{self.password}:{user_salt}".encode())
             pw_hash = hasher.hexdigest().upper()
 
             # Step 3: Create HMAC hash with username
-            if hash_alg.upper() == 'SHA256':
+            if hash_alg.upper() == "SHA256":
                 hmac_hash = hmac.new(
-                    bytes.fromhex(key),
-                    f"{self.username}:{pw_hash}".encode(),
-                    hashlib.sha256
+                    bytes.fromhex(key), f"{self.username}:{pw_hash}".encode(), hashlib.sha256
                 ).hexdigest()
             else:
                 hmac_hash = hmac.new(
-                    bytes.fromhex(key),
-                    f"{self.username}:{pw_hash}".encode(),
-                    hashlib.sha1
+                    bytes.fromhex(key), f"{self.username}:{pw_hash}".encode(), hashlib.sha1
                 ).hexdigest()
 
             # Step 4: Request JWT token
@@ -238,18 +267,18 @@ class LoxoneTokenClient:
             token_response.raise_for_status()
 
             token_data = token_response.json()
-            if token_data.get('LL', {}).get('code') != '200':
+            if token_data.get("LL", {}).get("code") != "200":
                 raise ValueError(f"Failed to get token: {token_data}")
 
-            token_info = token_data['LL']['value']
-            self.token = token_info['token']  # JWT token is under 'token' key
-            self.token_valid_until = token_info.get('validUntil')
-            self.token_rights = token_info.get('tokenRights')
-            self.key = token_info.get('key')
+            token_info = token_data["LL"]["value"]
+            self.token = token_info["token"]  # JWT token is under 'token' key
+            self.token_valid_until = token_info.get("validUntil")
+            self.token_rights = token_info.get("tokenRights")
+            self.key = token_info.get("key")
 
             logger.info(f"Successfully acquired JWT token. Valid until: {self.token_valid_until}")
 
-            if token_info.get('unsecurePass'):
+            if token_info.get("unsecurePass"):
                 logger.warning("⚠️ Weak password detected! Please change your password.")
 
         except Exception as e:
@@ -264,13 +293,26 @@ class LoxoneTokenClient:
         try:
             # Use plaintext token for kill request (v11.2+)
             kill_url = f"{self.base_url}/jdev/sys/killtoken/{self.token}/{quote(self.username)}"
-            response = await self.client.get(kill_url)
+
+            # Set a shorter timeout for token cleanup to avoid blocking shutdown
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(kill_url)
 
             if response.status_code == 200:
                 logger.info("Token killed successfully")
+            elif response.status_code == 401:
+                # Token was already invalid - this is expected during shutdown
+                logger.debug("Token was already invalid (expected during shutdown)")
             else:
                 logger.warning(f"Failed to kill token: {response.status_code}")
 
+        except (httpx.TimeoutException, httpx.ConnectTimeout):
+            logger.warning("Timeout while killing token (server may be shutting down)")
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 401:
+                logger.debug("Token kill failed with 401 (token already invalid)")
+            else:
+                logger.warning(f"HTTP error killing token: {e}")
         except Exception as e:
             logger.warning(f"Error killing token: {e}")
 
@@ -297,28 +339,27 @@ class LoxoneTokenClient:
 
             # Step 3: Generate AES256 key and IV
             aes_key = secrets.token_bytes(32)  # 256 bits
-            aes_iv = secrets.token_bytes(16)   # 128 bits
+            aes_iv = secrets.token_bytes(16)  # 128 bits
 
             # Step 4: AES encrypt the plaintext
             cipher = Cipher(algorithms.AES(aes_key), modes.CBC(aes_iv))
             encryptor = cipher.encryptor()
 
             # Pad plaintext to multiple of 16 bytes (PKCS7 padding)
-            plaintext_bytes = plaintext.encode('utf-8')
+            plaintext_bytes = plaintext.encode("utf-8")
             padding_length = 16 - (len(plaintext_bytes) % 16)
             padded_plaintext = plaintext_bytes + bytes([padding_length] * padding_length)
 
             # Encrypt
             encrypted_data = encryptor.update(padded_plaintext) + encryptor.finalize()
-            encrypted_b64 = base64.b64encode(encrypted_data).decode('ascii')
+            encrypted_b64 = base64.b64encode(encrypted_data).decode("ascii")
 
             # Step 5: RSA encrypt the AES key + IV
             session_key_data = f"{aes_key.hex()}:{aes_iv.hex()}"
             encrypted_session_key = self.public_key.encrypt(
-                session_key_data.encode('utf-8'),
-                padding.PKCS1v15()
+                session_key_data.encode("utf-8"), padding.PKCS1v15()
             )
-            session_key_b64 = base64.b64encode(encrypted_session_key).decode('ascii')
+            session_key_b64 = base64.b64encode(encrypted_session_key).decode("ascii")
 
             # Step 6: Create encrypted command URL
             # Use 'enc' for command-only encryption (vs 'fenc' for full encryption)
@@ -340,6 +381,7 @@ class LoxoneTokenClient:
 
         # Refresh if token expires in the next 5 minutes
         import time
+
         current_time = int(time.time()) - 1230768000  # Loxone epoch starts 2009-01-01
 
         if current_time + 300 >= self.token_valid_until:
@@ -348,17 +390,16 @@ class LoxoneTokenClient:
             try:
                 # Use plaintext token for refresh (v11.2+)
                 refresh_url = (
-                    f"{self.base_url}/jdev/sys/refreshjwt/{self.token}/"
-                    f"{quote(self.username)}"
+                    f"{self.base_url}/jdev/sys/refreshjwt/{self.token}/{quote(self.username)}"
                 )
                 response = await self.client.get(refresh_url)
                 response.raise_for_status()
 
                 refresh_data = response.json()
-                if refresh_data.get('LL', {}).get('code') == '200':
-                    refresh_info = refresh_data['LL']['value']
-                    self.token = refresh_info['token']
-                    self.token_valid_until = refresh_info.get('validUntil')
+                if refresh_data.get("LL", {}).get("code") == "200":
+                    refresh_info = refresh_data["LL"]["value"]
+                    self.token = refresh_info["token"]
+                    self.token_valid_until = refresh_info.get("validUntil")
                     logger.info("Token refreshed successfully")
                 else:
                     logger.warning("Token refresh failed, acquiring new token...")
@@ -382,7 +423,7 @@ class LoxoneTokenClient:
         if not self.connected:
             logger.info("Not connected, attempting to reconnect...")
             await self._ensure_connection()
-        
+
         await self._refresh_token_if_needed()
 
         if not self.token or not self.key:
@@ -404,7 +445,7 @@ class LoxoneTokenClient:
             data = response.json()
 
             # Check for authentication errors
-            if data.get('LL', {}).get('code') == '401':
+            if data.get("LL", {}).get("code") == "401":
                 logger.warning("Authentication failed, refreshing token...")
                 await self._acquire_token()
                 # Retry once with new token
@@ -412,7 +453,7 @@ class LoxoneTokenClient:
 
             # Update last successful command time
             self.last_successful_command = time.time()
-            return data.get('LL', {}).get('value')
+            return data.get("LL", {}).get("value")
 
         except (httpx.NetworkError, httpx.TimeoutException) as e:
             logger.error(f"Network error for command '{command}': {e}")
@@ -437,14 +478,13 @@ class LoxoneTokenClient:
 
             # Use token authentication for structure file (plaintext for v11.2+)
             url = (
-                f"{self.base_url}/data/LoxAPP3.json?"
-                f"autht={self.token}&user={quote(self.username)}"
+                f"{self.base_url}/data/LoxAPP3.json?autht={self.token}&user={quote(self.username)}"
             )
             response = await self.client.get(url)
             response.raise_for_status()
 
             self.structure = response.json()
-            controls_count = len(self.structure.get('controls', {}))
+            controls_count = len(self.structure.get("controls", {}))
             logger.info(f"Loaded structure file with {controls_count} controls")
 
             return self.structure
@@ -465,7 +505,7 @@ class LoxoneTokenClient:
 
             if response.status_code == 200:
                 data = response.json()
-                return data.get('LL', {}).get('code') == '200'
+                return data.get("LL", {}).get("code") == "200"
             else:
                 return False
 
@@ -527,12 +567,11 @@ class LoxoneTokenClient:
 
     async def _ensure_connection(self) -> None:
         """Ensure we have a valid connection, reconnecting if necessary."""
-        if self._reconnecting:
+        if not self._reconnection_event.is_set():
             # Wait for ongoing reconnection
-            while self._reconnecting:
-                await asyncio.sleep(0.1)
+            await self._reconnection_event.wait()
             return
-            
+
         if self.connected:
             # Check if connection is still alive
             try:
@@ -541,20 +580,20 @@ class LoxoneTokenClient:
             except Exception:
                 logger.info("Connection check failed, marking as disconnected")
                 self.connected = False
-        
+
         # Reconnect
-        self._reconnecting = True
+        self._reconnection_event.clear()
         try:
             await self.connect()
         finally:
-            self._reconnecting = False
-    
+            self._reconnection_event.set()
+
     async def _monitor_connection(self) -> None:
         """Background task to monitor connection health."""
         while True:
             try:
                 await asyncio.sleep(60)  # Check every minute
-                
+
                 # Check if we've had recent successful commands
                 time_since_last_command = time.time() - self.last_successful_command
                 if time_since_last_command > 300:  # 5 minutes
@@ -562,11 +601,11 @@ class LoxoneTokenClient:
                     logger.debug("Performing connection health check...")
                     await self._check_reachability()
                     self.last_successful_command = time.time()
-                    
+
             except Exception as e:
                 logger.warning(f"Connection health check failed: {e}")
                 self.connected = False
-    
+
     def get_realtime_state(self, uuid_str: str) -> Any:
         """
         Get current real-time state for UUID from WebSocket.

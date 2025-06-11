@@ -1,7 +1,7 @@
 """Deep credentials coverage to boost from 24% to 30%+."""
 
 import os
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
@@ -9,11 +9,13 @@ import pytest
 class TestCredentialsSetupWorkflow:
     """Test credentials setup workflow for better coverage."""
 
-    @patch('builtins.input')
-    @patch('getpass.getpass')
-    @patch('loxone_mcp.credentials.LoxoneSecrets.set')
-    @patch('loxone_mcp.credentials.LoxoneSecrets._test_connection')
-    async def test_setup_interactive_success(self, mock_test_connection, mock_set, mock_getpass, mock_input) -> None:
+    @patch("builtins.input")
+    @patch("getpass.getpass")
+    @patch("loxone_mcp.credentials.LoxoneSecrets.set")
+    @patch("loxone_mcp.credentials.LoxoneSecrets._test_connection")
+    async def test_setup_interactive_success(
+        self, mock_test_connection: Mock, _mock_set: Mock, mock_getpass: Mock, mock_input: Mock
+    ) -> None:
         """Test interactive setup workflow."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -30,15 +32,13 @@ class TestCredentialsSetupWorkflow:
             # Setup might be async and fail in test environment - that's OK
             assert True
 
-    @patch('loxone_mcp.credentials.LoxoneSecrets.discover_loxone_servers')
-    async def test_setup_with_discovery(self, mock_discover) -> None:
+    @patch("loxone_mcp.credentials.LoxoneSecrets.discover_loxone_servers")
+    async def test_setup_with_discovery(self, mock_discover: Mock) -> None:
         """Test setup with server discovery."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Mock discovery results
-        mock_discover.return_value = [
-            {"ip": "192.168.1.100", "name": "Miniserver"}
-        ]
+        mock_discover.return_value = [{"ip": "192.168.1.100", "name": "Miniserver"}]
 
         # Test discovery call doesn't fail
         try:
@@ -48,8 +48,8 @@ class TestCredentialsSetupWorkflow:
             # Network discovery might fail in test environment
             assert True
 
-    @patch('socket.socket')
-    async def test_udp_discovery_method(self, mock_socket) -> None:
+    @patch("socket.socket")
+    async def test_udp_discovery_method(self, mock_socket: Mock) -> None:
         """Test UDP discovery method."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -66,8 +66,8 @@ class TestCredentialsSetupWorkflow:
             # UDP might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_http_discovery_method(self, mock_client) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_http_discovery_method(self, mock_client: Mock) -> None:
         """Test HTTP discovery method."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -88,8 +88,8 @@ class TestCredentialsSetupWorkflow:
             # HTTP discovery might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_test_connection_success(self, mock_client) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_test_connection_success(self, mock_client: Mock) -> None:
         """Test connection testing success."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -97,10 +97,7 @@ class TestCredentialsSetupWorkflow:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {
-            "msInfo": {
-                "projectName": "Test Project",
-                "swVersion": "12.0.0"
-            }
+            "msInfo": {"projectName": "Test Project", "swVersion": "12.0.0"}
         }
 
         mock_http_client = MagicMock()
@@ -115,8 +112,8 @@ class TestCredentialsSetupWorkflow:
             # Connection might fail in test environment
             assert True
 
-    @patch('httpx.AsyncClient')
-    async def test_test_connection_failure(self, mock_client) -> None:
+    @patch("httpx.AsyncClient")
+    async def test_test_connection_failure(self, mock_client: Mock) -> None:
         """Test connection testing failure."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -142,7 +139,7 @@ class TestCredentialsSetupWorkflow:
         """Test validation with missing host."""
         from loxone_mcp.credentials import LoxoneSecrets
 
-        with patch.object(LoxoneSecrets, 'get') as mock_get:
+        with patch.object(LoxoneSecrets, "get") as mock_get:
             # Mock missing host
             mock_get.side_effect = lambda key: None if key == "LOXONE_HOST" else "value"
 
@@ -157,15 +154,16 @@ class TestCredentialsSetupWorkflow:
         """Test validation with missing user."""
         from loxone_mcp.credentials import LoxoneSecrets
 
-        with patch.object(LoxoneSecrets, 'get') as mock_get:
+        with patch.object(LoxoneSecrets, "get") as mock_get:
             # Mock missing user
-            def mock_get_func(key) -> str | None:
+            def mock_get_func(key: str) -> str | None:
                 if key == "LOXONE_HOST":
                     return "192.168.1.100"
                 elif key == "LOXONE_USER":
                     return None
                 else:
                     return "value"
+
             mock_get.side_effect = mock_get_func
 
             try:
@@ -179,13 +177,14 @@ class TestCredentialsSetupWorkflow:
         """Test validation with missing password."""
         from loxone_mcp.credentials import LoxoneSecrets
 
-        with patch.object(LoxoneSecrets, 'get') as mock_get:
+        with patch.object(LoxoneSecrets, "get") as mock_get:
             # Mock missing password
-            def mock_get_func(key) -> str | None:
+            def mock_get_func(key: str) -> str | None:
                 if key == "LOXONE_PASS":
                     return None
                 else:
                     return "value"
+
             mock_get.side_effect = mock_get_func
 
             try:
@@ -199,19 +198,19 @@ class TestCredentialsSetupWorkflow:
 class TestCredentialsErrorHandling:
     """Test credentials error handling for better coverage."""
 
-    @patch('keyring.set_password')
-    def test_set_keychain_error_handling(self, mock_set_password) -> None:
+    @patch("keyring.set_password")
+    def test_set_keychain_error_handling(self, mock_set_password: Mock) -> None:
         """Test keychain error handling during set."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Mock keychain error
         mock_set_password.side_effect = Exception("Keychain access denied")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             LoxoneSecrets.set("LOXONE_HOST", "test.host")
 
-    @patch('keyring.delete_password')
-    def test_delete_keychain_error_types(self, mock_delete_password) -> None:
+    @patch("keyring.delete_password")
+    def test_delete_keychain_error_types(self, mock_delete_password: Mock) -> None:
         """Test different types of keychain delete errors."""
         import keyring.errors
 
@@ -225,8 +224,8 @@ class TestCredentialsErrorHandling:
         mock_delete_password.side_effect = Exception("Other error")
         LoxoneSecrets.delete("LOXONE_HOST")  # Should not raise
 
-    @patch('keyring.get_password')
-    def test_get_keychain_various_errors(self, mock_get_password) -> None:
+    @patch("keyring.get_password")
+    def test_get_keychain_various_errors(self, mock_get_password: Mock) -> None:
         """Test various keychain get errors."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -234,7 +233,7 @@ class TestCredentialsErrorHandling:
         exceptions = [
             Exception("Access denied"),
             RuntimeError("Runtime error"),
-            OSError("OS error")
+            OSError("OS error"),
         ]
 
         for exc in exceptions:
@@ -247,7 +246,7 @@ class TestCredentialsErrorHandling:
         """Test clear_all with comprehensive error handling."""
         from loxone_mcp.credentials import LoxoneSecrets
 
-        with patch.object(LoxoneSecrets, 'delete') as mock_delete:
+        with patch.object(LoxoneSecrets, "delete") as mock_delete:
             # Test that all credential types are attempted for deletion
             LoxoneSecrets.clear_all()
 
@@ -255,7 +254,7 @@ class TestCredentialsErrorHandling:
             expected_calls = [
                 LoxoneSecrets.HOST_KEY,
                 LoxoneSecrets.USER_KEY,
-                LoxoneSecrets.PASS_KEY
+                LoxoneSecrets.PASS_KEY,
             ]
 
             # Verify delete was called for each credential type
@@ -282,16 +281,17 @@ class TestCredentialsAsyncMethods:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test discovery methods exist and are callable
-        assert hasattr(LoxoneSecrets, '_udp_discovery')
-        assert hasattr(LoxoneSecrets, '_http_discovery')
+        assert hasattr(LoxoneSecrets, "_udp_discovery")
+        assert hasattr(LoxoneSecrets, "_http_discovery")
 
         # Methods should be async
         import inspect
+
         assert inspect.iscoroutinefunction(LoxoneSecrets._udp_discovery)
         assert inspect.iscoroutinefunction(LoxoneSecrets._http_discovery)
 
-    @patch('asyncio.gather')
-    async def test_discovery_parallel_execution(self, mock_gather) -> None:
+    @patch("asyncio.gather")
+    async def test_discovery_parallel_execution(self, mock_gather: Mock) -> None:
         """Test parallel discovery execution."""
         from loxone_mcp.credentials import LoxoneSecrets
 

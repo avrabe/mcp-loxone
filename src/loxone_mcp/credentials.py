@@ -9,6 +9,7 @@ import getpass
 import json
 import logging
 import os
+import secrets
 import socket
 import sys
 
@@ -27,6 +28,7 @@ class LoxoneSecrets:
     HOST_KEY = "LOXONE_HOST"
     USER_KEY = "LOXONE_USER"
     PASS_KEY = "LOXONE_PASS"
+    SSE_API_KEY = "LOXONE_SSE_API_KEY"
 
     @classmethod
     def get(cls, key: str) -> str | None:
@@ -71,6 +73,11 @@ class LoxoneSecrets:
             pass  # Already deleted
         except Exception as e:
             print(f"Warning: Could not delete credential: {e}", file=sys.stderr)
+
+    @classmethod
+    def generate_api_key(cls) -> str:
+        """Generate a secure API key for SSE authentication."""
+        return secrets.token_urlsafe(32)
 
     @classmethod
     async def discover_loxone_servers(cls, timeout: float = 5.0) -> list[dict[str, str]]:
@@ -412,18 +419,94 @@ class LoxoneSecrets:
             print(f"   User: {username}")
             print(f"   Pass: {'*' * len(password)}")
 
-            print("\n📝 Next steps:")
-            print("1. Test the server: uv run mcp dev src/loxone_mcp/server.py")
-            print("2. Configure in Claude Desktop (see README.md)")
-
         except Exception as e:
             print(f"\n❌ Error storing credentials: {e}")
             sys.exit(1)
 
+        # Setup SSE API key for web integrations
+        print("\n🌐 SSE Server Setup (for web integrations like n8n, Home Assistant)")
+        print("=" * 60)
+        
+        existing_api_key = cls.get(cls.SSE_API_KEY)
+        if existing_api_key:
+            print(f"✅ SSE API key already configured: {existing_api_key[:8]}...")
+            replace_key = input("Replace existing API key? [y/N]: ").strip().lower()
+            if replace_key != "y":
+                print("   Keeping existing API key")
+            else:
+                existing_api_key = None
+
+        if not existing_api_key:
+            print("\nChoose SSE API key setup:")
+            print("  1. Generate secure API key automatically (recommended)")
+            print("  2. Enter custom API key")
+            print("  3. Skip SSE setup (can be configured later)")
+            
+            while True:
+                choice = input("\nSelect option [1-3]: ").strip()
+                
+                if choice == "1":
+                    # Generate API key
+                    api_key = cls.generate_api_key()
+                    try:
+                        cls.set(cls.SSE_API_KEY, api_key)
+                        print(f"\n🔑 Generated and stored SSE API key!")
+                        print(f"   API Key: {api_key}")
+                        print("\n📋 Use this for web integrations:")
+                        print(f"   Authorization: Bearer {api_key}")
+                        print(f"   OR X-API-Key: {api_key}")
+                        break
+                    except Exception as e:
+                        print(f"❌ Error storing API key: {e}")
+                        sys.exit(1)
+                        
+                elif choice == "2":
+                    # Custom API key
+                    api_key = input("Enter your custom API key: ").strip()
+                    if not api_key:
+                        print("❌ API key cannot be empty")
+                        continue
+                    if len(api_key) < 16:
+                        print("⚠️  Warning: API key should be at least 16 characters for security")
+                        confirm = input("Continue anyway? [y/N]: ").strip().lower()
+                        if confirm != "y":
+                            continue
+                    
+                    try:
+                        cls.set(cls.SSE_API_KEY, api_key)
+                        print(f"\n✅ Custom API key stored!")
+                        print(f"   API Key: {api_key}")
+                        break
+                    except Exception as e:
+                        print(f"❌ Error storing API key: {e}")
+                        sys.exit(1)
+                        
+                elif choice == "3":
+                    # Skip SSE setup
+                    print("⏭️  SSE setup skipped")
+                    print("   You can generate an API key later by:")
+                    print("   1. Running setup again, or")
+                    print("   2. Setting LOXONE_SSE_API_KEY environment variable")
+                    break
+                    
+                else:
+                    print("❌ Invalid choice. Please enter 1, 2, or 3.")
+
+        # Summary and next steps
+        print("\n📝 Next steps:")
+        print("1. Test MCP server: uv run mcp dev src/loxone_mcp/server.py")
+        print("2. Test SSE server: uvx --from . loxone-mcp-sse")
+        print("3. Configure in Claude Desktop (see README.md)")
+        
+        if cls.get(cls.SSE_API_KEY):
+            print("4. Use API key for web integrations (n8n, Home Assistant)")
+        else:
+            print("4. Configure SSE API key later if needed for web integrations")
+
     @classmethod
     def clear_all(cls) -> None:
         """Remove all stored credentials."""
-        for key in [cls.HOST_KEY, cls.USER_KEY, cls.PASS_KEY]:
+        for key in [cls.HOST_KEY, cls.USER_KEY, cls.PASS_KEY, cls.SSE_API_KEY]:
             cls.delete(key)
         print("✅ All credentials cleared")
 
@@ -437,6 +520,11 @@ class LoxoneSecrets:
             print(f"❌ Missing credentials: {', '.join(missing)}")
             print("Run 'uvx --from . loxone-mcp setup' to configure")
             return False
+
+        # Check SSE API key (optional but warn if missing)
+        if not cls.get(cls.SSE_API_KEY):
+            print("⚠️  SSE API key not configured - SSE server will generate one automatically")
+            print("   For production use, run setup again or set LOXONE_SSE_API_KEY")
 
         return True
 

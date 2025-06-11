@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from loxone_mcp.server import (
-    LoxoneDevice,
     ServerContext,
     get_room_devices,
     list_rooms,
@@ -49,30 +48,30 @@ def mock_context() -> ServerContext:
 
     # Create devices
     devices = {
-        "uuid-light-1": LoxoneDevice(
-            uuid="uuid-light-1",
-            name="Ceiling Light",
-            type="Light",
-            room="Living Room",
-            room_uuid="uuid-room-1",
-            states={"value": "uuid-state-1"},
-        ),
-        "uuid-rolladen-1": LoxoneDevice(
-            uuid="uuid-rolladen-1",
-            name="Window Blind",
-            type="Jalousie",
-            room="Living Room",
-            room_uuid="uuid-room-1",
-            states={"position": "uuid-state-2"},
-        ),
-        "uuid-light-2": LoxoneDevice(
-            uuid="uuid-light-2",
-            name="Bedside Lamp",
-            type="Light",
-            room="Bedroom",
-            room_uuid="uuid-room-2",
-            states={"value": "uuid-state-3"},
-        ),
+        "uuid-light-1": {
+            "uuid": "uuid-light-1",
+            "name": "Ceiling Light",
+            "type": "Light",
+            "room": "uuid-room-1",
+            "room_name": "Living Room",
+            "states": {"value": "uuid-state-1"},
+        },
+        "uuid-rolladen-1": {
+            "uuid": "uuid-rolladen-1",
+            "name": "Window Blind",
+            "type": "Jalousie",
+            "room": "uuid-room-1",
+            "room_name": "Living Room",
+            "states": {"position": "uuid-state-2"},
+        },
+        "uuid-light-2": {
+            "uuid": "uuid-light-2",
+            "name": "Bedside Lamp",
+            "type": "Light",
+            "room": "uuid-room-2",
+            "room_name": "Bedroom",
+            "states": {"value": "uuid-state-3"},
+        },
     }
 
     # Create rooms mapping

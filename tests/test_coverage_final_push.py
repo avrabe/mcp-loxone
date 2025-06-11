@@ -1,7 +1,7 @@
 """Final push to reach 25% coverage target."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 
 class TestMainModuleCoverage:
@@ -10,6 +10,7 @@ class TestMainModuleCoverage:
     def test_main_module_import(self) -> None:
         """Test main module import."""
         import loxone_mcp.__main__ as main_module
+
         assert main_module is not None
 
     def test_main_module_structure(self) -> None:
@@ -26,22 +27,24 @@ class TestSSEServerComprehensive:
         import loxone_mcp.sse_server
 
         # Test module attributes
-        assert hasattr(loxone_mcp.sse_server, 'SSE_PORT')
-        assert hasattr(loxone_mcp.sse_server, 'SSE_HOST')
-        assert hasattr(loxone_mcp.sse_server, 'run_sse_server')
+        assert hasattr(loxone_mcp.sse_server, "SSE_PORT")
+        assert hasattr(loxone_mcp.sse_server, "SSE_HOST")
+        assert hasattr(loxone_mcp.sse_server, "run_sse_server")
 
-    @patch.dict(os.environ, {"LOXONE_SSE_PORT": "7777", "LOXONE_SSE_HOST": "0.0.0.0"})
+    @patch.dict(os.environ, {"LOXONE_SSE_PORT": "7777", "LOXONE_SSE_HOST": "127.0.0.1"})
     def test_sse_server_env_vars_comprehensive(self) -> None:
         """Test comprehensive environment variable handling."""
         # Reload to pick up environment
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_HOST, SSE_PORT
+
         assert SSE_PORT == 7777
-        assert SSE_HOST == "0.0.0.0"
+        assert SSE_HOST == "127.0.0.1"
 
     def test_sse_server_constants_validation(self) -> None:
         """Test SSE server constants validation."""
@@ -62,6 +65,7 @@ class TestSSEServerComprehensive:
 
         # Test function signature - should be async
         import inspect
+
         assert inspect.iscoroutinefunction(run_sse_server)
 
 
@@ -73,7 +77,7 @@ class TestPackageStructure:
         import loxone_mcp
 
         # Test version exists
-        assert hasattr(loxone_mcp, '__version__')
+        assert hasattr(loxone_mcp, "__version__")
         assert isinstance(loxone_mcp.__version__, str)
         assert len(loxone_mcp.__version__) > 0
 
@@ -82,30 +86,31 @@ class TestPackageStructure:
         import loxone_mcp
 
         # Test that main exports exist
-        assert hasattr(loxone_mcp, 'server')
-        assert hasattr(loxone_mcp, 'run')
+        assert hasattr(loxone_mcp, "server")
+        assert hasattr(loxone_mcp, "run")
 
         # Test imports work
         from loxone_mcp import run, server
+
         assert server is not None
         assert callable(run)
 
     def test_package_submodules(self) -> None:
         """Test all package submodules can be imported."""
         submodules = [
-            'loxone_mcp.server',
-            'loxone_mcp.credentials',
-            'loxone_mcp.loxone_http_client',
-            'loxone_mcp.sse_server',
-            'loxone_mcp.__main__'
+            "loxone_mcp.server",
+            "loxone_mcp.credentials",
+            "loxone_mcp.loxone_http_client",
+            "loxone_mcp.sse_server",
+            "loxone_mcp.__main__",
         ]
 
         for module_name in submodules:
             try:
                 __import__(module_name)
                 assert True
-            except ImportError:
-                raise AssertionError(f"Failed to import {module_name}")
+            except ImportError as e:
+                raise AssertionError(f"Failed to import {module_name}") from e
 
 
 class TestCredentialsComprehensive:
@@ -129,23 +134,22 @@ class TestCredentialsComprehensive:
             assert key == expected_val
             assert isinstance(key, str)
 
-    @patch.dict(os.environ, {
-        "LOXONE_HOST": "test.example.com",
-        "LOXONE_USER": "testuser",
-        "LOXONE_PASS": "testpass"
-    })
+    @patch.dict(
+        os.environ,
+        {"LOXONE_HOST": "test.example.com", "LOXONE_USER": "testuser", "LOXONE_PASS": "testpass"},
+    )
     def test_credentials_env_priority(self) -> None:
         """Test environment variable priority."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Environment should take priority over keychain
-        with patch('keyring.get_password', return_value="keychain_value"):
+        with patch("keyring.get_password", return_value="keychain_value"):
             assert LoxoneSecrets.get("LOXONE_HOST") == "test.example.com"
             assert LoxoneSecrets.get("LOXONE_USER") == "testuser"
             assert LoxoneSecrets.get("LOXONE_PASS") == "testpass"
 
-    @patch('keyring.get_password')
-    def test_credentials_keychain_fallback(self, mock_get_password) -> None:
+    @patch("keyring.get_password")
+    def test_credentials_keychain_fallback(self, mock_get_password: Mock) -> None:
         """Test keychain fallback when env vars missing."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -156,8 +160,8 @@ class TestCredentialsComprehensive:
             assert result == "keychain_fallback"
             mock_get_password.assert_called_with("LoxoneMCP", "LOXONE_HOST")
 
-    @patch('keyring.get_password')
-    def test_credentials_missing_both(self, mock_get_password) -> None:
+    @patch("keyring.get_password")
+    def test_credentials_missing_both(self, mock_get_password: Mock) -> None:
         """Test when both env and keychain are missing."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -172,13 +176,13 @@ class TestCredentialsComprehensive:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test class attributes
-        assert hasattr(LoxoneSecrets, 'SERVICE_NAME')
-        assert hasattr(LoxoneSecrets, 'HOST_KEY')
-        assert hasattr(LoxoneSecrets, 'USER_KEY')
-        assert hasattr(LoxoneSecrets, 'PASS_KEY')
+        assert hasattr(LoxoneSecrets, "SERVICE_NAME")
+        assert hasattr(LoxoneSecrets, "HOST_KEY")
+        assert hasattr(LoxoneSecrets, "USER_KEY")
+        assert hasattr(LoxoneSecrets, "PASS_KEY")
 
         # Test class methods
-        methods = ['get', 'set', 'delete', 'validate', 'clear_all', 'setup']
+        methods = ["get", "set", "delete", "validate", "clear_all", "setup"]
         for method_name in methods:
             assert hasattr(LoxoneSecrets, method_name)
             assert callable(getattr(LoxoneSecrets, method_name))
@@ -194,7 +198,7 @@ class TestHTTPClientComprehensive:
         client = LoxoneHTTPClient("host.example.com", "user123", "pass456", port=8080)
 
         # Test all initialization attributes
-        attributes = ['host', 'port', 'username', 'password', 'base_url', 'client', 'structure']
+        attributes = ["host", "port", "username", "password", "base_url", "client", "structure"]
         for attr in attributes:
             assert hasattr(client, attr)
 
@@ -214,8 +218,14 @@ class TestHTTPClientComprehensive:
 
         # Test all methods exist
         methods = [
-            'connect', 'close', 'get_structure_file', 'send_command',
-            'get_state', 'start', 'stop', 'authenticate'
+            "connect",
+            "close",
+            "get_structure_file",
+            "send_command",
+            "get_state",
+            "start",
+            "stop",
+            "authenticate",
         ]
 
         for method_name in methods:
@@ -243,12 +253,7 @@ class TestHTTPClientComprehensive:
         """Test HTTP client with different host formats."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
-        hosts = [
-            "192.168.1.100",
-            "loxone.local",
-            "miniserver.home",
-            "10.0.0.50"
-        ]
+        hosts = ["192.168.1.100", "loxone.local", "miniserver.home", "10.0.0.50"]
 
         for host in hosts:
             client = LoxoneHTTPClient(host, "user", "pass")
@@ -280,6 +285,7 @@ class TestServerImportsAndStructure:
 
         # Test key classes can be imported
         from loxone_mcp.server import LoxoneDevice, ServerContext
+
         assert LoxoneDevice is not None
         assert ServerContext is not None
 
@@ -287,7 +293,7 @@ class TestServerImportsAndStructure:
         """Test server global variables exist."""
         import loxone_mcp.server as server
 
-        globals_to_check = ['_context', 'logger', 'mcp']
+        globals_to_check = ["_context", "logger", "mcp"]
         for global_var in globals_to_check:
             assert hasattr(server, global_var)
 
@@ -296,8 +302,8 @@ class TestServerImportsAndStructure:
         import loxone_mcp.server as server
 
         # Test constants exist and are proper types
-        assert hasattr(server, 'ACTION_ALIASES')
+        assert hasattr(server, "ACTION_ALIASES")
         assert isinstance(server.ACTION_ALIASES, dict)
 
-        assert hasattr(server, 'FLOOR_PATTERNS')
+        assert hasattr(server, "FLOOR_PATTERNS")
         assert isinstance(server.FLOOR_PATTERNS, dict)

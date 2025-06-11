@@ -23,6 +23,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class StateChangeEvent:
     """A recorded sensor state change event."""
+
     uuid: str
     timestamp: float
     old_value: Any
@@ -34,6 +35,7 @@ class StateChangeEvent:
 @dataclass
 class SensorStateHistory:
     """Complete state history for a sensor with ring buffer."""
+
     uuid: str
     first_seen: float
     last_updated: float
@@ -46,8 +48,13 @@ class SensorStateHistory:
 class SensorStateLogger:
     """In-memory sensor state logger with periodic persistence and ring buffers."""
 
-    def __init__(self, log_file: Path | None = None, max_events_per_sensor: int = 100,
-                 max_sensors: int = 1000, sync_interval: int = 600) -> None:
+    def __init__(
+        self,
+        log_file: Path | None = None,
+        max_events_per_sensor: int = 100,
+        max_sensors: int = 1000,
+        sync_interval: int = 600,
+    ) -> None:
         """
         Initialize in-memory state logger with ring buffers.
 
@@ -112,7 +119,7 @@ class SensorStateLogger:
                 data = json.load(f)
 
             loaded_count = 0
-            for uuid, history_data in data.get('sensor_histories', {}).items():
+            for uuid, history_data in data.get("sensor_histories", {}).items():
                 # Only load up to max_sensors
                 if loaded_count >= self.max_sensors:
                     logger.warning(
@@ -122,19 +129,19 @@ class SensorStateLogger:
 
                 # Reconstruct state events as ring buffer
                 events = deque(maxlen=self.max_events_per_sensor)
-                events_data = history_data.get('state_events', [])[-self.max_events_per_sensor:]
+                events_data = history_data.get("state_events", [])[-self.max_events_per_sensor :]
                 for event_data in events_data:
                     events.append(StateChangeEvent(**event_data))
 
                 # Reconstruct sensor history with ring buffer
                 history = SensorStateHistory(
-                    uuid=history_data['uuid'],
-                    first_seen=history_data['first_seen'],
-                    last_updated=history_data['last_updated'],
-                    total_changes=history_data['total_changes'],
-                    current_state=history_data['current_state'],
+                    uuid=history_data["uuid"],
+                    first_seen=history_data["first_seen"],
+                    last_updated=history_data["last_updated"],
+                    total_changes=history_data["total_changes"],
+                    current_state=history_data["current_state"],
                     state_events=events,
-                    max_events=self.max_events_per_sensor
+                    max_events=self.max_events_per_sensor,
                 )
                 self.sensor_histories[uuid] = history
                 loaded_count += 1
@@ -158,8 +165,9 @@ class SensorStateLogger:
         # Check if we're at sensor limit
         if uuid not in self.sensor_histories and len(self.sensor_histories) >= self.max_sensors:
             # Remove oldest sensor if at limit
-            oldest_uuid = min(self.sensor_histories.keys(),
-                             key=lambda u: self.sensor_histories[u].last_updated)
+            oldest_uuid = min(
+                self.sensor_histories.keys(), key=lambda u: self.sensor_histories[u].last_updated
+            )
             del self.sensor_histories[oldest_uuid]
             logger.debug(f"Removed oldest sensor {oldest_uuid} to make room for {uuid}")
 
@@ -172,7 +180,7 @@ class SensorStateLogger:
             timestamp=current_time,
             old_value=old_value,
             new_value=new_value,
-            human_readable=human_readable
+            human_readable=human_readable,
         )
 
         # Update or create sensor history with ring buffer
@@ -195,7 +203,7 @@ class SensorStateLogger:
                 total_changes=1,
                 current_state=new_value,
                 state_events=events,
-                max_events=self.max_events_per_sensor
+                max_events=self.max_events_per_sensor,
             )
             self.sensor_histories[uuid] = history
 
@@ -203,7 +211,7 @@ class SensorStateLogger:
         self.pending_changes += 1
 
         # Log the change (only for important events to avoid spam)
-        if human_readable in ['OPEN', 'CLOSED']:
+        if human_readable in ["OPEN", "CLOSED"]:
             logger.info(f"Door/Window: {uuid[-8:]} {old_value} → {new_value} ({human_readable})")
         else:
             logger.debug(f"Sensor: {uuid[-8:]} {old_value} → {new_value} ({human_readable})")
@@ -245,7 +253,7 @@ class SensorStateLogger:
             data = {
                 "session_start": self.session_start,
                 "last_persisted": time.time(),
-                "sensor_histories": {}
+                "sensor_histories": {},
             }
 
             for uuid, history in self.sensor_histories.items():
@@ -255,11 +263,11 @@ class SensorStateLogger:
                     "last_updated": history.last_updated,
                     "total_changes": history.total_changes,
                     "current_state": history.current_state,
-                    "state_events": [asdict(event) for event in list(history.state_events)]
+                    "state_events": [asdict(event) for event in list(history.state_events)],
                 }
 
             # Write to file
-            with open(self.log_file, 'w') as f:
+            with open(self.log_file, "w") as f:
                 json.dump(data, f, indent=2)
 
             logger.debug(f"Persisted state logs to {self.log_file}")
@@ -299,46 +307,43 @@ class SensorStateLogger:
         recent_changes = self.get_changes_since(since_timestamp)
 
         # Filter for door/window changes (OPEN/CLOSED)
-        door_window_changes = [
-            e for e in recent_changes
-            if e.human_readable in ['OPEN', 'CLOSED']
-        ]
+        door_window_changes = [e for e in recent_changes if e.human_readable in ["OPEN", "CLOSED"]]
 
         # Count by sensor
         sensor_activity = {}
         for event in door_window_changes:
             if event.uuid not in sensor_activity:
                 sensor_activity[event.uuid] = {
-                    'total_changes': 0,
-                    'opens': 0,
-                    'closes': 0,
-                    'current_state': None,
-                    'last_change': None
+                    "total_changes": 0,
+                    "opens": 0,
+                    "closes": 0,
+                    "current_state": None,
+                    "last_change": None,
                 }
 
             activity = sensor_activity[event.uuid]
-            activity['total_changes'] += 1
-            if event.human_readable == 'OPEN':
-                activity['opens'] += 1
+            activity["total_changes"] += 1
+            if event.human_readable == "OPEN":
+                activity["opens"] += 1
             else:
-                activity['closes'] += 1
-            activity['current_state'] = event.human_readable
-            activity['last_change'] = event.timestamp
+                activity["closes"] += 1
+            activity["current_state"] = event.human_readable
+            activity["last_change"] = event.timestamp
 
         return {
-            'period_hours': hours,
-            'total_changes': len(door_window_changes),
-            'sensors_active': len(sensor_activity),
-            'sensor_activity': sensor_activity,
-            'timeline': [
+            "period_hours": hours,
+            "total_changes": len(door_window_changes),
+            "sensors_active": len(sensor_activity),
+            "sensor_activity": sensor_activity,
+            "timeline": [
                 {
-                    'timestamp': e.timestamp,
-                    'uuid': e.uuid,
-                    'change': f"{e.old_value} → {e.new_value}",
-                    'human': e.human_readable
+                    "timestamp": e.timestamp,
+                    "uuid": e.uuid,
+                    "change": f"{e.old_value} → {e.new_value}",
+                    "human": e.human_readable,
                 }
                 for e in door_window_changes[-20:]  # Last 20 changes
-            ]
+            ],
         }
 
     def get_statistics(self) -> dict[str, Any]:
@@ -356,9 +361,10 @@ class SensorStateLogger:
             "oldest_event": min(h.first_seen for h in self.sensor_histories.values()),
             "newest_event": max(h.last_updated for h in self.sensor_histories.values()),
             "most_active_sensor": max(
-                self.sensor_histories.items(),
-                key=lambda x: x[1].total_changes
-            )[0] if self.sensor_histories else None
+                self.sensor_histories.items(), key=lambda x: x[1].total_changes
+            )[0]
+            if self.sensor_histories
+            else None,
         }
 
 

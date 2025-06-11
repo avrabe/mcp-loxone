@@ -9,10 +9,16 @@ services:
       - "8000:8000"
     environment:
       - LOXONE_LOG_LEVEL=INFO
-      # Option 1: Use environment variables
+      # Loxone credentials (Option 1: Use environment variables)
       # - LOXONE_HOST=192.168.1.100
       # - LOXONE_USER=your-username
       # - LOXONE_PASS=your-password
+      
+      # SSE Security Configuration
+      - LOXONE_SSE_REQUIRE_AUTH=true
+      # - LOXONE_SSE_API_KEY=your-secure-api-key-here  # Optional: auto-generated if not set
+      - LOXONE_SSE_HOST=0.0.0.0  # Allow external connections in Docker
+      - LOXONE_SSE_PORT=8000
     volumes:
       # Option 2: Mount local keychain (macOS example)
       # - ~/Library/Keychains:/root/Library/Keychains:ro
@@ -20,7 +26,7 @@ services:
       # - ./.env:/app/.env:ro
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/sse"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3

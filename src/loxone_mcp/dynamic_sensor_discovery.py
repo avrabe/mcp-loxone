@@ -18,50 +18,51 @@ logger = logging.getLogger(__name__)
 
 # Sensor categorization patterns
 SENSOR_CATEGORIES = {
-    'door_window': {
-        'name': 'Door/Window Sensors',
-        'criteria': {
-            'binary_only': True,           # Only 0/1 values
-            'max_updates': 3,              # Very stable (max 3 updates during discovery)
-            'min_activity': 1,             # Some activity required
-            'stable_pattern': True,        # Consistent behavior
-            'require_change': True,        # Must have actual state changes
+    "door_window": {
+        "name": "Door/Window Sensors",
+        "criteria": {
+            "binary_only": True,  # Only 0/1 values
+            "max_updates": 3,  # Very stable (max 3 updates during discovery)
+            "min_activity": 1,  # Some activity required
+            "stable_pattern": True,  # Consistent behavior
+            "require_change": True,  # Must have actual state changes
         },
-        'priority': 10
+        "priority": 10,
     },
-    'motion': {
-        'name': 'Motion Sensors',
-        'criteria': {
-            'binary_only': True,
-            'max_updates': 100,            # Can be more active
-            'min_activity': 5,
-            'stable_pattern': False,       # Can be irregular
+    "motion": {
+        "name": "Motion Sensors",
+        "criteria": {
+            "binary_only": True,
+            "max_updates": 100,  # Can be more active
+            "min_activity": 5,
+            "stable_pattern": False,  # Can be irregular
         },
-        'priority': 8
+        "priority": 8,
     },
-    'analog': {
-        'name': 'Analog Sensors',
-        'criteria': {
-            'binary_only': False,
-            'value_range': (0, 1000),      # Reasonable analog range
-            'min_activity': 1,
+    "analog": {
+        "name": "Analog Sensors",
+        "criteria": {
+            "binary_only": False,
+            "value_range": (0, 1000),  # Reasonable analog range
+            "min_activity": 1,
         },
-        'priority': 5
+        "priority": 5,
     },
-    'noisy': {
-        'name': 'Noisy/System Sensors',
-        'criteria': {
-            'max_updates': 1000,           # Very chatty
-            'min_activity': 50,
+    "noisy": {
+        "name": "Noisy/System Sensors",
+        "criteria": {
+            "max_updates": 1000,  # Very chatty
+            "min_activity": 50,
         },
-        'priority': 1
-    }
+        "priority": 1,
+    },
 }
 
 
 @dataclass
 class DiscoveredSensor:
     """A dynamically discovered sensor with categorization."""
+
     uuid: str
     current_value: Any
     value_history: list[Any]
@@ -70,7 +71,7 @@ class DiscoveredSensor:
     update_count: int
     is_binary: bool = False  # True if only sees 0/1 values
     is_door_window: bool = False  # True if likely a door/window sensor
-    category: str = 'unknown'  # Sensor category
+    category: str = "unknown"  # Sensor category
     confidence: float = 0.0  # Confidence score (0-1)
     pattern_score: float = 0.0  # Pattern analysis score
 
@@ -92,12 +93,13 @@ class DynamicSensorDiscovery:
 
         # Pattern matching for door/window sensors
         self.door_window_patterns = [
-            'fenster',  # German for window
-            'tür', 'tuer',  # German for door
-            'window',
-            'door',
-            'sensor',
-            'kontakt',  # German for contact
+            "fenster",  # German for window
+            "tür",
+            "tuer",  # German for door
+            "window",
+            "door",
+            "sensor",
+            "kontakt",  # German for contact
         ]
 
     def start_discovery(self) -> None:
@@ -143,7 +145,7 @@ class DynamicSensorDiscovery:
                 value_history=[value],
                 first_seen=current_time,
                 last_updated=current_time,
-                update_count=1
+                update_count=1,
             )
             self.sensors[uuid] = sensor
             logger.debug(f"Discovered new sensor: {uuid} = {value}")
@@ -153,17 +155,17 @@ class DynamicSensorDiscovery:
         logger.info(f"Analyzing {len(self.sensors)} discovered sensors...")
 
         categorized_sensors = {category: [] for category in SENSOR_CATEGORIES}
-        categorized_sensors['unknown'] = []
+        categorized_sensors["unknown"] = []
 
         for _uuid, sensor in self.sensors.items():
             unique_values = set(sensor.value_history)
 
             # Categorize each sensor
-            best_category = 'unknown'
+            best_category = "unknown"
             best_score = 0.0
 
             for category, config in SENSOR_CATEGORIES.items():
-                score = self._calculate_category_score(sensor, unique_values, config['criteria'])
+                score = self._calculate_category_score(sensor, unique_values, config["criteria"])
                 if score > best_score:
                     best_score = score
                     best_category = category
@@ -174,7 +176,7 @@ class DynamicSensorDiscovery:
             sensor.pattern_score = self._calculate_pattern_score(sensor, unique_values)
 
             # Set legacy flags for compatibility
-            if best_category == 'door_window':
+            if best_category == "door_window":
                 sensor.is_door_window = True
                 sensor.is_binary = True
             elif unique_values.issubset({0, 1}):
@@ -186,19 +188,22 @@ class DynamicSensorDiscovery:
         logger.info("Sensor categorization complete:")
         for category, sensors in categorized_sensors.items():
             if sensors:
-                config = SENSOR_CATEGORIES.get(category, {'name': 'Unknown'})
+                config = SENSOR_CATEGORIES.get(category, {"name": "Unknown"})
                 logger.info(f"  {config.get('name', category)}: {len(sensors)} sensors")
 
         # Show top door/window sensors
-        door_window_sensors = sorted(categorized_sensors['door_window'],
-                                   key=lambda s: s.confidence, reverse=True)
+        door_window_sensors = sorted(
+            categorized_sensors["door_window"], key=lambda s: s.confidence, reverse=True
+        )
 
         if door_window_sensors:
             logger.info("Top door/window sensors (showing up to 15):")
             for i, sensor in enumerate(door_window_sensors[:15]):
                 current_state = "OPEN" if sensor.current_value == 0 else "CLOSED"
-                logger.info(f"  {i+1:2d}. {sensor.uuid}: {current_state} "
-                           f"(confidence: {sensor.confidence:.2f}, updates: {sensor.update_count})")
+                logger.info(
+                    f"  {i + 1:2d}. {sensor.uuid}: {current_state} "
+                    f"(confidence: {sensor.confidence:.2f}, updates: {sensor.update_count})"
+                )
         else:
             logger.warning("No door/window sensors found during discovery period")
             logger.info("Try opening/closing doors or windows during discovery")
@@ -211,9 +216,9 @@ class DynamicSensorDiscovery:
         max_score = 0.0
 
         # Binary only check - STRICT: only exact 0/1 values
-        if 'binary_only' in criteria:
+        if "binary_only" in criteria:
             max_score += 30
-            if criteria['binary_only']:
+            if criteria["binary_only"]:
                 # Only allow exact binary values (0, 1) - no floats
                 strict_binary = unique_values.issubset({0, 1})
                 if strict_binary:
@@ -226,7 +231,7 @@ class DynamicSensorDiscovery:
                     score += 30
 
         # Require actual state changes for door/window sensors FIRST
-        if criteria.get('require_change'):
+        if criteria.get("require_change"):
             max_score += 25
             if len(unique_values) >= 2:  # Must have at least OPEN and CLOSED states
                 score += 25
@@ -235,35 +240,33 @@ class DynamicSensorDiscovery:
                 return 0.0
 
         # Update count checks
-        if 'max_updates' in criteria:
+        if "max_updates" in criteria:
             max_score += 20
-            if sensor.update_count <= criteria['max_updates']:
+            if sensor.update_count <= criteria["max_updates"]:
                 score += 20
             else:
                 # Steep penalty for being too chatty
-                excess = sensor.update_count - criteria['max_updates']
+                excess = sensor.update_count - criteria["max_updates"]
                 score += max(0, 20 - excess * 10)  # Steeper penalty
 
-        if 'min_activity' in criteria:
+        if "min_activity" in criteria:
             max_score += 15
-            if sensor.update_count >= criteria['min_activity']:
+            if sensor.update_count >= criteria["min_activity"]:
                 score += 15
 
         # Value range check for analog sensors
-        if 'value_range' in criteria:
+        if "value_range" in criteria:
             max_score += 10
-            min_val, max_val = criteria['value_range']
+            min_val, max_val = criteria["value_range"]
             if all(isinstance(v, int | float) and min_val <= v <= max_val for v in unique_values):
                 score += 10
 
         # Stable pattern check - VERY strict for door/window
-        if 'stable_pattern' in criteria:
+        if "stable_pattern" in criteria:
             max_score += 10
-            if criteria['stable_pattern']:
+            if criteria["stable_pattern"]:
                 # Perfect door/window: exactly 2 states (0,1) and very few updates
-                if (len(unique_values) == 2 and
-                    unique_values == {0, 1} and
-                    sensor.update_count <= 3):
+                if len(unique_values) == 2 and unique_values == {0, 1} and sensor.update_count <= 3:
                     score += 10
                 elif len(unique_values) == 2 and sensor.update_count <= 3:
                     score += 5  # Partial credit
@@ -328,12 +331,13 @@ class DynamicSensorDiscovery:
             "total_sensors": total_count,
             "binary_sensors": binary_count,
             "door_window_sensors": door_window_count,
-            "discovery_time": self.discovery_time
+            "discovery_time": self.discovery_time,
         }
 
 
-async def discover_sensors_automatically(websocket_client: Any,
-                                       discovery_time: float = 60.0) -> list[DiscoveredSensor]:
+async def discover_sensors_automatically(
+    websocket_client: Any, discovery_time: float = 60.0
+) -> list[DiscoveredSensor]:
     """
     Automatically discover door/window sensors from WebSocket data.
 

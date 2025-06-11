@@ -8,6 +8,7 @@ Copyright (c) 2025 Ralf Anton Beier
 """
 
 import asyncio
+import contextlib
 import json
 import logging
 import struct
@@ -24,8 +25,13 @@ logger = logging.getLogger(__name__)
 class LoxoneWebSocketClient:
     """WebSocket client for real-time Loxone state monitoring."""
 
-    def __init__(self, host: str, port: int = 80, max_reconnect_attempts: int = -1,
-                 reconnect_delay: float = 5.0) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int = 80,
+        max_reconnect_attempts: int = -1,
+        reconnect_delay: float = 5.0,
+    ) -> None:
         """
         Initialize WebSocket client.
 
@@ -55,7 +61,7 @@ class LoxoneWebSocketClient:
         # Message handling
         self.running = False
         self._tasks: set[asyncio.Task] = set()
-        
+
         # Reconnection settings
         self.max_reconnect_attempts = max_reconnect_attempts
         self.reconnect_delay = reconnect_delay
@@ -80,7 +86,7 @@ class LoxoneWebSocketClient:
             self.websocket = await websockets.connect(
                 self.websocket_url,
                 subprotocols=["remotecontrol"],
-                ping_interval=None  # We'll handle keepalive ourselves
+                ping_interval=None,  # We'll handle keepalive ourselves
             )
             self.connected = True
             logger.info("WebSocket connected successfully")
@@ -176,23 +182,20 @@ class LoxoneWebSocketClient:
                         continue
                     else:
                         break
-                        
+
                 try:
                     # Receive message with timeout
-                    message = await asyncio.wait_for(
-                        self.websocket.recv(),
-                        timeout=30.0
-                    )
+                    message = await asyncio.wait_for(self.websocket.recv(), timeout=30.0)
 
                     if isinstance(message, bytes):
                         await self._handle_binary_message(message)
                     else:
                         await self._handle_text_message(message)
-                        
+
                     # Reset reconnect count on successful message
                     self.reconnect_count = 0
 
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     # Send keepalive to maintain connection
                     await self._send_keepalive()
                 except websockets.exceptions.ConnectionClosed as e:
@@ -224,9 +227,9 @@ class LoxoneWebSocketClient:
             logger.debug(f"Received JSON message: {data}")
 
             # Handle authentication responses, errors, etc.
-            if isinstance(data, dict) and 'LL' in data:
-                code = data.get('LL', {}).get('code', '200')
-                if code != '200':
+            if isinstance(data, dict) and "LL" in data:
+                code = data.get("LL", {}).get("code", "200")
+                if code != "200":
                     logger.warning(f"WebSocket error response: {data}")
 
         except json.JSONDecodeError:
@@ -241,7 +244,7 @@ class LoxoneWebSocketClient:
 
         try:
             # Parse message header (8 bytes) - Gen 1 format is different
-            header = struct.unpack('<BBBBI', data[:8])
+            header = struct.unpack("<BBBBI", data[:8])
             bin_type, identifier, info_flags, reserved, payload_length = header
 
             logger.debug(
@@ -257,15 +260,15 @@ class LoxoneWebSocketClient:
                 await self._try_parse_gen1_states(data[8:], bin_type, identifier)
 
             # Handle specific Gen 1 message types we've observed
-            if identifier == 0x05 and bin_type == 0xd1:  # Observed "out of service" pattern
+            if identifier == 0x05 and bin_type == 0xD1:  # Observed "out of service" pattern
                 logger.info("Gen 1 Miniserver reported status change - continuing monitoring")
                 # Don't close connection - Gen 1 may send this as normal status
 
-            elif identifier == 0xf5 or identifier == 0xf6:  # Large data messages
+            elif identifier == 0xF5 or identifier == 0xF6:  # Large data messages
                 # These might contain bulk state updates
                 await self._try_parse_gen1_bulk_states(data[8:])
 
-            elif identifier == 0x5e:  # Smaller data messages
+            elif identifier == 0x5E:  # Smaller data messages
                 # These might contain individual sensor updates
                 await self._try_parse_gen1_individual_states(data[8:])
 
@@ -282,15 +285,15 @@ class LoxoneWebSocketClient:
 
         while offset + 24 <= len(payload):
             try:
-                uuid_bytes = payload[offset:offset+16]
-                value_bytes = payload[offset+16:offset+24]
+                uuid_bytes = payload[offset : offset + 16]
+                value_bytes = payload[offset + 16 : offset + 24]
 
                 # Try to parse as UUID
                 uuid_obj = uuid.UUID(bytes=uuid_bytes)
                 uuid_str = str(uuid_obj)
 
                 # Try to parse as double value
-                value = struct.unpack('<d', value_bytes)[0]
+                value = struct.unpack("<d", value_bytes)[0]
 
                 # Check if this looks like valid sensor data
                 if self._is_valid_sensor_uuid(uuid_str) and self._is_reasonable_sensor_value(value):
@@ -304,6 +307,7 @@ class LoxoneWebSocketClient:
                         # Log state change
                         try:
                             from .sensor_state_logger import get_state_logger
+
                             state_logger = get_state_logger()
                             state_logger.log_state_change(uuid_str, old_value, value)
                         except Exception as e:
@@ -363,7 +367,7 @@ class LoxoneWebSocketClient:
 
         # Filter out extremely small/large scientific notation values
         # which are likely parsing artifacts
-        return not (abs(value) < 1e-30 or abs(value) > 1e+30)
+        return not (abs(value) < 1e-30 or abs(value) > 1e30)
 
     async def _handle_value_states(self, data: bytes) -> None:
         """Handle value state updates (UUID + double value)."""
@@ -373,15 +377,15 @@ class LoxoneWebSocketClient:
         while offset + 24 <= len(data):  # Each value state is 24 bytes
             try:
                 # Parse UUID (16 bytes) + double value (8 bytes)
-                uuid_bytes = data[offset:offset+16]
-                value_bytes = data[offset+16:offset+24]
+                uuid_bytes = data[offset : offset + 16]
+                value_bytes = data[offset + 16 : offset + 24]
 
                 # Convert UUID bytes to string
                 uuid_obj = uuid.UUID(bytes=uuid_bytes)
                 uuid_str = str(uuid_obj)
 
                 # Parse double value (little endian)
-                value = struct.unpack('<d', value_bytes)[0]
+                value = struct.unpack("<d", value_bytes)[0]
 
                 # Update state
                 old_value = self.states.get(uuid_str)
@@ -394,6 +398,7 @@ class LoxoneWebSocketClient:
                     # Log state change
                     try:
                         from .sensor_state_logger import get_state_logger
+
                         state_logger = get_state_logger()
                         state_logger.log_state_change(uuid_str, old_value, value)
                     except Exception as e:
@@ -425,9 +430,9 @@ class LoxoneWebSocketClient:
                     break
 
                 # Parse UUIDs (16 bytes each) + text length (4 bytes)
-                uuid_bytes = data[offset:offset+16]
-                data[offset+16:offset+32]
-                text_length = struct.unpack('<I', data[offset+32:offset+36])[0]
+                uuid_bytes = data[offset : offset + 16]
+                data[offset + 16 : offset + 32]
+                text_length = struct.unpack("<I", data[offset + 32 : offset + 36])[0]
 
                 # Convert UUID bytes to string
                 uuid_obj = uuid.UUID(bytes=uuid_bytes)
@@ -440,7 +445,7 @@ class LoxoneWebSocketClient:
                 if text_end > len(data):
                     break
 
-                text_value = data[text_start:text_end].decode('utf-8', errors='ignore')
+                text_value = data[text_start:text_end].decode("utf-8", errors="ignore")
 
                 # Update state
                 old_value = self.states.get(uuid_str)
@@ -453,6 +458,7 @@ class LoxoneWebSocketClient:
                     # Log state change
                     try:
                         from .sensor_state_logger import get_state_logger
+
                         state_logger = get_state_logger()
                         state_logger.log_state_change(uuid_str, old_value, text_value)
                     except Exception as e:
@@ -501,44 +507,46 @@ class LoxoneWebSocketClient:
         """Attempt to reconnect to WebSocket."""
         if self._reconnecting:
             return False
-            
+
         self._reconnecting = True
         try:
             # Check reconnection limit
-            if self.max_reconnect_attempts != -1 and self.reconnect_count >= self.max_reconnect_attempts:
-                logger.error(f"Maximum reconnection attempts ({self.max_reconnect_attempts}) reached")
+            if (
+                self.max_reconnect_attempts != -1
+                and self.reconnect_count >= self.max_reconnect_attempts
+            ):
+                logger.error(
+                    f"Maximum reconnection attempts ({self.max_reconnect_attempts}) reached"
+                )
                 return False
-                
+
             self.reconnect_count += 1
             logger.info(f"Attempting WebSocket reconnection {self.reconnect_count}...")
-            
+
             # Close existing connection
             if self.websocket:
-                try:
+                with contextlib.suppress(Exception):
                     await self.websocket.close()
-                except Exception:
-                    pass
                 self.websocket = None
-            
+
             # Wait before reconnecting
             await asyncio.sleep(self.reconnect_delay)
-            
+
             # Reconnect
             await self.connect(self.token, self.username)
             logger.info("WebSocket reconnection successful")
             return True
-            
+
         except Exception as e:
             logger.error(f"WebSocket reconnection failed: {e}")
             return False
         finally:
             self._reconnecting = False
-    
+
     async def send_command(self, command: str) -> None:
         """Send command via WebSocket with reconnection support."""
-        if not self.authenticated:
-            if not await self._reconnect():
-                raise ValueError("WebSocket not authenticated and reconnection failed")
+        if not self.authenticated and not await self._reconnect():
+            raise ValueError("WebSocket not authenticated and reconnection failed")
 
         try:
             await self._send_text_message(command)

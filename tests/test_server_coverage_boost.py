@@ -14,8 +14,8 @@ class TestServerParsing:
         assert server is not None
 
         # Test global variables exist
-        assert hasattr(server, '_context')
-        assert hasattr(server, 'logger')
+        assert hasattr(server, "_context")
+        assert hasattr(server, "logger")
 
     def test_server_device_parsing_structure(self) -> None:
         """Test device parsing structure exists."""
@@ -30,7 +30,7 @@ class TestServerParsing:
             room_uuid="kitchen-uuid-456",
             category="Lighting",
             states={"value": 1, "active": True},
-            details={"manufacturer": "Loxone", "model": "Test"}
+            details={"manufacturer": "Loxone", "model": "Test"},
         )
 
         # Test all fields are accessible
@@ -56,7 +56,7 @@ class TestServerParsing:
             "room5": "Arbeitszimmer",
             "room6": "Garage",
             "room7": "Dachboden",
-            "room8": "Keller"
+            "room8": "Keller",
         }
 
         # Test exact matches
@@ -81,9 +81,15 @@ class TestServerParsing:
 
         # Test German inputs
         german_tests = [
-            ("an", "on"), ("AN", "on"), ("An", "on"),
-            ("aus", "off"), ("AUS", "off"), ("Aus", "off"),
-            ("ein", "on"), ("EIN", "on"), ("Ein", "on")
+            ("an", "on"),
+            ("AN", "on"),
+            ("An", "on"),
+            ("aus", "off"),
+            ("AUS", "off"),
+            ("Aus", "off"),
+            ("ein", "on"),
+            ("EIN", "on"),
+            ("Ein", "on"),
         ]
 
         for input_val, expected in german_tests:
@@ -91,9 +97,14 @@ class TestServerParsing:
 
         # Test English inputs
         english_tests = [
-            ("on", "on"), ("ON", "on"), ("On", "on"),
-            ("off", "off"), ("OFF", "off"), ("Off", "off"),
-            ("true", "true"), ("false", "false")
+            ("on", "on"),
+            ("ON", "on"),
+            ("On", "on"),
+            ("off", "off"),
+            ("OFF", "off"),
+            ("Off", "off"),
+            ("true", "true"),
+            ("false", "false"),
         ]
 
         for input_val, expected in english_tests:
@@ -150,7 +161,7 @@ class TestServerValidation:
         assert callable(list_rooms)
         assert callable(get_room_devices)
 
-    @patch('loxone_mcp.server._context', None)
+    @patch("loxone_mcp.server._context", None)
     def test_server_no_context_handling(self) -> None:
         """Test server behavior when no context is available."""
         from loxone_mcp.server import list_rooms
@@ -169,25 +180,25 @@ class TestServerValidation:
                 name="Kitchen Light",
                 type="LightController",
                 room="Kitchen",
-                room_uuid="kitchen1"
+                room_uuid="kitchen1",
             ),
             "blind1": LoxoneDevice(
                 uuid="blind1",
                 name="Living Room Blind",
                 type="Jalousie",
                 room="Living Room",
-                room_uuid="living1"
-            )
+                room_uuid="living1",
+            ),
         }
 
         context = ServerContext(
             loxone="mock_loxone_client",
             structure={
                 "rooms": {"kitchen1": "Kitchen", "living1": "Living Room"},
-                "controls": {"light1": {}, "blind1": {}}
+                "controls": {"light1": {}, "blind1": {}},
             },
             devices=mock_devices,
-            rooms={"kitchen1": "Kitchen", "living1": "Living Room"}
+            rooms={"kitchen1": "Kitchen", "living1": "Living Room"},
         )
 
         # Test context fields
@@ -204,7 +215,7 @@ class TestServerValidation:
         import loxone_mcp.server as server
 
         # Test that important constants exist
-        constants_to_check = ['ACTION_ALIASES', 'FLOOR_PATTERNS']
+        constants_to_check = ["ACTION_ALIASES", "FLOOR_PATTERNS"]
         for const_name in constants_to_check:
             assert hasattr(server, const_name)
             const_value = getattr(server, const_name)
@@ -216,7 +227,7 @@ class TestServerValidation:
         import loxone_mcp.server as server
 
         # Test logger exists
-        assert hasattr(server, 'logger')
+        assert hasattr(server, "logger")
         assert server.logger is not None
 
     def test_server_mcp_integration_structure(self) -> None:
@@ -224,20 +235,20 @@ class TestServerValidation:
         import loxone_mcp.server as server
 
         # Test MCP app structure
-        assert hasattr(server, 'mcp')
+        assert hasattr(server, "mcp")
         mcp_app = server.mcp
         assert mcp_app is not None
 
         # Test MCP methods exist
-        assert hasattr(mcp_app, 'tool')
-        assert hasattr(mcp_app, 'get_context')
+        assert hasattr(mcp_app, "tool")
+        assert hasattr(mcp_app, "get_context")
 
     def test_server_lifespan_structure(self) -> None:
         """Test server lifespan management structure."""
         import loxone_mcp.server as server
 
         # Test lifespan function exists
-        assert hasattr(server, 'lifespan')
+        assert hasattr(server, "lifespan")
         assert callable(server.lifespan)
 
     def test_server_run_function(self) -> None:
@@ -245,7 +256,7 @@ class TestServerValidation:
         import loxone_mcp.server as server
 
         # Test run function exists
-        assert hasattr(server, 'run')
+        assert hasattr(server, "run")
         assert callable(server.run)
 
 
@@ -258,16 +269,37 @@ class TestServerToolsValidation:
 
         # All tools from the Task result
         all_tools = [
-            'list_rooms', 'get_room_devices', 'control_rolladen', 'control_room_rolladen',
-            'control_light', 'control_room_lights', 'get_rooms_by_floor', 'translate_command',
-            'get_temperature_overview', 'get_humidity_overview', 'get_security_status',
-            'get_climate_summary', 'get_weather_overview', 'get_outdoor_temperature',
-            'get_brightness_levels', 'get_environmental_summary', 'get_weather_service_status',
-            'get_weather_forecast', 'get_weather_current', 'diagnose_weather_service',
-            'get_lighting_presets', 'set_lighting_mood', 'get_active_lighting_moods',
-            'control_central_lighting', 'get_house_scenes', 'activate_house_scene',
-            'get_alarm_clocks', 'set_alarm_clock', 'get_scene_status_overview',
-            'get_device_status', 'get_all_devices'
+            "list_rooms",
+            "get_room_devices",
+            "control_rolladen",
+            "control_room_rolladen",
+            "control_light",
+            "control_room_lights",
+            "get_rooms_by_floor",
+            "translate_command",
+            "get_temperature_overview",
+            "get_humidity_overview",
+            "get_security_status",
+            "get_climate_summary",
+            "get_weather_overview",
+            "get_outdoor_temperature",
+            "get_brightness_levels",
+            "get_environmental_summary",
+            "get_weather_service_status",
+            "get_weather_forecast",
+            "get_weather_current",
+            "diagnose_weather_service",
+            "get_lighting_presets",
+            "set_lighting_mood",
+            "get_active_lighting_moods",
+            "control_central_lighting",
+            "get_house_scenes",
+            "activate_house_scene",
+            "get_alarm_clocks",
+            "set_alarm_clock",
+            "get_scene_status_overview",
+            "get_device_status",
+            "get_all_devices",
         ]
 
         # Test each tool exists and is callable
@@ -281,22 +313,27 @@ class TestServerToolsValidation:
         import loxone_mcp.server as server
 
         # Test room management tools
-        room_tools = ['list_rooms', 'get_room_devices', 'get_rooms_by_floor']
+        room_tools = ["list_rooms", "get_room_devices", "get_rooms_by_floor"]
         for tool in room_tools:
             assert hasattr(server, tool)
 
         # Test lighting tools
-        lighting_tools = ['control_light', 'control_room_lights', 'get_lighting_presets',
-                         'set_lighting_mood', 'control_central_lighting']
+        lighting_tools = [
+            "control_light",
+            "control_room_lights",
+            "get_lighting_presets",
+            "set_lighting_mood",
+            "control_central_lighting",
+        ]
         for tool in lighting_tools:
             assert hasattr(server, tool)
 
         # Test environmental tools
-        env_tools = ['get_temperature_overview', 'get_humidity_overview', 'get_brightness_levels']
+        env_tools = ["get_temperature_overview", "get_humidity_overview", "get_brightness_levels"]
         for tool in env_tools:
             assert hasattr(server, tool)
 
         # Test weather tools
-        weather_tools = ['get_weather_overview', 'get_weather_current', 'get_weather_forecast']
+        weather_tools = ["get_weather_overview", "get_weather_current", "get_weather_forecast"]
         for tool in weather_tools:
             assert hasattr(server, tool)

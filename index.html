@@ -1188,17 +1188,21 @@ uvx --from . loxone-mcp setup</code></pre>
                 <h4>🌐 HTTP Server (SSE)</h4>
                 <div class="code-container">
                     <div class="code-header">
-                        <span class="code-title">Start HTTP Server</span>
+                        <span class="code-title">Start Authenticated HTTP Server</span>
                         <button class="copy-btn" onclick="copyCode('sse-server')">Copy</button>
                     </div>
-                    <pre id="sse-server"><code># Start SSE server for web integration
+                    <pre id="sse-server"><code># Start SSE server with API key authentication
 uvx --from . loxone-mcp-sse
 
-# Or with custom settings
-LOXONE_SSE_PORT=8080 uvx --from . loxone-mcp-sse
+# Disable authentication for local testing only
+LOXONE_SSE_REQUIRE_AUTH=false uvx --from . loxone-mcp-sse
 
-# Available at http://localhost:8080
-# API endpoints for n8n, Home Assistant, webhooks</code></pre>
+# Production with custom API key
+LOXONE_SSE_API_KEY=your-secure-key uvx --from . loxone-mcp-sse
+
+# Use generated API key for curl/webhooks:
+curl -H "Authorization: Bearer <api-key>" http://localhost:8000/sse
+curl -H "X-API-Key: <api-key>" http://localhost:8000/sse</code></pre>
                 </div>
             </div>
             
@@ -1225,19 +1229,25 @@ cat commands.json | uvx --from . loxone-mcp-server</code></pre>
                 <h4>🐳 Docker Deployment</h4>
                 <div class="code-container">
                     <div class="code-header">
-                        <span class="code-title">Docker Compose</span>
+                        <span class="code-title">Secure Docker Compose</span>
                         <button class="copy-btn" onclick="copyCode('docker-deploy')">Copy</button>
                     </div>
-                    <pre id="docker-deploy"><code># Using Docker Compose
+                    <pre id="docker-deploy"><code># Using Docker Compose with authentication
 docker-compose -f docker-compose.sse.yml up
 
-# Environment variables
+# Environment variables for production
 LOXONE_HOST=192.168.1.100
 LOXONE_USER=your-username  
 LOXONE_PASS=your-password
+LOXONE_SSE_REQUIRE_AUTH=true
+LOXONE_SSE_API_KEY=your-secure-api-key
 
-# Production deployment with systemd
-sudo systemctl enable loxone-mcp-sse</code></pre>
+# Check logs for generated API key
+docker-compose -f docker-compose.sse.yml logs
+
+# Test authenticated endpoint
+curl -H "Authorization: Bearer <api-key>" \
+  http://localhost:8000/health</code></pre>
                 </div>
             </div>
         </div>
@@ -1326,39 +1336,469 @@ if capabilities.has_security:
         <div class="features-grid">
             <div class="feature-card">
                 <div class="feature-icon">🔐</div>
-                <h3>Local Credential Storage</h3>
-                <p><strong>Your credentials stay local:</strong> Stored in system keychain (macOS Keychain Access, Windows Credential Manager, Linux Secret Service). No cloud sync, no external servers - complete privacy.</p>
+                <h3>System Keychain Security</h3>
+                <p><strong>OS-Level Encryption:</strong> All credentials stored in system keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service). Zero cloud storage - complete local privacy with OS-managed encryption.</p>
             </div>
             <div class="feature-card">
-                <div class="feature-icon">⚠️</div>
-                <h3>Generation 1 API Limitations</h3>
-                <p><strong>Important:</strong> Loxone Gen 1 Miniservers use basic HTTP authentication without encryption. This MCP server is designed for <em>local network use only</em> - not suitable for internet exposure.</p>
+                <div class="feature-icon">🎫</div>
+                <h3>JWT Token Authentication</h3>
+                <p><strong>Loxone Protocol:</strong> HMAC-based JWT token exchange with automatic refresh. Secure authentication flow using Gen 1 Miniserver's token API with connection health monitoring and graceful reconnection.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🌐</div>
+                <h3>API Key Protection</h3>
+                <p><strong>Web Integration Security:</strong> SSE server protected by auto-generated API keys. Bearer token or X-API-Key header authentication for n8n, Home Assistant, webhooks. Keys managed through setup wizard.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Multi-Layer Security Model</h3>
+                <p><strong>Defense in Depth:</strong> Environment variable override, constant-time comparisons, request logging, health check endpoints. Production-ready with Docker support and systematic credential management.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🏠</div>
-                <h3>Network Security Recommendations</h3>
-                <p><strong>Best Practices:</strong> Use within your home network. For remote access, connect via VPN. Gen 1 systems lack the encrypted token authentication available in newer Loxone generations.</p>
+                <h3>Local Network Architecture</h3>
+                <p><strong>Zero External Dependencies:</strong> All communication stays within your home network. No cloud services, no external APIs. VPN recommended for remote access. Complete network isolation design.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">⚙️</div>
+                <h3>Configuration-Aware Security</h3>
+                <p><strong>Adaptive Authentication:</strong> Setup wizard detects your environment and configures appropriate security. Skip SSE if unneeded, auto-generate keys, environment overrides for CI/CD workflows.</p>
+            </div>
+        </div>
+
+        <!-- Security Architecture Overview -->
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Comprehensive Security Architecture</span>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 2rem 0;">
+                <svg width="900" height="400" viewBox="0 0 900 400" style="background: var(--bg-secondary); border-radius: 8px;">
+                    <!-- Background layers -->
+                    <defs>
+                        <linearGradient id="keychainGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--secondary-color);stop-opacity:0.1"/>
+                            <stop offset="100%" style="stop-color:var(--secondary-color);stop-opacity:0.3"/>
+                        </linearGradient>
+                        <linearGradient id="jwtGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--primary-color);stop-opacity:0.1"/>
+                            <stop offset="100%" style="stop-color:var(--primary-color);stop-opacity:0.3"/>
+                        </linearGradient>
+                        <linearGradient id="apiGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--accent-color);stop-opacity:0.1"/>
+                            <stop offset="100%" style="stop-color:var(--accent-color);stop-opacity:0.3"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- Security Layer 1: System Keychain -->
+                    <rect x="50" y="50" width="800" height="80" rx="10" fill="url(#keychainGrad)" stroke="var(--secondary-color)" stroke-width="2"/>
+                    <text x="450" y="75" text-anchor="middle" fill="var(--text-primary)" font-family="inherit" font-size="14" font-weight="600">🔐 System Keychain Security Layer</text>
+                    <text x="120" y="95" fill="var(--text-secondary)" font-family="inherit" font-size="11">macOS Keychain</text>
+                    <text x="320" y="95" fill="var(--text-secondary)" font-family="inherit" font-size="11">Windows Credential Manager</text>
+                    <text x="580" y="95" fill="var(--text-secondary)" font-family="inherit" font-size="11">Linux Secret Service</text>
+                    <text x="450" y="110" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">OS-Level Encryption • Zero Cloud Storage • Environment Override</text>
+                    
+                    <!-- Security Layer 2: Authentication Methods -->
+                    <!-- JWT Section -->
+                    <rect x="80" y="160" width="360" height="120" rx="8" fill="url(#jwtGrad)" stroke="var(--primary-color)" stroke-width="2"/>
+                    <text x="260" y="185" text-anchor="middle" fill="var(--text-primary)" font-family="inherit" font-size="13" font-weight="600">🎫 JWT Token Authentication</text>
+                    <text x="100" y="205" fill="var(--text-secondary)" font-family="inherit" font-size="10">• HMAC-SHA256 token exchange</text>
+                    <text x="100" y="220" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Automatic refresh before expiry</text>
+                    <text x="100" y="235" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Connection health monitoring</text>
+                    <text x="100" y="250" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Loxone Gen1 API compatibility</text>
+                    <text x="100" y="265" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Graceful reconnection handling</text>
+                    
+                    <!-- API Key Section -->
+                    <rect x="460" y="160" width="360" height="120" rx="8" fill="url(#apiGrad)" stroke="var(--accent-color)" stroke-width="2"/>
+                    <text x="640" y="185" text-anchor="middle" fill="var(--text-primary)" font-family="inherit" font-size="13" font-weight="600">🌐 API Key Protection</text>
+                    <text x="480" y="205" fill="var(--text-secondary)" font-family="inherit" font-size="10">• 32-byte cryptographically secure</text>
+                    <text x="480" y="220" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Bearer token OR X-API-Key header</text>
+                    <text x="480" y="235" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Constant-time comparison</text>
+                    <text x="480" y="250" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Request logging & IP tracking</text>
+                    <text x="480" y="265" fill="var(--text-secondary)" font-family="inherit" font-size="10">• Auto-generation & keychain storage</text>
+                    
+                    <!-- Applications -->
+                    <text x="260" y="305" text-anchor="middle" fill="var(--primary-color)" font-family="inherit" font-size="12" font-weight="600">For AI Assistants</text>
+                    <text x="260" y="320" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">Claude Desktop • MCP Protocol</text>
+                    
+                    <text x="640" y="305" text-anchor="middle" fill="var(--accent-color)" font-family="inherit" font-size="12" font-weight="600">For Web Integrations</text>
+                    <text x="640" y="320" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">n8n • Home Assistant • Webhooks</text>
+                    
+                    <!-- Security Features -->
+                    <text x="450" y="350" text-anchor="middle" fill="var(--text-primary)" font-family="inherit" font-size="12" font-weight="600">🛡️ Production Security Features</text>
+                    <text x="200" y="370" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">Health Checks</text>
+                    <text x="320" y="370" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">Docker Support</text>
+                    <text x="450" y="370" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">Setup Wizard</text>
+                    <text x="580" y="370" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">CI/CD Override</text>
+                    <text x="700" y="370" text-anchor="middle" fill="var(--text-secondary)" font-family="inherit" font-size="10">Local Network Only</text>
+                </svg>
+            </div>
+        </div>
+
+        <!-- Dual Authentication Flow Diagram -->
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Dual Authentication Flows</span>
+            </div>
+            <div style="display: flex; justify-content: center; padding: 2rem 0;">
+                <svg width="1000" height="600" viewBox="0 0 1000 600" style="background: var(--bg-secondary); border-radius: 8px;">
+                    <!-- Title -->
+                    <text x="500" y="30" text-anchor="middle" fill="var(--text-primary)" font-family="inherit" font-size="16" font-weight="600">Complete Authentication Architecture</text>
+                    
+                    <!-- Flow 1: MCP + JWT Authentication -->
+                    <g id="mcp-flow">
+                        <text x="250" y="60" text-anchor="middle" fill="var(--primary-color)" font-family="inherit" font-size="14" font-weight="600">🎫 MCP Mode: JWT Token Authentication</text>
+                        
+                        <!-- Actors for MCP flow -->
+                        <rect x="50" y="80" width="80" height="30" rx="4" fill="var(--primary-color)" opacity="0.8"/>
+                        <text x="90" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">MCP Server</text>
+                        
+                        <rect x="150" y="80" width="80" height="30" rx="4" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="190" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">Keychain</text>
+                        
+                        <rect x="250" y="80" width="80" height="30" rx="4" fill="var(--accent-color)" opacity="0.8"/>
+                        <text x="290" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">Loxone Gen1</text>
+                        
+                        <rect x="350" y="80" width="80" height="30" rx="4" fill="var(--warning-color)" opacity="0.8"/>
+                        <text x="390" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">Claude AI</text>
+                        
+                        <!-- Lifelines for MCP -->
+                        <g stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3,3">
+                            <line x1="90" y1="110" x2="90" y2="280"/>
+                            <line x1="190" y1="110" x2="190" y2="280"/>
+                            <line x1="290" y1="110" x2="290" y2="280"/>
+                            <line x1="390" y1="110" x2="390" y2="280"/>
+                        </g>
+                        
+                        <!-- MCP Messages -->
+                        <g font-family="inherit" font-size="9">
+                            <!-- Setup -->
+                            <g transform="translate(0,130)">
+                                <line x1="90" y1="0" x2="190" y2="0" stroke="var(--secondary-color)" stroke-width="2" marker-end="url(#arrow1)"/>
+                                <text x="140" y="-3" text-anchor="middle" fill="var(--text-primary)">1. Store Loxone creds</text>
+                            </g>
+                            
+                            <!-- AI Request -->
+                            <g transform="translate(0,150)">
+                                <line x1="390" y1="0" x2="90" y2="0" stroke="var(--warning-color)" stroke-width="2" marker-end="url(#arrow1)"/>
+                                <text x="240" y="-3" text-anchor="middle" fill="var(--text-primary)">2. "Turn on lights"</text>
+                            </g>
+                            
+                            <!-- Get Credentials -->
+                            <g transform="translate(0,170)">
+                                <line x1="90" y1="0" x2="190" y2="0" stroke="var(--secondary-color)" stroke-width="2" marker-end="url(#arrow1)"/>
+                                <text x="140" y="-3" text-anchor="middle" fill="var(--text-primary)">3. Get creds</text>
+                            </g>
+                            
+                            <!-- JWT Exchange -->
+                            <g transform="translate(0,190)">
+                                <line x1="90" y1="0" x2="290" y2="0" stroke="var(--accent-color)" stroke-width="2" marker-end="url(#arrow1)"/>
+                                <text x="190" y="-3" text-anchor="middle" fill="var(--text-primary)">4. JWT token exchange</text>
+                            </g>
+                            
+                            <!-- Device Control -->
+                            <g transform="translate(0,210)">
+                                <line x1="90" y1="0" x2="290" y2="0" stroke="var(--primary-color)" stroke-width="2" marker-end="url(#arrow1)"/>
+                                <text x="190" y="-3" text-anchor="middle" fill="var(--text-primary)">5. Device control</text>
+                            </g>
+                            
+                            <!-- Response -->
+                            <g transform="translate(0,230)">
+                                <line x1="90" y1="0" x2="390" y2="0" stroke="var(--warning-color)" stroke-width="2" stroke-dasharray="3,3" marker-end="url(#arrow1)"/>
+                                <text x="240" y="-3" text-anchor="middle" fill="var(--text-primary)">6. "Lights turned on"</text>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Flow 2: SSE + API Key Authentication -->
+                    <g id="sse-flow">
+                        <text x="750" y="60" text-anchor="middle" fill="var(--accent-color)" font-family="inherit" font-size="14" font-weight="600">🌐 SSE Mode: API Key Authentication</text>
+                        
+                        <!-- Actors for SSE flow -->
+                        <rect x="550" y="80" width="80" height="30" rx="4" fill="var(--primary-color)" opacity="0.8"/>
+                        <text x="590" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">SSE Server</text>
+                        
+                        <rect x="650" y="80" width="80" height="30" rx="4" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="690" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">Keychain</text>
+                        
+                        <rect x="750" y="80" width="80" height="30" rx="4" fill="var(--accent-color)" opacity="0.8"/>
+                        <text x="790" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">Loxone Gen1</text>
+                        
+                        <rect x="850" y="80" width="80" height="30" rx="4" fill="var(--warning-color)" opacity="0.8"/>
+                        <text x="890" y="100" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">n8n/HA</text>
+                        
+                        <!-- Lifelines for SSE -->
+                        <g stroke="var(--text-muted)" stroke-width="1" stroke-dasharray="3,3">
+                            <line x1="590" y1="110" x2="590" y2="280"/>
+                            <line x1="690" y1="110" x2="690" y2="280"/>
+                            <line x1="790" y1="110" x2="790" y2="280"/>
+                            <line x1="890" y1="110" x2="890" y2="280"/>
+                        </g>
+                        
+                        <!-- SSE Messages -->
+                        <g font-family="inherit" font-size="9">
+                            <!-- Setup -->
+                            <g transform="translate(0,130)">
+                                <line x1="590" y1="0" x2="690" y2="0" stroke="var(--secondary-color)" stroke-width="2" marker-end="url(#arrow2)"/>
+                                <text x="640" y="-3" text-anchor="middle" fill="var(--text-primary)">1. Store API key</text>
+                            </g>
+                            
+                            <!-- Web Request -->
+                            <g transform="translate(0,150)">
+                                <line x1="890" y1="0" x2="590" y2="0" stroke="var(--warning-color)" stroke-width="2" marker-end="url(#arrow2)"/>
+                                <text x="740" y="-3" text-anchor="middle" fill="var(--text-primary)">2. Bearer token request</text>
+                            </g>
+                            
+                            <!-- Verify API Key -->
+                            <g transform="translate(0,170)">
+                                <line x1="590" y1="0" x2="690" y2="0" stroke="var(--secondary-color)" stroke-width="2" marker-end="url(#arrow2)"/>
+                                <text x="640" y="-3" text-anchor="middle" fill="var(--text-primary)">3. Verify key</text>
+                            </g>
+                            
+                            <!-- JWT Exchange (internal) -->
+                            <g transform="translate(0,190)">
+                                <line x1="590" y1="0" x2="790" y2="0" stroke="var(--accent-color)" stroke-width="2" marker-end="url(#arrow2)"/>
+                                <text x="690" y="-3" text-anchor="middle" fill="var(--text-primary)">4. JWT + Device control</text>
+                            </g>
+                            
+                            <!-- Response -->
+                            <g transform="translate(0,210)">
+                                <line x1="590" y1="0" x2="890" y2="0" stroke="var(--warning-color)" stroke-width="2" stroke-dasharray="3,3" marker-end="url(#arrow2)"/>
+                                <text x="740" y="-3" text-anchor="middle" fill="var(--text-primary)">5. JSON response</text>
+                            </g>
+                        </g>
+                    </g>
+                    
+                    <!-- Setup Flow -->
+                    <g id="setup-flow">
+                        <text x="500" y="320" text-anchor="middle" fill="var(--primary-color)" font-family="inherit" font-size="14" font-weight="600">🔐 One-Time Setup Wizard</text>
+                        
+                        <!-- Setup steps -->
+                        <rect x="100" y="340" width="800" height="200" rx="8" fill="var(--bg-card)" stroke="var(--primary-color)" stroke-width="1"/>
+                        
+                        <g font-family="inherit" font-size="12" fill="var(--text-primary)">
+                            <text x="120" y="365" font-weight="600">$ uvx --from . loxone-mcp setup</text>
+                            
+                            <!-- Step 1 -->
+                            <text x="140" y="390" fill="var(--secondary-color)" font-weight="600">1. Network Discovery</text>
+                            <text x="160" y="405" font-size="10" fill="var(--text-secondary)">• Auto-discover Miniservers on network</text>
+                            <text x="160" y="418" font-size="10" fill="var(--text-secondary)">• Test connection before storing</text>
+                            
+                            <!-- Step 2 -->
+                            <text x="350" y="390" fill="var(--secondary-color)" font-weight="600">2. Loxone Credentials</text>
+                            <text x="370" y="405" font-size="10" fill="var(--text-secondary)">• Store in OS keychain (encrypted)</text>
+                            <text x="370" y="418" font-size="10" fill="var(--text-secondary)">• Environment override available</text>
+                            
+                            <!-- Step 3 -->
+                            <text x="140" y="450" fill="var(--accent-color)" font-weight="600">3. SSE API Key</text>
+                            <text x="160" y="465" font-size="10" fill="var(--text-secondary)">• Generate secure 32-byte token</text>
+                            <text x="160" y="478" font-size="10" fill="var(--text-secondary)">• Custom key or skip options</text>
+                            <text x="160" y="491" font-size="10" fill="var(--text-secondary)">• Store alongside Loxone creds</text>
+                            
+                            <!-- Step 4 -->
+                            <text x="350" y="450" fill="var(--accent-color)" font-weight="600">4. Security Validation</text>
+                            <text x="370" y="465" font-size="10" fill="var(--text-secondary)">• Test both MCP and SSE auth</text>
+                            <text x="370" y="478" font-size="10" fill="var(--text-secondary)">• Display integration examples</text>
+                            <text x="370" y="491" font-size="10" fill="var(--text-secondary)">• Ready for production use</text>
+                            
+                            <!-- Result -->
+                            <text x="600" y="390" fill="var(--primary-color)" font-weight="600">✅ Complete Security Setup</text>
+                            <text x="620" y="410" font-size="10" fill="var(--text-secondary)">🔐 All credentials in OS keychain</text>
+                            <text x="620" y="425" font-size="10" fill="var(--text-secondary)">🎫 JWT authentication ready</text>
+                            <text x="620" y="440" font-size="10" fill="var(--text-secondary)">🌐 API key protection enabled</text>
+                            <text x="620" y="455" font-size="10" fill="var(--text-secondary)">🛡️ Production deployment ready</text>
+                            <text x="620" y="470" font-size="10" fill="var(--text-secondary)">🏠 Local network security model</text>
+                            <text x="620" y="485" font-size="10" fill="var(--text-secondary)">⚙️ CI/CD environment overrides</text>
+                        </g>
+                    </g>
+                    
+                    <!-- Arrow markers -->
+                    <defs>
+                        <marker id="arrow1" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                            <polygon points="0 0, 8 3, 0 6" fill="currentColor"/>
+                        </marker>
+                        <marker id="arrow2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+                            <polygon points="0 0, 8 3, 0 6" fill="currentColor"/>
+                        </marker>
+                    </defs>
+                    
+                    <!-- Security badges -->
+                    <g font-family="inherit" font-size="10" fill="var(--text-muted)">
+                        <text x="20" y="580">🔐 OS Keychain Encryption</text>
+                        <text x="200" y="580">🎫 HMAC-SHA256 JWT</text>
+                        <text x="350" y="580">🌐 Bearer Token Auth</text>
+                        <text x="500" y="580">🛡️ Constant-Time Comparison</text>
+                        <text x="680" y="580">🏠 Local Network Only</text>
+                        <text x="820" y="580">⚙️ Production Ready</text>
+                    </g>
+                </svg>
             </div>
         </div>
 
         <div class="code-container">
             <div class="code-header">
-                <span class="code-title">Security Architecture</span>
+                <span class="code-title">Complete Security Architecture Deployment</span>
             </div>
-            <pre><code># Local-only credential flow
-System Keychain ← Stored credentials (encrypted by OS)
-     ↓
-MCP Server ← Retrieves credentials securely  
-     ↓
-Local Network ← HTTP Basic Auth to Loxone Gen 1
-     ↓
-Miniserver ← Direct communication (192.168.x.x)
-
-# What's NOT exposed:
-✗ No cloud storage
-✗ No external API calls  
-✗ No credential transmission outside your network
-✗ No internet-facing endpoints</code></pre>
+            <div style="background: var(--bg-card); padding: 2rem; border-radius: 8px; margin: 1rem 0;">
+                <svg viewBox="0 0 1000 700" style="width: 100%; height: auto; background: var(--bg-card);">
+                    <!-- Title -->
+                    <text x="500" y="30" text-anchor="middle" fill="var(--primary-color)" font-family="inherit" font-size="18" font-weight="700">🏗️ Security Architecture Deployment</text>
+                    
+                    <!-- Developer Machine -->
+                    <g id="dev-machine">
+                        <rect x="50" y="80" width="200" height="250" rx="12" fill="var(--bg-primary)" stroke="var(--primary-color)" stroke-width="2"/>
+                        <text x="150" y="105" text-anchor="middle" fill="var(--primary-color)" font-family="inherit" font-size="14" font-weight="600">💻 Developer Machine</text>
+                        
+                        <!-- OS Keychain -->
+                        <rect x="70" y="120" width="160" height="40" rx="6" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="150" y="135" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🔐 OS Keychain</text>
+                        <text x="150" y="148" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Encrypted Storage</text>
+                        
+                        <!-- MCP Server -->
+                        <rect x="70" y="170" width="160" height="40" rx="6" fill="var(--accent-color)" opacity="0.8"/>
+                        <text x="150" y="185" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🤖 MCP Server</text>
+                        <text x="150" y="198" text-anchor="middle" fill="white" font-family="inherit" font-size="8">JWT Authentication</text>
+                        
+                        <!-- SSE Server -->
+                        <rect x="70" y="220" width="160" height="40" rx="6" fill="var(--warning-color)" opacity="0.8"/>
+                        <text x="150" y="235" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🌐 SSE Server</text>
+                        <text x="150" y="248" text-anchor="middle" fill="white" font-family="inherit" font-size="8">API Key Auth</text>
+                        
+                        <!-- Claude Desktop -->
+                        <rect x="70" y="270" width="160" height="40" rx="6" fill="var(--primary-color)" opacity="0.6"/>
+                        <text x="150" y="285" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🧠 Claude Desktop</text>
+                        <text x="150" y="298" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Local MCP Client</text>
+                    </g>
+                    
+                    <!-- Production Server -->
+                    <g id="prod-server">
+                        <rect x="400" y="80" width="200" height="250" rx="12" fill="var(--bg-primary)" stroke="var(--accent-color)" stroke-width="2"/>
+                        <text x="500" y="105" text-anchor="middle" fill="var(--accent-color)" font-family="inherit" font-size="14" font-weight="600">🖥️ Production Server</text>
+                        
+                        <!-- Environment Variables -->
+                        <rect x="420" y="120" width="160" height="40" rx="6" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="500" y="135" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">⚙️ Environment</text>
+                        <text x="500" y="148" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Variable Override</text>
+                        
+                        <!-- Docker SSE -->
+                        <rect x="420" y="170" width="160" height="40" rx="6" fill="var(--warning-color)" opacity="0.8"/>
+                        <text x="500" y="185" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🐳 Docker SSE</text>
+                        <text x="500" y="198" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Port 8000</text>
+                        
+                        <!-- Health Check -->
+                        <rect x="420" y="220" width="160" height="40" rx="6" fill="var(--primary-color)" opacity="0.6"/>
+                        <text x="500" y="235" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">❤️ Health Check</text>
+                        <text x="500" y="248" text-anchor="middle" fill="white" font-family="inherit" font-size="8">/health endpoint</text>
+                        
+                        <!-- Monitoring -->
+                        <rect x="420" y="270" width="160" height="40" rx="6" fill="var(--accent-color)" opacity="0.6"/>
+                        <text x="500" y="285" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">📊 Monitoring</text>
+                        <text x="500" y="298" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Request Logging</text>
+                    </g>
+                    
+                    <!-- External Integrations -->
+                    <g id="integrations">
+                        <rect x="750" y="80" width="200" height="250" rx="12" fill="var(--bg-primary)" stroke="var(--warning-color)" stroke-width="2"/>
+                        <text x="850" y="105" text-anchor="middle" fill="var(--warning-color)" font-family="inherit" font-size="14" font-weight="600">🔌 Integrations</text>
+                        
+                        <!-- n8n -->
+                        <rect x="770" y="120" width="160" height="40" rx="6" fill="var(--warning-color)" opacity="0.8"/>
+                        <text x="850" y="135" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🤖 n8n Workflow</text>
+                        <text x="850" y="148" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Bearer Token</text>
+                        
+                        <!-- Home Assistant -->
+                        <rect x="770" y="170" width="160" height="40" rx="6" fill="var(--accent-color)" opacity="0.8"/>
+                        <text x="850" y="185" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🏠 Home Assistant</text>
+                        <text x="850" y="198" text-anchor="middle" fill="white" font-family="inherit" font-size="8">X-API-Key Header</text>
+                        
+                        <!-- Custom Apps -->
+                        <rect x="770" y="220" width="160" height="40" rx="6" fill="var(--primary-color)" opacity="0.8"/>
+                        <text x="850" y="235" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">📱 Custom Apps</text>
+                        <text x="850" y="248" text-anchor="middle" fill="white" font-family="inherit" font-size="8">RESTful API</text>
+                        
+                        <!-- Web Dashboard -->
+                        <rect x="770" y="270" width="160" height="40" rx="6" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="850" y="285" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🌐 Web Dashboard</text>
+                        <text x="850" y="298" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Browser Auth</text>
+                    </g>
+                    
+                    <!-- Loxone Hardware -->
+                    <g id="loxone-hw">
+                        <rect x="250" y="450" width="500" height="120" rx="12" fill="var(--bg-primary)" stroke="var(--secondary-color)" stroke-width="2"/>
+                        <text x="500" y="475" text-anchor="middle" fill="var(--secondary-color)" font-family="inherit" font-size="14" font-weight="600">🏠 Loxone Generation 1 Infrastructure</text>
+                        
+                        <!-- Miniserver -->
+                        <rect x="280" y="490" width="130" height="60" rx="6" fill="var(--secondary-color)" opacity="0.8"/>
+                        <text x="345" y="510" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🧠 Miniserver</text>
+                        <text x="345" y="523" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Basic HTTP Auth</text>
+                        <text x="345" y="536" text-anchor="middle" fill="white" font-family="inherit" font-size="8">192.168.x.x</text>
+                        
+                        <!-- Extensions -->
+                        <rect x="430" y="490" width="120" height="60" rx="6" fill="var(--accent-color)" opacity="0.6"/>
+                        <text x="490" y="510" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🔌 Extensions</text>
+                        <text x="490" y="523" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Dimmer/Relay</text>
+                        <text x="490" y="536" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Tree/Bus</text>
+                        
+                        <!-- Devices -->
+                        <rect x="570" y="490" width="120" height="60" rx="6" fill="var(--primary-color)" opacity="0.6"/>
+                        <text x="630" y="510" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">💡 Devices</text>
+                        <text x="630" y="523" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Lights/Blinds</text>
+                        <text x="630" y="536" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Sensors</text>
+                    </g>
+                    
+                    <!-- Connection Lines -->
+                    <g stroke="var(--text-muted)" stroke-width="2" fill="none">
+                        <!-- Dev to Loxone -->
+                        <path d="M 250 200 Q 200 350 300 420" stroke="var(--primary-color)" marker-end="url(#deploy-arrow)"/>
+                        
+                        <!-- Prod to Loxone -->
+                        <path d="M 500 330 L 500 450" stroke="var(--accent-color)" marker-end="url(#deploy-arrow)"/>
+                        
+                        <!-- Integrations to Prod -->
+                        <path d="M 750 200 L 600 200" stroke="var(--warning-color)" marker-end="url(#deploy-arrow)"/>
+                        
+                        <!-- Claude to MCP -->
+                        <ellipse cx="150" cy="240" rx="15" ry="25" stroke="var(--primary-color)" stroke-width="3" fill="none" opacity="0.3"/>
+                    </g>
+                    
+                    <!-- Network Zones -->
+                    <g font-family="inherit" font-size="12" fill="var(--text-muted)">
+                        <text x="50" y="370" font-weight="600">🛡️ Development Zone</text>
+                        <text x="50" y="385" font-size="10">• Local keychain security</text>
+                        <text x="50" y="398" font-size="10">• Direct MCP connection</text>
+                        
+                        <text x="400" y="370" font-weight="600">🚀 Production Zone</text>
+                        <text x="400" y="385" font-size="10">• Environment variables</text>
+                        <text x="400" y="398" font-size="10">• Docker containerization</text>
+                        
+                        <text x="750" y="370" font-weight="600">🌐 Integration Zone</text>
+                        <text x="750" y="385" font-size="10">• API key authentication</text>
+                        <text x="750" y="398" font-size="10">• RESTful endpoints</text>
+                    </g>
+                    
+                    <!-- Security Flow Indicators -->
+                    <g font-family="inherit" font-size="10" fill="var(--accent-color)">
+                        <text x="270" y="180" font-weight="600">JWT</text>
+                        <text x="650" y="180" font-weight="600">API Key</text>
+                        <text x="480" y="430" font-weight="600">HTTP Auth</text>
+                    </g>
+                    
+                    <!-- Deployment Legend -->
+                    <g font-family="inherit" font-size="11" fill="var(--text-primary)">
+                        <text x="50" y="620" font-weight="600" fill="var(--primary-color)">🏗️ Deployment Architecture:</text>
+                        <text x="80" y="640" fill="var(--text-secondary)">💻 Development: Local MCP with OS keychain encryption</text>
+                        <text x="80" y="655" fill="var(--text-secondary)">🖥️ Production: Docker SSE with environment variable security</text>
+                        <text x="80" y="670" fill="var(--text-secondary)">🔌 Integrations: Web services use API key authentication over HTTPS</text>
+                    </g>
+                    
+                    <!-- Arrow marker -->
+                    <defs>
+                        <marker id="deploy-arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                            <polygon points="0 0, 10 4, 0 8" fill="currentColor"/>
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        </div>
         </div>
     </section>
 
@@ -1848,9 +2288,33 @@ Miniserver ← Direct communication (192.168.x.x)
             { type: 'output', text: '🎯 MCP configured for YOUR specific setup!', delay: 50 },
             { type: 'output', text: '   Only available features will be exposed to AI', delay: 50 },
             { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: '🌐 SSE Server Setup (for web integrations)', delay: 50 },
+            { type: 'output', text: '============================================', delay: 50 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: 'Choose SSE API key setup:', delay: 50 },
+            { type: 'output', text: '  1. Generate secure API key automatically (recommended)', delay: 50 },
+            { type: 'output', text: '  2. Enter custom API key', delay: 50 },
+            { type: 'output', text: '  3. Skip SSE setup (can be configured later)', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'prompt', text: 'Select option [1-3]: ', delay: 100 },
+            { type: 'input', text: '1', delay: 800 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: '🔑 Generated and stored SSE API key!', delay: 50 },
+            { type: 'output', text: '   API Key: Xy9Kj4LmNp2QrS8tUvWx3YzA6BcDeF7gHiJkLmN9', delay: 50 },
+            { type: 'output', text: '', delay: 300 },
+            { type: 'output', text: '📋 Use for n8n/Home Assistant/webhooks:', delay: 50 },
+            { type: 'output', text: '   Authorization: Bearer <api-key>', delay: 50 },
+            { type: 'output', text: '   OR X-API-Key: <api-key>', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
+            { type: 'output', text: '✅ Complete security setup finished!', delay: 50 },
+            { type: 'output', text: '   🔐 Loxone credentials → OS keychain', delay: 50 },
+            { type: 'output', text: '   🔑 SSE API key → OS keychain', delay: 50 },
+            { type: 'output', text: '   🛡️ JWT token auth → Ready', delay: 50 },
+            { type: 'output', text: '', delay: 500 },
             { type: 'output', text: '📝 Next steps:', delay: 50 },
-            { type: 'output', text: '1. Test the server: uv run mcp dev src/loxone_mcp/server.py', delay: 50 },
-            { type: 'output', text: '2. Configure in Claude Desktop (see README.md)', delay: 50 },
+            { type: 'output', text: '1. Test MCP: uv run mcp dev src/loxone_mcp/server.py', delay: 50 },
+            { type: 'output', text: '2. Test SSE: uvx --from . loxone-mcp-sse', delay: 50 },
+            { type: 'output', text: '3. Configure Claude Desktop (see README.md)', delay: 50 },
             { type: 'output', text: '', delay: 3000 },
             { type: 'command', text: '', delay: 500 }
         ];

@@ -1,7 +1,7 @@
 """Basic coverage tests without real server dependencies."""
 
 import os
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -70,18 +70,13 @@ class TestBasicImports:
             name="Test Device",
             type="Light",
             room="Living Room",
-            room_uuid="room-uuid"
+            room_uuid="room-uuid",
         )
         assert device.uuid == "test-uuid"
         assert device.name == "Test Device"
 
         # Test ServerContext (includes rooms field)
-        context = ServerContext(
-            loxone=None,
-            structure={},
-            devices={},
-            rooms={}
-        )
+        context = ServerContext(loxone=None, structure={}, devices={}, rooms={})
         assert context.structure == {}
 
     def test_server_constants(self) -> None:
@@ -107,9 +102,11 @@ class TestBasicImports:
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_PORT
+
         assert SSE_PORT == 9999
 
 
@@ -121,25 +118,25 @@ class TestServerFunctionStructure:
         import loxone_mcp.server as server
 
         # Check basic tools
-        assert hasattr(server, 'list_rooms')
+        assert hasattr(server, "list_rooms")
         assert callable(server.list_rooms)
 
-        assert hasattr(server, 'get_room_devices')
+        assert hasattr(server, "get_room_devices")
         assert callable(server.get_room_devices)
 
-        assert hasattr(server, 'control_room_lights')
+        assert hasattr(server, "control_room_lights")
         assert callable(server.control_room_lights)
 
         # Check weather tools
-        assert hasattr(server, 'get_weather_current')
+        assert hasattr(server, "get_weather_current")
         assert callable(server.get_weather_current)
 
         # Check environmental tools
-        assert hasattr(server, 'get_temperature_overview')
+        assert hasattr(server, "get_temperature_overview")
         assert callable(server.get_temperature_overview)
 
         # Check scene tools
-        assert hasattr(server, 'activate_house_scene')
+        assert hasattr(server, "activate_house_scene")
         assert callable(server.activate_house_scene)
 
     def test_credentials_methods_exist(self) -> None:
@@ -147,25 +144,25 @@ class TestServerFunctionStructure:
         from loxone_mcp.credentials import LoxoneSecrets
 
         secrets = LoxoneSecrets()
-        assert hasattr(secrets, 'get')
-        assert hasattr(secrets, 'set')
-        assert hasattr(secrets, 'delete')
-        assert hasattr(secrets, 'validate')
-        assert hasattr(secrets, 'clear_all')
-        assert hasattr(secrets, 'setup')
+        assert hasattr(secrets, "get")
+        assert hasattr(secrets, "set")
+        assert hasattr(secrets, "delete")
+        assert hasattr(secrets, "validate")
+        assert hasattr(secrets, "clear_all")
+        assert hasattr(secrets, "setup")
 
     def test_http_client_methods_exist(self) -> None:
         """Test that HTTP client methods exist."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
         client = LoxoneHTTPClient("host", "user", "pass")
-        assert hasattr(client, 'connect')
-        assert hasattr(client, 'get_structure_file')
-        assert hasattr(client, 'send_command')
-        assert hasattr(client, 'get_state')
-        assert hasattr(client, 'authenticate')
-        assert hasattr(client, 'start')
-        assert hasattr(client, 'stop')
+        assert hasattr(client, "connect")
+        assert hasattr(client, "get_structure_file")
+        assert hasattr(client, "send_command")
+        assert hasattr(client, "get_state")
+        assert hasattr(client, "authenticate")
+        assert hasattr(client, "start")
+        assert hasattr(client, "stop")
 
 
 class TestModuleStructure:
@@ -176,7 +173,7 @@ class TestModuleStructure:
         import loxone_mcp
 
         # Test package has __version__
-        assert hasattr(loxone_mcp, '__version__')
+        assert hasattr(loxone_mcp, "__version__")
 
         # Test main modules exist
         import loxone_mcp.credentials
@@ -187,6 +184,7 @@ class TestModuleStructure:
     def test_main_module_exists(self) -> None:
         """Test main module for CLI execution."""
         import loxone_mcp.__main__
+
         assert loxone_mcp.__main__ is not None
 
     def test_server_mcp_integration(self) -> None:
@@ -194,10 +192,10 @@ class TestModuleStructure:
         import loxone_mcp.server as server
 
         # Check MCP app exists
-        assert hasattr(server, 'mcp')
+        assert hasattr(server, "mcp")
 
         # Check lifespan function exists
-        assert hasattr(server, 'lifespan')
+        assert hasattr(server, "lifespan")
 
     def test_error_handling_structure(self) -> None:
         """Test error handling patterns."""
@@ -230,7 +228,7 @@ class TestConfigurationOptions:
         env_vars = {
             "LOXONE_HOST": "test.host",
             "LOXONE_USER": "testuser",
-            "LOXONE_PASS": "testpass"
+            "LOXONE_PASS": "testpass",
         }
 
         from loxone_mcp.credentials import LoxoneSecrets
@@ -242,16 +240,18 @@ class TestConfigurationOptions:
 
     def test_sse_configuration_options(self) -> None:
         """Test SSE server configuration."""
-        with patch.dict(os.environ, {"LOXONE_SSE_PORT": "8080", "LOXONE_SSE_HOST": "0.0.0.0"}):
+        with patch.dict(os.environ, {"LOXONE_SSE_PORT": "8080", "LOXONE_SSE_HOST": "127.0.0.1"}):
             # Reload to pick up environment changes
             import importlib
 
             import loxone_mcp.sse_server
+
             importlib.reload(loxone_mcp.sse_server)
 
             from loxone_mcp.sse_server import SSE_HOST, SSE_PORT
+
             assert SSE_PORT == 8080
-            assert SSE_HOST == "0.0.0.0"
+            assert SSE_HOST == "127.0.0.1"
 
 
 class TestSimpleFunctionCalls:
@@ -279,7 +279,7 @@ class TestSimpleFunctionCalls:
             name="Test Device",
             type="Light",
             room="Living Room",
-            room_uuid="room-uuid"
+            room_uuid="room-uuid",
         )
 
         # Default optional fields should work
@@ -295,7 +295,7 @@ class TestSimpleFunctionCalls:
             loxone=None,
             structure={"test": "data"},
             devices={"device1": "mock"},
-            rooms={"room1": "Living Room"}
+            rooms={"room1": "Living Room"},
         )
 
         assert context.structure["test"] == "data"
@@ -307,10 +307,10 @@ class TestSimpleFunctionCalls:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test that constants exist
-        assert hasattr(LoxoneSecrets, 'SERVICE_NAME')
-        assert hasattr(LoxoneSecrets, 'HOST_KEY')
-        assert hasattr(LoxoneSecrets, 'USER_KEY')
-        assert hasattr(LoxoneSecrets, 'PASS_KEY')
+        assert hasattr(LoxoneSecrets, "SERVICE_NAME")
+        assert hasattr(LoxoneSecrets, "HOST_KEY")
+        assert hasattr(LoxoneSecrets, "USER_KEY")
+        assert hasattr(LoxoneSecrets, "PASS_KEY")
 
         # Test constant values
         assert LoxoneSecrets.HOST_KEY == "LOXONE_HOST"
@@ -326,22 +326,27 @@ class TestCredentialsManagement:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test with environment variables set
-        with patch.dict(os.environ, {
-            "LOXONE_HOST": "test.example.com",
-            "LOXONE_USER": "testuser",
-            "LOXONE_PASS": "testpass"
-        }):
+        with patch.dict(
+            os.environ,
+            {
+                "LOXONE_HOST": "test.example.com",
+                "LOXONE_USER": "testuser",
+                "LOXONE_PASS": "testpass",
+            },
+        ):
             assert LoxoneSecrets.get("LOXONE_HOST") == "test.example.com"
             assert LoxoneSecrets.get("LOXONE_USER") == "testuser"
             assert LoxoneSecrets.get("LOXONE_PASS") == "testpass"
 
         # Test with missing environment variable
-        with patch.dict(os.environ, {}, clear=True):
-            with patch('keyring.get_password', return_value=None):
-                assert LoxoneSecrets.get("LOXONE_HOST") is None
+        with (
+            patch.dict(os.environ, {}, clear=True),
+            patch("keyring.get_password", return_value=None),
+        ):
+            assert LoxoneSecrets.get("LOXONE_HOST") is None
 
-    @patch('keyring.get_password')
-    def test_credentials_get_from_keychain(self, mock_get_password) -> None:
+    @patch("keyring.get_password")
+    def test_credentials_get_from_keychain(self, mock_get_password: Mock) -> None:
         """Test getting credentials from keychain when env vars not available."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -352,34 +357,34 @@ class TestCredentialsManagement:
             assert result == "keychain_value"
             mock_get_password.assert_called_once_with("LoxoneMCP", "LOXONE_HOST")
 
-    @patch('keyring.set_password')
-    def test_credentials_set_success(self, mock_set_password) -> None:
+    @patch("keyring.set_password")
+    def test_credentials_set_success(self, mock_set_password: Mock) -> None:
         """Test setting credentials in keychain."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         LoxoneSecrets.set("LOXONE_HOST", "new.example.com")
         mock_set_password.assert_called_once_with("LoxoneMCP", "LOXONE_HOST", "new.example.com")
 
-    @patch('keyring.set_password')
-    def test_credentials_set_error(self, mock_set_password) -> None:
+    @patch("keyring.set_password")
+    def test_credentials_set_error(self, mock_set_password: Mock) -> None:
         """Test handling errors when setting credentials."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         mock_set_password.side_effect = Exception("Keychain error")
 
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             LoxoneSecrets.set("LOXONE_HOST", "new.example.com")
 
-    @patch('keyring.delete_password')
-    def test_credentials_delete_success(self, mock_delete_password) -> None:
+    @patch("keyring.delete_password")
+    def test_credentials_delete_success(self, mock_delete_password: Mock) -> None:
         """Test deleting credentials from keychain."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         LoxoneSecrets.delete("LOXONE_HOST")
         mock_delete_password.assert_called_once_with("LoxoneMCP", "LOXONE_HOST")
 
-    @patch('keyring.delete_password')
-    def test_credentials_delete_error(self, mock_delete_password) -> None:
+    @patch("keyring.delete_password")
+    def test_credentials_delete_error(self, mock_delete_password: Mock) -> None:
         """Test handling errors when deleting credentials."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -389,8 +394,8 @@ class TestCredentialsManagement:
         LoxoneSecrets.delete("LOXONE_HOST")
         # Should not raise, just print warning
 
-    @patch('keyring.get_password')
-    def test_credentials_keychain_access_error(self, mock_get_password) -> None:
+    @patch("keyring.get_password")
+    def test_credentials_keychain_access_error(self, mock_get_password: Mock) -> None:
         """Test handling keychain access errors gracefully."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -420,9 +425,9 @@ class TestHTTPClientFunctionality:
         assert client2.host == "loxone.local"
 
         # Test attributes exist
-        assert hasattr(client, 'client')  # httpx client
-        assert hasattr(client, 'base_url')
-        assert hasattr(client, 'structure')
+        assert hasattr(client, "client")  # httpx client
+        assert hasattr(client, "base_url")
+        assert hasattr(client, "structure")
 
     def test_http_client_url_generation(self) -> None:
         """Test URL generation methods."""
@@ -431,13 +436,13 @@ class TestHTTPClientFunctionality:
         client = LoxoneHTTPClient("192.168.1.100", "admin", "password")
 
         # Test that client has expected methods for URL handling
-        assert hasattr(client, 'connect')
-        assert hasattr(client, 'get_structure_file')
-        assert hasattr(client, 'send_command')
-        assert hasattr(client, 'get_state')
+        assert hasattr(client, "connect")
+        assert hasattr(client, "get_structure_file")
+        assert hasattr(client, "send_command")
+        assert hasattr(client, "get_state")
 
-    @patch('httpx.AsyncClient')
-    def test_http_client_session_management(self, mock_client_class) -> None:
+    @patch("httpx.AsyncClient")
+    def test_http_client_session_management(self, mock_client_class: Mock) -> None:
         """Test session lifecycle management."""
         from loxone_mcp.loxone_http_client import LoxoneHTTPClient
 
@@ -457,7 +462,7 @@ class TestHTTPClientFunctionality:
         client = LoxoneHTTPClient("192.168.1.100", "admin", "password")
 
         # Test initial state - check structure cache
-        assert hasattr(client, 'structure')
+        assert hasattr(client, "structure")
         # Default structure should be None initially
         assert client.structure is None
 
@@ -468,9 +473,9 @@ class TestHTTPClientFunctionality:
         client = LoxoneHTTPClient("192.168.1.100", "admin", "password")
 
         # Verify expected methods exist for error handling
-        assert hasattr(client, 'start')
-        assert hasattr(client, 'stop')
-        assert hasattr(client, 'authenticate')
+        assert hasattr(client, "start")
+        assert hasattr(client, "stop")
+        assert hasattr(client, "authenticate")
 
         # These methods should be callable
         assert callable(client.start)
@@ -489,7 +494,7 @@ class TestServerHelperFunctions:
             "uuid1": "Wohnzimmer",
             "uuid2": "Schlafzimmer",
             "uuid3": "Küche",
-            "uuid4": "Badezimmer"
+            "uuid4": "Badezimmer",
         }
 
         # Test exact matches
@@ -557,7 +562,7 @@ class TestServerHelperFunctions:
             name="Living Room Light",
             type="LightController",
             room="Living Room",
-            room_uuid="room1"
+            room_uuid="room1",
         )
 
         blind = LoxoneDevice(
@@ -565,7 +570,7 @@ class TestServerHelperFunctions:
             name="Living Room Blind",
             type="Jalousie",
             room="Living Room",
-            room_uuid="room1"
+            room_uuid="room1",
         )
 
         # Test device type identification
@@ -598,9 +603,11 @@ class TestSSEServerFunctionality:
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_PORT
+
         assert SSE_PORT == 8888
 
     @patch.dict(os.environ, {"LOXONE_SSE_HOST": "127.0.0.1"})
@@ -610,9 +617,11 @@ class TestSSEServerFunctionality:
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_HOST
+
         assert SSE_HOST == "127.0.0.1"
 
     def test_sse_server_function_exists(self) -> None:
@@ -620,18 +629,19 @@ class TestSSEServerFunctionality:
         import loxone_mcp.sse_server as sse_module
 
         # Test that main function exists
-        assert hasattr(sse_module, 'run_sse_server')
+        assert hasattr(sse_module, "run_sse_server")
         assert callable(sse_module.run_sse_server)
 
     def test_sse_server_imports(self) -> None:
         """Test SSE server module imports correctly."""
         # This test verifies module structure
         import loxone_mcp.sse_server
+
         assert loxone_mcp.sse_server is not None
 
         # Module should have expected exports
-        assert hasattr(loxone_mcp.sse_server, 'SSE_PORT')
-        assert hasattr(loxone_mcp.sse_server, 'SSE_HOST')
+        assert hasattr(loxone_mcp.sse_server, "SSE_PORT")
+        assert hasattr(loxone_mcp.sse_server, "SSE_HOST")
 
 
 class TestCredentialsValidation:
@@ -642,14 +652,14 @@ class TestCredentialsValidation:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test validation-related methods exist
-        assert hasattr(LoxoneSecrets, 'validate')
+        assert hasattr(LoxoneSecrets, "validate")
         assert callable(LoxoneSecrets.validate)
-        assert hasattr(LoxoneSecrets, 'clear_all')
+        assert hasattr(LoxoneSecrets, "clear_all")
         assert callable(LoxoneSecrets.clear_all)
 
-    @patch('loxone_mcp.credentials.LoxoneSecrets._test_connection')
-    @patch('loxone_mcp.credentials.LoxoneSecrets.get')
-    def test_credentials_validate_success(self, mock_get, mock_test_connection) -> None:
+    @patch("loxone_mcp.credentials.LoxoneSecrets._test_connection")
+    @patch("loxone_mcp.credentials.LoxoneSecrets.get")
+    def test_credentials_validate_success(self, mock_get: Mock, mock_test_connection: Mock) -> None:
         """Test successful credential validation."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -657,7 +667,7 @@ class TestCredentialsValidation:
         mock_get.side_effect = lambda key: {
             "LOXONE_HOST": "192.168.1.100",
             "LOXONE_USER": "admin",
-            "LOXONE_PASS": "password"
+            "LOXONE_PASS": "password",
         }.get(key)
 
         # Mock successful connection test
@@ -672,8 +682,8 @@ class TestCredentialsValidation:
             # If async, the sync call might fail, but that's expected
             assert True
 
-    @patch('loxone_mcp.credentials.LoxoneSecrets.get')
-    def test_credentials_validate_missing(self, mock_get) -> None:
+    @patch("loxone_mcp.credentials.LoxoneSecrets.get")
+    def test_credentials_validate_missing(self, mock_get: Mock) -> None:
         """Test validation with missing credentials."""
         from loxone_mcp.credentials import LoxoneSecrets
 
@@ -688,14 +698,16 @@ class TestCredentialsValidation:
             # Expected behavior - validation should fail
             assert True
 
-    @patch('keyring.delete_password')
-    @patch('loxone_mcp.credentials.LoxoneSecrets.get')
-    def test_credentials_clear_all(self, mock_get, mock_delete) -> None:
+    @patch("keyring.delete_password")
+    @patch("loxone_mcp.credentials.LoxoneSecrets.get")
+    def test_credentials_clear_all(self, mock_get: Mock, mock_delete: Mock) -> None:
         """Test clearing all credentials."""
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Mock that credentials exist
-        mock_get.side_effect = lambda key: "test_value" if key in ["LOXONE_HOST", "LOXONE_USER", "LOXONE_PASS"] else None
+        mock_get.side_effect = lambda key: (
+            "test_value" if key in ["LOXONE_HOST", "LOXONE_USER", "LOXONE_PASS"] else None
+        )
 
         # Clear all credentials
         LoxoneSecrets.clear_all()
@@ -708,9 +720,9 @@ class TestCredentialsValidation:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test that discovery methods exist (async methods)
-        assert hasattr(LoxoneSecrets, 'discover_loxone_servers')
+        assert hasattr(LoxoneSecrets, "discover_loxone_servers")
         assert callable(LoxoneSecrets.discover_loxone_servers)
-        assert hasattr(LoxoneSecrets, '_test_connection')
+        assert hasattr(LoxoneSecrets, "_test_connection")
         assert callable(LoxoneSecrets._test_connection)
 
     def test_credentials_setup_method_exists(self) -> None:
@@ -718,7 +730,7 @@ class TestCredentialsValidation:
         from loxone_mcp.credentials import LoxoneSecrets
 
         # Test that setup method exists
-        assert hasattr(LoxoneSecrets, 'setup')
+        assert hasattr(LoxoneSecrets, "setup")
         assert callable(LoxoneSecrets.setup)
 
 
@@ -730,7 +742,7 @@ class TestMoreServerFunctions:
         import loxone_mcp.server as server_module
 
         # Test that lifespan function exists
-        assert hasattr(server_module, 'lifespan')
+        assert hasattr(server_module, "lifespan")
         assert callable(server_module.lifespan)
 
     def test_mcp_app_structure(self) -> None:
@@ -738,12 +750,12 @@ class TestMoreServerFunctions:
         import loxone_mcp.server as server_module
 
         # Test MCP app exists
-        assert hasattr(server_module, 'mcp')
+        assert hasattr(server_module, "mcp")
 
         # Test that it has expected MCP methods
         mcp = server_module.mcp
-        assert hasattr(mcp, 'tool')  # Decorator for tools
-        assert hasattr(mcp, 'get_context')  # Context access
+        assert hasattr(mcp, "tool")  # Decorator for tools
+        assert hasattr(mcp, "get_context")  # Context access
 
     def test_server_tool_decorators(self) -> None:
         """Test that server tools are properly decorated."""
@@ -751,11 +763,11 @@ class TestMoreServerFunctions:
 
         # Check that key functions exist and are decorated as tools
         tool_functions = [
-            'list_rooms',
-            'get_room_devices',
-            'control_room_lights',
-            'control_rolladen',  # Correct name for blinds
-            'get_weather_current'
+            "list_rooms",
+            "get_room_devices",
+            "control_room_lights",
+            "control_rolladen",  # Correct name for blinds
+            "get_weather_current",
         ]
 
         for func_name in tool_functions:
@@ -772,7 +784,7 @@ class TestMoreServerFunctions:
             loxone="mock_client",
             structure={"test": "structure"},
             devices={"device1": "mock_device"},
-            rooms={"room1": "Mock Room"}
+            rooms={"room1": "Mock Room"},
         )
 
         # Test all fields are accessible
@@ -790,12 +802,12 @@ class TestExtensiveServerTools:
         import loxone_mcp.server as server_module
 
         lighting_tools = [
-            'control_light',
-            'control_room_lights',
-            'get_lighting_presets',
-            'set_lighting_mood',
-            'get_active_lighting_moods',
-            'control_central_lighting'
+            "control_light",
+            "control_room_lights",
+            "get_lighting_presets",
+            "set_lighting_mood",
+            "get_active_lighting_moods",
+            "control_central_lighting",
         ]
 
         for func_name in lighting_tools:
@@ -807,12 +819,12 @@ class TestExtensiveServerTools:
         import loxone_mcp.server as server_module
 
         weather_tools = [
-            'get_weather_overview',
-            'get_weather_current',
-            'get_weather_forecast',
-            'get_weather_service_status',
-            'diagnose_weather_service',
-            'get_outdoor_temperature'
+            "get_weather_overview",
+            "get_weather_current",
+            "get_weather_forecast",
+            "get_weather_service_status",
+            "diagnose_weather_service",
+            "get_outdoor_temperature",
         ]
 
         for func_name in weather_tools:
@@ -824,11 +836,11 @@ class TestExtensiveServerTools:
         import loxone_mcp.server as server_module
 
         env_tools = [
-            'get_temperature_overview',
-            'get_humidity_overview',
-            'get_brightness_levels',
-            'get_environmental_summary',
-            'get_climate_summary'
+            "get_temperature_overview",
+            "get_humidity_overview",
+            "get_brightness_levels",
+            "get_environmental_summary",
+            "get_climate_summary",
         ]
 
         for func_name in env_tools:
@@ -839,11 +851,7 @@ class TestExtensiveServerTools:
         """Test scene management tools exist."""
         import loxone_mcp.server as server_module
 
-        scene_tools = [
-            'get_house_scenes',
-            'activate_house_scene',
-            'get_scene_status_overview'
-        ]
+        scene_tools = ["get_house_scenes", "activate_house_scene", "get_scene_status_overview"]
 
         for func_name in scene_tools:
             assert hasattr(server_module, func_name)
@@ -853,11 +861,7 @@ class TestExtensiveServerTools:
         """Test security-related tools exist."""
         import loxone_mcp.server as server_module
 
-        security_tools = [
-            'get_security_status',
-            'get_alarm_clocks',
-            'set_alarm_clock'
-        ]
+        security_tools = ["get_security_status", "get_alarm_clocks", "set_alarm_clock"]
 
         for func_name in security_tools:
             assert hasattr(server_module, func_name)
@@ -868,10 +872,10 @@ class TestExtensiveServerTools:
         import loxone_mcp.server as server_module
 
         device_tools = [
-            'get_device_status',
-            'get_all_devices',
-            'control_rolladen',
-            'control_room_rolladen'
+            "get_device_status",
+            "get_all_devices",
+            "control_rolladen",
+            "control_room_rolladen",
         ]
 
         for func_name in device_tools:
@@ -882,10 +886,7 @@ class TestExtensiveServerTools:
         """Test utility tools exist."""
         import loxone_mcp.server as server_module
 
-        utility_tools = [
-            'get_rooms_by_floor',
-            'translate_command'
-        ]
+        utility_tools = ["get_rooms_by_floor", "translate_command"]
 
         for func_name in utility_tools:
             assert hasattr(server_module, func_name)
@@ -925,11 +926,11 @@ class TestMoreHTTPClientCoverage:
         assert client.base_url == "http://test.host:9999"
 
         # Test client creation
-        assert hasattr(client, 'client')
+        assert hasattr(client, "client")
         assert client.client is not None
 
         # Test structure cache
-        assert hasattr(client, 'structure')
+        assert hasattr(client, "structure")
         assert client.structure is None  # Initially None
 
     def test_http_client_method_signatures(self) -> None:
@@ -939,7 +940,7 @@ class TestMoreHTTPClientCoverage:
         client = LoxoneHTTPClient("test.host", "user", "pass")
 
         # Test async methods exist
-        methods = ['connect', 'close', 'get_structure_file', 'send_command', 'get_state']
+        methods = ["connect", "close", "get_structure_file", "send_command", "get_state"]
         for method_name in methods:
             assert hasattr(client, method_name)
             method = getattr(client, method_name)
@@ -952,7 +953,7 @@ class TestMoreHTTPClientCoverage:
         client = LoxoneHTTPClient("test.host", "user", "pass")
 
         # Test sync methods exist
-        sync_methods = ['start', 'stop', 'authenticate']
+        sync_methods = ["start", "stop", "authenticate"]
         for method_name in sync_methods:
             assert hasattr(client, method_name)
             method = getattr(client, method_name)

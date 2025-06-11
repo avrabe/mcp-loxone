@@ -1,7 +1,8 @@
 """Simple SSE server tests for better coverage."""
 
+import contextlib
 import os
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 import pytest
 
@@ -14,9 +15,9 @@ class TestSSEServerSimple:
         import loxone_mcp.sse_server as sse_module
 
         # Test module has expected exports
-        assert hasattr(sse_module, 'SSE_PORT')
-        assert hasattr(sse_module, 'SSE_HOST')
-        assert hasattr(sse_module, 'run_sse_server')
+        assert hasattr(sse_module, "SSE_PORT")
+        assert hasattr(sse_module, "SSE_HOST")
+        assert hasattr(sse_module, "run_sse_server")
 
     def test_sse_constants_basic(self) -> None:
         """Test SSE constants are valid."""
@@ -33,21 +34,25 @@ class TestSSEServerSimple:
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_PORT
+
         assert SSE_PORT == 9876
 
-    @patch.dict(os.environ, {"LOXONE_SSE_HOST": "0.0.0.0"})
+    @patch.dict(os.environ, {"LOXONE_SSE_HOST": "127.0.0.1"})
     def test_sse_host_environment_override(self) -> None:
         """Test SSE host environment override."""
         import importlib
 
         import loxone_mcp.sse_server
+
         importlib.reload(loxone_mcp.sse_server)
 
         from loxone_mcp.sse_server import SSE_HOST
-        assert SSE_HOST == "0.0.0.0"
+
+        assert SSE_HOST == "127.0.0.1"
 
     def test_sse_main_function_exists(self) -> None:
         """Test main function exists."""
@@ -60,18 +65,17 @@ class TestSSEServerSimple:
         import inspect
 
         from loxone_mcp.sse_server import run_sse_server
+
         assert inspect.iscoroutinefunction(run_sse_server)
 
         # Test it can be called (will fail but that's OK)
-        try:
-            await run_sse_server()
-        except Exception:
+        with contextlib.suppress(Exception):
             # Expected to fail without proper setup
-            pass
+            await run_sse_server()
 
-    @patch('loxone_mcp.credentials.LoxoneSecrets.validate')
-    @patch('asyncio.run')
-    def test_main_function_calls(self, mock_run, mock_validate) -> None:
+    @patch("loxone_mcp.credentials.LoxoneSecrets.validate")
+    @patch("asyncio.run")
+    def test_main_function_calls(self, mock_run: Mock, mock_validate: Mock) -> None:
         """Test main function workflow."""
         from loxone_mcp.sse_server import main
 
@@ -89,8 +93,8 @@ class TestSSEServerSimple:
             # Other exceptions are acceptable in test environment
             pass
 
-    @patch('loxone_mcp.credentials.LoxoneSecrets.validate')
-    def test_main_function_missing_credentials(self, mock_validate) -> None:
+    @patch("loxone_mcp.credentials.LoxoneSecrets.validate")
+    def test_main_function_missing_credentials(self, mock_validate: Mock) -> None:
         """Test main function with missing credentials."""
         from loxone_mcp.sse_server import main
 
