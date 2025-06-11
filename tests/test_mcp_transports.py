@@ -53,7 +53,6 @@ class TestMCPStdioTransport:
             capture_output=True,
             text=True,
             timeout=10,
-            cwd="/Users/r/git/mcp-loxone-gen1",
         )
 
         # Should show help or fail gracefully
@@ -67,7 +66,6 @@ class TestMCPStdioTransport:
             capture_output=True,
             text=True,
             timeout=10,
-            cwd="/Users/r/git/mcp-loxone-gen1",
         )
 
         # Should show usage and include all expected commands
@@ -88,7 +86,6 @@ class TestMCPStdioTransport:
                 capture_output=True,
                 text=True,
                 timeout=10,
-                cwd="/Users/r/git/mcp-loxone-gen1",
             )
 
             assert result.returncode == 0
@@ -178,7 +175,6 @@ class TestMCPSSETransport:
             capture_output=True,
             text=True,
             timeout=10,
-            cwd="/Users/r/git/mcp-loxone-gen1",
         )
 
         assert result.returncode == 0
