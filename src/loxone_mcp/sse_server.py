@@ -17,7 +17,7 @@ import sys
 from typing import Any
 
 from fastapi import HTTPException, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 # Set up logging
 logging.basicConfig(
@@ -30,6 +30,14 @@ logger = logging.getLogger(__name__)
 SSE_PORT = int(os.getenv("LOXONE_SSE_PORT", "8000"))  # FastMCP default port
 SSE_HOST = os.getenv("LOXONE_SSE_HOST", "127.0.0.1")  # Localhost only for security
 
+# SSL/HTTPS configuration
+try:
+    from loxone_mcp.ssl_config import get_server_urls, get_ssl_config, validate_ssl_setup
+    SSL_AVAILABLE = True
+except ImportError:
+    logger.warning("SSL configuration module not available")
+    SSL_AVAILABLE = False
+
 # Authentication configuration
 def get_sse_api_key() -> str | None:
     """Get SSE API key from environment or keychain."""
@@ -37,7 +45,7 @@ def get_sse_api_key() -> str | None:
     env_key = os.getenv("LOXONE_SSE_API_KEY")
     if env_key:
         return env_key
-    
+
     # Then check keychain
     try:
         from loxone_mcp.credentials import LoxoneSecrets
@@ -87,12 +95,12 @@ async def verify_api_key(request: Request) -> bool:
     # Constant-time comparison to prevent timing attacks
     expected_hash = hash_api_key(SSE_API_KEY)
     provided_hash = hash_api_key(provided_key)
-    
+
     is_valid = secrets.compare_digest(expected_hash, provided_hash)
-    
+
     if not is_valid:
         logger.warning(f"SSE access denied: Invalid API key from {request.client.host}")
-        
+
     return is_valid
 
 
@@ -101,39 +109,40 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
     # Skip auth for health checks and non-SSE endpoints
     if request.url.path in ["/health", "/", "/docs", "/openapi.json"]:
         return await call_next(request)
-    
+
     # Check API key for protected endpoints
     if not await verify_api_key(request):
         raise HTTPException(
             status_code=401,
-            detail="Invalid or missing API key. Use Authorization: Bearer <key> or X-API-Key header.",
+            detail="Invalid or missing API key. "
+                   "Use Authorization: Bearer <key> or X-API-Key header.",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     return await call_next(request)
 
 
 async def setup_api_key() -> str:
     """Setup API key for SSE authentication."""
     from loxone_mcp.credentials import LoxoneSecrets
-    
+
     # Check if API key already exists in keychain first
     existing_key = LoxoneSecrets.get(LoxoneSecrets.SSE_API_KEY)
     if existing_key:
         logger.info("✅ SSE API key loaded from keychain")
         return existing_key
-    
+
     # Generate new API key
     api_key = LoxoneSecrets.generate_api_key()
-    
+
     # Store in keychain
     LoxoneSecrets.set(LoxoneSecrets.SSE_API_KEY, api_key)
-    
+
     logger.info("🔑 Generated new SSE API key and stored in keychain")
     logger.info("📋 Use this API key for SSE authentication:")
     logger.info(f"   Authorization: Bearer {api_key}")
     logger.info(f"   OR X-API-Key: {api_key}")
-    
+
     return api_key
 
 
@@ -141,21 +150,44 @@ async def run_sse_server() -> None:
     """Run the SSE server using FastMCP's built-in SSE support."""
     logger.info("Starting FastMCP SSE server with authentication...")
 
+    # SSL/HTTPS setup
+    ssl_config = None
+    if SSL_AVAILABLE:
+        ssl_config = get_ssl_config()
+
+        # Validate SSL setup if HTTPS is requested
+        if ssl_config["ssl_context"]:
+            is_valid, message = validate_ssl_setup()
+            if not is_valid:
+                logger.error(f"SSL validation failed: {message}")
+                logger.info("Falling back to HTTP")
+                ssl_config = {"ssl_context": None, "port": SSE_PORT, "scheme": "http"}
+
+        # Display server URLs
+        server_urls = get_server_urls(SSE_HOST)
+        logger.info("🌐 Server will be available at:")
+        for url in server_urls:
+            logger.info(f"   {url}")
+    else:
+        # Fallback when SSL module not available
+        ssl_config = {"ssl_context": None, "port": SSE_PORT, "scheme": "http"}
+        logger.info(f"🔌 SSE endpoint: http://{SSE_HOST}:{SSE_PORT}")
+
     # Import the FastMCP server instance from the main server module
     from loxone_mcp.server import mcp
 
     # Setup authentication if required
     if SSE_REQUIRE_AUTH:
+        global SSE_API_KEY
         if not SSE_API_KEY:
             # Generate and store API key if not provided via environment
             api_key = await setup_api_key()
             # Set for this session
-            global SSE_API_KEY
             SSE_API_KEY = api_key
-        
+
         logger.info("🔒 SSE authentication enabled")
         logger.info("🔑 API key required for all SSE endpoints")
-        
+
         # Add authentication middleware to FastMCP
         mcp.app.middleware("http")(auth_middleware)
     else:
@@ -168,15 +200,35 @@ async def run_sse_server() -> None:
         """Health check endpoint (no auth required)."""
         return {"status": "healthy", "service": "loxone-mcp-sse"}
 
+    # Add SSL redirect endpoint for HTTP when HTTPS is available
+    if ssl_config["ssl_context"] and ssl_config["port"] != SSE_PORT:
+        @mcp.app.get("/", include_in_schema=False)
+        async def redirect_to_https() -> Any:
+            """Redirect HTTP requests to HTTPS."""
+            from fastapi.responses import RedirectResponse
+            https_url = f"https://{SSE_HOST}:{ssl_config['port']}/"
+            return RedirectResponse(url=https_url, status_code=301)
+
     # Run FastMCP's built-in SSE server
     logger.info("✅ Starting FastMCP SSE server...")
-    logger.info(f"🔌 SSE endpoint: http://{SSE_HOST}:{SSE_PORT}")
     logger.info("📨 Use FastMCP's standard SSE endpoints")
-    
+
     if SSE_REQUIRE_AUTH:
         logger.info("🔐 Authentication: Bearer token or X-API-Key header required")
-    
-    await mcp.run_sse_async()
+
+    if ssl_config["ssl_context"]:
+        logger.info("🔒 HTTPS/SSL enabled")
+        logger.info("🛡️  All API keys will be transmitted securely")
+
+    # Pass SSL configuration to FastMCP if available
+    if ssl_config["ssl_context"]:
+        await mcp.run_sse_async(
+            host=SSE_HOST,
+            port=ssl_config["port"],
+            ssl_context=ssl_config["ssl_context"]
+        )
+    else:
+        await mcp.run_sse_async(host=SSE_HOST, port=SSE_PORT)
 
 
 def main() -> None:

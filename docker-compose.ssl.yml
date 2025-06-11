@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Docker Compose configuration for HTTPS-enabled SSE server
+# This configuration supports both self-signed certificates for development
+# and production certificates from Let's Encrypt
+
+services:
+  loxone-mcp-sse-ssl:
+    build:
+      context: .
+      dockerfile: Dockerfile.sse
+    ports:
+      - "8000:8000"   # HTTP port (optional, for health checks)
+      - "8443:8443"   # HTTPS port
+    environment:
+      - LOXONE_LOG_LEVEL=INFO
+      
+      # Loxone credentials (required)
+      - LOXONE_HOST=${LOXONE_HOST:-192.168.1.100}
+      - LOXONE_USER=${LOXONE_USER}
+      - LOXONE_PASS=${LOXONE_PASS}
+      
+      # SSE Server Configuration
+      - LOXONE_SSE_HOST=0.0.0.0  # Bind to all interfaces for Docker
+      - LOXONE_SSE_PORT=8000     # HTTP port
+      - LOXONE_SSE_REQUIRE_AUTH=true
+      - LOXONE_SSE_API_KEY=${LOXONE_SSE_API_KEY}
+      
+      # HTTPS/SSL Configuration
+      - LOXONE_SSE_USE_HTTPS=true
+      - LOXONE_SSL_PORT=8443
+      - LOXONE_SSL_CERT=/app/certs/server.crt
+      - LOXONE_SSL_KEY=/app/certs/server.key
+    volumes:
+      # Mount certificate directory
+      - ./certs:/app/certs:ro
+      # Optional: Mount custom configuration
+      # - ./config:/app/config:ro
+    restart: unless-stopped
+    healthcheck:
+      # Use HTTP for health check (no SSL required)
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - loxone-network
+
+networks:
+  loxone-network:
+    driver: bridge

@@ -17,6 +17,12 @@ services:
       # SSE Security Configuration
       - LOXONE_SSE_REQUIRE_AUTH=true
       # - LOXONE_SSE_API_KEY=your-secure-api-key-here  # Optional: auto-generated if not set
+      
+      # HTTPS/SSL Configuration (optional)
+      # - LOXONE_SSE_USE_HTTPS=true
+      # - LOXONE_SSL_PORT=8443
+      # - LOXONE_SSL_CERT=/app/certs/server.crt
+      # - LOXONE_SSL_KEY=/app/certs/server.key
       - LOXONE_SSE_HOST=0.0.0.0  # Allow external connections in Docker
       - LOXONE_SSE_PORT=8000
     volumes:
@@ -24,6 +30,8 @@ services:
       # - ~/Library/Keychains:/root/Library/Keychains:ro
       # Option 3: Mount .env file
       # - ./.env:/app/.env:ro
+      # Option 4: Mount SSL certificates (for HTTPS)
+      # - ./certs:/app/certs:ro
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

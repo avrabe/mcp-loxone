@@ -2370,6 +2370,78 @@ def _setup_signal_handlers() -> None:
         signal.signal(signal.SIGTERM, signal_handler)
 
 
+@mcp.prompt()
+async def loxone_system_overview() -> str:
+    """Provides a comprehensive overview of your Loxone home automation system.
+
+    This prompt helps you understand your current Loxone setup, including:
+    - Available rooms and their devices
+    - System capabilities and features
+    - Device categories and types
+    - Current system status
+
+    Use this when you want to get oriented with your Loxone system or need
+    a starting point for automation and control tasks.
+    """
+    try:
+        # Initialize connection if needed
+        if not _context.loxone.connected:
+            await _ensure_connection()
+
+        # Get system overview
+        system_status = await get_system_status()
+        rooms = await list_rooms()
+        capabilities = await get_available_capabilities()
+        categories = await get_all_categories_overview()
+
+        overview = f"""# Loxone System Overview
+
+## System Status
+{system_status.get('content', 'Unable to retrieve system status')}
+
+## Available Rooms ({len(rooms.get('rooms', []))})
+{rooms.get('content', 'No rooms found')}
+
+## System Capabilities
+{capabilities.get('content', 'No capabilities detected')}
+
+## Device Categories
+{categories.get('content', 'No categories found')}
+
+## Getting Started
+Use these tools to explore and control your system:
+- `list_rooms()` - See all rooms and their devices
+- `get_room_devices(room_name)` - Get devices in a specific room
+- `control_device(device_name, action)` - Control lights, blinds, etc.
+- `get_system_status()` - Check overall system health
+- `discover_all_devices()` - Refresh device list
+
+For more advanced features, explore climate control, energy monitoring,
+security status, and weather data tools.
+"""
+        return overview
+
+    except Exception as e:
+        return f"""# Loxone System Overview - Connection Error
+
+Unable to connect to your Loxone system: {e!s}
+
+## Troubleshooting Steps:
+1. Verify your Loxone credentials are configured: `uvx --from . loxone-mcp setup`
+2. Check if your Miniserver is accessible on the network
+3. Ensure your Loxone system is powered on and connected
+4. Try running with debug logging:
+   `LOXONE_LOG_LEVEL=DEBUG uv run mcp dev src/loxone_mcp/server.py`
+
+## Available Commands (without connection):
+- System setup and credential management
+- Basic MCP server operations
+- Diagnostic tools
+
+Once connected, you'll have access to full device control and monitoring capabilities.
+"""
+
+
 if __name__ == "__main__":
     _setup_signal_handlers()
     import uvicorn

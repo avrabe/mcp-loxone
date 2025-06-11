@@ -234,7 +234,11 @@ class LoxoneTokenClient:
             logger.debug(f"Retrieved key, salt, hash algorithm: {hash_alg}")
 
             # Step 2: Hash password with user salt
-            hasher = hashlib.sha256() if hash_alg.upper() == "SHA256" else hashlib.sha1()
+            hasher = (
+                hashlib.sha256()
+                if hash_alg.upper() == "SHA256"
+                else hashlib.sha1(usedforsecurity=False)
+            )
 
             hasher.update(f"{self.password}:{user_salt}".encode())
             pw_hash = hasher.hexdigest().upper()

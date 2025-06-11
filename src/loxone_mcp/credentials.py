@@ -426,7 +426,7 @@ class LoxoneSecrets:
         # Setup SSE API key for web integrations
         print("\n🌐 SSE Server Setup (for web integrations like n8n, Home Assistant)")
         print("=" * 60)
-        
+
         existing_api_key = cls.get(cls.SSE_API_KEY)
         if existing_api_key:
             print(f"✅ SSE API key already configured: {existing_api_key[:8]}...")
@@ -441,16 +441,16 @@ class LoxoneSecrets:
             print("  1. Generate secure API key automatically (recommended)")
             print("  2. Enter custom API key")
             print("  3. Skip SSE setup (can be configured later)")
-            
+
             while True:
                 choice = input("\nSelect option [1-3]: ").strip()
-                
+
                 if choice == "1":
                     # Generate API key
                     api_key = cls.generate_api_key()
                     try:
                         cls.set(cls.SSE_API_KEY, api_key)
-                        print(f"\n🔑 Generated and stored SSE API key!")
+                        print("\n🔑 Generated and stored SSE API key!")
                         print(f"   API Key: {api_key}")
                         print("\n📋 Use this for web integrations:")
                         print(f"   Authorization: Bearer {api_key}")
@@ -459,7 +459,7 @@ class LoxoneSecrets:
                     except Exception as e:
                         print(f"❌ Error storing API key: {e}")
                         sys.exit(1)
-                        
+
                 elif choice == "2":
                     # Custom API key
                     api_key = input("Enter your custom API key: ").strip()
@@ -471,16 +471,16 @@ class LoxoneSecrets:
                         confirm = input("Continue anyway? [y/N]: ").strip().lower()
                         if confirm != "y":
                             continue
-                    
+
                     try:
                         cls.set(cls.SSE_API_KEY, api_key)
-                        print(f"\n✅ Custom API key stored!")
+                        print("\n✅ Custom API key stored!")
                         print(f"   API Key: {api_key}")
                         break
                     except Exception as e:
                         print(f"❌ Error storing API key: {e}")
                         sys.exit(1)
-                        
+
                 elif choice == "3":
                     # Skip SSE setup
                     print("⏭️  SSE setup skipped")
@@ -488,7 +488,7 @@ class LoxoneSecrets:
                     print("   1. Running setup again, or")
                     print("   2. Setting LOXONE_SSE_API_KEY environment variable")
                     break
-                    
+
                 else:
                     print("❌ Invalid choice. Please enter 1, 2, or 3.")
 
@@ -497,7 +497,7 @@ class LoxoneSecrets:
         print("1. Test MCP server: uv run mcp dev src/loxone_mcp/server.py")
         print("2. Test SSE server: uvx --from . loxone-mcp-sse")
         print("3. Configure in Claude Desktop (see README.md)")
-        
+
         if cls.get(cls.SSE_API_KEY):
             print("4. Use API key for web integrations (n8n, Home Assistant)")
         else:

@@ -1108,7 +1108,7 @@ Copyright (c) 2025 Ralf Anton Beier
                 <div class="step-number">1</div>
                 <div class="step-content">
                     <h4>Install Dependencies</h4>
-                    <p>Set up Python environment and install the MCP Loxone package</p>
+                    <p>Install <a href="https://docs.astral.sh/uv/getting-started/installation/" target="_blank" style="color: var(--primary-color); text-decoration: none;">uv/uvx</a> (Python package manager), clone the repository, and sync dependencies. Requires Python 3.11+ and Git.</p>
                 </div>
             </div>
             <div class="install-step">
@@ -1132,12 +1132,18 @@ Copyright (c) 2025 Ralf Anton Beier
                 <span class="code-title">Quick Installation</span>
                 <button class="copy-btn" onclick="copyCode('install-code')">Copy</button>
             </div>
-            <pre id="install-code"><code># Clone and setup
+            <pre id="install-code"><code># 1. Install uv (Python package manager)
+# macOS/Linux:
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# Windows:
+# powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+
+# 2. Clone and setup project
 git clone https://github.com/avrabe/mcp-loxone-gen1.git
 cd mcp-loxone-gen1
 uv sync
 
-# Configure credentials (one-time)
+# 3. Configure credentials (one-time setup)
 uvx --from . loxone-mcp setup</code></pre>
         </div>
 
@@ -1155,6 +1161,74 @@ uvx --from . loxone-mcp setup</code></pre>
             <div class="terminal-body" id="terminal-output">
                 <div class="terminal-line">$ <span class="terminal-cursor">_</span></div>
             </div>
+        </div>
+    </section>
+
+    <!-- HTTPS Security Section -->
+    <section class="section animate-on-scroll" id="https-setup">
+        <h2>HTTPS Security Setup</h2>
+        
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">🔒</div>
+                <h3>Development HTTPS</h3>
+                <p><strong>Self-Signed & mkcert:</strong> Quick setup for local development with trusted certificates. Interactive setup script guides you through certificate generation and configuration.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🚀</div>
+                <h3>Production HTTPS</h3>
+                <p><strong>Let's Encrypt & Commercial:</strong> Production-ready deployment with automatic certificate management. Reverse proxy configurations for nginx and Traefik included.</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">🛡️</div>
+                <h3>Security Benefits</h3>
+                <p><strong>End-to-End Protection:</strong> Encrypted API key transmission, browser compatibility, timing attack prevention, and production security compliance standards.</p>
+            </div>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Interactive HTTPS Setup</span>
+                <button class="copy-btn" onclick="copyCode('https-setup')">Copy</button>
+            </div>
+            <pre id="https-setup"><code># Interactive setup wizard
+./scripts/setup-https.sh
+
+# Options available:
+# 1. Development: Self-signed certificate
+# 2. Development: mkcert (trusted by browsers)
+# 3. Production: Use existing certificates  
+# 4. Production: Generate CSR for CA signing
+# 5. Show current configuration
+
+# Quick self-signed setup
+./scripts/generate-self-signed-cert.sh
+
+# Start HTTPS server
+export LOXONE_SSE_USE_HTTPS=true
+uvx --from . loxone-mcp-sse</code></pre>
+        </div>
+
+        <div class="code-container">
+            <div class="code-header">
+                <span class="code-title">Production Deployment Examples</span>
+                <button class="copy-btn" onclick="copyCode('prod-https')">Copy</button>
+            </div>
+            <pre id="prod-https"><code># Docker with HTTPS
+docker-compose -f docker-compose.ssl.yml up
+
+# Nginx reverse proxy with Let's Encrypt
+docker-compose -f docker-compose.prod.yml up
+
+# Environment variables for HTTPS
+export LOXONE_SSE_USE_HTTPS=true
+export LOXONE_SSL_CERT=certs/server.crt
+export LOXONE_SSL_KEY=certs/server.key
+export LOXONE_SSL_PORT=8443
+
+# Test HTTPS endpoint with API key
+curl -H "Authorization: Bearer your-api-key" \
+  https://your-domain.com:8443/health</code></pre>
         </div>
     </section>
 
@@ -1185,24 +1259,29 @@ uvx --from . loxone-mcp setup</code></pre>
             </div>
             
             <div class="language-card">
-                <h4>🌐 HTTP Server (SSE)</h4>
+                <h4>🌐 HTTPS Server (SSE)</h4>
                 <div class="code-container">
                     <div class="code-header">
-                        <span class="code-title">Start Authenticated HTTP Server</span>
+                        <span class="code-title">Start Secure HTTPS Server</span>
                         <button class="copy-btn" onclick="copyCode('sse-server')">Copy</button>
                     </div>
-                    <pre id="sse-server"><code># Start SSE server with API key authentication
+                    <pre id="sse-server"><code># Setup HTTPS certificates first
+./scripts/setup-https.sh
+
+# Start HTTPS SSE server with authentication
+LOXONE_SSE_USE_HTTPS=true uvx --from . loxone-mcp-sse
+
+# HTTP fallback for development only
 uvx --from . loxone-mcp-sse
 
-# Disable authentication for local testing only
-LOXONE_SSE_REQUIRE_AUTH=false uvx --from . loxone-mcp-sse
+# Production HTTPS with custom API key
+LOXONE_SSE_USE_HTTPS=true \
+LOXONE_SSE_API_KEY=your-secure-key \
+uvx --from . loxone-mcp-sse
 
-# Production with custom API key
-LOXONE_SSE_API_KEY=your-secure-key uvx --from . loxone-mcp-sse
-
-# Use generated API key for curl/webhooks:
-curl -H "Authorization: Bearer <api-key>" http://localhost:8000/sse
-curl -H "X-API-Key: <api-key>" http://localhost:8000/sse</code></pre>
+# Use API key with HTTPS endpoints:
+curl -H "Authorization: Bearer <api-key>" https://localhost:8443/sse
+curl -H "X-API-Key: <api-key>" https://localhost:8443/health</code></pre>
                 </div>
             </div>
             
@@ -1232,8 +1311,12 @@ cat commands.json | uvx --from . loxone-mcp-server</code></pre>
                         <span class="code-title">Secure Docker Compose</span>
                         <button class="copy-btn" onclick="copyCode('docker-deploy')">Copy</button>
                     </div>
-                    <pre id="docker-deploy"><code># Using Docker Compose with authentication
+                    <pre id="docker-deploy"><code># HTTP deployment (development)
 docker-compose -f docker-compose.sse.yml up
+
+# HTTPS deployment (production)
+./scripts/setup-https.sh  # Generate certificates
+docker-compose -f docker-compose.ssl.yml up
 
 # Environment variables for production
 LOXONE_HOST=192.168.1.100
@@ -1242,12 +1325,13 @@ LOXONE_PASS=your-password
 LOXONE_SSE_REQUIRE_AUTH=true
 LOXONE_SSE_API_KEY=your-secure-api-key
 
-# Check logs for generated API key
-docker-compose -f docker-compose.sse.yml logs
+# HTTPS configuration (optional)
+LOXONE_SSE_USE_HTTPS=true
+LOXONE_SSL_PORT=8443
 
-# Test authenticated endpoint
+# Test authenticated HTTPS endpoint
 curl -H "Authorization: Bearer <api-key>" \
-  http://localhost:8000/health</code></pre>
+  https://localhost:8443/health</code></pre>
                 </div>
             </div>
         </div>
@@ -1346,8 +1430,8 @@ if capabilities.has_security:
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🌐</div>
-                <h3>API Key Protection</h3>
-                <p><strong>Web Integration Security:</strong> SSE server protected by auto-generated API keys. Bearer token or X-API-Key header authentication for n8n, Home Assistant, webhooks. Keys managed through setup wizard.</p>
+                <h3>HTTPS & API Key Protection</h3>
+                <p><strong>Web Integration Security:</strong> SSE server with HTTPS/TLS encryption and API key authentication. Bearer token transmission over encrypted channels. Self-signed certificates for development, Let's Encrypt for production.</p>
             </div>
             <div class="feature-card">
                 <div class="feature-icon">🛡️</div>
@@ -1625,10 +1709,10 @@ if capabilities.has_security:
                     <g font-family="inherit" font-size="10" fill="var(--text-muted)">
                         <text x="20" y="580">🔐 OS Keychain Encryption</text>
                         <text x="200" y="580">🎫 HMAC-SHA256 JWT</text>
-                        <text x="350" y="580">🌐 Bearer Token Auth</text>
-                        <text x="500" y="580">🛡️ Constant-Time Comparison</text>
-                        <text x="680" y="580">🏠 Local Network Only</text>
-                        <text x="820" y="580">⚙️ Production Ready</text>
+                        <text x="350" y="580">🔒 HTTPS/TLS Encryption</text>
+                        <text x="520" y="580">🛡️ Constant-Time Comparison</text>
+                        <text x="700" y="580">🏠 Local Network Security</text>
+                        <text x="860" y="580">⚙️ Production Ready</text>
                     </g>
                 </svg>
             </div>
@@ -1660,8 +1744,8 @@ if capabilities.has_security:
                         
                         <!-- SSE Server -->
                         <rect x="70" y="220" width="160" height="40" rx="6" fill="var(--warning-color)" opacity="0.8"/>
-                        <text x="150" y="235" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🌐 SSE Server</text>
-                        <text x="150" y="248" text-anchor="middle" fill="white" font-family="inherit" font-size="8">API Key Auth</text>
+                        <text x="150" y="235" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🔒 HTTPS SSE Server</text>
+                        <text x="150" y="248" text-anchor="middle" fill="white" font-family="inherit" font-size="8">TLS + API Key Auth</text>
                         
                         <!-- Claude Desktop -->
                         <rect x="70" y="270" width="160" height="40" rx="6" fill="var(--primary-color)" opacity="0.6"/>
@@ -1681,8 +1765,8 @@ if capabilities.has_security:
                         
                         <!-- Docker SSE -->
                         <rect x="420" y="170" width="160" height="40" rx="6" fill="var(--warning-color)" opacity="0.8"/>
-                        <text x="500" y="185" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🐳 Docker SSE</text>
-                        <text x="500" y="198" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Port 8000</text>
+                        <text x="500" y="185" text-anchor="middle" fill="white" font-family="inherit" font-size="10" font-weight="600">🔒 Docker HTTPS</text>
+                        <text x="500" y="198" text-anchor="middle" fill="white" font-family="inherit" font-size="8">Port 8443 (TLS)</text>
                         
                         <!-- Health Check -->
                         <rect x="420" y="220" width="160" height="40" rx="6" fill="var(--primary-color)" opacity="0.6"/>
@@ -1771,8 +1855,8 @@ if capabilities.has_security:
                         <text x="400" y="398" font-size="10">• Docker containerization</text>
                         
                         <text x="750" y="370" font-weight="600">🌐 Integration Zone</text>
-                        <text x="750" y="385" font-size="10">• API key authentication</text>
-                        <text x="750" y="398" font-size="10">• RESTful endpoints</text>
+                        <text x="750" y="385" font-size="10">• HTTPS + API key auth</text>
+                        <text x="750" y="398" font-size="10">• Encrypted endpoints</text>
                     </g>
                     
                     <!-- Security Flow Indicators -->
@@ -1785,9 +1869,9 @@ if capabilities.has_security:
                     <!-- Deployment Legend -->
                     <g font-family="inherit" font-size="11" fill="var(--text-primary)">
                         <text x="50" y="620" font-weight="600" fill="var(--primary-color)">🏗️ Deployment Architecture:</text>
-                        <text x="80" y="640" fill="var(--text-secondary)">💻 Development: Local MCP with OS keychain encryption</text>
-                        <text x="80" y="655" fill="var(--text-secondary)">🖥️ Production: Docker SSE with environment variable security</text>
-                        <text x="80" y="670" fill="var(--text-secondary)">🔌 Integrations: Web services use API key authentication over HTTPS</text>
+                        <text x="80" y="640" fill="var(--text-secondary)">💻 Development: Local HTTPS with self-signed certificates and keychain encryption</text>
+                        <text x="80" y="655" fill="var(--text-secondary)">🖥️ Production: Docker HTTPS with Let's Encrypt certificates and environment security</text>
+                        <text x="80" y="670" fill="var(--text-secondary)">🔌 Integrations: Web services use encrypted API key authentication over TLS</text>
                     </g>
                     
                     <!-- Arrow marker -->
