@@ -1,0 +1,493 @@
+{
+  "name": "Loxone MCP Server - Advanced Automation Workflows",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "path": "loxone-scene-manager",
+        "options": {}
+      },
+      "id": "2",
+      "name": "Scene Manager Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 100],
+      "webhookId": "scene-manager"
+    },
+    {
+      "parameters": {
+        "path": "loxone-energy-monitor",
+        "options": {}
+      },
+      "id": "3",
+      "name": "Energy Monitor Webhook", 
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 300],
+      "webhookId": "energy-monitor"
+    },
+    {
+      "parameters": {
+        "path": "loxone-security-system",
+        "options": {}
+      },
+      "id": "4",
+      "name": "Security System Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 500],
+      "webhookId": "security-system"
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8080/sse",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "jsonrpc",
+              "value": "2.0"
+            },
+            {
+              "name": "method",
+              "value": "mcp/list_tools"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.requestId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5",
+      "name": "List Available Tools",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [650, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "loxone-mcp-api",
+          "name": "Loxone MCP API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Scene Manager Logic\nconst scene = $input.item.json.scene;\nconst rooms = $input.item.json.rooms || [];\n\nlet actions = [];\n\nswitch(scene) {\n  case 'morning':\n    // Morning scene: Open blinds, turn on lights in specific rooms\n    actions = [\n      ...rooms.map(room => ({\n        tool: 'control_room_blinds',\n        params: { room_name: room, action: 'up' }\n      })),\n      ...rooms.map(room => ({\n        tool: 'control_room_lights', \n        params: { room_name: room, action: 'on' }\n      }))\n    ];\n    break;\n    \n  case 'evening':\n    // Evening scene: Close blinds, dim lights\n    actions = [\n      ...rooms.map(room => ({\n        tool: 'control_room_blinds',\n        params: { room_name: room, action: 'down' }\n      })),\n      ...rooms.map(room => ({\n        tool: 'set_room_light_level',\n        params: { room_name: room, level: 30 }\n      }))\n    ];\n    break;\n    \n  case 'away':\n    // Away scene: Turn off all lights, close blinds\n    actions = [\n      { tool: 'control_all_lights', params: { action: 'off' } },\n      { tool: 'control_all_blinds', params: { action: 'down' } }\n    ];\n    break;\n    \n  case 'vacation':\n    // Vacation mode: Random light patterns\n    actions = [\n      { tool: 'enable_vacation_mode', params: { enabled: true } }\n    ];\n    break;\n}\n\nreturn actions.map(action => ({\n  json: {\n    jsonrpc: '2.0',\n    method: 'mcp/call_tool',\n    params: {\n      name: action.tool,\n      arguments: action.params\n    },\n    id: `scene-${Date.now()}-${Math.random()}`\n  }\n}));"
+      },
+      "id": "6",
+      "name": "Process Scene Request",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 100]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Energy Monitoring Logic\nconst threshold = $input.item.json.threshold || 5000; // Watts\nconst duration = $input.item.json.duration || 30; // Minutes\n\n// Create monitoring request\nreturn {\n  json: {\n    jsonrpc: '2.0',\n    method: 'mcp/call_tool',\n    params: {\n      name: 'monitor_energy_usage',\n      arguments: {\n        threshold: threshold,\n        duration: duration,\n        callback_url: $input.item.json.callback_url || `${process.env.N8N_WEBHOOK_URL}/loxone-energy-alert`\n      }\n    },\n    id: `energy-${Date.now()}`\n  }\n};"
+      },
+      "id": "7",
+      "name": "Setup Energy Monitoring",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Security System Logic\nconst mode = $input.item.json.mode;\nconst zones = $input.item.json.zones || [];\n\nlet actions = [];\n\nswitch(mode) {\n  case 'arm_away':\n    // Arm all zones, close all windows/doors alerts\n    actions = [\n      { tool: 'arm_security_system', params: { mode: 'away' } },\n      { tool: 'check_all_windows_doors', params: {} },\n      { tool: 'control_all_lights', params: { action: 'off' } }\n    ];\n    break;\n    \n  case 'arm_home':\n    // Arm perimeter only\n    actions = [\n      { tool: 'arm_security_system', params: { mode: 'home', zones: zones } }\n    ];\n    break;\n    \n  case 'disarm':\n    // Disarm system\n    actions = [\n      { tool: 'disarm_security_system', params: {} },\n      { tool: 'control_entry_lights', params: { action: 'on' } }\n    ];\n    break;\n    \n  case 'panic':\n    // Panic mode: All lights on, sirens\n    actions = [\n      { tool: 'trigger_panic_alarm', params: {} },\n      { tool: 'control_all_lights', params: { action: 'on' } },\n      { tool: 'send_security_alert', params: { \n        message: 'PANIC ALARM ACTIVATED',\n        priority: 'critical'\n      }}\n    ];\n    break;\n}\n\nreturn actions.map(action => ({\n  json: {\n    jsonrpc: '2.0',\n    method: 'mcp/call_tool',\n    params: {\n      name: action.tool,\n      arguments: action.params\n    },\n    id: `security-${Date.now()}-${Math.random()}`\n  }\n}));"
+      },
+      "id": "8",
+      "name": "Process Security Command",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 500]
+    },
+    {
+      "parameters": {
+        "url": "http://localhost:8080/sse",
+        "method": "POST",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "9",
+      "name": "Execute MCP Commands",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [850, 300],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "loxone-mcp-api",
+          "name": "Loxone MCP API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.result.success }}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "10",
+      "name": "Check Success",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "success"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.result.message || 'Command executed successfully' }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "timestamp",
+              "value": "={{ Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11",
+      "name": "Success Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1250, 250]
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "status",
+              "value": "error"
+            },
+            {
+              "name": "message",
+              "value": "={{ $json.error?.message || 'Command failed' }}"
+            },
+            {
+              "name": "error_code",
+              "value": "={{ $json.error?.code || 'UNKNOWN' }}"
+            }
+          ],
+          "number": [
+            {
+              "name": "timestamp", 
+              "value": "={{ Date.now() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "12",
+      "name": "Error Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3,
+      "position": [1250, 350]
+    },
+    {
+      "parameters": {
+        "path": "loxone-energy-alert",
+        "options": {}
+      },
+      "id": "13",
+      "name": "Energy Alert Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [450, 700],
+      "webhookId": "energy-alert"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Process energy alert\nconst alert = $input.item.json;\nconst usage = alert.current_usage;\nconst threshold = alert.threshold;\n\n// Determine actions based on usage\nlet actions = [];\n\nif (usage > threshold * 1.5) {\n  // Critical: Over 150% of threshold\n  actions = [\n    { tool: 'reduce_energy_usage', params: { level: 'critical' } },\n    { tool: 'send_notification', params: {\n      message: `CRITICAL: Energy usage at ${usage}W (${Math.round(usage/threshold*100)}% of threshold)`,\n      priority: 'high'\n    }}\n  ];\n} else if (usage > threshold) {\n  // Warning: Over threshold\n  actions = [\n    { tool: 'reduce_energy_usage', params: { level: 'moderate' } },\n    { tool: 'send_notification', params: {\n      message: `Warning: Energy usage at ${usage}W`,\n      priority: 'medium'\n    }}\n  ];\n}\n\nreturn actions.map(action => ({\n  json: {\n    jsonrpc: '2.0',\n    method: 'mcp/call_tool',\n    params: {\n      name: action.tool,\n      arguments: action.params\n    },\n    id: `alert-${Date.now()}-${Math.random()}`\n  }\n}));"
+      },
+      "id": "14",
+      "name": "Process Energy Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 700]
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 5,
+              "unit": "minutes"
+            }
+          ]
+        }
+      },
+      "id": "15",
+      "name": "Climate Control Schedule",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 900]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Intelligent Climate Control\nconst now = new Date();\nconst hour = now.getHours();\nconst month = now.getMonth();\n\n// Get current weather (mock - replace with actual weather API)\nconst isWinter = month >= 11 || month <= 2;\nconst isSummer = month >= 5 && month <= 8;\n\n// Determine target temperatures based on time and season\nlet targets = [];\n\nif (hour >= 6 && hour < 9) {\n  // Morning\n  targets = [\n    { room: 'Bedroom', temp: isWinter ? 20 : 22 },\n    { room: 'Bathroom', temp: isWinter ? 22 : 23 },\n    { room: 'Kitchen', temp: isWinter ? 21 : 22 }\n  ];\n} else if (hour >= 9 && hour < 17) {\n  // Day\n  targets = [\n    { room: 'Living Room', temp: isWinter ? 21 : 23 },\n    { room: 'Office', temp: isWinter ? 21 : 23 },\n    { room: 'Bedroom', temp: isWinter ? 18 : 20 }\n  ];\n} else if (hour >= 17 && hour < 22) {\n  // Evening\n  targets = [\n    { room: 'Living Room', temp: isWinter ? 22 : 24 },\n    { room: 'Kitchen', temp: isWinter ? 21 : 23 },\n    { room: 'Bedroom', temp: isWinter ? 20 : 22 }\n  ];\n} else {\n  // Night\n  targets = [\n    { room: 'Bedroom', temp: isWinter ? 18 : 20 },\n    { room: 'Living Room', temp: isWinter ? 17 : 20 }\n  ];\n}\n\nreturn targets.map(target => ({\n  json: {\n    jsonrpc: '2.0',\n    method: 'mcp/call_tool',\n    params: {\n      name: 'set_room_temperature',\n      arguments: {\n        room_name: target.room,\n        temperature: target.temp\n      }\n    },\n    id: `climate-${Date.now()}-${Math.random()}`\n  }\n}));"
+      },
+      "id": "16",
+      "name": "Calculate Climate Targets",
+      "type": "n8n-nodes-base.code", 
+      "typeVersion": 2,
+      "position": [450, 900]
+    },
+    {
+      "parameters": {
+        "operation": "aggregateItems",
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "result",
+              "aggregationFunction": "concatenate"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "17",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.itemLists",
+      "typeVersion": 3,
+      "position": [1450, 300]
+    }
+  ],
+  "connections": {
+    "Scene Manager Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Scene Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Energy Monitor Webhook": {
+      "main": [
+        [
+          {
+            "node": "Setup Energy Monitoring",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Security System Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Security Command",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Scene Request": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Setup Energy Monitoring": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Security Command": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute MCP Commands": {
+      "main": [
+        [
+          {
+            "node": "Check Success",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Success": {
+      "main": [
+        [
+          {
+            "node": "Success Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Error Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Success Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error Response": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Energy Alert Webhook": {
+      "main": [
+        [
+          {
+            "node": "Process Energy Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Energy Alert": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Climate Control Schedule": {
+      "main": [
+        [
+          {
+            "node": "Calculate Climate Targets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Climate Targets": {
+      "main": [
+        [
+          {
+            "node": "Execute MCP Commands",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "loxone",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "mcp",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "automation",
+      "createdAt": "2024-01-01T00:00:00.000Z"  
+    }
+  ],
+  "id": "loxone-mcp-advanced",
+  "meta": {
+    "instanceId": "n8n"
+  }
+}

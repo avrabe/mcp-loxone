@@ -1,0 +1,198 @@
+[package]
+name = "loxone-mcp-rust"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ralf Anton Beier"]
+license = "MIT"
+description = "Loxone Generation 1 MCP Server implementation in Rust with WASM support"
+repository = "https://github.com/rbeier/mcp-loxone-gen1"
+keywords = ["loxone", "mcp", "home-automation", "wasm"]
+categories = ["api-bindings", "web-programming", "wasm"]
+build = "build.rs"
+
+[build-dependencies]
+chrono = "0.4"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[[bin]]
+name = "loxone-mcp-server"
+path = "src/main.rs"
+
+[[bin]]
+name = "loxone-mcp-setup"
+path = "src/bin/setup.rs"
+
+[[bin]]
+name = "loxone-mcp-verify"
+path = "src/bin/verify_credentials.rs"
+
+[[bin]]
+name = "loxone-mcp-update-host"
+path = "src/bin/update_host.rs"
+
+[[bin]]
+name = "loxone-mcp-test-connection"
+path = "src/bin/test_connection.rs"
+
+[[bin]]
+name = "loxone-mcp-test-endpoints"
+path = "src/bin/test_endpoints.rs"
+
+[[bin]]
+name = "loxone-mcp-mock-server"
+path = "src/bin/mock_server.rs"
+
+[dependencies]
+# MCP Framework
+rmcp = { version = "0.1", features = ["server", "macros", "transport-sse-server"] }
+
+# Async runtime
+
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# HTTP client with WASM support
+reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+
+# Infisical SDK support (via HTTP API)
+serde_qs = "0.12"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "std", "fmt"] }
+
+# Async traits
+async-trait = "0.1"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# UUID support
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Configuration
+config = "0.14"
+
+# Crypto dependencies (conditional compilation for WASM)
+rsa = { version = "0.9", optional = true, features = ["sha2"] }
+aes = { version = "0.8", optional = true }
+rand = { version = "0.8" }  # Used by crypto feature and setup tool
+sha2 = { version = "0.10", optional = true }
+
+# WebSocket (conditional for WASM compatibility)
+tokio-tungstenite = { version = "0.20", optional = true, features = ["rustls-tls-webpki-roots"] }
+
+# URL parsing
+url = { version = "2.4", features = ["serde"] }
+
+# Base64 encoding
+base64 = "0.21"
+
+# Futures utilities
+futures = "0.3"
+futures-util = "0.3"
+
+# Time serialization
+humantime-serde = "1.1"
+
+# Schema generation
+schemars = "0.8"
+
+# HTTP server for MCP SSE transport
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "auth"] }
+
+# Command line argument parsing
+clap = { version = "4.0", features = ["derive"] }
+
+# Password input
+rpassword = "7.0"
+
+# Network discovery
+mdns = { version = "3.0", optional = true }
+socket2 = "0.5"
+
+# WASM-specific dependencies
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+web-sys = { version = "0.3", features = [
+  "console",
+  "Window",
+  "Document",
+  "Storage",
+  "EventSource",
+  "Navigator",
+  "Performance",
+  "PerformanceTiming",
+] }
+js-sys = "0.3"
+reqwest = { version = "0.11", features = ["json"] }
+gloo-utils = "0.2"
+
+# Native-specific dependencies
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+keyring = { version = "2.0", optional = true }
+tokio = { version = "1.0", features = ["rt-multi-thread", "rt", "io-util", "sync", "macros", "time"] }
+
+# WASM-specific tokio configuration
+[target.'cfg(target_arch = "wasm32")'.dependencies.tokio]
+version = "1.0"
+features = ["sync", "macros", "io-util", "rt", "time"]
+default-features = false
+
+[features]
+default = ["crypto", "websocket", "infisical", "discovery"]
+crypto = ["rsa", "aes"]
+websocket = ["tokio-tungstenite"]
+keyring-storage = ["keyring"]
+infisical = []
+discovery = ["mdns"]
+
+# WASM-specific feature for browser storage
+wasm-storage = []
+# WASI feature for component-based storage
+wasi-keyvalue = []
+
+[profile.release]
+# Optimize for size when building WASM
+opt-level = "s"
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.release.package."*"]
+opt-level = "s"
+
+# Development profile for faster builds
+[profile.dev]
+opt-level = 0
+debug = true
+incremental = true
+
+[dev-dependencies]
+tokio-test = "0.4"
+tempfile = "3.8"
+futures = "0.3"
+
+# WASM-specific test dependencies
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test = "0.3"
+console_error_panic_hook = "0.1"
+tracing-wasm = "0.2"
+gloo-timers = "0.3"
+
+# WASM optimization profile
+[profile.wasm-release]
+inherits = "release"
+opt-level = "z"
+strip = true

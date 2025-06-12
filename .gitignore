@@ -74,3 +74,26 @@ secrets.json
 .cursor/
 p.md
 .hypothesis/
+
+# Rust
+target/
+/target/
+Cargo.lock
+*.rs.bk
+*.pdb
+
+# Rust generated files
+post-build-sign.sh
+export_env.sh
+
+# Sensor logs (runtime data)
+sensor_state_log.json
+
+# Session documentation (temporary)
+SESSION_SUMMARY.md
+RUST_SETUP_COMPLETE.md
+
+# Node.js (for MCP testing)
+node_modules/
+package-lock.json
+loxone-mcp-rust/target/

@@ -10,14 +10,21 @@ Copyright (c) 2025 Ralf Anton Beier
 
 import asyncio
 import hashlib
+import json
 import logging
 import os
 import secrets
 import sys
+from collections.abc import AsyncGenerator
 from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.applications import Starlette
+from starlette.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, StreamingResponse
+from starlette.routing import Route
 
 # Set up logging
 logging.basicConfig(
@@ -49,11 +56,12 @@ def get_sse_api_key() -> str | None:
     if env_key:
         return env_key
 
-    # Then check keychain
+    # Then check credential storage
     try:
-        from loxone_mcp.credentials import LoxoneSecrets
+        from loxone_mcp.credentials import get_credentials_manager
 
-        return LoxoneSecrets.get(LoxoneSecrets.SSE_API_KEY)
+        secrets = get_credentials_manager()
+        return secrets.get("LOXONE_SSE_API_KEY")
     except ImportError:
         return None
 
@@ -127,21 +135,96 @@ async def auth_middleware(request: Request, call_next: Any) -> Any:
     return await call_next(request)
 
 
+# Traditional SSE implementation for n8n compatibility
+async def handle_mcp_request(request_data: dict) -> dict:
+    """Handle MCP JSON-RPC request and return response."""
+    try:
+        # Import the MCP server instance
+        from loxone_mcp.server import mcp
+
+        # Create a proper MCP request
+        method = request_data.get("method", "")
+        params = request_data.get("params", {})
+        request_id = request_data.get("id", 1)
+
+        logger.debug(f"Processing MCP request: {method} with params: {params}")
+
+        # Handle different MCP methods
+        if method == "tools/list":
+            # Get available tools using FastMCP API
+            tools_response = await mcp.list_tools()
+
+            # Convert Tool objects to serializable format
+            if "tools" in tools_response:
+                serializable_tools = []
+                for tool in tools_response["tools"]:
+                    if hasattr(tool, "__dict__"):
+                        # Convert Tool object to dict
+                        tool_dict = {
+                            "name": getattr(tool, "name", ""),
+                            "description": getattr(tool, "description", ""),
+                            "inputSchema": getattr(tool, "inputSchema", {}),
+                        }
+                        serializable_tools.append(tool_dict)
+                    else:
+                        # Already a dict
+                        serializable_tools.append(tool)
+
+                tools_response = {"tools": serializable_tools}
+
+            return {"jsonrpc": "2.0", "id": request_id, "result": tools_response}
+
+        elif method == "tools/call":
+            # Call a specific tool using FastMCP API
+            tool_name = params.get("name", "")
+            tool_args = params.get("arguments", {})
+
+            try:
+                # Use FastMCP's call_tool method
+                result = await mcp.call_tool(tool_name, tool_args)
+
+                return {"jsonrpc": "2.0", "id": request_id, "result": result}
+            except Exception as e:
+                logger.error(f"Tool execution error: {e}")
+                return {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {"code": -32603, "message": f"Tool execution failed: {e!s}"},
+                }
+
+        else:
+            return {
+                "jsonrpc": "2.0",
+                "id": request_id,
+                "error": {"code": -32601, "message": f"Method '{method}' not found"},
+            }
+
+    except Exception as e:
+        logger.error(f"MCP request handling error: {e}")
+        return {
+            "jsonrpc": "2.0",
+            "id": request_data.get("id", 1),
+            "error": {"code": -32603, "message": f"Internal error: {e!s}"},
+        }
+
+
 async def setup_api_key() -> str:
     """Setup API key for SSE authentication."""
-    from loxone_mcp.credentials import LoxoneSecrets
+    from loxone_mcp.credentials import get_credentials_manager
 
-    # Check if API key already exists in keychain first
-    existing_key = LoxoneSecrets.get(LoxoneSecrets.SSE_API_KEY)
+    secrets = get_credentials_manager()
+
+    # Check if API key already exists first
+    existing_key = secrets.get("LOXONE_SSE_API_KEY")
     if existing_key:
-        logger.info("✅ SSE API key loaded from keychain")
+        logger.info("✅ SSE API key loaded from credential storage")
         return existing_key
 
     # Generate new API key
-    api_key = LoxoneSecrets.generate_api_key()
+    api_key = secrets.generate_api_key()
 
-    # Store in keychain
-    LoxoneSecrets.set(LoxoneSecrets.SSE_API_KEY, api_key)
+    # Store in credential storage
+    secrets.set("LOXONE_SSE_API_KEY", api_key)
 
     logger.info("🔑 Generated new SSE API key and stored in keychain")
     logger.info("📋 Use this API key for SSE authentication:")
@@ -151,13 +234,110 @@ async def setup_api_key() -> str:
     return api_key
 
 
+async def health_check_endpoint(_request: Request) -> JSONResponse:
+    """Health check endpoint."""
+    return JSONResponse({"status": "healthy", "service": "loxone-mcp-sse"})
+
+
+async def messages_endpoint(request: Request) -> JSONResponse:
+    """Traditional JSON-RPC endpoint for n8n compatibility."""
+    try:
+        # Get JSON body
+        request_data = await request.json()
+        logger.debug(f"Received request: {request_data}")
+
+        # Verify API key if required
+        if not await verify_api_key(request):
+            return JSONResponse(
+                {
+                    "jsonrpc": "2.0",
+                    "id": request_data.get("id"),
+                    "error": {"code": -32001, "message": "Invalid or missing API key"},
+                },
+                status_code=401,
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # Handle MCP request
+        response_data = await handle_mcp_request(request_data)
+
+        logger.debug(f"Sending response: {response_data}")
+        return JSONResponse(response_data)
+
+    except json.JSONDecodeError:
+        return JSONResponse(
+            {"jsonrpc": "2.0", "id": None, "error": {"code": -32700, "message": "Parse error"}}
+        )
+    except Exception as e:
+        logger.error(f"Messages endpoint error: {e}")
+        return JSONResponse(
+            {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32603, "message": f"Internal error: {e!s}"},
+            }
+        )
+
+
+async def sse_endpoint(request: Request) -> StreamingResponse:
+    """Traditional Server-Sent Events endpoint (if needed for streaming)."""
+    # Verify API key if required
+    if not await verify_api_key(request):
+        return JSONResponse(
+            {"error": "Invalid or missing API key"},
+            status_code=401,
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    async def event_stream() -> AsyncGenerator[str, None]:
+        """Generate SSE events."""
+        # Send initial connection event
+        yield f"data: {json.dumps({'type': 'connection', 'status': 'connected'})}\n\n"
+
+        # Keep connection alive with periodic pings
+        try:
+            while True:
+                await asyncio.sleep(30)  # Ping every 30 seconds
+                ping_data = {'type': 'ping', 'timestamp': asyncio.get_event_loop().time()}
+                yield f"data: {json.dumps(ping_data)}\n\n"
+        except asyncio.CancelledError:
+            logger.info("SSE connection closed")
+            return
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        },
+    )
+
+
+def add_traditional_routes_to_starlette(app: Starlette) -> None:
+    """Add traditional SSE routes to the existing Starlette app."""
+    # Add new routes to the existing router
+    app.router.routes.extend(
+        [
+            Route("/health", health_check_endpoint, methods=["GET"]),
+            Route("/messages", messages_endpoint, methods=["POST"]),
+            Route("/sse", sse_endpoint, methods=["GET"]),
+        ]
+    )
+
+
 async def run_sse_server() -> None:
-    """Run the SSE server using FastMCP's built-in SSE support."""
-    logger.info("Starting FastMCP SSE server with authentication...")
+    """Run FastMCP server with traditional SSE endpoints added for n8n compatibility."""
+    logger.info("Starting enhanced MCP server with n8n compatibility...")
 
     # Display server info
     logger.info("🌐 Server will be available at:")
-    logger.info(f"   http://{SSE_HOST}:{SSE_PORT}")
+    logger.info(f"   FastMCP: http://{SSE_HOST}:{SSE_PORT}/mcp")
+    logger.info(f"   Traditional: http://{SSE_HOST}:{SSE_PORT}/messages")
+    logger.info(f"   SSE Stream: http://{SSE_HOST}:{SSE_PORT}/sse")
+    logger.info(f"   Health: http://{SSE_HOST}:{SSE_PORT}/health")
 
     # Import the FastMCP server instance from the main server module
     from loxone_mcp.server import mcp
@@ -171,51 +351,62 @@ async def run_sse_server() -> None:
             # Set for this session
             SSE_API_KEY = api_key
 
-        logger.info("🔒 SSE authentication enabled")
-        logger.info("🔑 API key required for all SSE endpoints")
+        logger.info("🔒 SSE authentication configured")
+        logger.info("🔑 API key required for all endpoints")
     else:
-        logger.warning("⚠️  SSE authentication disabled - anyone on network can access!")
-        logger.warning("⚠️  Set LOXONE_SSE_REQUIRE_AUTH=true for production")
+        logger.info("📂 SSE authentication disabled for development")
 
-    # Run FastMCP's built-in SSE server
-    logger.info("✅ Starting FastMCP SSE server...")
-    logger.info("📨 SSE endpoint will be available at: /sse")
+    try:
+        logger.info("🚀 Starting enhanced FastMCP server...")
 
-    if SSE_REQUIRE_AUTH:
-        logger.warning("⚠️  Note: Authentication middleware not yet integrated with FastMCP SSE")
-        logger.warning(
-            "⚠️  This is a known limitation - authentication will be added in a future update"
+        # Get the FastMCP streamable HTTP app
+        app = mcp.streamable_http_app()
+
+        # Add CORS middleware for web client access
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=["*"],  # In production, restrict this
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
         )
 
-    # Use FastMCP's run_sse_async which should provide the proper MCP SSE protocol
-    # The issue might be that MCP Inspector expects a different URL pattern
-    import uvicorn
+        # Add traditional endpoints to the FastMCP app
+        add_traditional_routes_to_starlette(app)
 
-    logger.info("🚀 Starting MCP SSE server with FastMCP...")
-    logger.info("📨 SSE endpoint will be available at: /sse")
+        # Start the server
+        import uvicorn
 
-    # For testing with MCP Inspector, let's run FastMCP's SSE server directly
-    # and see what endpoints it actually provides
-    try:
-        # Run with default settings - FastMCP should handle the full MCP protocol
-        await mcp.run_sse_async()
-    except Exception as e:
-        logger.error(f"Failed to start SSE server: {e}")
-        logger.info("Falling back to uvicorn with SSE app...")
+        config = uvicorn.Config(
+            app=app,
+            host=SSE_HOST,
+            port=SSE_PORT,
+            log_level="info",
+            access_log=True,
+            reload=False,
+        )
 
-        # Fallback: run with uvicorn for more control
-        app = mcp.sse_app()
-        config = uvicorn.Config(app=app, host=SSE_HOST, port=SSE_PORT, log_level="info")
+        logger.info("✅ Enhanced MCP server starting...")
+        logger.info(f"🌐 All endpoints available at: http://{SSE_HOST}:{SSE_PORT}")
+
         server = uvicorn.Server(config)
         await server.serve()
+
+    except Exception as e:
+        logger.error(f"Failed to start enhanced server: {e}")
+        import traceback
+
+        traceback.print_exc()
+        raise
 
 
 def main() -> None:
     """Main entry point."""
-    from loxone_mcp.credentials import LoxoneSecrets
+    from loxone_mcp.credentials import get_credentials_manager
 
     # Validate credentials first
-    if not LoxoneSecrets.validate():
+    secrets = get_credentials_manager()
+    if not secrets.validate():
         print("❌ Missing Loxone credentials. Run 'uvx --from . loxone-mcp setup' first.")
         sys.exit(1)
 

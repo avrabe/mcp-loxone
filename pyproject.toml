@@ -32,6 +32,8 @@ dependencies = [
     "websockets>=12.0",
     "aiohttp>=3.8.0",
     "cryptography>=45.0.3",
+    "infisicalsdk>=1.0.3",
+    "zeroconf>=0.129.0",
 ]
 
 [project.optional-dependencies]
@@ -160,6 +162,7 @@ module = [
     "keyring.*",
     "mcp.*",
     "fastmcp.*",
+    "infisicalsdk.*",
 ]
 ignore_missing_imports = true
 

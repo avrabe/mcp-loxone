@@ -1,0 +1,241 @@
+// WIT (WebAssembly Interface Types) definition for Loxone MCP component
+// This defines the interface for the WASM component version of the Loxone MCP server
+
+package loxone:mcp;
+
+/// Core MCP interfaces for WebAssembly components
+world loxone-mcp-component {
+    // Import WASI interfaces for runtime capabilities
+    import wasi:http/outgoing-handler;
+    import wasi:keyvalue/store;
+    import wasi:config/runtime;
+    import wasi:cli/environment;
+    import wasi:logging/logging;
+    
+    // Export MCP server interface
+    export mcp-server;
+    export credential-manager;
+    export loxone-client;
+}
+
+/// MCP server interface for component environments
+interface mcp-server {
+    /// MCP tool execution result
+    record tool-result {
+        success: bool,
+        content: string,
+        error: option<string>,
+    }
+    
+    /// MCP tool call arguments
+    record tool-args {
+        name: string,
+        arguments: string, // JSON-encoded arguments
+    }
+    
+    /// Initialize the MCP server with configuration
+    initialize: func(config: string) -> result<_, string>;
+    
+    /// List available MCP tools
+    list-tools: func() -> result<list<string>, string>;
+    
+    /// Call an MCP tool
+    call-tool: func(args: tool-args) -> result<tool-result, string>;
+    
+    /// Get server capabilities
+    get-capabilities: func() -> result<string, string>;
+    
+    /// Shutdown the server
+    shutdown: func() -> result<_, string>;
+}
+
+/// Credential management interface
+interface credential-manager {
+    /// Credential storage result
+    variant storage-result {
+        success,
+        error(string),
+    }
+    
+    /// Credential retrieval result  
+    variant credential-result {
+        found(string),
+        not-found,
+        error(string),
+    }
+    
+    /// Initialize credential manager with backend configuration
+    initialize: func(backend-config: string) -> result<_, string>;
+    
+    /// Store a credential securely
+    store-credential: func(key: string, value: string) -> storage-result;
+    
+    /// Retrieve a credential
+    get-credential: func(key: string) -> credential-result;
+    
+    /// Delete a credential
+    delete-credential: func(key: string) -> storage-result;
+    
+    /// List all credential keys
+    list-credentials: func() -> result<list<string>, string>;
+    
+    /// Clear all credentials
+    clear-all: func() -> storage-result;
+    
+    /// Validate that required credentials exist
+    validate: func() -> result<bool, string>;
+    
+    /// Migrate credentials between backends
+    migrate: func(from-backend: string, to-backend: string) -> storage-result;
+}
+
+/// Loxone client interface for device communication
+interface loxone-client {
+    /// Device control result
+    record control-result {
+        device-id: string,
+        action: string,
+        success: bool,
+        value: option<string>,
+        error: option<string>,
+    }
+    
+    /// Device information
+    record device-info {
+        id: string,
+        name: string,
+        device-type: string,
+        room: string,
+        category: string,
+        state: option<string>,
+    }
+    
+    /// Room information
+    record room-info {
+        id: string,
+        name: string,
+        device-count: u32,
+    }
+    
+    /// Initialize Loxone client with server configuration
+    connect: func(host: string, username: string, password: string) -> result<_, string>;
+    
+    /// Test connection to Loxone server
+    test-connection: func() -> result<bool, string>;
+    
+    /// Get all rooms
+    get-rooms: func() -> result<list<room-info>, string>;
+    
+    /// Get devices in a room
+    get-room-devices: func(room-id: string) -> result<list<device-info>, string>;
+    
+    /// Control a device
+    control-device: func(device-id: string, action: string, value: option<string>) -> result<control-result, string>;
+    
+    /// Get device state
+    get-device-state: func(device-id: string) -> result<string, string>;
+    
+    /// Discover sensors automatically
+    discover-sensors: func(duration-seconds: u32) -> result<list<device-info>, string>;
+    
+    /// Disconnect from Loxone server
+    disconnect: func() -> result<_, string>;
+}
+
+/// Configuration interfaces for different deployment scenarios
+interface config {
+    /// Configuration for native environments
+    record native-config {
+        credential-backend: string,
+        log-level: string,
+        miniserver-url: string,
+    }
+    
+    /// Configuration for WASM environments
+    record wasm-config {
+        credential-backend: string,
+        keyvalue-store: option<string>,
+        infisical-project: option<string>,
+        infisical-environment: option<string>,
+    }
+    
+    /// Load configuration from environment
+    load-config: func() -> result<string, string>;
+    
+    /// Validate configuration
+    validate-config: func(config: string) -> result<bool, string>;
+    
+    /// Get default configuration for current environment
+    get-default-config: func() -> result<string, string>;
+}
+
+/// WASI-specific credential store interface
+interface wasi-credentials {
+    use wasi:keyvalue/store.{bucket};
+    
+    /// Initialize WASI keyvalue credential store
+    init-store: func(store-name: option<string>) -> result<bucket, string>;
+    
+    /// Store credential in WASI keyvalue store
+    store-in-wasi: func(store: bucket, key: string, value: string) -> result<_, string>;
+    
+    /// Get credential from WASI keyvalue store  
+    get-from-wasi: func(store: bucket, key: string) -> result<option<string>, string>;
+    
+    /// Delete credential from WASI keyvalue store
+    delete-from-wasi: func(store: bucket, key: string) -> result<_, string>;
+}
+
+/// Infisical integration interface
+interface infisical-integration {
+    /// Infisical authentication configuration
+    record infisical-auth {
+        project-id: string,
+        environment: string,
+        client-id: string,
+        client-secret: string,
+        host: option<string>,
+    }
+    
+    /// Infisical client session
+    resource infisical-session {
+        /// Authenticate with Infisical
+        authenticate: func(auth: infisical-auth) -> result<_, string>;
+        
+        /// Get secret from Infisical
+        get-secret: func(name: string) -> result<option<string>, string>;
+        
+        /// Set secret in Infisical
+        set-secret: func(name: string, value: string) -> result<_, string>;
+        
+        /// Delete secret from Infisical
+        delete-secret: func(name: string) -> result<_, string>;
+        
+        /// List all secrets
+        list-secrets: func() -> result<list<string>, string>;
+    }
+    
+    /// Create new Infisical session
+    create-session: func(auth: infisical-auth) -> result<infisical-session, string>;
+}
+
+/// HTTP client interface for WASM environments
+interface http-client {
+    use wasi:http/outgoing-handler.{outgoing-request, future-incoming-response};
+    
+    /// HTTP request configuration
+    record http-config {
+        timeout-ms: option<u32>,
+        follow-redirects: bool,
+        verify-tls: bool,
+    }
+    
+    /// Make HTTP request using WASI interface
+    make-request: func(request: outgoing-request, config: option<http-config>) -> result<future-incoming-response, string>;
+    
+    /// Create authenticated request for Loxone
+    create-loxone-request: func(url: string, username: string, password: string) -> result<outgoing-request, string>;
+    
+    /// Create authenticated request for Infisical
+    create-infisical-request: func(url: string, auth-token: string) -> result<outgoing-request, string>;
+}

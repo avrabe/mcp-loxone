@@ -14,7 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Install dependencies
 uv sync
 
-# Configure Loxone credentials (one-time setup)
+# Configure Loxone credentials (one-time setup with Infisical support)
 uvx --from . loxone-mcp setup
 # Or directly:
 ./setup.sh
@@ -22,8 +22,31 @@ uvx --from . loxone-mcp setup
 # Verify existing credentials
 uvx --from . loxone-mcp verify
 
+# Migrate existing keychain credentials to Infisical
+uvx --from . loxone-mcp migrate
+
 # Clear all stored credentials (if needed)
 uvx --from . loxone-mcp clear
+```
+
+### Infisical Integration (Optional)
+For team/production environments, you can use Infisical for centralized credential management:
+
+```bash
+# Configure Infisical (set these environment variables)
+export INFISICAL_PROJECT_ID="your-project-id"
+export INFISICAL_ENVIRONMENT="dev"  # or staging, prod
+export INFISICAL_CLIENT_ID="your-client-id"
+export INFISICAL_CLIENT_SECRET="your-client-secret"
+
+# Optional: Self-hosted Infisical
+export INFISICAL_HOST="https://your-infisical-instance.com"
+
+# Run setup - will automatically use Infisical if configured
+uvx --from . loxone-mcp setup
+
+# Migrate existing keychain credentials to Infisical
+uvx --from . loxone-mcp migrate
 ```
 
 ### Running the Server
@@ -99,10 +122,12 @@ The codebase implements a Model Context Protocol (MCP) server for controlling Lo
    - `loxone_client.py`: WebSocket client (for future encrypted auth support)
    - Both implement async communication with the Miniserver
 
-3. **Credential Management** (`credentials.py`):
-   - Uses system keychain (via `keyring` library) for secure storage
-   - Falls back to environment variables for CI/CD
-   - Provides CLI commands: setup, validate, clear
+3. **Credential Management** (`credentials.py`, `infisical_credentials.py`):
+   - **Enhanced Infisical Integration**: Team-friendly credential management
+   - **Multi-Backend Support**: Infisical → Keychain → Environment variables
+   - **Backward Compatibility**: Maintains existing keychain workflow
+   - **Migration Tools**: Easy transition from keychain to Infisical
+   - **CLI Commands**: setup, verify, clear, migrate
 
 4. **Sensor Configuration** (`sensor_config.py`):
    - Configurable sensor management without hardcoded UUIDs

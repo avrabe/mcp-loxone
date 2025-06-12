@@ -1,0 +1,592 @@
+{
+  "name": "Loxone MCP Client - Integration Hub",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "1",
+      "name": "Start",
+      "type": "n8n-nodes-base.start",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "event",
+        "operation": "create",
+        "calendar": {
+          "__rl": true,
+          "value": "primary",
+          "mode": "list"
+        },
+        "summary": "={{ $json.title }}",
+        "description": "={{ $json.description }}",
+        "start": "={{ $json.startTime }}",
+        "end": "={{ $json.endTime }}"
+      },
+      "id": "2",
+      "name": "Google Calendar",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1,
+      "position": [1250, 100],
+      "credentials": {
+        "googleCalendarOAuth2Api": {
+          "id": "google-calendar",
+          "name": "Google Calendar"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "channel": "home-automation",
+        "text": "={{ $json.message }}",
+        "attachments": [
+          {
+            "color": "={{ $json.priority === 'high' ? '#ff0000' : '#00ff00' }}",
+            "title": "={{ $json.title }}",
+            "text": "={{ $json.details }}",
+            "footer": "Loxone MCP"
+          }
+        ],
+        "otherOptions": {}
+      },
+      "id": "3",
+      "name": "Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [1250, 200],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-api",
+          "name": "Slack API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "events": [
+          {
+            "name": "motion_detected",
+            "value": "motionDetected"
+          },
+          {
+            "name": "door_opened",
+            "value": "doorOpened"
+          },
+          {
+            "name": "temperature_alert",
+            "value": "temperatureAlert"
+          },
+          {
+            "name": "energy_threshold",
+            "value": "energyThreshold"
+          }
+        ]
+      },
+      "id": "4",
+      "name": "SSE Trigger",
+      "type": "@n8n/n8n-nodes-mcp.mcpTrigger",
+      "typeVersion": 1,
+      "position": [250, 500],
+      "credentials": {
+        "mcpApi": {
+          "id": "loxone-mcp-sse",
+          "name": "Loxone MCP SSE"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Loxone MCP Client Workflow\n\nThis workflow demonstrates:\n\n1. **Event Processing**: Receives events from Loxone via SSE\n2. **Intelligent Routing**: Routes events based on type and priority\n3. **External Integrations**: Connects to Google Calendar, Slack, etc.\n4. **Automation Logic**: Implements complex automation scenarios\n5. **State Management**: Tracks home state and user preferences",
+        "height": 200,
+        "width": 400
+      },
+      "id": "5",
+      "name": "Documentation",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [250, 100]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.eventType }}",
+              "operation": "equals",
+              "value2": "security"
+            }
+          ]
+        }
+      },
+      "id": "6",
+      "name": "Is Security Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [450, 500]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.eventType }}",
+              "operation": "equals",
+              "value2": "energy"
+            }
+          ]
+        }
+      },
+      "id": "7",
+      "name": "Is Energy Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [650, 600]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Security Event Handler\nconst event = $input.item.json;\nconst severity = event.severity || 'medium';\nconst location = event.location || 'Unknown';\n\n// Determine actions based on security event\nlet actions = [];\nlet notifications = [];\n\nswitch(event.subType) {\n  case 'motion_detected':\n    if (event.armed) {\n      actions.push({\n        type: 'alarm',\n        action: 'trigger',\n        zone: location\n      });\n      notifications.push({\n        priority: 'high',\n        title: '🚨 INTRUSION DETECTED',\n        message: `Motion detected in ${location} while system armed`,\n        channels: ['slack', 'sms', 'email']\n      });\n    } else {\n      // Just log for monitoring\n      actions.push({\n        type: 'log',\n        message: `Motion in ${location}`\n      });\n    }\n    break;\n    \n  case 'door_opened':\n    if (event.armed && !event.authorized) {\n      actions.push({\n        type: 'alarm',\n        action: 'trigger',\n        zone: location\n      });\n      actions.push({\n        type: 'lights',\n        action: 'flash',\n        rooms: ['all']\n      });\n      notifications.push({\n        priority: 'critical',\n        title: '🚪 UNAUTHORIZED ACCESS',\n        message: `${location} opened without authorization`,\n        channels: ['slack', 'sms', 'phone']\n      });\n    }\n    break;\n    \n  case 'window_broken':\n    actions.push({\n      type: 'alarm',\n      action: 'trigger',\n      zone: location\n    });\n    actions.push({\n      type: 'lights',\n      action: 'on',\n      rooms: ['all']\n    });\n    actions.push({\n      type: 'camera',\n      action: 'record',\n      location: location\n    });\n    notifications.push({\n      priority: 'critical',\n      title: '🔴 GLASS BREAK DETECTED',\n      message: `Window broken in ${location}`,\n      channels: ['slack', 'sms', 'phone', 'police']\n    });\n    break;\n}\n\nreturn {\n  json: {\n    originalEvent: event,\n    actions: actions,\n    notifications: notifications,\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "8",
+      "name": "Process Security Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 450]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Energy Event Handler\nconst event = $input.item.json;\nconst usage = event.currentUsage || 0;\nconst threshold = event.threshold || 5000;\nconst cost = event.estimatedCost || 0;\n\nlet actions = [];\nlet notifications = [];\n\n// Calculate usage percentage\nconst usagePercent = Math.round((usage / threshold) * 100);\n\nif (usagePercent > 150) {\n  // Critical usage\n  actions.push({\n    type: 'reduce_load',\n    level: 'aggressive',\n    targets: ['hvac', 'water_heater', 'non_essential']\n  });\n  notifications.push({\n    priority: 'high',\n    title: '⚡ CRITICAL ENERGY USAGE',\n    message: `Usage at ${usagePercent}% of threshold (${usage}W)`,\n    details: `Estimated cost: $${cost}/hour`,\n    channels: ['slack', 'email']\n  });\n} else if (usagePercent > 100) {\n  // Over threshold\n  actions.push({\n    type: 'reduce_load',\n    level: 'moderate',\n    targets: ['non_essential']\n  });\n  notifications.push({\n    priority: 'medium',\n    title: '⚠️ High Energy Usage',\n    message: `Usage at ${usagePercent}% of threshold`,\n    channels: ['slack']\n  });\n}\n\n// Peak hours management\nconst hour = new Date().getHours();\nif ((hour >= 16 && hour <= 20) && usagePercent > 80) {\n  actions.push({\n    type: 'shift_load',\n    message: 'Peak hours - shifting non-critical loads'\n  });\n}\n\nreturn {\n  json: {\n    originalEvent: event,\n    actions: actions,\n    notifications: notifications,\n    metrics: {\n      usage: usage,\n      threshold: threshold,\n      percentage: usagePercent,\n      cost: cost\n    },\n    timestamp: new Date().toISOString()\n  }\n};"
+      },
+      "id": "9",
+      "name": "Process Energy Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 600]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO home_events (event_type, event_data, processed_at, actions_taken)\nVALUES (\n  '{{ $json.originalEvent.eventType }}',\n  '{{ JSON.stringify($json.originalEvent) }}',\n  '{{ $json.timestamp }}',\n  '{{ JSON.stringify($json.actions) }}'\n)",
+        "options": {}
+      },
+      "id": "10",
+      "name": "Log to Database",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [1050, 500],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-events",
+          "name": "Event Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8080/sse",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer {{ $credentials.apiKey }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "jsonrpc",
+              "value": "2.0"
+            },
+            {
+              "name": "method",
+              "value": "mcp/call_tool"
+            },
+            {
+              "name": "params",
+              "value": "={{ $json.action }}"
+            },
+            {
+              "name": "id",
+              "value": "={{ $json.actionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "11",
+      "name": "Execute Loxone Actions",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1050, 350],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "loxone-mcp-api",
+          "name": "Loxone MCP API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Transform actions into MCP calls\nconst actions = $input.item.json.actions || [];\n\nreturn actions.map(action => {\n  let mcpTool = '';\n  let mcpParams = {};\n  \n  switch(action.type) {\n    case 'alarm':\n      mcpTool = action.action === 'trigger' ? 'trigger_alarm' : 'silence_alarm';\n      mcpParams = { zone: action.zone };\n      break;\n      \n    case 'lights':\n      if (action.action === 'flash') {\n        mcpTool = 'flash_lights';\n      } else {\n        mcpTool = 'control_room_lights';\n      }\n      mcpParams = { \n        rooms: action.rooms,\n        action: action.action \n      };\n      break;\n      \n    case 'reduce_load':\n      mcpTool = 'manage_energy_loads';\n      mcpParams = {\n        level: action.level,\n        targets: action.targets\n      };\n      break;\n      \n    case 'camera':\n      mcpTool = 'control_camera';\n      mcpParams = {\n        location: action.location,\n        action: action.action\n      };\n      break;\n  }\n  \n  return {\n    json: {\n      action: {\n        name: mcpTool,\n        arguments: mcpParams\n      },\n      actionId: `action-${Date.now()}-${Math.random()}`\n    }\n  };\n});"
+      },
+      "id": "12",
+      "name": "Transform to MCP Calls",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [850, 350]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Route notifications to appropriate channels\nconst notifications = $input.item.json.notifications || [];\n\nreturn notifications.map(notification => {\n  const outputs = [];\n  \n  notification.channels.forEach(channel => {\n    outputs.push({\n      json: {\n        channel: channel,\n        priority: notification.priority,\n        title: notification.title,\n        message: notification.message,\n        details: notification.details || '',\n        timestamp: new Date().toISOString()\n      }\n    });\n  });\n  \n  return outputs;\n}).flat();"
+      },
+      "id": "13",
+      "name": "Route Notifications",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1050, 200]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "string": [
+            {
+              "value1": "={{ $json.channel }}",
+              "operation": "equals", 
+              "value2": "slack"
+            }
+          ]
+        }
+      },
+      "id": "14",
+      "name": "Is Slack?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "toEmail": "admin@example.com",
+        "subject": "={{ $json.title }}",
+        "message": "={{ $json.message }}\\n\\n{{ $json.details }}",
+        "options": {
+          "ccEmail": "backup@example.com"
+        }
+      },
+      "id": "15",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [1250, 400],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "gmail-oauth",
+          "name": "Gmail"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.twilio.com/2010-04-01/Accounts/{{ $credentials.accountSid }}/Messages.json",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpBasicAuth",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "To",
+              "value": "+1234567890"
+            },
+            {
+              "name": "From", 
+              "value": "{{ $credentials.phoneNumber }}"
+            },
+            {
+              "name": "Body",
+              "value": "{{ $json.title }}: {{ $json.message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "16",
+      "name": "Send SMS",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [1250, 500],
+      "credentials": {
+        "httpBasicAuth": {
+          "id": "twilio-api",
+          "name": "Twilio API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "triggerTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 1,
+              "unit": "hours"
+            }
+          ]
+        }
+      },
+      "id": "17",
+      "name": "Hourly Analytics",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [250, 700]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT \n  event_type,\n  COUNT(*) as event_count,\n  AVG(CAST(event_data->>'currentUsage' AS FLOAT)) as avg_usage,\n  MAX(CAST(event_data->>'currentUsage' AS FLOAT)) as max_usage\nFROM home_events\nWHERE processed_at > NOW() - INTERVAL '1 hour'\nGROUP BY event_type",
+        "options": {}
+      },
+      "id": "18",
+      "name": "Get Hourly Stats",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2,
+      "position": [450, 700],
+      "credentials": {
+        "postgres": {
+          "id": "postgres-events",
+          "name": "Event Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "// Generate analytics report\nconst stats = $input.all();\n\nlet report = {\n  title: '📊 Hourly Home Analytics Report',\n  timestamp: new Date().toISOString(),\n  summary: [],\n  recommendations: []\n};\n\nstats.forEach(stat => {\n  const data = stat.json;\n  \n  if (data.event_type === 'energy') {\n    report.summary.push(`⚡ Energy: ${data.event_count} events, Avg: ${Math.round(data.avg_usage)}W, Max: ${Math.round(data.max_usage)}W`);\n    \n    if (data.avg_usage > 4000) {\n      report.recommendations.push('Consider load shifting during peak hours');\n    }\n  } else if (data.event_type === 'security') {\n    report.summary.push(`🔒 Security: ${data.event_count} events`);\n    \n    if (data.event_count > 10) {\n      report.recommendations.push('High security activity detected - review logs');\n    }\n  }\n});\n\nreturn {\n  json: report\n};"
+      },
+      "id": "19",
+      "name": "Generate Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [650, 700]
+    },
+    {
+      "parameters": {
+        "channel": "home-automation",
+        "text": "={{ $json.title }}",
+        "attachments": [
+          {
+            "color": "#0000ff",
+            "title": "Summary",
+            "text": "={{ $json.summary.join('\\n') }}"
+          },
+          {
+            "color": "#00ff00",
+            "title": "Recommendations",
+            "text": "={{ $json.recommendations.join('\\n') || 'All systems optimal' }}"
+          }
+        ],
+        "otherOptions": {}
+      },
+      "id": "20",
+      "name": "Send Analytics Report",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2,
+      "position": [850, 700],
+      "credentials": {
+        "slackApi": {
+          "id": "slack-api",
+          "name": "Slack API"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "SSE Trigger": {
+      "main": [
+        [
+          {
+            "node": "Is Security Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Security Event?": {
+      "main": [
+        [
+          {
+            "node": "Process Security Event",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is Energy Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Energy Event?": {
+      "main": [
+        [
+          {
+            "node": "Process Energy Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Security Event": {
+      "main": [
+        [
+          {
+            "node": "Transform to MCP Calls",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Route Notifications",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Energy Event": {
+      "main": [
+        [
+          {
+            "node": "Transform to MCP Calls",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Route Notifications",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Log to Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to MCP Calls": {
+      "main": [
+        [
+          {
+            "node": "Execute Loxone Actions",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route Notifications": {
+      "main": [
+        [
+          {
+            "node": "Is Slack?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Slack?": {
+      "main": [
+        [
+          {
+            "node": "Slack",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hourly Analytics": {
+      "main": [
+        [
+          {
+            "node": "Get Hourly Stats",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Hourly Stats": {
+      "main": [
+        [
+          {
+            "node": "Generate Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report": {
+      "main": [
+        [
+          {
+            "node": "Send Analytics Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "tags": [
+    {
+      "name": "loxone",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "mcp",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    },
+    {
+      "name": "client",
+      "createdAt": "2024-01-01T00:00:00.000Z"
+    }
+  ],
+  "id": "loxone-mcp-client",
+  "meta": {
+    "instanceId": "n8n"
+  }
+}

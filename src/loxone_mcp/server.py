@@ -18,7 +18,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from loxone_mcp.credentials import LoxoneSecrets
+from loxone_mcp.credentials import get_credentials_manager
 from loxone_mcp.dynamic_sensor_discovery import DiscoveredSensor, discover_sensors_automatically
 from loxone_mcp.loxone_token_client import LoxoneTokenClient
 from loxone_mcp.sensor_state_logger import get_state_logger
@@ -177,8 +177,8 @@ async def _initialize_loxone_connection() -> None:
     logger.info("Starting Loxone MCP Server initialization")
 
     try:
-        # Get credentials
-        secrets = LoxoneSecrets()
+        # Get credentials using enhanced credential manager
+        secrets = get_credentials_manager()
         host = secrets.get("LOXONE_HOST")
         username = secrets.get("LOXONE_USER")
         password = secrets.get("LOXONE_PASS")
@@ -1262,7 +1262,8 @@ async def get_devices_by_category(
                 for cat_name, devices in list(categories)[:20]  # Top 20 categories
             },
             "total_categories": len(_context.devices_by_category),
-            "note": "Specify a category name to get detailed device information. Use limit parameter to control result size.",
+            "note": ("Specify a category name to get detailed device information. "
+                     "Use limit parameter to control result size."),
         }
 
     # Find devices in the specified category
@@ -1316,7 +1317,8 @@ async def get_devices_by_category(
 
     if has_more:
         results["pagination_note"] = (
-            f"Showing {limit} of {len(devices_in_category)} devices. Increase limit parameter to see more."
+            f"Showing {limit} of {len(devices_in_category)} devices. "
+             f"Increase limit parameter to see more."
         )
 
     return results
