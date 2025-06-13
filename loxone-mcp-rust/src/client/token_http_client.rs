@@ -10,7 +10,7 @@ use crate::client::{
 };
 use crate::config::{credentials::LoxoneCredentials, LoxoneConfig};
 use crate::error::{LoxoneError, Result};
-use crate::mcp_consent::{ConsentManager, OperationType, ConsentProtected, ConsentDecision};
+use crate::mcp_consent::{ConsentManager, OperationType, ConsentDecision};
 use async_trait::async_trait;
 use reqwest::{Client, ClientBuilder};
 use serde_json;

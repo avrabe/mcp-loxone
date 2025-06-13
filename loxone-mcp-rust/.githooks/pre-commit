@@ -1,0 +1,104 @@
+#!/bin/bash
+# Pre-commit hook for Loxone MCP Rust
+# This script runs quality checks before allowing commits
+# 
+# To install this hook:
+#   cp .githooks/pre-commit .git/hooks/pre-commit
+#   chmod +x .git/hooks/pre-commit
+#
+# To bypass (use sparingly):
+#   git commit --no-verify
+
+set -e
+
+echo "🔍 Running pre-commit quality checks..."
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+# Function to print colored output
+print_status() {
+    if [ $2 -eq 0 ]; then
+        echo -e "${GREEN}✅ $1${NC}"
+    else
+        echo -e "${RED}❌ $1${NC}"
+    fi
+}
+
+# Track overall status
+OVERALL_STATUS=0
+
+# Check 1: Format check
+echo -e "${YELLOW}🔍 Checking code formatting...${NC}"
+if cargo fmt --all -- --check; then
+    print_status "Code formatting" 0
+else
+    print_status "Code formatting" 1
+    echo -e "${RED}💡 Run 'cargo fmt' or 'make format' to fix formatting${NC}"
+    OVERALL_STATUS=1
+fi
+
+# Check 2: Clippy linting
+echo -e "${YELLOW}🔍 Running clippy linter...${NC}"
+if cargo clippy --all-targets --all-features -- -D warnings; then
+    print_status "Clippy linting" 0
+else
+    print_status "Clippy linting" 1
+    echo -e "${RED}💡 Fix clippy warnings before committing${NC}"
+    OVERALL_STATUS=1
+fi
+
+# Check 3: Build check
+echo -e "${YELLOW}🔨 Checking build...${NC}"
+if cargo check --all-targets --all-features; then
+    print_status "Build check" 0
+else
+    print_status "Build check" 1
+    OVERALL_STATUS=1
+fi
+
+# Check 4: Test suite (quick tests only for pre-commit)
+echo -e "${YELLOW}🧪 Running quick test suite...${NC}"
+if cargo test --lib --quiet; then
+    print_status "Test suite" 0
+else
+    print_status "Test suite" 1
+    echo -e "${RED}💡 Fix failing tests before committing${NC}"
+    OVERALL_STATUS=1
+fi
+
+# Check 5: Security audit (optional - can be slow)
+if command -v cargo-audit &> /dev/null; then
+    echo -e "${YELLOW}🔒 Running security audit...${NC}"
+    if cargo audit; then
+        print_status "Security audit" 0
+    else
+        print_status "Security audit" 1
+        echo -e "${YELLOW}⚠️ Security vulnerabilities found - review before committing${NC}"
+        # Don't fail the commit for security issues, just warn
+    fi
+else
+    echo -e "${YELLOW}⚠️ cargo-audit not installed, skipping security check${NC}"
+fi
+
+# Final status
+echo ""
+if [ $OVERALL_STATUS -eq 0 ]; then
+    echo -e "${GREEN}🎉 All pre-commit checks passed! Proceeding with commit.${NC}"
+else
+    echo -e "${RED}❌ Pre-commit checks failed!${NC}"
+    echo ""
+    echo -e "${YELLOW}To fix issues:${NC}"
+    echo "  make format    # Fix formatting"
+    echo "  make lint      # Check for clippy issues"
+    echo "  make test      # Run full test suite"
+    echo "  make check     # Run all quality checks"
+    echo ""
+    echo -e "${YELLOW}To bypass these checks (not recommended):${NC}"
+    echo "  git commit --no-verify"
+    echo ""
+    exit 1
+fi
