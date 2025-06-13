@@ -358,42 +358,75 @@ async fn main() -> Result<()> {
     // Create credentials
     let credentials = LoxoneCredentials {
         username: username.clone(),
-        password,
+        password: password.clone(),
         api_key,
         #[cfg(feature = "crypto")]
         public_key: None,
     };
 
-    // Create credential manager based on selected backend
-    let credential_manager = create_credential_manager_for_backend(&selected_backend).await?;
+    // Handle Environment backend specially
+    if matches!(selected_backend, CredentialBackend::Environment) {
+        // For environment variables, we can't store them - show export commands instead
+        println!("\n📋 Environment Variables Setup");
+        println!("────────────────────────────────");
+        println!("\nCopy and run these commands to set up your environment:\n");
+        println!("```bash");
+        println!("export LOXONE_USERNAME=\"{}\"", username);
+        println!("export LOXONE_PASSWORD=\"{}\"", password);
+        println!("export LOXONE_HOST=\"{}\"", host);
+        if let Some(api_key) = &credentials.api_key {
+            println!("export LOXONE_API_KEY=\"{}\"", api_key);
+        }
+        println!("```");
+        println!("\n💡 To make these permanent, add them to your shell profile (~/.bashrc, ~/.zshrc, etc.)");
+        println!("\nAlternatively, save them to a file and source it:");
+        println!("```bash");
+        println!("# Save to file");
+        println!("cat > loxone-env.sh << 'EOF'");
+        println!("export LOXONE_USERNAME=\"{}\"", username);
+        println!("export LOXONE_PASSWORD=\"{}\"", password);
+        println!("export LOXONE_HOST=\"{}\"", host);
+        if let Some(api_key) = &credentials.api_key {
+            println!("export LOXONE_API_KEY=\"{}\"", api_key);
+        }
+        println!("EOF");
+        println!("\n# Then source it when needed");
+        println!("source loxone-env.sh");
+        println!("```");
+    } else {
+        // For other backends, store normally
+        let credential_manager = create_credential_manager_for_backend(&selected_backend).await?;
+        
+        info!(
+            "💾 Storing credentials using {:?} backend...",
+            selected_backend
+        );
+        credential_manager.store_credentials(&credentials).await?;
 
-    // Store credentials
-    info!(
-        "💾 Storing credentials using {:?} backend...",
-        selected_backend
-    );
-    credential_manager.store_credentials(&credentials).await?;
-
-    println!(
-        "\n✅ Credentials stored successfully in {:?}!",
-        selected_backend
-    );
-    println!("   Host: {}", host);
-    println!("   User: {}", username);
-    println!("   Pass: {}", "*".repeat(8));
-    if credentials.api_key.is_some() {
-        println!("   API Key: {}", "*".repeat(8));
+        println!(
+            "\n✅ Credentials stored successfully in {:?}!",
+            selected_backend
+        );
+        println!("   Host: {}", host);
+        println!("   User: {}", username);
+        println!("   Pass: {}", "*".repeat(8));
+        if credentials.api_key.is_some() {
+            println!("   API Key: {}", "*".repeat(8));
+        }
     }
 
-    // Verify by reading back
-    info!("🔍 Verifying stored credentials...");
-    match credential_manager.get_credentials().await {
-        Ok(_) => {
-            info!("✅ Credentials verified successfully!");
-        }
-        Err(e) => {
-            error!("❌ Failed to verify credentials: {}", e);
-            std::process::exit(1);
+    // Verify by reading back (skip for Environment backend)
+    if !matches!(selected_backend, CredentialBackend::Environment) {
+        info!("🔍 Verifying stored credentials...");
+        let credential_manager = create_credential_manager_for_backend(&selected_backend).await?;
+        match credential_manager.get_credentials().await {
+            Ok(_) => {
+                info!("✅ Credentials verified successfully!");
+            }
+            Err(e) => {
+                error!("❌ Failed to verify credentials: {}", e);
+                std::process::exit(1);
+            }
         }
     }
 
@@ -1072,12 +1105,12 @@ fn generate_export_script(
 
 echo "🔧 Loading Loxone MCP environment variables..."
 
-export LOXONE_USER="{}"
-export LOXONE_PASS="{}"
+export LOXONE_USERNAME="{}"
+export LOXONE_PASSWORD="{}"
 export LOXONE_HOST="{}"{}
 
 echo "✅ Environment configured for Loxone MCP server"
-echo "   User: $LOXONE_USER"
+echo "   User: $LOXONE_USERNAME"
 echo "   Host: $LOXONE_HOST"
 "#,
                 username,
