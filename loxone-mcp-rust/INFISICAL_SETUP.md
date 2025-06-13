@@ -45,8 +45,8 @@ export INFISICAL_ENVIRONMENT="dev"
 1. Gehe zu deinem Projekt Dashboard
 2. Klicke auf "Secrets" 
 3. Füge diese Secrets hinzu:
-   - Key: `LOXONE_USER`, Value: `dein-loxone-username`
-   - Key: `LOXONE_PASS`, Value: `dein-loxone-passwort`
+   - Key: `LOXONE_USERNAME`, Value: `dein-loxone-username`
+   - Key: `LOXONE_PASSWORD`, Value: `dein-loxone-passwort`
    - Key: `LOXONE_HOST`, Value: `192.168.1.100` (deine Miniserver IP)
 
 ### 6. Testen
@@ -89,7 +89,7 @@ Jedes Teammitglied:
 
 **Problem: "Credentials not found in Infisical"**
 - Gehe ins Infisical Dashboard
-- Stelle sicher dass LOXONE_USER und LOXONE_PASS als Secrets existieren
+- Stelle sicher dass LOXONE_USERNAME und LOXONE_PASSWORD als Secrets existieren
 - Prüfe ob du das richtige Environment verwendest (dev/staging/prod)
 
 ## Vorteile

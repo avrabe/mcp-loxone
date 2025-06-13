@@ -73,10 +73,7 @@ impl LoxoneMcpServer {
         info!("📋 Initializing credential manager...");
         let credential_manager =
             match crate::config::credentials::create_best_credential_manager().await {
-                Ok(manager) => {
-                    info!("✅ Created multi-backend credential manager");
-                    manager
-                }
+                Ok(manager) => manager,
                 Err(e) => {
                     error!(
                         "❌ Failed to create multi-backend credential manager: {}",
@@ -86,8 +83,8 @@ impl LoxoneMcpServer {
                     error!("🚀 Quick Setup Guide:");
                     error!("");
                     error!("Option 1: Use environment variables (simplest):");
-                    error!("  export LOXONE_USER=<your-username>");
-                    error!("  export LOXONE_PASS=<your-password>");
+                    error!("  export LOXONE_USERNAME=<your-username>");
+                    error!("  export LOXONE_PASSWORD=<your-password>");
                     error!("  export LOXONE_HOST=<miniserver-ip-or-hostname>");
                     error!("");
                     error!("Option 2: Use keychain (interactive setup):");
@@ -116,8 +113,8 @@ impl LoxoneMcpServer {
                 error!("🔧 No credentials found! Please configure using one of these methods:");
                 error!("");
                 error!("1️⃣  Environment Variables (quickest for testing):");
-                error!("    export LOXONE_USER=\"your-username\"");
-                error!("    export LOXONE_PASS=\"your-password\"");
+                error!("    export LOXONE_USERNAME=\"your-username\"");
+                error!("    export LOXONE_PASSWORD=\"your-password\"");
                 error!("    export LOXONE_HOST=\"192.168.1.100\"  # your miniserver IP");
                 error!("");
                 error!("2️⃣  Interactive Setup (stores in system keychain):");

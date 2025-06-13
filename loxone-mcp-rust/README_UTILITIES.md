@@ -33,8 +33,8 @@ To avoid macOS keychain password prompts, use the provided script:
 
 You can also set credentials manually:
 ```bash
-export LOXONE_USER="your_username"
-export LOXONE_PASS="your_password"
+export LOXONE_USERNAME="your_username"
+export LOXONE_PASSWORD="your_password"
 export LOXONE_HOST="http://192.168.178.10"
 cargo run --bin loxone-mcp-server -- stdio
 ```
@@ -75,8 +75,8 @@ Add to your Claude Desktop configuration:
       "command": "/path/to/loxone-mcp-rust/run-server.sh",
       "args": ["stdio"],
       "env": {
-        "LOXONE_USER": "your_username",
-        "LOXONE_PASS": "your_password",
+        "LOXONE_USERNAME": "your_username",
+        "LOXONE_PASSWORD": "your_password",
         "LOXONE_HOST": "http://192.168.178.10"
       }
     }

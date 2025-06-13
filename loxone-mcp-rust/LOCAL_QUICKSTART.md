@@ -10,8 +10,8 @@ cargo run --bin loxone-mcp-mock-server
 
 # Terminal 2: MCP Server mit Mock verbinden
 export LOXONE_HOST="127.0.0.1:8080"
-export LOXONE_USER="admin"
-export LOXONE_PASS="test"
+export LOXONE_USERNAME="admin"
+export LOXONE_PASSWORD="test"
 cargo run --bin loxone-mcp-server
 ```
 
@@ -19,8 +19,8 @@ cargo run --bin loxone-mcp-server
 
 ```bash
 # 1. Setze deine Loxone Credentials
-export LOXONE_USER="admin"
-export LOXONE_PASS="dein-passwort"
+export LOXONE_USERNAME="admin"
+export LOXONE_PASSWORD="dein-passwort"
 export LOXONE_HOST="192.168.1.100"  # Deine Miniserver IP
 
 # 2. Server starten
