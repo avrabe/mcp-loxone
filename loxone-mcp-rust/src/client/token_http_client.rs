@@ -372,45 +372,24 @@ impl LoxoneClient for TokenHttpClient {
                 command: command.to_string(),
             };
 
-            // For consent-protected operations, we need to execute without consent inside the closure
-            let uuid_owned = uuid.to_string();
-            let command_owned = command.to_string();
+            // Request consent first
+            let decision = consent_manager.request_consent(operation, "HTTP API".to_string()).await?;
             
-            self.execute_with_consent(
-                operation,
-                consent_manager,
-                "HTTP API".to_string(),
-                move || {
-                    let uuid_clone = uuid_owned.clone();
-                    let command_clone = command_owned.clone();
-                    Box::pin(async move {
-                        // This would need the client reference, but we can't capture self
-                        // So we return an error indicating this needs to be refactored
-                        Err(LoxoneError::Generic(anyhow::anyhow!("Consent integration needs refactoring")))
-                    })
-                },
-            ).await
+            match decision {
+                ConsentDecision::Approved | ConsentDecision::AutoApproved { .. } => {
+                    // Execute the operation
+                    self.send_command_without_consent(uuid, command).await
+                }
+                ConsentDecision::Denied { reason } => {
+                    Err(LoxoneError::consent_denied(reason))
+                }
+                ConsentDecision::TimedOut => {
+                    Err(LoxoneError::consent_denied("Consent request timed out".to_string()))
+                }
+            }
         } else {
             // Execute without consent (backward compatibility)
-            let url = self.build_url(&format!("jdev/sps/io/{uuid}/{command}"))?;
-
-            let response = self.execute_request(url).await?;
-            let text = response
-                .text()
-                .await
-                .map_err(|e| LoxoneError::connection(format!("Failed to read response: {e}")))?;
-
-            let loxone_response = Self::parse_loxone_response(&text);
-
-            if loxone_response.code != 200 {
-                return Err(LoxoneError::device_control(format!(
-                    "Command failed with code {}: {:?}",
-                    loxone_response.code, loxone_response.value
-                )));
-            }
-
-            debug!("Command successful: {:?}", loxone_response.value);
-            Ok(loxone_response)
+            self.send_command_without_consent(uuid, command).await
         }
     }
 
@@ -548,27 +527,31 @@ impl TokenHttpClient {
                     operation_type: "parallel_control".to_string(),
                 };
 
-                return self.execute_with_consent(
-                    operation,
-                    consent_manager,
-                    "HTTP API Bulk".to_string(),
-                    || {
-                        Box::pin(async move {
-                            // Execute commands in parallel using futures
-                            use futures::future::join_all;
+                // Request consent first
+                let decision = consent_manager.request_consent(operation, "HTTP API Bulk".to_string()).await?;
+                
+                match decision {
+                    ConsentDecision::Approved | ConsentDecision::AutoApproved { .. } => {
+                        // Execute commands in parallel using futures
+                        use futures::future::join_all;
 
-                            let futures = commands.into_iter().map(|(uuid, command)| {
-                                async move {
-                                    // Call the original send_command but without consent (already checked)
-                                    self.send_command_without_consent(&uuid, &command).await
-                                }
-                            });
+                        let futures = commands.into_iter().map(|(uuid, command)| {
+                            async move {
+                                // Call the original send_command but without consent (already checked)
+                                self.send_command_without_consent(&uuid, &command).await
+                            }
+                        });
 
-                            let results = join_all(futures).await;
-                            Ok(results)
-                        })
-                    },
-                ).await;
+                        let results = join_all(futures).await;
+                        return Ok(results);
+                    }
+                    ConsentDecision::Denied { reason } => {
+                        return Err(LoxoneError::consent_denied(reason));
+                    }
+                    ConsentDecision::TimedOut => {
+                        return Err(LoxoneError::consent_denied("Bulk operation consent timed out".to_string()));
+                    }
+                }
             }
         }
 
