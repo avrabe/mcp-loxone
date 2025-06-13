@@ -599,6 +599,11 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
         && std::env::var("INFISICAL_CLIENT_ID").is_ok()
         && std::env::var("INFISICAL_CLIENT_SECRET").is_ok();
 
+    #[cfg(feature = "keyring-storage")]
+    let keychain_available = true;
+    #[cfg(not(feature = "keyring-storage"))]
+    let keychain_available = false;
+
     println!("Verfügbare Backends:");
     println!("  1. Auto (empfohlen) - Automatische Auswahl");
 
@@ -612,7 +617,11 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
         println!("                    # Für lokale Instanz: export INFISICAL_HOST=\"http://localhost:8080\"");
     }
 
-    println!("  3. Keychain - System Keychain (macOS/Windows/Linux)");
+    if keychain_available {
+        println!("  3. Keychain ✅ - System Keychain (macOS/Windows/Linux)");
+    } else {
+        println!("  3. Keychain ❌ - System Keychain (feature not enabled)");
+    }
     println!("  4. Environment - Umgebungsvariablen (temporär)");
 
     loop {
@@ -661,7 +670,15 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
                     continue;
                 }
             }
-            "3" => return Ok(CredentialBackend::Keychain),
+            "3" => {
+                if keychain_available {
+                    return Ok(CredentialBackend::Keychain);
+                } else {
+                    println!("\n❌ Keychain feature not enabled in this build!");
+                    println!("💡 Use Environment Variables (option 4) or rebuild with --features keyring-storage");
+                    continue;
+                }
+            }
             "4" => {
                 println!(
                     "⚠️  Environment Variables sind nur temporär und gehen beim Neustart verloren!"

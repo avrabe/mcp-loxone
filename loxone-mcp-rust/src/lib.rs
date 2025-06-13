@@ -42,7 +42,6 @@ pub mod validation;
 #[cfg(feature = "crypto")]
 pub mod crypto;
 
-#[cfg(feature = "websocket")]
 pub mod discovery;
 
 #[cfg(feature = "discovery")]

@@ -457,11 +457,21 @@ impl ServerConfig {
     pub fn from_env() -> Result<Self> {
         let mut config = Self::default();
 
-        // Load Loxone configuration
+        // Load Loxone configuration - support both LOXONE_URL and LOXONE_HOST
         if let Ok(url) = env::var("LOXONE_URL") {
             config.loxone.url = url
                 .parse()
                 .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_URL: {}", e)))?;
+        } else if let Ok(host) = env::var("LOXONE_HOST") {
+            // Convert LOXONE_HOST to URL format (add http:// if missing)
+            let url_str = if host.starts_with("http://") || host.starts_with("https://") {
+                host
+            } else {
+                format!("http://{}", host)
+            };
+            config.loxone.url = url_str
+                .parse()
+                .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_HOST: {}", e)))?;
         }
 
         if let Ok(username) = env::var("LOXONE_USERNAME") {

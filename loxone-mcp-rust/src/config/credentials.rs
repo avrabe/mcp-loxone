@@ -47,9 +47,9 @@ impl CredentialManager {
     #[allow(dead_code)] // Used in keyring feature
     const SERVICE_NAME: &'static str = "LoxoneMCP";
     #[allow(dead_code)] // Used in environment variable access
-    const USERNAME_KEY: &'static str = "LOXONE_USER";
+    const USERNAME_KEY: &'static str = "LOXONE_USERNAME";
     #[allow(dead_code)] // Used in environment variable access
-    const PASSWORD_KEY: &'static str = "LOXONE_PASS";
+    const PASSWORD_KEY: &'static str = "LOXONE_PASSWORD";
     #[allow(dead_code)] // Used in keyring feature
     const HOST_KEY: &'static str = "LOXONE_HOST";
     #[allow(dead_code)] // Used in environment variable access
@@ -392,12 +392,12 @@ impl CredentialManager {
     }
 
     async fn get_environment(&self) -> Result<LoxoneCredentials> {
-        let username = env::var("LOXONE_USERNAME").map_err(|_| {
-            LoxoneError::credentials("LOXONE_USERNAME environment variable not set")
+        let username = env::var(Self::USERNAME_KEY).map_err(|_| {
+            LoxoneError::credentials(&format!("{} environment variable not set", Self::USERNAME_KEY))
         })?;
 
-        let password = env::var("LOXONE_PASSWORD").map_err(|_| {
-            LoxoneError::credentials("LOXONE_PASSWORD environment variable not set")
+        let password = env::var(Self::PASSWORD_KEY).map_err(|_| {
+            LoxoneError::credentials(&format!("{} environment variable not set", Self::PASSWORD_KEY))
         })?;
 
         // Try new name first, then fall back to old name for compatibility
@@ -784,6 +784,9 @@ impl MultiBackendCredentialManager {
 /// Priority order: Infisical -> Environment -> WASI/LocalStorage -> Keychain (fallback)
 pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialManager> {
     let mut stores = Vec::new();
+    let mut infisical_configured = false;
+    // Check if environment variables for Loxone are configured
+    let env_configured = std::env::var("LOXONE_USERNAME").is_ok() && std::env::var("LOXONE_PASSWORD").is_ok();
 
     // Try Infisical first if configured (preferred for team environments)
     #[cfg(feature = "infisical")]
@@ -804,23 +807,8 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
                 client_secret,
                 host,
             });
-            tracing::info!("✅ Infisical credential backend enabled");
-        } else {
-            tracing::info!("ℹ️  Infisical not configured. To enable team credential sharing:");
-            tracing::info!("");
-            tracing::info!("    # Example for Loxone MCP project:");
-            tracing::info!("    export INFISICAL_PROJECT_ID=\"65f8e2c8a8b7d9001c4f2a3b\"");
-            tracing::info!(
-                "    export INFISICAL_CLIENT_ID=\"6f4d8e91-3a2b-4c5d-9e7f-1a2b3c4d5e6f\""
-            );
-            tracing::info!("    export INFISICAL_CLIENT_SECRET=\"st.abc123def456ghi789jkl012mno345pqr678stu901vwx234yz\"");
-            tracing::info!("    export INFISICAL_ENVIRONMENT=\"dev\"  # or: staging, prod");
-            tracing::info!("");
-            tracing::info!("    1. Create an Infisical account: https://app.infisical.com/signup");
-            tracing::info!("    2. Create a project for your team");
-            tracing::info!("    3. Go to: Settings → Service Tokens → Create Service Token");
-            tracing::info!("    4. Select Scopes: secrets:read, secrets:write");
-            tracing::info!("    5. Copy the generated IDs and replace the example values above");
+            infisical_configured = true;
+            tracing::info!("🔐 Using Infisical credential backend");
         }
     }
 
@@ -843,8 +831,42 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
     #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
     {
         stores.push(CredentialStore::Keyring);
-        tracing::debug!("Keychain backend enabled as fallback");
     }
 
-    MultiBackendCredentialManager::new(stores).await
+    let manager = MultiBackendCredentialManager::new(stores).await?;
+
+    // Log which backend will actually be used based on what's configured
+    if infisical_configured {
+        tracing::info!("📋 Credential source: Infisical (team configuration)");
+    } else if env_configured {
+        tracing::info!("📋 Credential source: Environment variables");
+        tracing::debug!("Using LOXONE_USERNAME and LOXONE_PASSWORD");
+    } else {
+        #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
+        {
+            tracing::info!("📋 Credential source: System keychain (fallback)");
+            tracing::info!("💡 Tip: Set LOXONE_USERNAME and LOXONE_PASSWORD for direct configuration");
+        }
+        #[cfg(not(all(feature = "keyring-storage", not(target_arch = "wasm32"))))]
+        {
+            tracing::warn!("⚠️  No credentials configured. Set LOXONE_USERNAME and LOXONE_PASSWORD");
+        }
+    }
+
+    // Only show setup instructions if no backend is configured
+    if !infisical_configured && !env_configured {
+        #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
+        {
+            tracing::info!("🔧 Run setup to configure credentials: ./loxone-mcp-rust setup");
+        }
+        #[cfg(not(all(feature = "keyring-storage", not(target_arch = "wasm32"))))]
+        {
+            tracing::info!("🔧 Configure credentials with environment variables:");
+            tracing::info!("   export LOXONE_USERNAME=\"your-username\"");
+            tracing::info!("   export LOXONE_PASSWORD=\"your-password\"");
+            tracing::info!("   export LOXONE_HOST=\"192.168.1.100\"");
+        }
+    }
+
+    Ok(manager)
 }

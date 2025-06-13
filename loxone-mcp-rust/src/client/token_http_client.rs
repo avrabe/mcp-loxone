@@ -355,7 +355,7 @@ impl LoxoneClient for TokenHttpClient {
                 info!("✅ Connected to Loxone Miniserver with token authentication");
                 
                 // Process queued commands if command queue is enabled
-                if let Some(queue) = &self.command_queue {
+                if let Some(_queue) = &self.command_queue {
                     self.process_command_queue().await?;
                 }
                 
@@ -748,20 +748,21 @@ impl TokenHttpClient {
             if queue_size > 0 {
                 info!("Processing {} queued commands after reconnection", queue_size);
                 
-                // Execute commands in batches
-                let executor = |command: QueuedCommand| {
-                    Box::pin(async move {
-                        // Execute the command without going through the normal send_command
-                        // to avoid infinite recursion and consent checks (already handled)
-                        let response = self.send_command_without_consent(&command.device_uuid, &command.command).await?;
-                        Ok(serde_json::to_value(response)?)
-                    })
-                };
+                // Since we can't capture self in a closure easily, we'll process one by one for now
+                // This is a simplified implementation - in production you'd want proper batch processing
+                let mut successful = 0;
+                let mut failed = 0;
                 
-                let results = queue.execute_batch(executor).await?;
-                
-                let successful = results.iter().filter(|r| r.success).count();
-                let failed = results.len() - successful;
+                while queue.get_current_queue_size().await > 0 {
+                    if let Some(command) = queue.dequeue().await {
+                        match self.send_command_without_consent(&command.device_uuid, &command.command).await {
+                            Ok(_) => successful += 1,
+                            Err(_) => failed += 1,
+                        }
+                    } else {
+                        break;
+                    }
+                }
                 
                 info!("Processed queued commands: {} successful, {} failed", successful, failed);
             }
@@ -771,34 +772,39 @@ impl TokenHttpClient {
     }
 
     /// Execute all remaining queued commands (called during reconnection)
-    pub async fn execute_all_queued_commands(&self) -> Result<Vec<crate::client::command_queue::CommandResult>> {
+    pub async fn execute_all_queued_commands(&self) -> Result<usize> {
         if let Some(queue) = &self.command_queue {
-            let mut all_results = Vec::new();
+            let mut total_executed = 0;
             
-            // Keep processing batches until queue is empty
+            // Keep processing commands until queue is empty
             loop {
                 let queue_size = queue.get_current_queue_size().await;
                 if queue_size == 0 {
                     break;
                 }
                 
-                let executor = |command: QueuedCommand| {
-                    Box::pin(async move {
-                        let response = self.send_command_without_consent(&command.device_uuid, &command.command).await?;
-                        Ok(serde_json::to_value(response)?)
-                    })
-                };
-                
-                let batch_results = queue.execute_batch(executor).await?;
-                all_results.extend(batch_results);
-                
-                // Small delay between batches to avoid overwhelming the server
-                tokio::time::sleep(Duration::from_millis(100)).await;
+                if let Some(command) = queue.dequeue().await {
+                    match self.send_command_without_consent(&command.device_uuid, &command.command).await {
+                        Ok(_) => {
+                            debug!("Executed queued command: {} -> {}", command.device_uuid, command.command);
+                            total_executed += 1;
+                        }
+                        Err(e) => {
+                            warn!("Failed to execute queued command: {} -> {} ({})", 
+                                  command.device_uuid, command.command, e);
+                        }
+                    }
+                    
+                    // Small delay between commands to avoid overwhelming the server
+                    tokio::time::sleep(Duration::from_millis(50)).await;
+                } else {
+                    break;
+                }
             }
             
-            Ok(all_results)
+            Ok(total_executed)
         } else {
-            Ok(Vec::new())
+            Ok(0)
         }
     }
 }

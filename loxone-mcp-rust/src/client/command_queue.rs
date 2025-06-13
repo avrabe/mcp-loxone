@@ -17,11 +17,11 @@ use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use tokio::sync::{mpsc, RwLock, Semaphore};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 use uuid::Uuid;
 
 /// Priority levels for queued commands
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub enum CommandPriority {
     /// Low priority - routine operations
     Low = 1,
@@ -185,9 +185,9 @@ impl QueuedCommand {
     
     /// Get delay for retry based on attempt count
     pub fn get_retry_delay(&self) -> Duration {
-        let base_delay = Duration::from_millis(100);
+        let base_delay_ms = 100_u64;
         let backoff_factor = 2_u64.pow(self.attempt_count.min(10)); // Cap at 2^10
-        base_delay * backoff_factor
+        Duration::from_millis(base_delay_ms * backoff_factor)
     }
 }
 
@@ -447,12 +447,13 @@ impl CommandQueue {
     }
     
     /// Execute a batch of commands
-    pub async fn execute_batch<F>(&self, executor: F) -> Result<Vec<CommandResult>>
+    pub async fn execute_batch<F, Fut>(&self, executor: F) -> Result<Vec<CommandResult>>
     where
-        F: Fn(QueuedCommand) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<serde_json::Value>> + Send>> + Send + Sync,
+        F: Fn(QueuedCommand) -> Fut + Send + Sync,
+        Fut: std::future::Future<Output = Result<serde_json::Value>> + Send,
     {
         let mut commands = Vec::new();
-        let mut results = Vec::new();
+        let results = Vec::new();
         
         // Collect commands for batch execution
         for _ in 0..self.config.batch_size {

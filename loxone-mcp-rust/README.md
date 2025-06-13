@@ -59,8 +59,8 @@ make build
 Set these environment variables to avoid keychain access:
 
 ```bash
-export LOXONE_USER="your_username"
-export LOXONE_PASS="your_password" 
+export LOXONE_USERNAME="your_username"
+export LOXONE_PASSWORD="your_password" 
 export LOXONE_HOST="http://192.168.1.100"
 export LOXONE_API_KEY="your-api-key"
 ```
@@ -119,7 +119,7 @@ Use environment variables instead of keychain during development:
 
 ```bash
 # Quick development without keychain
-LOXONE_USER=admin LOXONE_PASS=admin LOXONE_HOST=http://192.168.1.100 cargo run -- http
+LOXONE_USERNAME=admin LOXONE_PASSWORD=admin LOXONE_HOST=http://192.168.1.100 cargo run -- http
 ```
 
 ### Solution 3: Production Keyring Setup
@@ -219,8 +219,8 @@ cargo run --bin loxone-mcp-server -- http \
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `LOXONE_USER` | Username for Loxone authentication | - |
-| `LOXONE_PASS` | Password for Loxone authentication | - |
+| `LOXONE_USERNAME` | Username for Loxone authentication | - |
+| `LOXONE_PASSWORD` | Password for Loxone authentication | - |
 | `LOXONE_HOST` | Miniserver URL | `http://127.0.0.1:80` |
 | `LOXONE_API_KEY` | API key for authentication | - |
 | `RUST_LOG` | Logging level | `info` |
@@ -243,8 +243,8 @@ The server supports multiple credential storage backends:
 source .env.development
 
 # Or set variables manually
-export LOXONE_USER=admin
-export LOXONE_PASS=admin  
+export LOXONE_USERNAME=admin
+export LOXONE_PASSWORD=admin  
 export LOXONE_HOST=http://192.168.1.100
 export RUST_LOG=debug
 ```
@@ -349,7 +349,7 @@ make reset-keychain
 1. ✅ **Batched keychain access**: Reduced from 8 to 4 prompts
 2. ✅ **Security command fallback**: Uses `security` command-line tool (often no prompts)
 3. ✅ **Code signing**: `make build` applies ad-hoc signature 
-4. ✅ **Environment variable priority**: Set `LOXONE_USER`, `LOXONE_PASS`, `LOXONE_HOST`
+4. ✅ **Environment variable priority**: Set `LOXONE_USERNAME`, `LOXONE_PASSWORD`, `LOXONE_HOST`
 
 **Current Status**: 
 - Fresh keychain entries: 0 prompts (after reset) ✅
@@ -376,7 +376,7 @@ rustup target add wasm32-wasip2
 
 **Solutions**:
 1. **Check URL**: Verify `LOXONE_HOST` is correct
-2. **Check credentials**: Verify `LOXONE_USER` and `LOXONE_PASS`
+2. **Check credentials**: Verify `LOXONE_USERNAME` and `LOXONE_PASSWORD`
 3. **Network access**: Ensure Miniserver is reachable
 4. **Firewall**: Check firewall settings on both sides
 
