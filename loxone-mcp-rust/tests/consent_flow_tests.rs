@@ -2,7 +2,7 @@
 
 use loxone_mcp_rust::mcp_consent::{
     ConsentManager, ConsentConfig, ConsentRequest, ConsentResponse, ConsentDecision, 
-    OperationType, SensitivityLevel, DecisionMethod, ConsentStatistics
+    OperationType, SensitivityLevel
 };
 use std::collections::HashSet;
 use std::time::{Duration, SystemTime};

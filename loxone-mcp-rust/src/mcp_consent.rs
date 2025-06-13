@@ -420,7 +420,7 @@ impl ConsentManager {
     }
     
     /// Classify operation sensitivity
-    fn classify_operation_sensitivity(&self, operation: &OperationType) -> SensitivityLevel {
+    pub fn classify_operation_sensitivity(&self, operation: &OperationType) -> SensitivityLevel {
         match operation {
             OperationType::DeviceControl { command, .. } => {
                 // Security-related commands are high sensitivity
@@ -445,7 +445,7 @@ impl ConsentManager {
     }
     
     /// Get operation key for caching and comparison
-    fn get_operation_key(&self, operation: &OperationType) -> String {
+    pub fn get_operation_key(&self, operation: &OperationType) -> String {
         match operation {
             OperationType::DeviceControl { command, .. } => format!("device_control:{}", command),
             OperationType::BulkDeviceControl { operation_type, .. } => format!("bulk_control:{}", operation_type),
@@ -574,7 +574,7 @@ impl ConsentManager {
     }
     
     /// Check if operation is considered bulk
-    fn is_bulk_operation(&self, operation: &OperationType) -> bool {
+    pub fn is_bulk_operation(&self, operation: &OperationType) -> bool {
         match operation {
             OperationType::BulkDeviceControl { device_count, .. } => {
                 *device_count >= self.config.bulk_threshold
