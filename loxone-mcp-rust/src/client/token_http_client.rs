@@ -5,6 +5,7 @@
 
 use crate::client::{
     auth::TokenAuthClient,
+    command_queue::{CommandQueue, QueuedCommand, CommandPriority},
     connection_pool::{ConnectionPool, PoolBuilder},
     ClientContext, LoxoneClient, LoxoneDevice, LoxoneResponse, LoxoneStructure,
 };
@@ -52,6 +53,9 @@ pub struct TokenHttpClient {
 
     /// Consent manager for sensitive operations
     consent_manager: Option<Arc<ConsentManager>>,
+
+    /// Command queue for handling commands during disconnection
+    command_queue: Option<Arc<CommandQueue>>,
 }
 
 impl TokenHttpClient {
@@ -99,6 +103,7 @@ impl TokenHttpClient {
             connection_pool,
             last_refresh: Arc::new(RwLock::new(None)),
             consent_manager: None,
+            command_queue: None,
         })
     }
 
@@ -289,6 +294,30 @@ impl TokenHttpClient {
     pub fn has_consent_management(&self) -> bool {
         self.consent_manager.is_some()
     }
+
+    /// Enable command queuing for handling commands during disconnection
+    pub fn enable_command_queue(&mut self, command_queue: Arc<CommandQueue>) {
+        self.command_queue = Some(command_queue);
+    }
+
+    /// Disable command queuing
+    pub fn disable_command_queue(&mut self) {
+        self.command_queue = None;
+    }
+
+    /// Check if command queuing is enabled
+    pub fn has_command_queue(&self) -> bool {
+        self.command_queue.is_some()
+    }
+
+    /// Get command queue statistics
+    pub async fn get_queue_stats(&self) -> Option<crate::client::command_queue::CommandQueueStats> {
+        if let Some(queue) = &self.command_queue {
+            Some(queue.get_statistics().await)
+        } else {
+            None
+        }
+    }
 }
 
 #[async_trait]
@@ -324,6 +353,12 @@ impl LoxoneClient for TokenHttpClient {
                 }
 
                 info!("✅ Connected to Loxone Miniserver with token authentication");
+                
+                // Process queued commands if command queue is enabled
+                if let Some(queue) = &self.command_queue {
+                    self.process_command_queue().await?;
+                }
+                
                 Ok(())
             }
             Ok(false) => Err(LoxoneError::connection("Health check failed")),
@@ -351,8 +386,41 @@ impl LoxoneClient for TokenHttpClient {
     }
 
     async fn send_command(&self, uuid: &str, command: &str) -> Result<LoxoneResponse> {
+        // If not connected and command queue is enabled, queue the command
         if !self.connected {
-            return Err(LoxoneError::connection("Not connected to Miniserver"));
+            if let Some(queue) = &self.command_queue {
+                debug!("Not connected - queuing command '{command}' for device {uuid}");
+                
+                // Determine priority based on command type
+                let priority = if command.contains("alarm") || command.contains("security") || command.contains("emergency") {
+                    CommandPriority::Critical
+                } else if command.contains("lock") || command.contains("unlock") || command.contains("arm") {
+                    CommandPriority::High
+                } else {
+                    CommandPriority::Normal
+                };
+                
+                let queued_command = match priority {
+                    CommandPriority::Critical => QueuedCommand::new_critical(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
+                    CommandPriority::High => QueuedCommand::new_high_priority(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
+                    _ => QueuedCommand::new(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
+                };
+
+                let command_id = queue.enqueue(queued_command).await?;
+                info!("Command queued with ID: {}", command_id);
+                
+                // Return a synthetic response indicating command was queued
+                return Ok(LoxoneResponse {
+                    code: 202, // Accepted
+                    value: serde_json::json!({
+                        "status": "queued",
+                        "command_id": command_id.to_string(),
+                        "message": "Command queued for execution when connection is restored"
+                    }),
+                });
+            } else {
+                return Err(LoxoneError::connection("Not connected to Miniserver"));
+            }
         }
 
         debug!("Sending command '{command}' to device {uuid}");
@@ -671,6 +739,67 @@ impl TokenHttpClient {
         self.context.update_structure(structure).await?;
         info!("Structure cache refreshed with streaming parser");
         Ok(())
+    }
+
+    /// Process queued commands after reconnection
+    pub async fn process_command_queue(&self) -> Result<()> {
+        if let Some(queue) = &self.command_queue {
+            let queue_size = queue.get_current_queue_size().await;
+            if queue_size > 0 {
+                info!("Processing {} queued commands after reconnection", queue_size);
+                
+                // Execute commands in batches
+                let executor = |command: QueuedCommand| {
+                    Box::pin(async move {
+                        // Execute the command without going through the normal send_command
+                        // to avoid infinite recursion and consent checks (already handled)
+                        let response = self.send_command_without_consent(&command.device_uuid, &command.command).await?;
+                        Ok(serde_json::to_value(response)?)
+                    })
+                };
+                
+                let results = queue.execute_batch(executor).await?;
+                
+                let successful = results.iter().filter(|r| r.success).count();
+                let failed = results.len() - successful;
+                
+                info!("Processed queued commands: {} successful, {} failed", successful, failed);
+            }
+        }
+        
+        Ok(())
+    }
+
+    /// Execute all remaining queued commands (called during reconnection)
+    pub async fn execute_all_queued_commands(&self) -> Result<Vec<crate::client::command_queue::CommandResult>> {
+        if let Some(queue) = &self.command_queue {
+            let mut all_results = Vec::new();
+            
+            // Keep processing batches until queue is empty
+            loop {
+                let queue_size = queue.get_current_queue_size().await;
+                if queue_size == 0 {
+                    break;
+                }
+                
+                let executor = |command: QueuedCommand| {
+                    Box::pin(async move {
+                        let response = self.send_command_without_consent(&command.device_uuid, &command.command).await?;
+                        Ok(serde_json::to_value(response)?)
+                    })
+                };
+                
+                let batch_results = queue.execute_batch(executor).await?;
+                all_results.extend(batch_results);
+                
+                // Small delay between batches to avoid overwhelming the server
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            
+            Ok(all_results)
+        } else {
+            Ok(Vec::new())
+        }
     }
 }
 

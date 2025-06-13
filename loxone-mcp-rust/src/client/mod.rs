@@ -2,6 +2,7 @@
 
 #[cfg(feature = "crypto")]
 pub mod auth;
+pub mod command_queue;
 pub mod connection_pool;
 pub mod http_client;
 pub mod streaming_parser;
