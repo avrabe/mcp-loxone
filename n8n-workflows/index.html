@@ -1,0 +1,379 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n8n Workflow Examples - MCP Loxone Gen1</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary-color: #059669;
+            --secondary-color: #0891b2;
+            --accent-color: #f59e0b;
+            --warning-color: #dc2626;
+            --bg-primary: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --gradient-1: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+            --gradient-2: linear-gradient(135deg, #f59e0b 0%, #059669 100%);
+            --shadow-glow: 0 0 20px rgba(5, 150, 105, 0.3);
+            --shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            padding: 2rem;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            background: var(--gradient-1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+        }
+
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--text-secondary);
+            text-decoration: none;
+            margin-bottom: 2rem;
+            transition: color 0.3s ease;
+        }
+
+        .back-link:hover {
+            color: var(--primary-color);
+        }
+
+        .workflow-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .workflow-card {
+            background: var(--bg-card);
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .workflow-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-glow);
+            border-color: var(--primary-color);
+        }
+
+        .workflow-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .workflow-card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .workflow-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+        }
+
+        .workflow-features {
+            list-style: none;
+            margin-bottom: 1.5rem;
+        }
+
+        .workflow-features li {
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            padding-left: 1.5rem;
+            position: relative;
+        }
+
+        .workflow-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--primary-color);
+        }
+
+        .workflow-actions {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn-primary {
+            background: var(--gradient-1);
+            color: white;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--primary-color);
+            border-color: var(--primary-color);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.3);
+        }
+
+        .setup-section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .setup-section h2 {
+            margin-bottom: 1.5rem;
+        }
+
+        .code-block {
+            background: var(--bg-card);
+            border: 1px solid rgba(5, 150, 105, 0.2);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            overflow-x: auto;
+        }
+
+        .code-block code {
+            font-family: 'Courier New', monospace;
+            color: var(--text-primary);
+        }
+
+        .note {
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+
+        .note-icon {
+            color: var(--accent-color);
+            margin-right: 0.5rem;
+        }
+
+        @media (max-width: 768px) {
+            .workflow-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="../" class="back-link">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 18l-6-6 6-6"/>
+            </svg>
+            Back to Home
+        </a>
+
+        <h1>n8n Workflow Examples</h1>
+        <p class="subtitle">Ready-to-use n8n workflows for advanced Loxone automation</p>
+
+        <div class="workflow-grid">
+            <div class="workflow-card">
+                <div class="workflow-icon">🎯</div>
+                <h2>MCP Server Workflows</h2>
+                <p>Advanced automation workflows that integrate with the Loxone MCP server for complex home automation scenarios.</p>
+                <ul class="workflow-features">
+                    <li>Scene management (morning, evening, away, vacation)</li>
+                    <li>Energy monitoring with threshold alerts</li>
+                    <li>Security system integration</li>
+                    <li>Climate control scheduling</li>
+                    <li>Intelligent load management</li>
+                </ul>
+                <div class="workflow-actions">
+                    <a href="loxone-mcp-server-workflows.json" download class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Workflow
+                    </a>
+                    <a href="https://github.com/yourusername/mcp-loxone-gen1/blob/main/n8n-workflows/loxone-mcp-server-workflows.json" target="_blank" class="btn btn-secondary">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+
+            <div class="workflow-card">
+                <div class="workflow-icon">🔌</div>
+                <h2>MCP Client Integration</h2>
+                <p>Client workflow that connects to external services and processes events from your Loxone system in real-time.</p>
+                <ul class="workflow-features">
+                    <li>SSE event processing</li>
+                    <li>Google Calendar integration</li>
+                    <li>Slack notifications</li>
+                    <li>Email and SMS alerts</li>
+                    <li>Database logging and analytics</li>
+                </ul>
+                <div class="workflow-actions">
+                    <a href="loxone-mcp-client-workflow.json" download class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Workflow
+                    </a>
+                    <a href="https://github.com/yourusername/mcp-loxone-gen1/blob/main/n8n-workflows/loxone-mcp-client-workflow.json" target="_blank" class="btn btn-secondary">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+
+            <div class="workflow-card">
+                <div class="workflow-icon">🚀</div>
+                <h2>Simple Control Example</h2>
+                <p>Basic example workflow demonstrating how to connect n8n to your Loxone MCP server and control devices.</p>
+                <ul class="workflow-features">
+                    <li>List all rooms</li>
+                    <li>Toggle room lights</li>
+                    <li>Get device status</li>
+                    <li>Simple HTTP requests</li>
+                    <li>JSON response handling</li>
+                </ul>
+                <div class="workflow-actions">
+                    <a href="../examples/n8n-loxone-workflow.json" download class="btn btn-primary">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                        Download Workflow
+                    </a>
+                    <a href="https://github.com/yourusername/mcp-loxone-gen1/blob/main/examples/n8n-loxone-workflow.json" target="_blank" class="btn btn-secondary">
+                        View on GitHub
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="setup-section">
+            <h2>🚀 Quick Setup Guide</h2>
+            
+            <h3>1. Import Workflow</h3>
+            <div class="code-block">
+                <code>
+                    1. Open n8n and go to "Workflows"<br>
+                    2. Click "Import from File"<br>
+                    3. Select the downloaded .json file<br>
+                    4. Click "Import"
+                </code>
+            </div>
+
+            <h3>2. Configure Credentials</h3>
+            <div class="code-block">
+                <code>
+                    # Create HTTP Header Auth credential for Loxone MCP<br>
+                    Name: Loxone MCP API Key<br>
+                    Header Name: Authorization<br>
+                    Header Value: Bearer YOUR_API_KEY_HERE
+                </code>
+            </div>
+
+            <h3>3. Update Endpoints</h3>
+            <div class="code-block">
+                <code>
+                    # Update the HTTP Request nodes<br>
+                    URL: http://YOUR_MCP_SERVER:8080/sse<br>
+                    # Or for HTTPS:<br>
+                    URL: https://YOUR_MCP_SERVER:8443/sse
+                </code>
+            </div>
+
+            <div class="note">
+                <span class="note-icon">💡</span>
+                <strong>Pro Tip:</strong> Start with the Simple Control Example to test your connection, then move to the advanced workflows for full automation capabilities.
+            </div>
+        </div>
+
+        <div class="setup-section">
+            <h2>📚 Workflow Documentation</h2>
+            
+            <h3>Server Workflows Features</h3>
+            <ul style="color: var(--text-secondary); line-height: 1.8;">
+                <li><strong>Scene Manager:</strong> Webhook-triggered scene automation with room-specific control</li>
+                <li><strong>Energy Monitor:</strong> Real-time energy usage tracking with configurable thresholds</li>
+                <li><strong>Security System:</strong> Multi-mode security with zone control and panic features</li>
+                <li><strong>Climate Control:</strong> Time-based temperature scheduling with seasonal adjustments</li>
+            </ul>
+
+            <h3>Client Integration Features</h3>
+            <ul style="color: var(--text-secondary); line-height: 1.8;">
+                <li><strong>Event Router:</strong> Intelligent routing based on event type and priority</li>
+                <li><strong>Multi-Channel Notifications:</strong> Slack, email, SMS, and database logging</li>
+                <li><strong>Analytics Engine:</strong> Hourly reports with trend analysis and recommendations</li>
+                <li><strong>External Service Bridge:</strong> Connect to 350+ services through n8n</li>
+            </ul>
+
+            <div class="note">
+                <span class="note-icon">🔧</span>
+                <strong>Customization:</strong> All workflows are fully customizable. Modify the JavaScript code nodes to add your own logic or integrate with additional services.
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 3rem;">
+            <a href="https://n8n.io/docs" target="_blank" class="btn btn-primary">
+                n8n Documentation
+            </a>
+            <a href="https://community.n8n.io" target="_blank" class="btn btn-secondary">
+                n8n Community
+            </a>
+        </div>
+    </div>
+</body>
+</html>

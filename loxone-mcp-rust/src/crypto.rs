@@ -1,9 +1,9 @@
 #[cfg(feature = "crypto")]
-use rsa::{RsaPublicKey, RsaPrivateKey, Pkcs1v15Encrypt};
-#[cfg(feature = "crypto")]
 use rand::rngs::OsRng;
 #[cfg(feature = "crypto")]
-use rsa::sha2::{Sha256, Digest};
+use rsa::sha2::{Digest, Sha256};
+#[cfg(feature = "crypto")]
+use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
 
 use anyhow::Result;
 
@@ -34,17 +34,19 @@ impl CryptoManager {
         let bits = 2048;
         let private_key = RsaPrivateKey::new(&mut rng, bits)?;
         let public_key = RsaPublicKey::from(&private_key);
-        
+
         self.rsa_private_key = Some(private_key);
         self.rsa_public_key = Some(public_key);
-        
+
         Ok(())
     }
 
     pub fn encrypt_with_rsa(&self, data: &[u8]) -> Result<Vec<u8>> {
-        let public_key = self.rsa_public_key.as_ref()
+        let public_key = self
+            .rsa_public_key
+            .as_ref()
             .ok_or_else(|| anyhow::anyhow!("RSA public key not available"))?;
-        
+
         let mut rng = OsRng;
         let encrypted = public_key.encrypt(&mut rng, Pkcs1v15Encrypt, data)?;
         Ok(encrypted)

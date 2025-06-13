@@ -12,31 +12,31 @@ use std::collections::HashMap;
 pub struct WeatherData {
     /// Current temperature
     pub temperature: Option<f64>,
-    
+
     /// Humidity percentage
     pub humidity: Option<f64>,
-    
+
     /// Wind speed
     pub wind_speed: Option<f64>,
-    
+
     /// Wind direction
     pub wind_direction: Option<f64>,
-    
+
     /// Precipitation amount
     pub precipitation: Option<f64>,
-    
+
     /// Atmospheric pressure
     pub pressure: Option<f64>,
-    
+
     /// UV index
     pub uv_index: Option<f64>,
-    
+
     /// Solar radiation
     pub solar_radiation: Option<f64>,
-    
+
     /// Weather description
     pub description: Option<String>,
-    
+
     /// Last update timestamp
     pub last_updated: chrono::DateTime<chrono::Utc>,
 }
@@ -46,22 +46,22 @@ pub struct WeatherData {
 pub struct ForecastPoint {
     /// Forecast timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
-    
+
     /// Temperature
     pub temperature: Option<f64>,
-    
+
     /// Min temperature
     pub temp_min: Option<f64>,
-    
+
     /// Max temperature
     pub temp_max: Option<f64>,
-    
+
     /// Humidity
     pub humidity: Option<f64>,
-    
+
     /// Precipitation probability
     pub precipitation_probability: Option<f64>,
-    
+
     /// Weather description
     pub description: Option<String>,
 }
@@ -74,11 +74,11 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
-    
+
     if devices.is_empty() {
         return ToolResponse::error("No weather devices found in the system".to_string());
     }
-    
+
     // Extract weather data from devices
     let mut weather_data = WeatherData {
         temperature: None,
@@ -92,16 +92,16 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
         description: None,
         last_updated: chrono::Utc::now(),
     };
-    
+
     let mut weather_sensors = Vec::new();
-    
+
     for device in devices {
         let mut sensor_data = HashMap::new();
-        
+
         // Extract weather parameters from device states
         for (state_name, value) in &device.states {
             let param_value = value.as_f64();
-            
+
             match state_name.to_lowercase().as_str() {
                 "temperature" | "temp" | "tempout" => {
                     weather_data.temperature = param_value;
@@ -140,7 +140,7 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
                 }
             }
         }
-        
+
         weather_sensors.push(serde_json::json!({
             "device": device.name,
             "uuid": device.uuid,
@@ -149,17 +149,17 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
             "data": sensor_data
         }));
     }
-    
+
     let response_data = serde_json::json!({
         "weather": weather_data,
         "sensors": weather_sensors,
         "summary": generate_weather_summary(&weather_data),
         "timestamp": chrono::Utc::now()
     });
-    
+
     ToolResponse::success_with_message(
         response_data,
-        format!("Weather data from {} sensors", weather_sensors.len())
+        format!("Weather data from {} sensors", weather_sensors.len()),
     )
 }
 
@@ -168,26 +168,26 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
 pub async fn get_outdoor_conditions(context: ToolContext) -> ToolResponse {
     // Get weather data first
     let weather_response = get_weather_data(context).await;
-    
+
     match weather_response.status.as_str() {
         "success" => {
             let weather_data = weather_response.data.clone();
-            
+
             // Add comfort assessment and recommendations
             let mut conditions = weather_data.as_object().unwrap().clone();
-            
+
             if let Some(weather_obj) = conditions.get("weather").and_then(|w| w.as_object()) {
                 let weather_obj_clone = weather_obj.clone();
                 let comfort = assess_outdoor_comfort(&weather_obj_clone);
                 conditions.insert("comfort_assessment".to_string(), comfort);
-                
+
                 let recommendations = generate_outdoor_recommendations(&weather_obj_clone);
                 conditions.insert("recommendations".to_string(), recommendations);
             }
-            
+
             ToolResponse::success_with_message(
                 serde_json::Value::Object(conditions),
-                "Outdoor conditions with comfort assessment".to_string()
+                "Outdoor conditions with comfort assessment".to_string(),
             )
         }
         _ => weather_response,
@@ -199,17 +199,17 @@ pub async fn get_outdoor_conditions(context: ToolContext) -> ToolResponse {
 pub async fn get_weather_forecast_daily(
     _context: ToolContext,
     // #[description("Number of days to forecast")] // TODO: Re-enable when rmcp API is clarified
-    days: Option<u32>
+    days: Option<u32>,
 ) -> ToolResponse {
     let forecast_days = days.unwrap_or(7).min(14); // Limit to 14 days
-    
+
     // In a real implementation, this would query forecast data from weather services
     // For now, generate sample forecast data
     let mut forecast = Vec::new();
-    
+
     for day in 0..forecast_days {
         let forecast_date = chrono::Utc::now() + chrono::Duration::days(day as i64);
-        
+
         // Generate sample forecast data (in reality, this would come from weather API)
         let base_temp = 20.0 + (day as f64 * 0.5) - 2.0;
         let forecast_point = ForecastPoint {
@@ -221,20 +221,20 @@ pub async fn get_weather_forecast_daily(
             precipitation_probability: Some((day as f64 * 10.0) % 100.0),
             description: Some(generate_weather_description(day)),
         };
-        
+
         forecast.push(forecast_point);
     }
-    
+
     let response_data = serde_json::json!({
         "forecast": forecast,
         "forecast_days": forecast_days,
         "generated_at": chrono::Utc::now(),
         "note": "Sample forecast data - integrate with weather service for real data"
     });
-    
+
     ToolResponse::success_with_message(
         response_data,
-        format!("{}-day weather forecast", forecast_days)
+        format!("{}-day weather forecast", forecast_days),
     )
 }
 
@@ -243,16 +243,16 @@ pub async fn get_weather_forecast_daily(
 pub async fn get_weather_forecast_hourly(
     _context: ToolContext,
     // #[description("Number of hours to forecast")] // TODO: Re-enable when rmcp API is clarified
-    hours: Option<u32>
+    hours: Option<u32>,
 ) -> ToolResponse {
     let forecast_hours = hours.unwrap_or(24).min(72); // Limit to 72 hours
-    
+
     // Generate sample hourly forecast data
     let mut forecast = Vec::new();
-    
+
     for hour in 0..forecast_hours {
         let forecast_time = chrono::Utc::now() + chrono::Duration::hours(hour as i64);
-        
+
         let base_temp = 18.0 + (hour as f64 * 0.2) + (hour as f64 / 24.0).sin() * 5.0;
         let forecast_point = ForecastPoint {
             timestamp: forecast_time,
@@ -263,47 +263,47 @@ pub async fn get_weather_forecast_hourly(
             precipitation_probability: Some((hour as f64 * 3.0) % 100.0),
             description: Some(generate_hourly_weather_description(hour)),
         };
-        
+
         forecast.push(forecast_point);
     }
-    
+
     let response_data = serde_json::json!({
         "forecast": forecast,
         "forecast_hours": forecast_hours,
         "generated_at": chrono::Utc::now(),
         "note": "Sample forecast data - integrate with weather service for real data"
     });
-    
+
     ToolResponse::success_with_message(
         response_data,
-        format!("{}-hour weather forecast", forecast_hours)
+        format!("{}-hour weather forecast", forecast_hours),
     )
 }
 
 /// Generate weather summary text
 fn generate_weather_summary(weather: &WeatherData) -> String {
     let mut summary_parts = Vec::new();
-    
+
     if let Some(temp) = weather.temperature {
         summary_parts.push(format!("{:.1}°C", temp));
     }
-    
+
     if let Some(humidity) = weather.humidity {
         summary_parts.push(format!("{:.0}% humidity", humidity));
     }
-    
+
     if let Some(wind) = weather.wind_speed {
         if wind > 0.0 {
             summary_parts.push(format!("{:.1} km/h wind", wind));
         }
     }
-    
+
     if let Some(rain) = weather.precipitation {
         if rain > 0.0 {
             summary_parts.push(format!("{:.1}mm rain", rain));
         }
     }
-    
+
     if summary_parts.is_empty() {
         "No weather data available".to_string()
     } else {
@@ -312,10 +312,12 @@ fn generate_weather_summary(weather: &WeatherData) -> String {
 }
 
 /// Assess outdoor comfort based on weather conditions
-fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) -> serde_json::Value {
+fn assess_outdoor_comfort(
+    weather: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
     let mut comfort_score: f64 = 50.0; // Base score out of 100
     let mut factors = Vec::new();
-    
+
     // Temperature comfort
     if let Some(temp) = weather.get("temperature").and_then(|v| v.as_f64()) {
         let temp_comfort = match temp {
@@ -342,7 +344,7 @@ fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) 
         };
         comfort_score = (comfort_score + temp_comfort) / 2.0;
     }
-    
+
     // Wind comfort
     if let Some(wind) = weather.get("wind_speed").and_then(|v| v.as_f64()) {
         let wind_comfort = match wind {
@@ -362,7 +364,7 @@ fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) 
         };
         comfort_score = (comfort_score + wind_comfort) / 2.0;
     }
-    
+
     // Precipitation comfort
     if let Some(rain) = weather.get("precipitation").and_then(|v| v.as_f64()) {
         if rain > 0.0 {
@@ -370,7 +372,7 @@ fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) 
             comfort_score = (comfort_score + 30.0) / 2.0;
         }
     }
-    
+
     let comfort_level = match comfort_score {
         s if s >= 80.0 => "Excellent",
         s if s >= 60.0 => "Good",
@@ -378,7 +380,7 @@ fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) 
         s if s >= 20.0 => "Poor",
         _ => "Very Poor",
     };
-    
+
     serde_json::json!({
         "score": comfort_score.round() as u32,
         "level": comfort_level,
@@ -387,9 +389,11 @@ fn assess_outdoor_comfort(weather: &serde_json::Map<String, serde_json::Value>) 
 }
 
 /// Generate outdoor activity recommendations
-fn generate_outdoor_recommendations(weather: &serde_json::Map<String, serde_json::Value>) -> serde_json::Value {
+fn generate_outdoor_recommendations(
+    weather: &serde_json::Map<String, serde_json::Value>,
+) -> serde_json::Value {
     let mut recommendations = Vec::new();
-    
+
     if let Some(temp) = weather.get("temperature").and_then(|v| v.as_f64()) {
         match temp {
             t if t < 0.0 => {
@@ -414,25 +418,26 @@ fn generate_outdoor_recommendations(weather: &serde_json::Map<String, serde_json
             }
         }
     }
-    
+
     if let Some(wind) = weather.get("wind_speed").and_then(|v| v.as_f64()) {
         if wind > 20.0 {
             recommendations.push("Secure loose items outdoors");
             recommendations.push("Be cautious of wind chill");
         }
     }
-    
+
     if let Some(rain) = weather.get("precipitation").and_then(|v| v.as_f64()) {
         if rain > 0.0 {
             recommendations.push("Bring umbrella or rain gear");
             recommendations.push("Watch for slippery surfaces");
         }
     }
-    
+
     serde_json::Value::Array(
-        recommendations.into_iter()
+        recommendations
+            .into_iter()
             .map(|r| serde_json::Value::String(r.to_string()))
-            .collect()
+            .collect(),
     )
 }
 
@@ -447,7 +452,7 @@ fn generate_weather_description(day: u32) -> String {
         "Clear skies",
         "Scattered showers",
     ];
-    
+
     descriptions[day as usize % descriptions.len()].to_string()
 }
 
@@ -461,6 +466,6 @@ fn generate_hourly_weather_description(hour: u32) -> String {
         "Overcast",
         "Fog",
     ];
-    
+
     descriptions[hour as usize % descriptions.len()].to_string()
 }

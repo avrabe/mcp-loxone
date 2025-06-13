@@ -1,0 +1,23 @@
+# Configuration for wasm-pack test runner
+
+[package]
+name = "loxone-mcp-wasm-tests"
+
+[dependencies]
+# Test-specific dependencies are handled by Cargo.toml
+
+[test]
+# Test configuration
+node-args = ["--experimental-wasm-modules"]
+timeout = 60
+
+[build]
+# WASM build configuration for tests
+target = "web"
+out-dir = "pkg-test"
+out-name = "loxone_mcp_test"
+
+[features]
+# Enable test-specific features
+default = ["wasm-test"]
+wasm-test = []

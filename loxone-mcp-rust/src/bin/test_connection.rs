@@ -1,18 +1,19 @@
 //! Test direct connection to Loxone using stored credentials
 
 use loxone_mcp_rust::{
-    config::{credentials::{create_credentials, create_best_credential_manager}, LoxoneConfig},
     client::{http_client::LoxoneHttpClient, LoxoneClient},
+    config::{
+        credentials::{create_best_credential_manager, create_credentials},
+        LoxoneConfig,
+    },
     Result,
 };
-use tracing::{info, error, debug};
 use std::env;
+use tracing::{debug, error, info};
 
 fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("debug")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("debug").init();
 
     println!("\n🧪 Testing Loxone Connection");
     println!("========================================\n");
@@ -21,11 +22,12 @@ fn main() -> Result<()> {
     tokio::runtime::Runtime::new()?.block_on(async {
         // Try to get credentials using best available backend
         let multi_manager = create_best_credential_manager().await?;
-        
+
         let (username, password, host) = match multi_manager.get_credentials().await {
             Ok(creds) => {
                 info!("✅ Using credentials from configured backend");
-                let host = env::var("LOXONE_HOST").unwrap_or_else(|_| "http://192.168.178.10".to_string());
+                let host =
+                    env::var("LOXONE_HOST").unwrap_or_else(|_| "http://192.168.178.10".to_string());
                 (creds.username, creds.password, host)
             }
             Err(e) => {
@@ -43,8 +45,9 @@ fn main() -> Result<()> {
         println!();
 
         // Parse host URL
-        let url = host.parse()
-            .map_err(|e| loxone_mcp_rust::error::LoxoneError::config(format!("Invalid URL: {}", e)))?;
+        let url = host.parse().map_err(|e| {
+            loxone_mcp_rust::error::LoxoneError::config(format!("Invalid URL: {}", e))
+        })?;
 
         // Create config
         let config = LoxoneConfig {
@@ -53,8 +56,10 @@ fn main() -> Result<()> {
             timeout: std::time::Duration::from_secs(10),
             max_retries: 1,
             verify_ssl: false,
+            max_connections: Some(10),
             #[cfg(feature = "websocket")]
             websocket: Default::default(),
+            auth_method: Default::default(),
         };
 
         // Create credentials
@@ -67,7 +72,7 @@ fn main() -> Result<()> {
         match client.connect().await {
             Ok(_) => {
                 info!("✅ Successfully connected to Loxone!");
-                
+
                 // Test health check
                 info!("❤️  Testing health check...");
                 match client.health_check().await {
@@ -87,7 +92,10 @@ fn main() -> Result<()> {
                 info!("ℹ️  Getting system info...");
                 match client.get_system_info().await {
                     Ok(info) => {
-                        info!("✅ System info: {}", serde_json::to_string_pretty(&info).unwrap_or_default());
+                        info!(
+                            "✅ System info: {}",
+                            serde_json::to_string_pretty(&info).unwrap_or_default()
+                        );
                     }
                     Err(e) => {
                         error!("❌ Failed to get system info: {}", e);
@@ -101,11 +109,16 @@ fn main() -> Result<()> {
                         info!("✅ Structure data retrieved successfully!");
                         info!("   Controls: {}", structure.controls.len());
                         info!("   Rooms: {}", structure.rooms.len());
-                        
+
                         // Show first few rooms
                         for (i, (uuid, room)) in structure.rooms.iter().enumerate() {
-                            if i >= 3 { break; }
-                            let room_name = room.get("name").and_then(|n| n.as_str()).unwrap_or("Unknown");
+                            if i >= 3 {
+                                break;
+                            }
+                            let room_name = room
+                                .get("name")
+                                .and_then(|n| n.as_str())
+                                .unwrap_or("Unknown");
                             info!("   Room: {} ({})", room_name, uuid);
                         }
                     }
@@ -116,7 +129,7 @@ fn main() -> Result<()> {
             }
             Err(e) => {
                 error!("❌ Connection failed: {}", e);
-                
+
                 // Additional debugging
                 debug!("Debug: Checking base URL accessibility...");
                 let test_url = format!("{}/favicon.ico", host);
@@ -128,7 +141,7 @@ fn main() -> Result<()> {
                         debug!("Test GET failed: {}", e);
                     }
                 }
-                
+
                 error!("💡 Check that:");
                 error!("   - The Loxone Miniserver is accessible at {}", host);
                 error!("   - Your credentials are correct");
@@ -136,7 +149,7 @@ fn main() -> Result<()> {
                 error!("   - Port 80 is open and reachable");
             }
         }
-        
+
         Ok(())
     })
 }

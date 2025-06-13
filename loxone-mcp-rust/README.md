@@ -1,6 +1,38 @@
 # Loxone MCP Rust Server
 
-A high-performance Rust implementation of the Loxone Generation 1 MCP server with WASM support.
+A high-performance Model Context Protocol (MCP) server for Loxone Generation 1 home automation systems, implemented in Rust with WASM support.
+
+## ✨ New Features & Improvements
+
+### 🔐 Enhanced Security
+- **Comprehensive input validation** for all parameters (UUID, names, actions, IPs)
+- **Credential sanitization** in logs - passwords and API keys automatically masked
+- **Request size limits** to prevent DoS attacks
+- **Batch operation limits** (max 100 devices per batch)
+
+### 🚀 Performance Optimizations  
+- **True parallel execution** for batch commands using `futures::join_all`
+- **Connection pooling** and reuse
+- **Efficient caching** of structure data
+- **Optimized WASM builds** with size constraints
+
+### 📝 Professional Logging
+- **File-based logging** with automatic daily rotation
+- **Structured logging** with tracing framework
+- **Request/response logging** with sanitization
+- **Performance metrics** for slow operation detection
+
+### 🐳 Docker Support
+- **Multi-stage Dockerfile** for minimal images
+- **Docker Compose** for development and production
+- **Health checks** and non-root execution
+- **Environment-based configuration**
+
+### 🧪 Comprehensive Testing
+- **Unit tests** for validation logic
+- **Integration tests** for parallel execution
+- **Security tests** for input sanitization
+- **CI/CD pipeline** with GitHub Actions
 
 ## 🚀 Quick Start
 

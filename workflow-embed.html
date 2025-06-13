@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n8n Workflow Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #f9f9f9;
+            color: #333;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+        .workflow-canvas {
+            width: 2000px;
+            height: 2000px;
+            position: relative;
+            background-color: #f9f9f9;
+            background-image: 
+                radial-gradient(circle, #e1e1e1 1px, transparent 1px);
+            background-size: 16px 16px;
+            background-position: 0 0;
+        }
+        .workflow-node {
+            position: absolute;
+            background-color: #ffffff;
+            border: 2px solid #e1e1e1;
+            border-radius: 12px;
+            padding: 16px 20px;
+            min-width: 240px;
+            cursor: grab;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            font-weight: 500;
+        }
+        
+        .workflow-node:active {
+            cursor: grabbing;
+        }
+        
+        .workflow-node.dragging {
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.2);
+            transform: scale(1.02);
+            z-index: 1000;
+        }
+        .workflow-node:hover {
+            border-color: #ff6d5a;
+            transform: translateY(-4px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+        .workflow-node.trigger {
+            border-color: #ff6d5a;
+            background: linear-gradient(135deg, #fff 0%, #fff5f4 100%);
+        }
+        .workflow-node.action {
+            border-color: #7c3aed;
+            background: linear-gradient(135deg, #fff 0%, #f8f6ff 100%);
+        }
+        .workflow-node.condition {
+            border-color: #00c851;
+            background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+            position: relative;
+        }
+        .workflow-node.if, .workflow-node.switch {
+            border-color: #00c851;
+            background: linear-gradient(135deg, #fff 0%, #f0fff4 100%);
+        }
+        .node-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+        .node-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            background-color: #f3f4f6;
+            border: 1px solid #e5e7eb;
+        }
+        
+        .workflow-node.if .node-icon,
+        .workflow-node.switch .node-icon {
+            background-color: #e8f5e8;
+            border-color: #00c851;
+        }
+        
+        .workflow-node.trigger .node-icon {
+            background-color: #fff5f4;
+            border-color: #ff6d5a;
+        }
+        
+        .workflow-node.action .node-icon {
+            background-color: #f8f6ff;
+            border-color: #7c3aed;
+        }
+        
+        /* Node Inspection Panel Styles */
+        .node-inspection-panel {
+            position: fixed;
+            top: 0;
+            right: -400px;
+            width: 400px;
+            height: 100vh;
+            background: #ffffff;
+            border-left: 1px solid #e5e7eb;
+            box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+            z-index: 2000;
+            transition: right 0.3s ease;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .node-inspection-panel.open {
+            right: 0;
+        }
+        
+        .panel-header {
+            padding: 20px;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+        
+        .node-identity {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .node-identity h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 600;
+            color: #1f2937;
+        }
+        
+        .node-type-badge {
+            background: #e5e7eb;
+            color: #6b7280;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .panel-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .panel-action-btn {
+            padding: 6px 12px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .panel-action-btn:hover {
+            background: #f3f4f6;
+            border-color: #9ca3af;
+        }
+        
+        .panel-action-btn.close {
+            background: #ef4444;
+            color: white;
+            border-color: #dc2626;
+        }
+        
+        .panel-tabs {
+            display: flex;
+            border-bottom: 1px solid #e5e7eb;
+            background: #f9fafb;
+        }
+        
+        .panel-tab {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            background: transparent;
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-bottom: 2px solid transparent;
+        }
+        
+        .panel-tab:hover {
+            background: #f3f4f6;
+            color: #374151;
+        }
+        
+        .panel-tab.active {
+            color: #1f2937;
+            border-bottom-color: #3b82f6;
+            background: white;
+        }
+        
+        .panel-content {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .info-section {
+            margin-bottom: 24px;
+        }
+        
+        .info-section h4 {
+            margin: 0 0 12px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #374151;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .parameter-list {
+            space-y: 8px;
+        }
+        
+        .parameter-item {
+            padding: 12px;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+        
+        .parameter-name {
+            font-weight: 600;
+            color: #1f2937;
+            font-size: 13px;
+        }
+        
+        .parameter-value {
+            color: #6b7280;
+            font-size: 12px;
+            font-family: 'SF Mono', Consolas, monospace;
+            margin-top: 4px;
+            word-break: break-word;
+        }
+        
+        .parameter-description {
+            color: #9ca3af;
+            font-size: 11px;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+        
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .status-indicator.idle {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .status-indicator.success {
+            background: #dcfce7;
+            color: #166534;
+        }
+        
+        .status-indicator.error {
+            background: #fef2f2;
+            color: #dc2626;
+        }
+        
+        .node-tooltip {
+            position: absolute;
+            background: #1f2937;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1500;
+            max-width: 250px;
+            line-height: 1.4;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        
+        .node-tooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 4px solid transparent;
+            border-top-color: #1f2937;
+        }
+        .node-title {
+            font-weight: 600;
+            font-size: 16px;
+            color: #1f2937;
+            line-height: 1.2;
+        }
+        .node-subtitle {
+            font-size: 13px;
+            color: #6b7280;
+            margin-top: 4px;
+            font-weight: 400;
+        }
+        .workflow-connection {
+            position: absolute;
+            pointer-events: none;
+        }
+        .workflow-connection path {
+            fill: none;
+            stroke: #9ca3af;
+            stroke-width: 2;
+            filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+        }
+        .workflow-connection path:hover {
+            stroke: #6366f1;
+            stroke-width: 3;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #6b7280;
+            font-size: 16px;
+            font-weight: 500;
+        }
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #dc2626;
+            background-color: #fef2f2;
+            border: 1px solid #fecaca;
+            padding: 24px;
+            border-radius: 12px;
+            max-width: 400px;
+            font-weight: 500;
+        }
+        
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 1000;
+        }
+        
+        .zoom-btn {
+            width: 44px;
+            height: 44px;
+            background-color: #ffffff;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            font-size: 18px;
+            font-weight: 600;
+            color: #374151;
+        }
+        
+        .zoom-btn:hover {
+            background-color: #f3f4f6;
+            border-color: #d1d5db;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+        }
+        
+        .zoom-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .zoom-level {
+            background-color: #f9fafb;
+            border: 1px solid #e1e5e9;
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #6b7280;
+            text-align: center;
+            min-width: 44px;
+        }
+        
+        .workflow-container {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .workflow-viewport {
+            width: 100%;
+            height: 100%;
+            transform-origin: 0 0;
+            transition: transform 0.3s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="workflow-container">
+        <div class="workflow-viewport" id="viewport">
+            <div class="workflow-canvas" id="canvas">
+                <div class="loading" id="loading">Loading workflow...</div>
+                <div class="error" id="error" style="display: none;"></div>
+            </div>
+            <svg id="connections" style="position: absolute; top: 0; left: 0; width: 2000px; height: 2000px; pointer-events: none; overflow: visible;">
+                <defs></defs>
+            </svg>
+        </div>
+        
+        <!-- Zoom Controls -->
+        <div class="zoom-controls">
+            <button class="zoom-btn" id="zoom-in" title="Zoom In">+</button>
+            <div class="zoom-level" id="zoom-level">100%</div>
+            <button class="zoom-btn" id="zoom-out" title="Zoom Out">−</button>
+            <button class="zoom-btn" id="fit-view" title="Fit to View">
+                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;">
+                    <path d="M4,4H10V6H6V10H4V4M14,4H20V10H18V6H14V4M20,14V20H14V18H18V14H20M10,14V20H4V14H6V18H10V14H12V16H14V14H10Z"/>
+                </svg>
+            </button>
+            <button class="zoom-btn" id="auto-layout" title="Auto Layout">
+                <svg viewBox="0 0 24 24" fill="currentColor" style="width: 20px; height: 20px;">
+                    <path d="M14,12V19.88C14.04,20.18 13.94,20.5 13.71,20.71C13.32,21.1 12.69,21.1 12.3,20.71L10.29,18.7L9.59,18L8.59,17H8.93C9.8,16.15 10.4,15.02 10.4,13.8C10.4,11.74 8.8,10.05 6.74,10C4.64,9.96 3,11.63 3,13.72C3,15.65 4.54,17.24 6.5,17.24C7.45,17.24 8.33,16.83 8.93,16.17H9.41L12.71,19.47C13.32,20.08 14.36,20.08 14.97,19.47C15.58,18.86 15.58,17.82 14.97,17.21L14,16.24V12H14M6.5,15.25C5.67,15.25 5,14.58 5,13.75C5,12.92 5.67,12.25 6.5,12.25C7.33,12.25 8,12.92 8,13.75C8,14.58 7.33,15.25 6.5,15.25Z"/>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Node Inspection Panel -->
+        <div class="node-inspection-panel" id="node-panel">
+            <div class="panel-header">
+                <div class="node-identity">
+                    <div class="node-icon" id="panel-node-icon"></div>
+                    <div>
+                        <h3 id="panel-node-name">Select a Node</h3>
+                        <span class="node-type-badge" id="panel-node-type">-</span>
+                    </div>
+                </div>
+                <div class="panel-actions">
+                    <button class="panel-action-btn">✏️ Edit</button>
+                    <button class="panel-action-btn">🧪 Test</button>
+                    <button class="panel-action-btn close" id="close-panel">✕</button>
+                </div>
+            </div>
+            
+            <div class="panel-tabs">
+                <button class="panel-tab active" data-tab="config">📋 Config</button>
+                <button class="panel-tab" data-tab="data">📊 Data</button>
+                <button class="panel-tab" data-tab="docs">📚 Docs</button>
+            </div>
+            
+            <div class="panel-content" id="panel-content">
+                <!-- Content will be dynamically populated -->
+            </div>
+        </div>
+        
+        <!-- Tooltip for hover information -->
+        <div class="node-tooltip" id="node-tooltip" style="display: none;"></div>
+    </div>
+
+    <script>
+        // Enhanced node icons with SVG support
+        const nodeIcons = {
+            'n8n-nodes-base.webhook': `<svg viewBox="0 0 24 24" fill="#ff6d5a"><path d="M12,2A3,3 0 0,1 15,5V11A3,3 0 0,1 12,14A3,3 0 0,1 9,11V5A3,3 0 0,1 12,2M19,11C19,14.53 16.39,17.44 13,17.93V21H11V17.93C7.61,17.44 5,14.53 5,11H7A5,5 0 0,0 12,16A5,5 0 0,0 17,11H19Z"/></svg>`,
+            'n8n-nodes-base.httpRequest': `<svg viewBox="0 0 24 24" fill="#7c3aed"><path d="M3,3H21V5H3V3M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15M3,19H21V21H3V19Z"/></svg>`,
+            'n8n-nodes-base.if': `<svg viewBox="0 0 24 24" fill="#00c851"><path d="M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15Z"/></svg>`,
+            'n8n-nodes-base.switch': `<svg viewBox="0 0 24 24" fill="#4a90e2"><path d="M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15Z"/></svg>`,
+            'n8n-nodes-base.function': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8,3C9.66,3 11,4.34 11,6V8.5C11,9.33 11.67,10 12.5,10C13.33,10 14,9.33 14,8.5V3H16V8.5A2.5,2.5 0 0,1 13.5,11A2.5,2.5 0 0,1 16,13.5V21H14V13.5C14,12.67 13.33,12 12.5,12C11.67,12 11,12.67 11,13.5V21H9V13.5C9,11.84 10.34,10.5 12,10.5C10.34,10.5 9,9.16 9,7.5V6C9,5.34 8.66,5 8,5C7.34,5 7,5.34 7,6V8H5V6C5,4.34 6.34,3 8,3Z"/></svg>`,
+            'n8n-nodes-base.set': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M3,17V19H9V17H3M3,5V7H13V5H3M13,21V19H21V17H13V15H11V21H13M7,9V11H3V13H7V15H9V9H7M21,13V11H11V13H21M15,9H17V7H21V5H17V3H15V9Z"/></svg>`,
+            'n8n-nodes-base.slack': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8.5,5.5C8.5,6.88 7.38,8 6,8S3.5,6.88 3.5,5.5S4.62,3 6,3S8.5,4.12 8.5,5.5M11.75,8H14.25V20.5C14.25,21.88 13.13,23 11.75,23S9.25,21.88 9.25,20.5V8M18.5,8.5C19.88,8.5 21,9.62 21,11S19.88,13.5 18.5,13.5S16,12.38 16,11S17.12,8.5 18.5,8.5M8,14.25V11.75H20.5C21.88,11.75 23,12.87 23,14.25S21.88,16.75 20.5,16.75H8Z"/></svg>`,
+            'n8n-nodes-base.googleSheets': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H5C3.9,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5C21,3.9 20.1,3 19,3M19,19H5V5H19V19Z"/></svg>`,
+            'n8n-nodes-base.postgres': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,3C7.58,3 4,4.79 4,7C4,9.21 7.58,11 12,11C16.42,11 20,9.21 20,7C20,4.79 16.42,3 12,3M4,9V12C4,14.21 7.58,16 12,16C16.42,16 20,14.21 20,12V9C20,11.21 16.42,13 12,13C7.58,13 4,11.21 4,9M4,14V17C4,19.21 7.58,21 12,21C16.42,21 20,19.21 20,17V14C20,16.21 16.42,18 12,18C7.58,18 4,16.21 4,14Z"/></svg>`,
+            'n8n-nodes-base.wait': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,20A7,7 0 0,1 5,13A7,7 0 0,1 12,6A7,7 0 0,1 19,13A7,7 0 0,1 12,20M12,4A9,9 0 0,0 3,13A9,9 0 0,0 12,22A9,9 0 0,0 21,13A9,9 0 0,0 12,4M12.5,8H11V14L15.75,16.85L16.5,15.62L12.5,13.25V8Z"/></svg>`,
+            'n8n-nodes-base.emailSend': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/></svg>`,
+            'n8n-nodes-base.schedule': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9,10V12H7V10H9M13,10V12H11V10H13M17,10V12H15V10H17M19,3A2,2 0 0,1 21,5V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5A2,2 0 0,1 5,3H6V1H8V3H16V1H18V3H19M19,19V8H5V19H19M9,14V16H7V14H9M13,14V16H11V14H13M17,14V16H15V14H17Z"/></svg>`,
+            'n8n-nodes-base.loxone': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M10,20V14H14V20H19V12H22L12,3L2,12H5V20H10Z"/></svg>`,
+            'n8n-nodes-base.start': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8,5.14V19.14L19,12.14L8,5.14Z"/></svg>`,
+            'n8n-nodes-base.manualTrigger': `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M12,6A6,6 0 0,0 6,12A6,6 0 0,0 12,18A6,6 0 0,0 18,12A6,6 0 0,0 12,6Z"/></svg>`
+        };
+
+        const nodeTypes = {
+            'webhook': 'trigger',
+            'schedule': 'trigger',
+            'manualTrigger': 'trigger',
+            'start': 'trigger',
+            'if': 'if',
+            'switch': 'switch',
+            'httpRequest': 'action',
+            'function': 'action',
+            'set': 'action'
+        };
+
+        function createNode(nodeData) {
+            const node = document.createElement('div');
+            node.className = 'workflow-node';
+            
+            // Determine node type for styling
+            const nodeType = nodeData.type.split('.').pop();
+            const typeClass = nodeTypes[nodeType] || 'action';
+            node.classList.add(typeClass);
+            
+            // Set position
+            if (nodeData.position) {
+                node.style.left = nodeData.position[0] + 'px';
+                node.style.top = nodeData.position[1] + 'px';
+                console.log(`Node ${nodeData.name} positioned at (${nodeData.position[0]}, ${nodeData.position[1]})`);
+            } else {
+                // Simple auto-layout
+                const index = window.nodeIndex || 0;
+                window.nodeIndex = index + 1;
+                const x = 100 + (index % 4) * 250;
+                const y = 100 + Math.floor(index / 4) * 120;
+                node.style.left = x + 'px';
+                node.style.top = y + 'px';
+                console.log(`Node ${nodeData.name} auto-positioned at (${x}, ${y})`);
+            }
+            
+            // Icon
+            const icon = nodeIcons[nodeData.type] || nodeIcons['n8n-nodes-base.function'];
+            
+            // Enhanced content with better structure
+            node.innerHTML = `
+                <div class="node-header">
+                    <div class="node-icon">${icon}</div>
+                    <div class="node-content">
+                        <div class="node-title">${nodeData.name}</div>
+                        <div class="node-subtitle">${formatNodeType(nodeData.type)}</div>
+                    </div>
+                </div>
+            `;
+            
+            // Add connection points
+            addConnectionPoints(node);
+            
+            // Make draggable
+            makeDraggable(node);
+            
+            return node;
+        }
+
+        function formatNodeType(type) {
+            return type.split('.').pop().replace(/([A-Z])/g, ' $1').trim();
+        }
+
+        function addConnectionPoints(node) {
+            const nodeType = node.classList.contains('if') || node.classList.contains('switch') ? 'conditional' : 'regular';
+            
+            // Add input connection point
+            const inputPoint = document.createElement('div');
+            inputPoint.className = 'connection-point input';
+            inputPoint.style.cssText = `
+                position: absolute;
+                left: -8px;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 16px;
+                height: 16px;
+                border-radius: 50%;
+                background: #e5e7eb;
+                border: 2px solid #9ca3af;
+            `;
+            node.appendChild(inputPoint);
+            
+            if (nodeType === 'conditional') {
+                // Add multiple output points for if/switch nodes
+                const trueOutput = document.createElement('div');
+                trueOutput.className = 'connection-point output output-true';
+                trueOutput.style.cssText = `
+                    position: absolute;
+                    right: -8px;
+                    top: 35%;
+                    transform: translateY(-50%);
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: #e5e7eb;
+                    border: 2px solid #00c851;
+                `;
+                
+                const falseOutput = document.createElement('div');
+                falseOutput.className = 'connection-point output output-false';
+                falseOutput.style.cssText = `
+                    position: absolute;
+                    right: -8px;
+                    top: 65%;
+                    transform: translateY(-50%);
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: #e5e7eb;
+                    border: 2px solid #9ca3af;
+                `;
+                
+                // Add labels
+                const trueLabel = document.createElement('div');
+                trueLabel.className = 'connection-label';
+                trueLabel.textContent = 'true';
+                trueLabel.style.cssText = `
+                    position: absolute;
+                    right: -50px;
+                    top: 35%;
+                    transform: translateY(-50%);
+                    font-size: 10px;
+                    color: #666;
+                    background: white;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    border: 1px solid #ddd;
+                `;
+                
+                const falseLabel = document.createElement('div');
+                falseLabel.className = 'connection-label';
+                falseLabel.textContent = 'false';
+                falseLabel.style.cssText = `
+                    position: absolute;
+                    right: -50px;
+                    top: 65%;
+                    transform: translateY(-50%);
+                    font-size: 10px;
+                    color: #666;
+                    background: white;
+                    padding: 2px 4px;
+                    border-radius: 3px;
+                    border: 1px solid #ddd;
+                `;
+                
+                node.appendChild(trueOutput);
+                node.appendChild(falseOutput);
+                node.appendChild(trueLabel);
+                node.appendChild(falseLabel);
+            } else {
+                // Add single output connection point for regular nodes
+                const outputPoint = document.createElement('div');
+                outputPoint.className = 'connection-point output';
+                outputPoint.style.cssText = `
+                    position: absolute;
+                    right: -8px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    width: 16px;
+                    height: 16px;
+                    border-radius: 50%;
+                    background: #e5e7eb;
+                    border: 2px solid #9ca3af;
+                `;
+                node.appendChild(outputPoint);
+            }
+        }
+
+        function drawConnections(connections, nodeElements) {
+            const svg = document.getElementById('connections');
+            
+            if (!svg) {
+                console.error('SVG connections element not found!');
+                return;
+            }
+            
+            // Clear existing paths
+            svg.querySelectorAll('path').forEach(path => path.remove());
+            
+            // Ensure we have defs and arrow marker
+            let defs = svg.querySelector('defs');
+            if (!defs) {
+                defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                svg.appendChild(defs);
+            }
+            
+            if (!defs.querySelector('#arrow-marker')) {
+                const marker = createArrowMarker('arrow-marker');
+                defs.appendChild(marker);
+            }
+            
+            Object.entries(connections).forEach(([sourceName, targets]) => {
+                if (targets.main && targets.main[0]) {
+                    targets.main[0].forEach((target, index) => {
+                        const sourceNode = nodeElements[sourceName];
+                        const targetNode = nodeElements[target.node];
+                        
+                        if (sourceNode && targetNode) {
+                            console.log(`Drawing connection from ${sourceName} to ${target.node}`);
+                            
+                            // Determine output type for conditional nodes
+                            let outputType = 'main';
+                            const isConditional = sourceNode.classList.contains('if') || sourceNode.classList.contains('switch');
+                            
+                            if (isConditional) {
+                                // Use target node name or connection index to determine output type
+                                // This is a heuristic - in real n8n, this would be specified in the workflow data
+                                if (target.type === 'main' && target.index === 0) {
+                                    outputType = 'true';
+                                } else if (target.type === 'main' && target.index === 1) {
+                                    outputType = 'false';
+                                } else {
+                                    // Fallback: use connection index or node name heuristics
+                                    if (index === 0 || target.node.toLowerCase().includes('success') || 
+                                        target.node.toLowerCase().includes('true') || 
+                                        target.node.toLowerCase().includes('yes')) {
+                                        outputType = 'true';
+                                    } else {
+                                        outputType = 'false';
+                                    }
+                                }
+                            }
+                            
+                            const path = createConnectionPath(sourceNode, targetNode, outputType);
+                            
+                            // Add tracking attribute for efficient updates
+                            const pathId = `path-${sourceName}-${target.node}-${outputType}`;
+                            path.setAttribute('data-connection', pathId);
+                            path.setAttribute('data-output-type', outputType);
+                            
+                            svg.appendChild(path);
+                        }
+                    });
+                }
+            });
+        }
+
+        function createConnectionPath(sourceNode, targetNode, outputType = 'main') {
+            // Get the actual positions of the nodes
+            const sourceLeft = parseFloat(sourceNode.style.left) || 0;
+            const sourceTop = parseFloat(sourceNode.style.top) || 0;
+            const targetLeft = parseFloat(targetNode.style.left) || 0;
+            const targetTop = parseFloat(targetNode.style.top) || 0;
+            
+            // Get node dimensions
+            const sourceWidth = sourceNode.offsetWidth;
+            const sourceHeight = sourceNode.offsetHeight;
+            const targetHeight = targetNode.offsetHeight;
+            
+            // Check if source node is conditional (if/switch)
+            const isConditional = sourceNode.classList.contains('if') || sourceNode.classList.contains('switch');
+            
+            let x1, y1;
+            
+            if (isConditional) {
+                // Use specific output port based on connection type
+                x1 = sourceLeft + sourceWidth;
+                if (outputType === 'true') {
+                    y1 = sourceTop + sourceHeight * 0.35; // True output port
+                } else if (outputType === 'false') {
+                    y1 = sourceTop + sourceHeight * 0.65; // False output port
+                } else {
+                    // Default to true port if not specified
+                    y1 = sourceTop + sourceHeight * 0.35;
+                }
+            } else {
+                // Regular nodes use center output
+                x1 = sourceLeft + sourceWidth;
+                y1 = sourceTop + sourceHeight / 2;
+            }
+            
+            // Target connection point (always center for now)
+            const x2 = targetLeft;
+            const y2 = targetTop + targetHeight / 2;
+            
+            console.log(`Connection points: (${x1}, ${y1}) -> (${x2}, ${y2}) [output: ${outputType}]`);
+            
+            // Calculate bezier curve control points
+            const dx = x2 - x1;
+            const curveOffset = Math.max(Math.abs(dx) * 0.5, 80);
+            
+            const cp1x = x1 + curveOffset;
+            const cp1y = y1;
+            const cp2x = x2 - curveOffset;
+            const cp2y = y2;
+            
+            // Create the SVG path
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            const pathData = `M ${x1} ${y1} C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${x2} ${y2}`;
+            path.setAttribute('d', pathData);
+            
+            // Color code by output type
+            if (outputType === 'true') {
+                path.setAttribute('stroke', '#00c851');
+            } else if (outputType === 'false') {
+                path.setAttribute('stroke', '#ef4444');
+            } else {
+                path.setAttribute('stroke', '#6b7280');
+            }
+            
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('fill', 'none');
+            path.setAttribute('marker-end', 'url(#arrow-marker)');
+            
+            console.log(`Path data: ${pathData}`);
+            
+            return path;
+        }
+
+        function createArrowMarker(id) {
+            const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+            marker.setAttribute('id', id);
+            marker.setAttribute('markerWidth', '10');
+            marker.setAttribute('markerHeight', '10');
+            marker.setAttribute('refX', '8');
+            marker.setAttribute('refY', '3');
+            marker.setAttribute('orient', 'auto');
+            marker.setAttribute('markerUnits', 'strokeWidth');
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', 'M0,0 L0,6 L9,3 z');
+            path.setAttribute('fill', '#9ca3af');
+            
+            marker.appendChild(path);
+            return marker;
+        }
+
+        function applyAutoLayout(workflow) {
+            console.log('Applying advanced auto-layout algorithm...');
+            
+            // Step 1: Build node dependency graph
+            const graph = buildDependencyGraph(workflow);
+            
+            // Step 2: Categorize nodes by type and function
+            const nodeCategories = categorizeNodes(workflow.nodes);
+            
+            // Step 3: Calculate hierarchical levels (left to right flow)
+            const levelData = calculateHierarchicalLevels(workflow, graph);
+            
+            // Step 4: Optimize vertical positioning within each level
+            const optimizedLayout = optimizeVerticalLayout(levelData, workflow.connections, nodeCategories);
+            
+            // Step 5: Post-process to minimize remaining crossings
+            const finalLayout = minimizeCrossings(optimizedLayout, workflow.connections, levelData);
+            
+            // Step 6: Apply positions to nodes
+            applyOptimizedPositions(workflow.nodes, finalLayout);
+            
+            console.log('Auto-layout complete:', finalLayout);
+        }
+
+        function buildDependencyGraph(workflow) {
+            const graph = {
+                incoming: {},  // node -> [nodes that connect to it]
+                outgoing: {}   // node -> [nodes it connects to]
+            };
+            
+            // Initialize
+            workflow.nodes.forEach(node => {
+                graph.incoming[node.name] = [];
+                graph.outgoing[node.name] = [];
+            });
+            
+            // Build connections
+            Object.entries(workflow.connections).forEach(([sourceName, targets]) => {
+                if (targets.main && targets.main[0]) {
+                    targets.main[0].forEach(target => {
+                        graph.outgoing[sourceName].push(target.node);
+                        graph.incoming[target.node].push(sourceName);
+                    });
+                }
+            });
+            
+            return graph;
+        }
+
+        function categorizeNodes(nodes) {
+            const categories = {
+                triggers: [],      // Webhooks, schedules, manual triggers
+                processors: [],    // Functions, conditions, transformations
+                actions: [],       // HTTP requests, database operations
+                outputs: []        // Final endpoints, responses
+            };
+            
+            nodes.forEach(node => {
+                const nodeType = node.type.toLowerCase();
+                const nodeName = node.name.toLowerCase();
+                
+                if (nodeType.includes('webhook') || nodeType.includes('schedule') || 
+                    nodeType.includes('trigger') || nodeType.includes('start') ||
+                    nodeName.includes('webhook') || nodeName.includes('trigger')) {
+                    categories.triggers.push(node.name);
+                } else if (nodeType.includes('function') || nodeType.includes('if') || 
+                          nodeType.includes('switch') || nodeType.includes('set') ||
+                          nodeName.includes('process') || nodeName.includes('calculate')) {
+                    categories.processors.push(node.name);
+                } else if (nodeType.includes('http') || nodeType.includes('request') || 
+                          nodeName.includes('request') || nodeName.includes('call')) {
+                    categories.actions.push(node.name);
+                } else {
+                    categories.outputs.push(node.name);
+                }
+            });
+            
+            console.log('Node categories:', categories);
+            return categories;
+        }
+
+        function calculateHierarchicalLevels(workflow, graph) {
+            const levels = {};
+            const nodeToLevel = {};
+            
+            // Find root nodes (no incoming connections)
+            const rootNodes = workflow.nodes.filter(node => 
+                graph.incoming[node.name].length === 0
+            ).map(node => node.name);
+            
+            console.log('Root nodes (triggers):', rootNodes);
+            
+            // BFS to assign levels
+            const queue = rootNodes.map(node => ({ node, level: 0 }));
+            const visited = new Set();
+            
+            while (queue.length > 0) {
+                const { node, level } = queue.shift();
+                
+                if (visited.has(node)) continue;
+                visited.add(node);
+                
+                // Assign node to level
+                if (!levels[level]) levels[level] = [];
+                levels[level].push(node);
+                nodeToLevel[node] = level;
+                
+                // Add children to queue
+                graph.outgoing[node].forEach(childNode => {
+                    if (!visited.has(childNode)) {
+                        queue.push({ node: childNode, level: level + 1 });
+                    }
+                });
+            }
+            
+            // Handle orphaned nodes (no connections)
+            workflow.nodes.forEach(node => {
+                if (!visited.has(node.name)) {
+                    const level = Object.keys(levels).length;
+                    if (!levels[level]) levels[level] = [];
+                    levels[level].push(node.name);
+                    nodeToLevel[node.name] = level;
+                }
+            });
+            
+            return { levels, nodeToLevel };
+        }
+
+        function optimizeVerticalLayout(levelData, connections, categories) {
+            const { levels, nodeToLevel } = levelData;
+            const layout = {};
+            
+            // Configuration - Increased spacing for better readability
+            const LEVEL_WIDTH = 450;
+            const NODE_HEIGHT = 120;
+            const MIN_VERTICAL_SPACING = 180;
+            const START_X = 100;
+            const START_Y = 100;
+            
+            Object.entries(levels).forEach(([levelIndex, nodeNames]) => {
+                const level = parseInt(levelIndex);
+                const x = START_X + level * LEVEL_WIDTH;
+                
+                // Sort nodes within level to minimize crossings
+                const sortedNodes = sortNodesInLevel(nodeNames, connections, nodeToLevel, categories);
+                
+                // Calculate vertical positions with proper spacing
+                sortedNodes.forEach((nodeName, index) => {
+                    const y = START_Y + index * MIN_VERTICAL_SPACING;
+                    
+                    layout[nodeName] = {
+                        x: x,
+                        y: y,
+                        level: level,
+                        index: index
+                    };
+                });
+            });
+            
+            return layout;
+        }
+
+        function sortNodesInLevel(nodeNames, connections, nodeToLevel, categories) {
+            // Advanced sorting to minimize line crossings
+            return nodeNames.sort((a, b) => {
+                // Priority by type
+                const aType = getNodePriority(a, categories);
+                const bType = getNodePriority(b, categories);
+                
+                if (aType !== bType) {
+                    return aType - bType;
+                }
+                
+                // Calculate connection-based positioning to minimize crossings
+                const aConnectionScore = calculateCrossingScore(a, connections, nodeToLevel);
+                const bConnectionScore = calculateCrossingScore(b, connections, nodeToLevel);
+                
+                return aConnectionScore - bConnectionScore;
+            });
+        }
+
+        function getNodePriority(nodeName, categories) {
+            if (categories.triggers.includes(nodeName)) return 1;
+            if (categories.processors.includes(nodeName)) return 2;
+            if (categories.actions.includes(nodeName)) return 3;
+            return 4; // outputs
+        }
+
+        function calculateCrossingScore(nodeName, connections, nodeToLevel) {
+            // Calculate a score to minimize line crossings based on target distribution
+            let score = 0;
+            let targetCount = 0;
+            let avgTargetLevel = 0;
+            
+            // Score outgoing connections
+            if (connections[nodeName] && connections[nodeName].main) {
+                connections[nodeName].main[0].forEach(target => {
+                    const targetLevel = nodeToLevel[target.node] || 0;
+                    avgTargetLevel += targetLevel;
+                    targetCount++;
+                });
+                
+                if (targetCount > 0) {
+                    avgTargetLevel = avgTargetLevel / targetCount;
+                    score += avgTargetLevel * 100; // Weight by average target level
+                }
+            }
+            
+            // Score incoming connections (nodes that connect TO this node)
+            Object.entries(connections).forEach(([sourceName, targets]) => {
+                if (targets.main && targets.main[0]) {
+                    targets.main[0].forEach(target => {
+                        if (target.node === nodeName) {
+                            const sourceLevel = nodeToLevel[sourceName] || 0;
+                            score += sourceLevel * 50; // Lower weight for incoming
+                        }
+                    });
+                }
+            });
+            
+            return score;
+        }
+        
+        function getConnectionScore(nodeName, connections, nodeToLevel) {
+            // Calculate a score based on target positions to minimize crossings
+            let score = 0;
+            
+            if (connections[nodeName] && connections[nodeName].main) {
+                connections[nodeName].main[0].forEach(target => {
+                    const targetLevel = nodeToLevel[target.node];
+                    score += targetLevel || 0;
+                });
+            }
+            
+            return score;
+        }
+
+        function minimizeCrossings(layout, connections, levelData) {
+            // Create a copy of the layout to modify
+            const improvedLayout = JSON.parse(JSON.stringify(layout));
+            
+            // Extract levels from the levelData structure
+            const levels = levelData.levels || levelData;
+            
+            // Process each level to optimize node order
+            Object.entries(levels).forEach(([levelIndex, nodeNames]) => {
+                if (!nodeNames || nodeNames.length <= 1) return; // Skip levels with 0 or 1 node
+                
+                const level = parseInt(levelIndex);
+                
+                // Calculate crossing count for current arrangement
+                let bestArrangement = [...nodeNames];
+                let bestCrossings = countCrossingsForLevel(nodeNames, connections, layout);
+                
+                // Try different arrangements using a simple swapping heuristic
+                for (let iterations = 0; iterations < Math.min(nodeNames.length * 2, 10); iterations++) {
+                    // Try swapping adjacent nodes to reduce crossings
+                    for (let i = 0; i < nodeNames.length - 1; i++) {
+                        const testArrangement = [...bestArrangement];
+                        // Swap adjacent nodes
+                        [testArrangement[i], testArrangement[i + 1]] = [testArrangement[i + 1], testArrangement[i]];
+                        
+                        const crossings = countCrossingsForLevel(testArrangement, connections, layout);
+                        if (crossings < bestCrossings) {
+                            bestArrangement = testArrangement;
+                            bestCrossings = crossings;
+                        }
+                    }
+                }
+                
+                // Apply the best arrangement by updating Y positions
+                const startY = 100;
+                const spacing = 180;
+                bestArrangement.forEach((nodeName, index) => {
+                    if (improvedLayout[nodeName]) {
+                        improvedLayout[nodeName].y = startY + index * spacing;
+                        improvedLayout[nodeName].index = index;
+                    }
+                });
+            });
+            
+            return improvedLayout;
+        }
+        
+        function countCrossingsForLevel(nodeOrder, connections, layout) {
+            let crossings = 0;
+            
+            // Check all pairs of nodes in this level
+            for (let i = 0; i < nodeOrder.length - 1; i++) {
+                for (let j = i + 1; j < nodeOrder.length; j++) {
+                    const node1 = nodeOrder[i];
+                    const node2 = nodeOrder[j];
+                    
+                    // Get targets for both nodes
+                    const targets1 = getNodeTargets(node1, connections);
+                    const targets2 = getNodeTargets(node2, connections);
+                    
+                    // Check for crossings between their connections
+                    targets1.forEach(target1 => {
+                        targets2.forEach(target2 => {
+                            if (layout[target1] && layout[target2]) {
+                                // If node1 is above node2, but target1 is below target2, we have a crossing
+                                const node1Y = layout[node1]?.y || 0;
+                                const node2Y = layout[node2]?.y || 0;
+                                const target1Y = layout[target1]?.y || 0;
+                                const target2Y = layout[target2]?.y || 0;
+                                
+                                if ((node1Y < node2Y && target1Y > target2Y) || 
+                                    (node1Y > node2Y && target1Y < target2Y)) {
+                                    crossings++;
+                                }
+                            }
+                        });
+                    });
+                }
+            }
+            
+            return crossings;
+        }
+        
+        function getNodeTargets(nodeName, connections) {
+            const targets = [];
+            if (connections[nodeName] && connections[nodeName].main && connections[nodeName].main[0]) {
+                connections[nodeName].main[0].forEach(target => {
+                    targets.push(target.node);
+                });
+            }
+            return targets;
+        }
+        
+        function applyOptimizedPositions(nodes, layout) {
+            nodes.forEach(node => {
+                if (layout[node.name]) {
+                    node.position = [layout[node.name].x, layout[node.name].y];
+                    console.log(`Positioned ${node.name} at (${node.position[0]}, ${node.position[1]})`);
+                }
+            });
+        }
+
+        function makeDraggable(element) {
+            let isDragging = false;
+            let startX, startY, initialX, initialY;
+            let animationFrame = null;
+            
+            element.addEventListener('mousedown', (e) => {
+                e.stopPropagation(); // Prevent canvas panning
+                isDragging = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                initialX = element.offsetLeft;
+                initialY = element.offsetTop;
+                
+                // Add visual feedback
+                element.classList.add('dragging');
+                element.style.transition = 'none'; // Disable transitions during drag
+                document.body.style.userSelect = 'none'; // Prevent text selection
+            });
+            
+            function handleMouseMove(e) {
+                if (!isDragging) return;
+                
+                // Cancel previous animation frame
+                if (animationFrame) {
+                    cancelAnimationFrame(animationFrame);
+                }
+                
+                // Schedule connection update for next frame
+                animationFrame = requestAnimationFrame(() => {
+                    // Account for current zoom level
+                    const dx = (e.clientX - startX) / currentZoom;
+                    const dy = (e.clientY - startY) / currentZoom;
+                    
+                    const newX = initialX + dx;
+                    const newY = initialY + dy;
+                    
+                    element.style.left = newX + 'px';
+                    element.style.top = newY + 'px';
+                    
+                    // Immediate connection update for smooth sync
+                    updateConnectionsForNode(element);
+                });
+            }
+            
+            function handleMouseUp() {
+                if (isDragging) {
+                    isDragging = false;
+                    
+                    // Remove visual feedback
+                    element.classList.remove('dragging');
+                    element.style.transition = ''; // Re-enable transitions
+                    document.body.style.userSelect = ''; // Re-enable text selection
+                    
+                    // Cancel any pending animation frame
+                    if (animationFrame) {
+                        cancelAnimationFrame(animationFrame);
+                        animationFrame = null;
+                    }
+                    
+                    // Final connection redraw
+                    redrawConnections();
+                }
+            }
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        // Optimized function to update only connections involving a specific node
+        function updateConnectionsForNode(draggedNode) {
+            const workflow = window.currentWorkflow;
+            if (!workflow || !document.getElementById('connections')) return;
+            
+            const draggedTitle = draggedNode.querySelector('.node-title')?.textContent;
+            if (!draggedTitle) return;
+            
+            // Get all nodes for connection mapping
+            const nodeElements = {};
+            document.querySelectorAll('.workflow-node').forEach(node => {
+                const titleElement = node.querySelector('.node-title');
+                if (titleElement) {
+                    nodeElements[titleElement.textContent] = node;
+                }
+            });
+            
+            const svg = document.getElementById('connections');
+            
+            // Update connections where this node is involved
+            Object.entries(workflow.connections).forEach(([sourceName, targets]) => {
+                if (targets.main && targets.main[0]) {
+                    targets.main[0].forEach(target => {
+                        // Check if this connection involves the dragged node
+                        if (sourceName === draggedTitle || target.node === draggedTitle) {
+                            const sourceNode = nodeElements[sourceName];
+                            const targetNode = nodeElements[target.node];
+                            
+                            if (sourceNode && targetNode) {
+                                // Determine output type (same logic as in drawConnections)
+                                let outputType = 'main';
+                                const isConditional = sourceNode.classList.contains('if') || sourceNode.classList.contains('switch');
+                                
+                                if (isConditional) {
+                                    if (target.type === 'main' && target.index === 0) {
+                                        outputType = 'true';
+                                    } else if (target.type === 'main' && target.index === 1) {
+                                        outputType = 'false';
+                                    } else {
+                                        // Use index from targets array
+                                        const targetIndex = targets.main[0].indexOf(target);
+                                        outputType = targetIndex === 0 ? 'true' : 'false';
+                                    }
+                                }
+                                
+                                // Find and update the existing path
+                                const pathId = `path-${sourceName}-${target.node}-${outputType}`;
+                                let existingPath = svg.querySelector(`[data-connection="${pathId}"]`);
+                                
+                                if (existingPath) {
+                                    // Update existing path
+                                    const newPath = createConnectionPath(sourceNode, targetNode, outputType);
+                                    existingPath.setAttribute('d', newPath.getAttribute('d'));
+                                } else {
+                                    // Create new path if not found (fallback)
+                                    const newPath = createConnectionPath(sourceNode, targetNode, outputType);
+                                    newPath.setAttribute('data-connection', pathId);
+                                    newPath.setAttribute('data-output-type', outputType);
+                                    svg.appendChild(newPath);
+                                }
+                            }
+                        }
+                    });
+                }
+            });
+        }
+
+        function redrawConnections() {
+            const workflow = window.currentWorkflow;
+            if (workflow && document.getElementById('connections')) {
+                const nodeElements = {};
+                document.querySelectorAll('.workflow-node').forEach(node => {
+                    const titleElement = node.querySelector('.node-title');
+                    if (titleElement) {
+                        const title = titleElement.textContent;
+                        nodeElements[title] = node;
+                    }
+                });
+                drawConnections(workflow.connections, nodeElements);
+            }
+        }
+
+        // Store workflow for connection updates
+        window.currentWorkflow = null;
+        
+        // Node Information Database
+        const nodeInformationDatabase = {
+            'n8n-nodes-base.webhook': {
+                name: 'Webhook',
+                description: 'Receives HTTP requests and triggers workflow execution',
+                category: 'trigger',
+                parameters: {
+                    httpMethod: { 
+                        value: 'POST', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'HTTP method to accept' 
+                    },
+                    path: { 
+                        value: '/webhook', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'URL path for the webhook endpoint' 
+                    },
+                    authentication: { 
+                        value: false, 
+                        type: 'boolean', 
+                        required: false, 
+                        description: 'Require authentication for requests' 
+                    }
+                },
+                inputs: {},
+                outputs: {
+                    main: {
+                        type: 'object',
+                        description: 'HTTP request data including headers, body, and query parameters'
+                    }
+                },
+                documentation: {
+                    description: 'Webhooks allow external services to trigger your n8n workflows by sending HTTP requests. Perfect for integrating with third-party services or creating API endpoints.',
+                    examples: [
+                        {
+                            title: 'Basic Webhook Setup',
+                            code: 'POST /webhook\nContent-Type: application/json\n\n{"message": "Hello World"}',
+                            explanation: 'Simple POST request with JSON payload'
+                        }
+                    ],
+                    tips: [
+                        'Use authentication for production webhooks',
+                        'Test webhooks with tools like Postman or curl',
+                        'Configure proper HTTP methods for your use case'
+                    ]
+                }
+            },
+            'n8n-nodes-base.httpRequest': {
+                name: 'HTTP Request',
+                description: 'Makes HTTP requests to external APIs and services',
+                category: 'action',
+                parameters: {
+                    url: { 
+                        value: 'https://api.example.com/data', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'Target URL for the HTTP request' 
+                    },
+                    method: { 
+                        value: 'GET', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'HTTP method (GET, POST, PUT, DELETE, etc.)' 
+                    },
+                    timeout: { 
+                        value: 30000, 
+                        type: 'number', 
+                        required: false, 
+                        description: 'Request timeout in milliseconds' 
+                    }
+                },
+                inputs: {
+                    main: {
+                        type: 'object',
+                        description: 'Input data for request body and parameters'
+                    }
+                },
+                outputs: {
+                    main: {
+                        type: 'object',
+                        description: 'HTTP response data including status, headers, and body'
+                    }
+                },
+                documentation: {
+                    description: 'The HTTP Request node allows you to make calls to external APIs, fetch data from web services, and integrate with REST endpoints.',
+                    examples: [
+                        {
+                            title: 'GET Request',
+                            code: 'GET https://jsonplaceholder.typicode.com/posts/1',
+                            explanation: 'Fetch data from a REST API endpoint'
+                        },
+                        {
+                            title: 'POST with JSON',
+                            code: 'POST https://api.example.com/users\nContent-Type: application/json\n\n{"name": "John", "email": "john@example.com"}',
+                            explanation: 'Create a new resource with JSON payload'
+                        }
+                    ],
+                    tips: [
+                        'Always handle error responses appropriately',
+                        'Use authentication headers for protected APIs',
+                        'Set reasonable timeout values for external requests'
+                    ]
+                }
+            },
+            'n8n-nodes-base.if': {
+                name: 'IF Condition',
+                description: 'Routes workflow execution based on conditional logic',
+                category: 'condition',
+                parameters: {
+                    conditions: { 
+                        value: [{ field: 'data.status', operation: 'equal', value: 'success' }], 
+                        type: 'object', 
+                        required: true, 
+                        description: 'Conditions to evaluate for true/false routing' 
+                    },
+                    combineOperation: { 
+                        value: 'all', 
+                        type: 'string', 
+                        required: false, 
+                        description: 'How to combine multiple conditions (all/any)' 
+                    }
+                },
+                inputs: {
+                    main: {
+                        type: 'object',
+                        description: 'Data to evaluate against conditions'
+                    }
+                },
+                outputs: {
+                    true: {
+                        type: 'object',
+                        description: 'Data when condition evaluates to true'
+                    },
+                    false: {
+                        type: 'object',
+                        description: 'Data when condition evaluates to false'
+                    }
+                },
+                documentation: {
+                    description: 'The IF node enables conditional workflow branching. It evaluates data against specified conditions and routes to different paths based on the result.',
+                    examples: [
+                        {
+                            title: 'Simple Equality Check',
+                            code: 'if (data.status === "active") {\n  // true path\n} else {\n  // false path\n}',
+                            explanation: 'Route based on status field value'
+                        },
+                        {
+                            title: 'Multiple Conditions',
+                            code: 'if (data.age > 18 && data.verified === true) {\n  // both conditions true\n}',
+                            explanation: 'Combine multiple conditions with AND logic'
+                        }
+                    ],
+                    tips: [
+                        'Use meaningful condition names for clarity',
+                        'Test both true and false paths thoroughly',
+                        'Consider edge cases and null values'
+                    ]
+                }
+            },
+            'n8n-nodes-base.switch': {
+                name: 'Switch',
+                description: 'Routes data to different paths based on multiple conditions',
+                category: 'condition',
+                parameters: {
+                    mode: { 
+                        value: 'rules', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'Switch mode: rules-based or value-based routing' 
+                    },
+                    rules: { 
+                        value: [], 
+                        type: 'object', 
+                        required: true, 
+                        description: 'Array of routing rules and conditions' 
+                    }
+                },
+                inputs: {
+                    main: {
+                        type: 'object',
+                        description: 'Data to evaluate against switch rules'
+                    }
+                },
+                outputs: {
+                    0: {
+                        type: 'object',
+                        description: 'Data matching first rule'
+                    },
+                    1: {
+                        type: 'object',
+                        description: 'Data matching second rule'
+                    },
+                    fallback: {
+                        type: 'object',
+                        description: 'Data when no rules match'
+                    }
+                },
+                documentation: {
+                    description: 'The Switch node provides multi-way branching based on rules or values. It evaluates input data and routes to different outputs based on matching conditions.',
+                    examples: [
+                        {
+                            title: 'Priority Routing',
+                            code: 'switch (data.priority) {\n  case "high": // output 0\n  case "medium": // output 1  \n  case "low": // output 2\n  default: // fallback\n}',
+                            explanation: 'Route based on priority field values'
+                        }
+                    ],
+                    tips: [
+                        'Always include a fallback output for unmatched cases',
+                        'Order rules from most specific to most general',
+                        'Use descriptive output names for clarity'
+                    ]
+                }
+            },
+            'n8n-nodes-base.function': {
+                name: 'Function',
+                description: 'Executes custom JavaScript code for data transformation',
+                category: 'action',
+                parameters: {
+                    functionCode: { 
+                        value: 'return items;', 
+                        type: 'string', 
+                        required: true, 
+                        description: 'JavaScript code to execute' 
+                    },
+                    mode: { 
+                        value: 'runOnceForAllItems', 
+                        type: 'string', 
+                        required: false, 
+                        description: 'Execution mode for processing items' 
+                    }
+                },
+                inputs: {
+                    main: {
+                        type: 'array',
+                        description: 'Array of items to process with custom code'
+                    }
+                },
+                outputs: {
+                    main: {
+                        type: 'array',
+                        description: 'Transformed data returned by function code'
+                    }
+                },
+                documentation: {
+                    description: 'The Function node allows you to write custom JavaScript code to transform, filter, or manipulate data in your workflow.',
+                    examples: [
+                        {
+                            title: 'Data Transformation',
+                            code: 'for (let item of items) {\n  item.json.processed = true;\n  item.json.timestamp = new Date();\n}\nreturn items;',
+                            explanation: 'Add processed flag and timestamp to each item'
+                        },
+                        {
+                            title: 'Data Filtering',
+                            code: 'return items.filter(item => item.json.active === true);',
+                            explanation: 'Filter items to only include active records'
+                        }
+                    ],
+                    tips: [
+                        'Always return an array of items',
+                        'Use console.log() for debugging',
+                        'Handle errors gracefully with try-catch blocks'
+                    ]
+                }
+            }
+        };
+        
+        // Zoom functionality
+        let currentZoom = 1;
+        let currentPanX = 0;
+        let currentPanY = 0;
+        const minZoom = 0.1;
+        const maxZoom = 3;
+        const zoomStep = 0.2;
+
+        // Store viewport state to preserve between workflow switches
+        let preserveViewport = false;
+        
+        // Load workflow function
+        async function loadWorkflow(shouldPreserveViewport = false) {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const canvas = document.getElementById('canvas');
+            const connections = document.getElementById('connections');
+            
+            // Store current viewport state if requested
+            const savedZoom = shouldPreserveViewport ? currentZoom : null;
+            const savedPanX = shouldPreserveViewport ? currentPanX : null;
+            const savedPanY = shouldPreserveViewport ? currentPanY : null;
+            
+            try {
+                // Get workflow path from URL hash or default
+                const hash = window.location.hash.slice(1);
+                const workflowPath = hash || 'n8n-workflows/loxone-mcp-server-workflows.json';
+                
+                const response = await fetch(workflowPath);
+                if (!response.ok) {
+                    throw new Error(`Failed to load workflow: ${response.statusText}`);
+                }
+                
+                const workflow = await response.json();
+                window.currentWorkflow = workflow; // Store for later use
+                loading.style.display = 'none';
+                
+                // Clear existing nodes
+                document.querySelectorAll('.workflow-node').forEach(node => node.remove());
+                connections.innerHTML = '';
+                
+                // Create nodes with better layout
+                const nodeElements = {};
+                window.nodeIndex = 0; // Reset node index
+                
+                // Check if nodes have positions, if not apply auto-layout
+                const hasPositions = workflow.nodes.some(node => node.position);
+                if (!hasPositions) {
+                    applyAutoLayout(workflow);
+                }
+                
+                workflow.nodes.forEach(node => {
+                    const nodeEl = createNode(node);
+                    canvas.appendChild(nodeEl);
+                    nodeElements[node.name] = nodeEl;
+                });
+                
+                console.log('Created nodes:', Object.keys(nodeElements));
+                console.log('Workflow connections:', workflow.connections);
+                console.log('SVG element exists:', !!document.getElementById('connections'));
+                
+                // Draw connections after a small delay to ensure nodes are fully rendered
+                setTimeout(() => {
+                    const svg = document.getElementById('connections');
+                    console.log('SVG element in timeout:', !!svg);
+                    if (svg) {
+                        drawConnections(workflow.connections, nodeElements);
+                    } else {
+                        console.error('SVG connections element still not found in timeout!');
+                    }
+                    
+                    // Handle viewport state
+                    if (shouldPreserveViewport && savedZoom !== null) {
+                        // Restore viewport state if preserved
+                        currentZoom = savedZoom;
+                        currentPanX = savedPanX;
+                        currentPanY = savedPanY;
+                        updateViewport();
+                        console.log('Viewport state preserved:', { zoom: currentZoom, panX: currentPanX, panY: currentPanY });
+                    } else {
+                        // Reset viewport to default for new workflows
+                        currentZoom = 1;
+                        currentPanX = 0;
+                        currentPanY = 0;
+                        updateViewport();
+                        console.log('Viewport reset for new workflow');
+                    }
+                }, 100);
+                
+            } catch (err) {
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = `Error: ${err.message}`;
+                console.error('Failed to load workflow:', err);
+            }
+        }
+
+        // Zoom functions
+        function updateViewport() {
+            const viewport = document.getElementById('viewport');
+            viewport.style.transform = `translate(${currentPanX}px, ${currentPanY}px) scale(${currentZoom})`;
+            
+            // Update zoom level display
+            const zoomLevel = document.getElementById('zoom-level');
+            zoomLevel.textContent = Math.round(currentZoom * 100) + '%';
+            
+            // Connections are now inside the viewport, so they scale automatically
+            // No need to redraw for zoom/pan operations
+        }
+
+        function zoomIn() {
+            if (currentZoom < maxZoom) {
+                currentZoom = Math.min(maxZoom, currentZoom + zoomStep);
+                updateViewport();
+            }
+        }
+
+        function zoomOut() {
+            if (currentZoom > minZoom) {
+                currentZoom = Math.max(minZoom, currentZoom - zoomStep);
+                updateViewport();
+            }
+        }
+
+        function fitToView() {
+            const container = document.querySelector('.workflow-container');
+            const nodes = document.querySelectorAll('.workflow-node');
+            
+            if (nodes.length === 0) return;
+            
+            // Calculate bounding box of all nodes
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            
+            nodes.forEach(node => {
+                const rect = node.getBoundingClientRect();
+                const containerRect = container.getBoundingClientRect();
+                
+                const x = rect.left - containerRect.left - currentPanX;
+                const y = rect.top - containerRect.top - currentPanY;
+                
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x + rect.width);
+                maxY = Math.max(maxY, y + rect.height);
+            });
+            
+            // Add some padding
+            const padding = 80;
+            minX -= padding;
+            minY -= padding;
+            maxX += padding;
+            maxY += padding;
+            
+            // Calculate zoom to fit
+            const contentWidth = maxX - minX;
+            const contentHeight = maxY - minY;
+            const containerWidth = container.clientWidth;
+            const containerHeight = container.clientHeight;
+            
+            const scaleX = containerWidth / contentWidth;
+            const scaleY = containerHeight / contentHeight;
+            const newZoom = Math.min(scaleX, scaleY, 1); // Don't zoom in beyond 100%
+            
+            // Calculate pan to center
+            currentZoom = Math.max(minZoom, Math.min(maxZoom, newZoom));
+            currentPanX = -minX * currentZoom + (containerWidth - contentWidth * currentZoom) / 2;
+            currentPanY = -minY * currentZoom + (containerHeight - contentHeight * currentZoom) / 2;
+            
+            updateViewport();
+        }
+
+        // Mouse wheel zoom
+        function handleWheel(event) {
+            event.preventDefault();
+            
+            const container = document.querySelector('.workflow-container');
+            const rect = container.getBoundingClientRect();
+            const mouseX = event.clientX - rect.left;
+            const mouseY = event.clientY - rect.top;
+            
+            // Calculate zoom point in viewport coordinates
+            const zoomPointX = (mouseX - currentPanX) / currentZoom;
+            const zoomPointY = (mouseY - currentPanY) / currentZoom;
+            
+            // Zoom
+            const oldZoom = currentZoom;
+            if (event.deltaY < 0) {
+                currentZoom = Math.min(maxZoom, currentZoom + zoomStep);
+            } else {
+                currentZoom = Math.max(minZoom, currentZoom - zoomStep);
+            }
+            
+            // Adjust pan to keep zoom point stable
+            const zoomRatio = currentZoom / oldZoom;
+            currentPanX = mouseX - zoomPointX * currentZoom;
+            currentPanY = mouseY - zoomPointY * currentZoom;
+            
+            updateViewport();
+        }
+
+        // Pan functionality
+        let isPanning = false;
+        let panStartX, panStartY, panInitialX, panInitialY;
+
+        function handlePanStart(event) {
+            // Only pan if clicking on canvas background
+            if (event.target.closest('.workflow-node') || event.target.closest('.zoom-controls')) {
+                return;
+            }
+            
+            isPanning = true;
+            panStartX = event.clientX;
+            panStartY = event.clientY;
+            panInitialX = currentPanX;
+            panInitialY = currentPanY;
+            
+            document.body.style.cursor = 'grabbing';
+        }
+
+        function handlePanMove(event) {
+            if (!isPanning) return;
+            
+            const deltaX = event.clientX - panStartX;
+            const deltaY = event.clientY - panStartY;
+            
+            currentPanX = panInitialX + deltaX;
+            currentPanY = panInitialY + deltaY;
+            
+            updateViewport();
+        }
+
+        function handlePanEnd() {
+            isPanning = false;
+            document.body.style.cursor = '';
+        }
+
+        // Auto-layout function
+        function applyAutoLayoutToCurrentWorkflow() {
+            const workflow = window.currentWorkflow;
+            if (!workflow) {
+                console.warn('No workflow loaded for auto-layout');
+                return;
+            }
+            
+            console.log('Applying auto-layout to current workflow...');
+            
+            // Apply the layout algorithm
+            applyAutoLayout(workflow);
+            
+            // Update all existing nodes with new positions
+            document.querySelectorAll('.workflow-node').forEach(nodeEl => {
+                const titleElement = nodeEl.querySelector('.node-title');
+                if (titleElement) {
+                    const nodeName = titleElement.textContent;
+                    const node = workflow.nodes.find(n => n.name === nodeName);
+                    
+                    if (node && node.position) {
+                        // Animate to new position
+                        nodeEl.style.transition = 'all 0.5s ease';
+                        nodeEl.style.left = node.position[0] + 'px';
+                        nodeEl.style.top = node.position[1] + 'px';
+                        
+                        // Remove transition after animation
+                        setTimeout(() => {
+                            nodeEl.style.transition = '';
+                        }, 500);
+                    }
+                }
+            });
+            
+            // Redraw connections after layout
+            setTimeout(() => {
+                redrawConnections();
+                // Fit to view after layout
+                setTimeout(() => {
+                    fitToView();
+                }, 100);
+            }, 550);
+        }
+
+        // Event listeners
+        document.getElementById('zoom-in').addEventListener('click', zoomIn);
+        document.getElementById('zoom-out').addEventListener('click', zoomOut);
+        document.getElementById('fit-view').addEventListener('click', fitToView);
+        document.getElementById('auto-layout').addEventListener('click', applyAutoLayoutToCurrentWorkflow);
+        
+        document.querySelector('.workflow-container').addEventListener('wheel', handleWheel);
+        document.querySelector('.workflow-container').addEventListener('mousedown', handlePanStart);
+        document.addEventListener('mousemove', handlePanMove);
+        document.addEventListener('mouseup', handlePanEnd);
+
+        // Wait for DOM to be ready before loading workflow
+        document.addEventListener('DOMContentLoaded', () => {
+            loadWorkflow().then(() => {
+                // Listen for hash changes - reset viewport for new workflows
+                window.addEventListener('hashchange', () => {
+                    // Reset viewport for new workflows since node positions will be different
+                    loadWorkflow(false);
+                });
+                
+                // Initialize node inspection system
+                initializeNodeInspection();
+                
+                // Fit to view after loading
+                setTimeout(() => {
+                    if (document.querySelectorAll('.workflow-node').length > 0) {
+                        fitToView();
+                    }
+                }, 500);
+            });
+        });
+        
+        // Node Inspection System
+        let currentSelectedNode = null;
+        let nodeTooltip = null;
+        
+        function initializeNodeInspection() {
+            nodeTooltip = document.getElementById('node-tooltip');
+            
+            // Add event listeners for node interactions
+            document.addEventListener('click', handleNodeClick);
+            document.addEventListener('mouseover', handleNodeHover);
+            document.addEventListener('mouseout', handleNodeHoverOut);
+            
+            // Panel close button
+            document.getElementById('close-panel').addEventListener('click', closeInspectionPanel);
+            
+            // Tab switching
+            document.querySelectorAll('.panel-tab').forEach(tab => {
+                tab.addEventListener('click', (e) => {
+                    switchPanelTab(e.target.dataset.tab);
+                });
+            });
+            
+            // Prevent wheel events on inspection panel from affecting canvas zoom
+            const inspectionPanel = document.getElementById('node-panel');
+            inspectionPanel.addEventListener('wheel', (event) => {
+                event.stopPropagation();
+                // Let the panel handle its own scrolling naturally
+            });
+        }
+        
+        function handleNodeClick(event) {
+            const nodeElement = event.target.closest('.workflow-node');
+            if (nodeElement && !nodeElement.classList.contains('dragging')) {
+                event.stopPropagation();
+                selectNode(nodeElement);
+            } else if (!event.target.closest('.node-inspection-panel')) {
+                // Clicked outside node and panel - close panel
+                closeInspectionPanel();
+            }
+        }
+        
+        function handleNodeHover(event) {
+            const nodeElement = event.target.closest('.workflow-node');
+            if (nodeElement && !nodeElement.classList.contains('dragging')) {
+                showNodeTooltip(nodeElement, event);
+            }
+        }
+        
+        function handleNodeHoverOut(event) {
+            const nodeElement = event.target.closest('.workflow-node');
+            if (nodeElement) {
+                hideNodeTooltip();
+            }
+        }
+        
+        function showNodeTooltip(nodeElement, event) {
+            const nodeName = nodeElement.querySelector('.node-title')?.textContent;
+            const nodeSubtitle = nodeElement.querySelector('.node-subtitle')?.textContent;
+            
+            if (nodeTooltip && nodeName) {
+                nodeTooltip.innerHTML = `
+                    <strong>${nodeName}</strong><br>
+                    <small>${nodeSubtitle}</small><br>
+                    <em>Click to inspect</em>
+                `;
+                
+                // Position tooltip
+                const rect = nodeElement.getBoundingClientRect();
+                const tooltipRect = nodeTooltip.getBoundingClientRect();
+                
+                let left = rect.left + rect.width / 2 - tooltipRect.width / 2;
+                let top = rect.top - tooltipRect.height - 10;
+                
+                // Keep tooltip on screen
+                if (left < 10) left = 10;
+                if (left + tooltipRect.width > window.innerWidth - 10) {
+                    left = window.innerWidth - tooltipRect.width - 10;
+                }
+                if (top < 10) {
+                    top = rect.bottom + 10;
+                }
+                
+                nodeTooltip.style.left = left + 'px';
+                nodeTooltip.style.top = top + 'px';
+                nodeTooltip.style.display = 'block';
+            }
+        }
+        
+        function hideNodeTooltip() {
+            if (nodeTooltip) {
+                nodeTooltip.style.display = 'none';
+            }
+        }
+        
+        function selectNode(nodeElement) {
+            // Remove previous selection
+            if (currentSelectedNode) {
+                currentSelectedNode.style.outline = '';
+            }
+            
+            // Select new node
+            currentSelectedNode = nodeElement;
+            nodeElement.style.outline = '2px solid #3b82f6';
+            
+            // Get node information
+            const nodeName = nodeElement.querySelector('.node-title')?.textContent;
+            const nodeSubtitle = nodeElement.querySelector('.node-subtitle')?.textContent;
+            
+            // Find node type from workflow data
+            const workflow = window.currentWorkflow;
+            const nodeData = workflow?.nodes.find(n => n.name === nodeName);
+            
+            if (nodeData) {
+                populateInspectionPanel(nodeData);
+                openInspectionPanel();
+            }
+        }
+        
+        function populateInspectionPanel(nodeData) {
+            // Update header
+            const nodeIcon = document.getElementById('panel-node-icon');
+            const nodeName = document.getElementById('panel-node-name');
+            const nodeType = document.getElementById('panel-node-type');
+            
+            const icon = nodeIcons[nodeData.type] || nodeIcons['n8n-nodes-base.function'];
+            nodeIcon.innerHTML = icon;
+            nodeName.textContent = nodeData.name;
+            nodeType.textContent = formatNodeType(nodeData.type);
+            
+            // Get detailed information from database
+            const nodeInfo = nodeInformationDatabase[nodeData.type] || {
+                name: formatNodeType(nodeData.type),
+                description: 'No detailed information available for this node type.',
+                category: 'unknown',
+                parameters: {},
+                documentation: { description: 'Documentation not available.' }
+            };
+            
+            // Store for tab switching
+            window.currentNodeData = nodeData;
+            window.currentNodeInfo = nodeInfo;
+            
+            // Load default tab (config)
+            switchPanelTab('config');
+        }
+        
+        function switchPanelTab(tabName) {
+            // Update tab appearance
+            document.querySelectorAll('.panel-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('active');
+            
+            // Update content
+            const content = document.getElementById('panel-content');
+            const nodeData = window.currentNodeData;
+            const nodeInfo = window.currentNodeInfo;
+            
+            if (!nodeData || !nodeInfo) return;
+            
+            switch (tabName) {
+                case 'config':
+                    content.innerHTML = generateConfigTabContent(nodeData, nodeInfo);
+                    break;
+                case 'data':
+                    content.innerHTML = generateDataTabContent(nodeData, nodeInfo);
+                    break;
+                case 'docs':
+                    content.innerHTML = generateDocsTabContent(nodeData, nodeInfo);
+                    break;
+            }
+        }
+        
+        function generateConfigTabContent(nodeData, nodeInfo) {
+            const hasParameters = nodeInfo.parameters && Object.keys(nodeInfo.parameters).length > 0;
+            const hasRealParameters = nodeData.parameters && Object.keys(nodeData.parameters).length > 0;
+            
+            let html = `
+                <div class="info-section">
+                    <h4>Node Information</h4>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Type</div>
+                        <div class="parameter-value">${nodeData.type}</div>
+                        <div class="parameter-description">The n8n node type identifier</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Category</div>
+                        <div class="parameter-value">${nodeInfo.category}</div>
+                        <div class="parameter-description">Node classification for workflow organization</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Status</div>
+                        <div class="parameter-value">
+                            <span class="status-indicator idle">
+                                <span style="width: 8px; height: 8px; border-radius: 50%; background: #6b7280; display: inline-block;"></span>
+                                Idle
+                            </span>
+                        </div>
+                        <div class="parameter-description">Current execution status of this node</div>
+                    </div>
+                </div>
+            `;
+            
+            if (hasRealParameters) {
+                html += `
+                    <div class="info-section">
+                        <h4>Configured Parameters</h4>
+                        <div class="parameter-list">
+                `;
+                
+                Object.entries(nodeData.parameters).forEach(([key, value]) => {
+                    const displayValue = typeof value === 'object' ? JSON.stringify(value, null, 2) : String(value);
+                    html += `
+                        <div class="parameter-item">
+                            <div class="parameter-name">${key}</div>
+                            <div class="parameter-value">${displayValue}</div>
+                            <div class="parameter-description">Configured value for this parameter</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            } else if (hasParameters) {
+                html += `
+                    <div class="info-section">
+                        <h4>Available Parameters</h4>
+                        <div class="parameter-list">
+                `;
+                
+                Object.entries(nodeInfo.parameters).forEach(([key, param]) => {
+                    html += `
+                        <div class="parameter-item">
+                            <div class="parameter-name">${key} ${param.required ? '*' : ''}</div>
+                            <div class="parameter-value">${param.value}</div>
+                            <div class="parameter-description">${param.description}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                        <small style="color: #9ca3af;">* Required parameters</small>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="info-section">
+                        <h4>Parameters</h4>
+                        <p style="color: #6b7280; font-style: italic;">No parameters configured for this node.</p>
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+        
+        function generateDataTabContent(nodeData, nodeInfo) {
+            return `
+                <div class="info-section">
+                    <h4>Input Schema</h4>
+                    ${generateIOSection(nodeInfo.inputs || {}, 'No input data expected.')}
+                </div>
+                
+                <div class="info-section">
+                    <h4>Output Schema</h4>
+                    ${generateIOSection(nodeInfo.outputs || {}, 'No output data produced.')}
+                </div>
+                
+                <div class="info-section">
+                    <h4>Execution Data</h4>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Last Execution</div>
+                        <div class="parameter-value">Not available in demo mode</div>
+                        <div class="parameter-description">Timestamp of last successful execution</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Execution Count</div>
+                        <div class="parameter-value">-</div>
+                        <div class="parameter-description">Total number of executions for this node</div>
+                    </div>
+                    <div class="parameter-item">
+                        <div class="parameter-name">Average Duration</div>
+                        <div class="parameter-value">-</div>
+                        <div class="parameter-description">Average execution time in milliseconds</div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function generateDocsTabContent(nodeData, nodeInfo) {
+            const docs = nodeInfo.documentation || {};
+            
+            let html = `
+                <div class="info-section">
+                    <h4>Description</h4>
+                    <p style="line-height: 1.6; color: #374151;">${docs.description || 'No description available.'}</p>
+                </div>
+            `;
+            
+            if (docs.examples && docs.examples.length > 0) {
+                html += `
+                    <div class="info-section">
+                        <h4>Examples</h4>
+                `;
+                
+                docs.examples.forEach((example, index) => {
+                    html += `
+                        <div class="parameter-item" style="margin-bottom: 16px;">
+                            <div class="parameter-name">${example.title}</div>
+                            <div class="parameter-value" style="white-space: pre-wrap; font-family: 'SF Mono', Consolas, monospace; background: #f9fafb; padding: 12px; border-radius: 4px; margin: 8px 0;">${example.code}</div>
+                            <div class="parameter-description">${example.explanation}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                    </div>
+                `;
+            }
+            
+            if (docs.tips && docs.tips.length > 0) {
+                html += `
+                    <div class="info-section">
+                        <h4>Tips & Best Practices</h4>
+                        <ul style="margin: 0; padding-left: 20px; color: #374151; line-height: 1.6;">
+                `;
+                
+                docs.tips.forEach(tip => {
+                    html += `<li style="margin-bottom: 8px;">${tip}</li>`;
+                });
+                
+                html += `
+                        </ul>
+                    </div>
+                `;
+            }
+            
+            return html;
+        }
+        
+        function generateIOSection(ioData, emptyMessage) {
+            if (!ioData || Object.keys(ioData).length === 0) {
+                return `<p style="color: #6b7280; font-style: italic;">${emptyMessage}</p>`;
+            }
+            
+            let html = '<div class="parameter-list">';
+            
+            Object.entries(ioData).forEach(([key, schema]) => {
+                html += `
+                    <div class="parameter-item">
+                        <div class="parameter-name">${key}</div>
+                        <div class="parameter-value">${schema.type || 'any'}</div>
+                        <div class="parameter-description">${schema.description || 'No description available'}</div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+        
+        function openInspectionPanel() {
+            const panel = document.getElementById('node-panel');
+            panel.classList.add('open');
+        }
+        
+        function closeInspectionPanel() {
+            const panel = document.getElementById('node-panel');
+            panel.classList.remove('open');
+            
+            // Remove node selection outline
+            if (currentSelectedNode) {
+                currentSelectedNode.style.outline = '';
+                currentSelectedNode = null;
+            }
+        }
+        
+        // If DOM is already loaded
+        if (document.readyState === 'loading') {
+            // DOM is still loading, wait for DOMContentLoaded
+        } else {
+            // DOM is already loaded
+            loadWorkflow().then(() => {
+                // Listen for hash changes - reset viewport for new workflows
+                window.addEventListener('hashchange', () => {
+                    // Reset viewport for new workflows since node positions will be different
+                    loadWorkflow(false);
+                });
+                
+                // Initialize node inspection system
+                initializeNodeInspection();
+                
+                // Fit to view after loading
+                setTimeout(() => {
+                    if (document.querySelectorAll('.workflow-node').length > 0) {
+                        fitToView();
+                    }
+                }, 500);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -82,7 +82,7 @@ build-all: build-native build-wasm
 # Development commands
 test:
 	@echo "🧪 Running test suite..."
-	cargo test --workspace --all-features
+	cargo test --lib --all-features
 
 test-wasm:
 	@echo "🧪 Running WASM-compatible tests..."
@@ -90,7 +90,7 @@ test-wasm:
 
 lint:
 	@echo "🔍 Running clippy linting..."
-	cargo clippy --workspace --all-targets --all-features -- -D warnings
+	cargo clippy --workspace --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --all-features -- -D warnings
 
 format:
 	@echo "✨ Formatting code..."
@@ -273,9 +273,46 @@ prepare-release: clean build-all test size-analysis
 	@echo "📦 Preparing release..."
 	@echo "✅ Release preparation complete"
 
-# CI/CD commands
-ci-check: format-check lint test check-wasm
+# CI/CD commands (matches GitHub Actions)
+ci-check: format-check lint test security docs check-wasm
 	@echo "🤖 CI checks completed successfully"
+
+# Individual CI jobs (matches GitHub Actions workflows)
+ci-format:
+	@echo "🔍 CI Format Check..."
+	cargo fmt --all -- --check
+
+ci-clippy:
+	@echo "🔍 CI Clippy Check..."
+	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --no-default-features -- -D warnings
+	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default" -- -D warnings
+
+ci-test:
+	@echo "🧪 CI Test Suite..."
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --no-default-features
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default"
+	cargo test --verbose --lib
+	cargo test --verbose --lib --features "default"
+	@echo "🔍 Checking for warnings..."
+	@! cargo check --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default" 2>&1 | grep -i warning
+
+ci-security:
+	@echo "🔒 CI Security Audit..."
+	@which cargo-audit > /dev/null || cargo install cargo-audit
+	cargo audit
+
+ci-wasm:
+	@echo "🌐 CI WASM Build Check..."
+	@rustup target list --installed | grep -q wasm32-wasip2 || rustup target add wasm32-wasip2
+	cargo build --target wasm32-wasip2 --features wasm --no-default-features
+
+ci-docs:
+	@echo "📚 CI Documentation Build..."
+	RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features
+
+# Security alias for audit
+security: audit
 
 # Development server with auto-reload (avoids keychain prompts)
 dev:

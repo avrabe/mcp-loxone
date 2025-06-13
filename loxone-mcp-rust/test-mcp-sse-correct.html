@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>MCP SSE Transport Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; }
+        button { margin: 10px; padding: 5px 10px; }
+        pre { background: #f0f0f0; padding: 10px; overflow: auto; }
+        .error { color: red; }
+        .success { color: green; }
+        .sse { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>MCP SSE Transport Test (Correct Implementation)</h1>
+    
+    <p>This demonstrates the correct SSE transport pattern:</p>
+    <ol>
+        <li>Open SSE connection for receiving server events</li>
+        <li>Send requests via HTTP POST to /messages</li>
+        <li>Receive responses through SSE stream OR HTTP response</li>
+    </ol>
+    
+    <div>
+        <button onclick="startSSESession()">Start SSE Session</button>
+        <button onclick="stopSSE()" disabled id="stopBtn">Stop SSE</button>
+    </div>
+    
+    <div>
+        <button onclick="sendInitialize()" disabled id="initBtn">Send Initialize</button>
+        <button onclick="sendToolsList()" disabled id="toolsBtn">Send Tools List</button>
+        <button onclick="sendListRooms()" disabled id="roomsBtn">Send List Rooms</button>
+    </div>
+    
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        let eventSource = null;
+        let requestId = 1;
+        const pendingRequests = new Map();
+        
+        function log(message, type = '') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            output.appendChild(div);
+            output.scrollTop = output.scrollHeight;
+        }
+        
+        function enableButtons(enabled) {
+            document.getElementById('initBtn').disabled = !enabled;
+            document.getElementById('toolsBtn').disabled = !enabled;
+            document.getElementById('roomsBtn').disabled = !enabled;
+            document.getElementById('stopBtn').disabled = !enabled;
+        }
+        
+        async function startSSESession() {
+            log('Starting SSE session...');
+            
+            // First open SSE connection
+            eventSource = new EventSource('http://localhost:3001/sse');
+            
+            eventSource.onopen = () => {
+                log('SSE connection opened', 'success');
+                enableButtons(true);
+            };
+            
+            eventSource.addEventListener('connection', (event) => {
+                log(`SSE connection event: ${event.data}`, 'sse');
+            });
+            
+            eventSource.addEventListener('ping', (event) => {
+                log(`SSE ping: ${event.data}`, 'sse');
+            });
+            
+            eventSource.addEventListener('message', (event) => {
+                log(`SSE message: ${event.data}`, 'sse');
+                
+                // Check if this is a response to a pending request
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.id && pendingRequests.has(data.id)) {
+                        const resolve = pendingRequests.get(data.id);
+                        pendingRequests.delete(data.id);
+                        resolve(data);
+                    }
+                } catch (e) {
+                    // Not JSON or not a response
+                }
+            });
+            
+            eventSource.onerror = (error) => {
+                log('SSE error - connection closed', 'error');
+                enableButtons(false);
+                eventSource = null;
+            };
+        }
+        
+        function stopSSE() {
+            if (eventSource) {
+                eventSource.close();
+                eventSource = null;
+                log('SSE connection closed by user');
+                enableButtons(false);
+            }
+        }
+        
+        async function sendRequest(method, params = {}) {
+            const id = requestId++;
+            const request = {
+                jsonrpc: '2.0',
+                id: id,
+                method: method,
+                params: params
+            };
+            
+            log(`Sending ${method} request (id: ${id})...`);
+            
+            try {
+                // Send request via HTTP POST
+                const response = await fetch('http://localhost:3001/messages', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer ai-agent-default-token'
+                    },
+                    body: JSON.stringify(request)
+                });
+                
+                // Check if we got direct HTTP response or need to wait for SSE
+                const responseData = await response.json();
+                
+                if (responseData.result || responseData.error) {
+                    log(`HTTP Response: ${JSON.stringify(responseData, null, 2)}`, 'success');
+                    return responseData;
+                } else {
+                    // Response might come through SSE
+                    log('Waiting for SSE response...');
+                    
+                    return new Promise((resolve) => {
+                        pendingRequests.set(id, resolve);
+                        
+                        // Timeout after 10 seconds
+                        setTimeout(() => {
+                            if (pendingRequests.has(id)) {
+                                pendingRequests.delete(id);
+                                resolve({ error: 'Timeout waiting for SSE response' });
+                            }
+                        }, 10000);
+                    });
+                }
+            } catch (error) {
+                log(`Error: ${error.message}`, 'error');
+                return { error: error.message };
+            }
+        }
+        
+        async function sendInitialize() {
+            const response = await sendRequest('initialize', {
+                protocolVersion: '2024-11-05',
+                capabilities: { tools: {} },
+                clientInfo: { name: 'sse-test', version: '1.0.0' }
+            });
+            
+            if (response.result) {
+                log(`Server initialized: ${response.result.serverInfo.name} v${response.result.serverInfo.version}`, 'success');
+                
+                // Send initialized notification
+                await sendRequest('notifications/initialized');
+            }
+        }
+        
+        async function sendToolsList() {
+            const response = await sendRequest('tools/list');
+            
+            if (response.result && response.result.tools) {
+                const tools = response.result.tools.map(t => t.name).join(', ');
+                log(`Available tools: ${tools}`, 'success');
+            }
+        }
+        
+        async function sendListRooms() {
+            const response = await sendRequest('tools/call', {
+                name: 'list_rooms',
+                arguments: {}
+            });
+            
+            if (response.result) {
+                log(`Rooms result: ${JSON.stringify(response.result)}`, 'success');
+            }
+        }
+    </script>
+</body>
+</html>

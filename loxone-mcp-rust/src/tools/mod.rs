@@ -3,15 +3,18 @@
 //! This module contains all 30+ MCP tools that provide device control,
 //! room management, sensor monitoring, and system capabilities.
 
-pub mod rooms;
-pub mod devices;
-pub mod sensors;
+pub mod audio;
 pub mod climate;
-pub mod weather;
-pub mod security;
+pub mod devices;
+pub mod documentation;
 pub mod energy;
+pub mod rooms;
+pub mod security;
+pub mod sensors;
+pub mod weather;
+pub mod workflows;
 
-use crate::client::{LoxoneClient, ClientContext};
+use crate::client::{ClientContext, LoxoneClient};
 use crate::error::{LoxoneError, Result};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
@@ -23,14 +26,14 @@ use std::sync::Arc;
 pub struct ToolResponse {
     /// Status of the operation
     pub status: String,
-    
+
     /// Response data
     pub data: serde_json::Value,
-    
+
     /// Optional message
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message: Option<String>,
-    
+
     /// Timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
@@ -45,7 +48,7 @@ impl ToolResponse {
             timestamp: chrono::Utc::now(),
         }
     }
-    
+
     /// Create successful response with message
     pub fn success_with_message(data: serde_json::Value, message: String) -> Self {
         Self {
@@ -55,7 +58,7 @@ impl ToolResponse {
             timestamp: chrono::Utc::now(),
         }
     }
-    
+
     /// Create error response
     pub fn error(message: String) -> Self {
         Self {
@@ -65,16 +68,53 @@ impl ToolResponse {
             timestamp: chrono::Utc::now(),
         }
     }
-    
+
     /// Create response from Result
     pub fn from_result<T: Serialize>(result: Result<T>) -> Self {
         match result {
             Ok(data) => {
-                let json_data = serde_json::to_value(data)
-                    .unwrap_or(serde_json::Value::Null);
+                let json_data = serde_json::to_value(data).unwrap_or(serde_json::Value::Null);
                 Self::success(json_data)
             }
             Err(e) => Self::error(e.to_string()),
+        }
+    }
+
+    /// Create empty response (optimized for MCP best practices)
+    pub fn empty() -> Self {
+        Self {
+            status: "success".to_string(),
+            data: serde_json::json!([]),
+            message: None,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
+    /// Create empty response with context message
+    pub fn empty_with_context(context: &str) -> Self {
+        Self {
+            status: "success".to_string(),
+            data: serde_json::json!({
+                "context": context,
+                "items": [],
+                "count": 0
+            }),
+            message: None,
+            timestamp: chrono::Utc::now(),
+        }
+    }
+
+    /// Create not found response (optimized for MCP best practices)
+    pub fn not_found(identifier: &str, suggestion: Option<&str>) -> Self {
+        Self {
+            status: "success".to_string(),
+            data: serde_json::json!({
+                "requested": identifier,
+                "found": false,
+                "suggestion": suggestion.unwrap_or("Check available items using discovery tools")
+            }),
+            message: None,
+            timestamp: chrono::Utc::now(),
         }
     }
 }
@@ -84,7 +124,7 @@ impl ToolResponse {
 pub struct ToolContext {
     /// Loxone client for API calls
     pub client: Arc<dyn LoxoneClient>,
-    
+
     /// Client context for cached data
     pub context: Arc<ClientContext>,
 }
@@ -94,51 +134,71 @@ impl ToolContext {
     pub fn new(client: Arc<dyn LoxoneClient>, context: Arc<ClientContext>) -> Self {
         Self { client, context }
     }
-    
+
     /// Ensure client is connected
     pub async fn ensure_connected(&self) -> Result<()> {
         if !self.client.is_connected().await? {
-            return Err(LoxoneError::connection("Not connected to Loxone Miniserver"));
+            return Err(LoxoneError::connection(
+                "Not connected to Loxone Miniserver",
+            ));
         }
         Ok(())
     }
-    
+
     /// Get all devices with optional filtering
-    pub async fn get_devices(&self, filter: Option<DeviceFilter>) -> Result<Vec<crate::client::LoxoneDevice>> {
+    pub async fn get_devices(
+        &self,
+        filter: Option<DeviceFilter>,
+    ) -> Result<Vec<crate::client::LoxoneDevice>> {
         let devices = self.context.devices.read().await;
         let mut result: Vec<_> = devices.values().cloned().collect();
-        
+
         if let Some(filter) = filter {
-            result.retain(|device| {
-                filter.matches(device)
-            });
+            result.retain(|device| filter.matches(device));
         }
-        
+
         Ok(result)
     }
-    
+
     /// Find device by name or UUID
     pub async fn find_device(&self, identifier: &str) -> Result<crate::client::LoxoneDevice> {
-        self.context.get_device(identifier).await?
+        self.context
+            .get_device(identifier)
+            .await?
             .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", identifier)))
     }
-    
+
     /// Send command to device
-    pub async fn send_device_command(&self, uuid: &str, command: &str) -> Result<crate::client::LoxoneResponse> {
+    pub async fn send_device_command(
+        &self,
+        uuid: &str,
+        command: &str,
+    ) -> Result<crate::client::LoxoneResponse> {
         self.ensure_connected().await?;
         self.client.send_command(uuid, command).await
     }
-    
+
     /// Send commands to multiple devices in parallel
-    pub async fn send_parallel_commands(&self, commands: Vec<(String, String)>) -> Result<Vec<Result<crate::client::LoxoneResponse>>> {
+    pub async fn send_parallel_commands(
+        &self,
+        commands: Vec<(String, String)>,
+    ) -> Result<Vec<Result<crate::client::LoxoneResponse>>> {
+        use futures::future::join_all;
+
         self.ensure_connected().await?;
-        
-        let mut results = Vec::new();
-        for (uuid, command) in commands {
-            let result = self.client.send_command(&uuid, &command).await;
-            results.push(result);
-        }
-        
+
+        // Create futures for all commands
+        let futures: Vec<_> = commands
+            .into_iter()
+            .map(|(uuid, command)| {
+                let client = self.client.clone();
+                async move { client.send_command(&uuid, &command).await }
+            })
+            .collect();
+
+        // Execute all commands in parallel
+        let results = join_all(futures).await;
+
         Ok(results)
     }
 }
@@ -148,13 +208,13 @@ impl ToolContext {
 pub struct DeviceFilter {
     /// Filter by device type
     pub device_type: Option<String>,
-    
+
     /// Filter by category
     pub category: Option<String>,
-    
+
     /// Filter by room
     pub room: Option<String>,
-    
+
     /// Maximum number of devices to return
     pub limit: Option<usize>,
 }
@@ -167,19 +227,19 @@ impl DeviceFilter {
                 return false;
             }
         }
-        
+
         if let Some(ref category) = self.category {
             if device.category != *category {
                 return false;
             }
         }
-        
+
         if let Some(ref room) = self.room {
             if device.room.as_ref() != Some(room) {
                 return false;
             }
         }
-        
+
         true
     }
 }
@@ -199,15 +259,15 @@ impl ActionAliases {
             "stopp" | "stop" | "halt" => "stop".to_string(),
             "dimmen" => "dim".to_string(),
             "hell" | "bright" => "bright".to_string(),
-            
+
             // English actions (passthrough)
             "on" | "off" | "up" | "down" | "dim" => action.to_lowercase(),
-            
+
             // Default passthrough
             _ => action.to_lowercase(),
         }
     }
-    
+
     /// Get valid actions for device type
     pub fn get_valid_actions(device_type: &str) -> Vec<&'static str> {
         match device_type.to_lowercase().as_str() {
@@ -232,13 +292,13 @@ impl ActionAliases {
 pub struct DeviceStats {
     /// Total device count
     pub total_devices: usize,
-    
+
     /// Devices by category
     pub by_category: HashMap<String, usize>,
-    
+
     /// Devices by room
     pub by_room: HashMap<String, usize>,
-    
+
     /// Devices by type
     pub by_type: HashMap<String, usize>,
 }
@@ -249,20 +309,20 @@ impl DeviceStats {
         let mut by_category = HashMap::new();
         let mut by_room = HashMap::new();
         let mut by_type = HashMap::new();
-        
+
         for device in devices {
             // Count by category
             *by_category.entry(device.category.clone()).or_insert(0) += 1;
-            
+
             // Count by room
             if let Some(ref room) = device.room {
                 *by_room.entry(room.clone()).or_insert(0) += 1;
             }
-            
+
             // Count by type
             *by_type.entry(device.device_type.clone()).or_insert(0) += 1;
         }
-        
+
         Self {
             total_devices: devices.len(),
             by_category,

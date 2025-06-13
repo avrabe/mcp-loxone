@@ -1,18 +1,13 @@
 //! Verify credentials for Loxone MCP Rust server
-//! 
+//!
 //! This utility checks if credentials are properly stored and accessible.
 
-use loxone_mcp_rust::{
-    config::credentials::create_best_credential_manager,
-    Result,
-};
-use tracing::{info, error};
+use loxone_mcp_rust::{config::credentials::create_best_credential_manager, Result};
+use tracing::{error, info};
 
 fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("\n🔍 Loxone MCP Credential Verification");
     println!("========================================\n");
@@ -20,10 +15,10 @@ fn main() -> Result<()> {
     // Use tokio runtime
     tokio::runtime::Runtime::new()?.block_on(async {
         println!("Checking credential backends...\n");
-        
+
         // Create multi-backend credential manager
         let multi_manager = create_best_credential_manager().await?;
-        
+
         // Try to get credentials
         match multi_manager.get_credentials().await {
             Ok(creds) => {
@@ -46,12 +41,12 @@ fn main() -> Result<()> {
                 return Err(e);
             }
         }
-        
+
         println!("\nCredential verification complete using best available backend.");
-        
+
         println!("\n✅ Verification complete!");
         println!("\nYour credentials are accessible to the Rust server.");
-        
+
         Ok(())
     })
 }

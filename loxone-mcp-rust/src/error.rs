@@ -39,7 +39,7 @@ pub enum LoxoneError {
     /// Sensor discovery errors
     #[error("Sensor discovery error: {0}")]
     SensorDiscovery(String),
-    
+
     /// Network discovery errors
     #[error("Discovery failed: {0}")]
     Discovery(String),
@@ -90,6 +90,23 @@ pub enum LoxoneError {
     /// Service unavailable
     #[error("Service unavailable: {0}")]
     ServiceUnavailable(String),
+
+    /// Resource exhausted
+    #[error("Resource exhausted: {0}")]
+    ResourceExhausted(String),
+
+    /// Consent denied errors
+    #[error("Consent denied: {0}")]
+    ConsentDenied(String),
+}
+
+/// Sanitized error representation for production logging
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SanitizedError {
+    pub error_type: String,
+    pub message: String,
+    pub is_retryable: bool,
+    pub is_auth_error: bool,
 }
 
 impl LoxoneError {
@@ -122,7 +139,7 @@ impl LoxoneError {
     pub fn sensor_discovery<S: Into<String>>(msg: S) -> Self {
         Self::SensorDiscovery(msg.into())
     }
-    
+
     /// Create a discovery error
     pub fn discovery<S: Into<String>>(msg: S) -> Self {
         Self::Discovery(msg.into())
@@ -143,14 +160,24 @@ impl LoxoneError {
         Self::NotFound(msg.into())
     }
 
+    /// Create a resource exhausted error
+    pub fn resource_exhausted<S: Into<String>>(msg: S) -> Self {
+        Self::ResourceExhausted(msg.into())
+    }
+
+    /// Create a consent denied error
+    pub fn consent_denied<S: Into<String>>(msg: S) -> Self {
+        Self::ConsentDenied(msg.into())
+    }
+
     /// Check if error is retryable
     pub fn is_retryable(&self) -> bool {
         matches!(
             self,
-            LoxoneError::Connection(_) | 
-            LoxoneError::Timeout(_) |
-            LoxoneError::ServiceUnavailable(_) |
-            LoxoneError::Http(_)
+            LoxoneError::Connection(_)
+                | LoxoneError::Timeout(_)
+                | LoxoneError::ServiceUnavailable(_)
+                | LoxoneError::Http(_)
         )
     }
 
@@ -158,10 +185,60 @@ impl LoxoneError {
     pub fn is_auth_error(&self) -> bool {
         matches!(
             self,
-            LoxoneError::Authentication(_) |
-            LoxoneError::Credentials(_) |
-            LoxoneError::PermissionDenied(_)
+            LoxoneError::Authentication(_)
+                | LoxoneError::Credentials(_)
+                | LoxoneError::PermissionDenied(_)
         )
+    }
+
+    /// Get a production-safe error message that doesn't expose sensitive information
+    pub fn sanitized_message(&self) -> String {
+        #[cfg(debug_assertions)]
+        {
+            // In debug builds, show full error details
+            self.to_string()
+        }
+        #[cfg(not(debug_assertions))]
+        {
+            // In production builds, sanitize sensitive information
+            match self {
+                LoxoneError::Authentication(_) => "Authentication failed".to_string(),
+                LoxoneError::Credentials(_) => "Credential access error".to_string(),
+                LoxoneError::PermissionDenied(_) => "Access denied".to_string(),
+                LoxoneError::Connection(_) => "Network connection issue".to_string(),
+                LoxoneError::Timeout(_) => "Operation timed out".to_string(),
+                LoxoneError::Http(_) => "HTTP request failed".to_string(),
+                LoxoneError::Config(_) => "Configuration error".to_string(),
+                LoxoneError::DeviceControl(_) => "Device control failed".to_string(),
+                LoxoneError::SensorDiscovery(_) => "Sensor discovery failed".to_string(),
+                LoxoneError::Discovery(_) => "Network discovery failed".to_string(),
+                LoxoneError::Mcp(_) => "MCP protocol error".to_string(),
+                LoxoneError::InvalidInput(_) => "Invalid input provided".to_string(),
+                LoxoneError::NotFound(_) => "Requested resource not found".to_string(),
+                LoxoneError::ServiceUnavailable(_) => "Service temporarily unavailable".to_string(),
+                LoxoneError::ResourceExhausted(_) => "Resource limits exceeded".to_string(),
+                LoxoneError::ConsentDenied(_) => "Operation requires user consent".to_string(),
+                LoxoneError::Io(_) => "I/O operation failed".to_string(),
+                LoxoneError::Json(_) => "Data parsing error".to_string(),
+                LoxoneError::Generic(_) => "Internal error occurred".to_string(),
+                #[cfg(feature = "websocket")]
+                LoxoneError::WebSocket(_) => "WebSocket connection error".to_string(),
+                #[cfg(feature = "crypto")]
+                LoxoneError::Crypto(_) => "Cryptographic operation failed".to_string(),
+                #[cfg(target_arch = "wasm32")]
+                LoxoneError::Wasm(_) => "WASM runtime error".to_string(),
+            }
+        }
+    }
+
+    /// Create a sanitized version of the error for logging
+    pub fn sanitized_error(&self) -> SanitizedError {
+        SanitizedError {
+            error_type: format!("{:?}", std::mem::discriminant(self)),
+            message: self.sanitized_message(),
+            is_retryable: self.is_retryable(),
+            is_auth_error: self.is_auth_error(),
+        }
     }
 }
 

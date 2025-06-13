@@ -6,9 +6,7 @@ use std::env;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     println!("\n🔍 Testing Loxone Endpoints");
     println!("========================================\n");
@@ -30,7 +28,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "/",
         "/data/LoxAPP3.json",
         "/jdev/sys/getversion",
-        "/jdev/sys/getkey", 
+        "/jdev/sys/getkey",
         "/jdev/sys/getkey2",
         "/jdev/cfg/api",
         "/dev/sys/getversion",
@@ -44,21 +42,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for endpoint in endpoints {
         let url = format!("{}{}", host, endpoint);
-        
+
         print!("Testing {:<25} ... ", endpoint);
-        
+
         match client.get(&url).send().await {
             Ok(response) => {
                 let status = response.status();
-                let content_type = response.headers()
+                let content_type = response
+                    .headers()
                     .get("content-type")
                     .and_then(|ct| ct.to_str().ok())
                     .unwrap_or("unknown")
                     .to_string();
-                
+
                 let status_code = status.as_u16();
                 let success = status.is_success();
-                
+
                 let body_preview = if success {
                     match response.text().await {
                         Ok(body) => {
@@ -68,19 +67,23 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 body
                             }
                         }
-                        Err(_) => "failed to read".to_string()
+                        Err(_) => "failed to read".to_string(),
                     }
                 } else {
                     String::new()
                 };
-                
+
                 match status_code {
                     200 => println!("✅ {} ({})", status, content_type),
                     401 => println!("🔐 {} - Auth required (endpoint exists)", status),
                     404 => println!("❌ {} - Not found", status),
-                    _ => println!("⚠️  {} - {}", status, status.canonical_reason().unwrap_or("Unknown")),
+                    _ => println!(
+                        "⚠️  {} - {}",
+                        status,
+                        status.canonical_reason().unwrap_or("Unknown")
+                    ),
                 }
-                
+
                 // Show body preview for successful responses
                 if success && !body_preview.is_empty() {
                     println!("     Preview: {}", body_preview.replace('\n', " "));

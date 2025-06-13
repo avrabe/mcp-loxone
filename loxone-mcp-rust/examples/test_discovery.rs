@@ -11,12 +11,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter("info,loxone_mcp_rust=debug")
         .init();
-    
+
     println!("\n🔍 Testing Loxone network discovery...\n");
-    
+
     // Create discovery instance with 10 second timeout
     let discovery = NetworkDiscovery::new(Duration::from_secs(10));
-    
+
     // Discover servers
     match discovery.discover_servers().await {
         Ok(servers) => {
@@ -29,33 +29,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("4. Try accessing it directly if you know the IP");
             } else {
                 println!("✅ Found {} Loxone Miniserver(s):\n", servers.len());
-                
+
                 for (i, server) in servers.iter().enumerate() {
                     println!("{}. {} ", i + 1, "=".repeat(60));
                     println!("   Name: {}", server.name);
                     println!("   IP: {}", server.ip);
                     println!("   Port: {}", server.port);
                     println!("   Discovery Method: {}", server.method);
-                    
+
                     if let Some(service_type) = &server.service_type {
                         println!("   Service Type: {}", service_type);
                     }
-                    
+
                     if let Some(service_name) = &server.service_name {
                         println!("   Service Name: {}", service_name);
                     }
-                    
+
                     println!("   URL: http://{}:{}", server.ip, server.port);
                 }
-                
+
                 println!("\n💡 To configure credentials for a server, run:");
-                println!("   cargo run --bin loxone-mcp-setup -- --host {}", servers[0].ip);
+                println!(
+                    "   cargo run --bin loxone-mcp-setup -- --host {}",
+                    servers[0].ip
+                );
             }
         }
         Err(e) => {
             eprintln!("❌ Discovery error: {}", e);
         }
     }
-    
+
     Ok(())
 }

@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "loxone-mcp": {
+      "command": "./target/release/loxone-mcp-server",
+      "args": ["stdio"],
+      "env": {}
+    }
+  }
+}

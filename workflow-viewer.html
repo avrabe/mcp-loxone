@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>n8n Workflow Viewer - Loxone MCP</title>
+    <!-- Removed n8n-demo component - using custom visualization -->
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #f0f0f0;
+            font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+        .workflow-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .workflow-tabs {
+            display: flex;
+            gap: 2px;
+            margin-bottom: 20px;
+            background-color: #2a2a2a;
+            padding: 4px;
+            border-radius: 8px;
+        }
+        .workflow-tab {
+            padding: 12px 24px;
+            background-color: transparent;
+            color: #999;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 500;
+            border-radius: 6px;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .workflow-tab:hover {
+            background-color: #333;
+            color: #fff;
+        }
+        .workflow-tab.active {
+            background-color: #00a97f;
+            color: white;
+        }
+        .workflow-viewer {
+            background-color: #252525;
+            border-radius: 12px;
+            padding: 20px;
+            min-height: 600px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+        }
+        .workflow-info {
+            margin-bottom: 20px;
+            padding: 16px;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+            border-left: 4px solid #00a97f;
+        }
+        .workflow-info h2 {
+            margin: 0 0 8px 0;
+            color: #00a97f;
+            font-size: 24px;
+        }
+        .workflow-info p {
+            margin: 0;
+            color: #ccc;
+            line-height: 1.6;
+        }
+        n8n-demo {
+            display: block;
+            width: 100%;
+            height: 600px;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        .loading {
+            text-align: center;
+            padding: 100px 20px;
+            color: #666;
+        }
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: #ff6b6b;
+            background-color: rgba(255, 107, 107, 0.1);
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .workflow-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+        .action-button {
+            padding: 8px 16px;
+            border: 1px solid #444;
+            background-color: transparent;
+            color: #ccc;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .action-button:hover {
+            background-color: #333;
+            border-color: #00a97f;
+            color: white;
+        }
+        .action-button svg {
+            width: 16px;
+            height: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="workflow-container">
+        <h1 style="text-align: center; margin-bottom: 40px; font-size: 36px; font-weight: 300;">
+            n8n Workflow <span style="color: #00a97f;">Visualizations</span>
+        </h1>
+        
+        <div class="workflow-tabs">
+            <button class="workflow-tab active" data-workflow="n8n-workflows/loxone-mcp-server-workflows.json">
+                MCP Server Workflows
+            </button>
+            <button class="workflow-tab" data-workflow="n8n-workflows/loxone-mcp-client-workflow.json">
+                MCP Client Integration
+            </button>
+            <button class="workflow-tab" data-workflow="examples/n8n-loxone-workflow.json">
+                Simple Control Example
+            </button>
+        </div>
+        
+        <div class="workflow-info" id="workflow-info">
+            <h2>MCP Server Workflows</h2>
+            <p>Advanced automation workflow demonstrating complex scenarios including scene management, energy monitoring, and presence-based control.</p>
+            <div class="workflow-actions">
+                <a href="examples/n8n-loxone-workflow.json" download class="action-button">
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                    </svg>
+                    Download JSON
+                </a>
+                <button class="action-button" onclick="copyWorkflowPath()">
+                    <svg fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path>
+                        <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path>
+                    </svg>
+                    Copy Path
+                </button>
+            </div>
+        </div>
+        
+        <div class="workflow-viewer">
+            <iframe id="workflow-frame" src="" style="width: 100%; height: 600px; border: none; border-radius: 8px;"></iframe>
+        </div>
+    </div>
+
+    <script>
+        const workflowInfo = {
+            'n8n-workflows/loxone-mcp-server-workflows.json': {
+                title: 'MCP Server Workflows',
+                description: 'Advanced automation workflow demonstrating complex scenarios including scene management, energy monitoring, and presence-based control.'
+            },
+            'n8n-workflows/loxone-mcp-client-workflow.json': {
+                title: 'MCP Client Integration',
+                description: 'Workflow showing how to integrate with external services using the MCP client, including weather updates and smart notifications.'
+            },
+            'examples/n8n-loxone-workflow.json': {
+                title: 'Simple Control Example',
+                description: 'Basic workflow demonstrating fundamental operations like turning lights on/off and adjusting blinds based on simple triggers.'
+            }
+        };
+
+        let currentWorkflowPath = 'examples/n8n-loxone-workflow.json';
+
+        async function loadWorkflow(path) {
+            currentWorkflowPath = path;
+            const frame = document.getElementById('workflow-frame');
+            const infoEl = document.getElementById('workflow-info');
+            
+            // Update info
+            const info = workflowInfo[path];
+            infoEl.innerHTML = `
+                <h2>${info.title}</h2>
+                <p>${info.description}</p>
+                <div class="workflow-actions">
+                    <a href="${path}" download class="action-button">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"></path>
+                        </svg>
+                        Download JSON
+                    </a>
+                    <button class="action-button" onclick="copyWorkflowPath()">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z"></path>
+                            <path d="M6 3a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V5a2 2 0 00-2-2 3 3 0 01-3 3H9a3 3 0 01-3-3z"></path>
+                        </svg>
+                        Copy Path
+                    </button>
+                </div>
+            `;
+            
+            // Load workflow in iframe
+            frame.src = `workflow-embed.html#${path}`;
+        }
+
+        function copyWorkflowPath() {
+            const fullPath = window.location.origin + '/' + currentWorkflowPath;
+            navigator.clipboard.writeText(fullPath).then(() => {
+                // Show a temporary success message
+                const button = event.target.closest('.action-button');
+                const originalText = button.innerHTML;
+                button.innerHTML = '<svg fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path></svg> Copied!';
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                }, 2000);
+            });
+        }
+
+        // Tab switching
+        document.querySelectorAll('.workflow-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                document.querySelectorAll('.workflow-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Load workflow
+                const workflowPath = tab.getAttribute('data-workflow');
+                loadWorkflow(workflowPath);
+            });
+        });
+
+        // Check for workflow in URL hash
+        const hash = window.location.hash.slice(1);
+        const initialWorkflow = hash || 'n8n-workflows/loxone-mcp-server-workflows.json';
+        
+        // Update active tab if specified in hash
+        if (hash) {
+            document.querySelectorAll('.workflow-tab').forEach(tab => {
+                if (tab.getAttribute('data-workflow') === hash) {
+                    document.querySelectorAll('.workflow-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                }
+            });
+        }
+        
+        // Load initial workflow
+        loadWorkflow(initialWorkflow);
+    </script>
+</body>
+</html>

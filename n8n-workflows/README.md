@@ -1,239 +1,145 @@
-# n8n Workflows for Loxone MCP Integration
+# n8n Workflows for Loxone MCP
 
-This directory contains advanced n8n workflows that demonstrate the full capabilities of the Loxone MCP integration.
+This directory contains example n8n workflows that demonstrate advanced integration patterns with the Loxone MCP server.
 
-## Overview
-
-The workflows implement a comprehensive home automation system with:
-- **Event-driven automation** via SSE (Server-Sent Events)
-- **Complex logic processing** for scenes, security, and energy management
-- **External integrations** with popular services
-- **Analytics and reporting** capabilities
-
-## Workflows
+## Available Workflows
 
 ### 1. Loxone MCP Server Workflows (`loxone-mcp-server-workflows.json`)
 
-Advanced automation scenarios that leverage the MCP server:
+Advanced automation workflows that integrate directly with the MCP server:
 
-#### Scene Manager
-- **Endpoint**: `/webhook/loxone-scene-manager`
-- **Scenes**: morning, evening, away, vacation
-- **Features**:
-  - Room-specific control
-  - Time-based adjustments
-  - Multi-device coordination
-
-#### Energy Monitor
-- **Endpoint**: `/webhook/loxone-energy-monitor`
-- **Features**:
-  - Real-time usage monitoring
-  - Threshold-based alerts
-  - Automatic load reduction
-  - Cost tracking
-
-#### Security System
-- **Endpoint**: `/webhook/loxone-security-system`
-- **Modes**: arm_away, arm_home, disarm, panic
-- **Features**:
-  - Zone-based arming
-  - Automatic responses
-  - Emergency notifications
-
-#### Climate Control
-- **Schedule**: Every 5 minutes
-- **Features**:
-  - Intelligent temperature adjustment
-  - Time and season aware
-  - Room-specific targeting
+- **Scene Manager**: Webhook-triggered scene automation (morning, evening, away, vacation modes)
+- **Energy Monitor**: Real-time monitoring with threshold alerts and automatic load management
+- **Security System**: Multi-mode security integration with zone control and panic features
+- **Climate Control**: Intelligent temperature scheduling based on time of day and season
 
 ### 2. Loxone MCP Client Workflow (`loxone-mcp-client-workflow.json`)
 
-Integration hub that processes events and connects to external services:
+Event-driven client that processes Loxone events and integrates with external services:
 
-#### Event Processing
-- Receives SSE events from Loxone
-- Intelligent routing based on event type
-- Automated response generation
+- **SSE Event Processing**: Real-time event handling from the MCP server
+- **External Integrations**: Google Calendar, Slack, Email, SMS, Database
+- **Analytics Engine**: Hourly reports with trends and recommendations
+- **Multi-Channel Routing**: Intelligent notification routing based on priority
 
-#### External Integrations
-- **Slack**: Real-time notifications
-- **Google Calendar**: Event scheduling
-- **Email**: Alert notifications
-- **SMS**: Critical alerts via Twilio
-- **Database**: Event logging and analytics
+### 3. Simple Control Example (`../examples/n8n-loxone-workflow.json`)
 
-#### Analytics
-- Hourly statistics generation
-- Usage pattern analysis
-- Automated recommendations
+Basic example demonstrating fundamental MCP operations:
+
+- List all rooms
+- Toggle lights
+- Get device status
+- Simple HTTP requests
 
 ## Setup Instructions
 
-### 1. Import Workflows
+### 1. Import Workflow
 
 1. Open n8n interface
-2. Go to Workflows → Import
-3. Import each JSON file
+2. Navigate to "Workflows"
+3. Click "Import from File"
+4. Select the downloaded `.json` file
+5. Click "Import"
 
 ### 2. Configure Credentials
 
-Create the following credentials in n8n:
+Create an HTTP Header Auth credential:
 
-#### Loxone MCP API
-- Type: HTTP Header Auth
-- Name: `Loxone MCP API Key`
-- Header Name: `Authorization`
-- Header Value: `Bearer YOUR_API_KEY`
-
-#### External Services (Optional)
-- **Slack**: OAuth2 or Webhook URL
-- **Google Calendar**: OAuth2
-- **Gmail**: OAuth2
-- **Twilio**: Account SID and Auth Token
-- **PostgreSQL**: Database connection
-
-### 3. Update Endpoints
-
-Replace `http://localhost:8080` with your actual Loxone MCP server URL:
-- In HTTP Request nodes
-- In webhook callback URLs
-
-### 4. Database Setup (Optional)
-
-If using the analytics features, create the database table:
-
-```sql
-CREATE TABLE home_events (
-  id SERIAL PRIMARY KEY,
-  event_type VARCHAR(50),
-  event_data JSONB,
-  processed_at TIMESTAMP,
-  actions_taken JSONB,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX idx_event_type ON home_events(event_type);
-CREATE INDEX idx_processed_at ON home_events(processed_at);
+```
+Name: Loxone MCP API Key
+Header Name: Authorization
+Header Value: Bearer YOUR_API_KEY_HERE
 ```
 
-## Usage Examples
+### 3. Update Server Endpoints
 
-### Trigger a Scene
+Update all HTTP Request nodes to point to your MCP server:
 
-```bash
-curl -X POST http://your-n8n-instance/webhook/loxone-scene-manager \
-  -H "Content-Type: application/json" \
-  -d '{
-    "scene": "morning",
-    "rooms": ["Bedroom", "Kitchen", "Bathroom"]
-  }'
+```
+# For HTTP:
+http://YOUR_MCP_SERVER:8080/sse
+
+# For HTTPS:
+https://YOUR_MCP_SERVER:8443/sse
 ```
 
-### Setup Energy Monitoring
+### 4. Configure Webhooks (Optional)
 
-```bash
-curl -X POST http://your-n8n-instance/webhook/loxone-energy-monitor \
-  -H "Content-Type: application/json" \
-  -d '{
-    "threshold": 5000,
-    "duration": 30,
-    "callback_url": "http://your-n8n-instance/webhook/loxone-energy-alert"
-  }'
-```
+If using webhook triggers, configure your n8n webhook URLs in the workflow nodes.
 
-### Arm Security System
+## Workflow Features
 
-```bash
-curl -X POST http://your-n8n-instance/webhook/loxone-security-system \
-  -H "Content-Type: application/json" \
-  -d '{
-    "mode": "arm_away"
-  }'
-```
+### Scene Management
+- Room-specific control
+- Batch operations for lights and blinds
+- Time-based automation
+- Vacation mode with random patterns
 
-## Advanced Features
+### Energy Management
+- Real-time usage monitoring
+- Threshold-based alerts
+- Automatic load reduction
+- Cost calculation and reporting
 
-### Custom Logic
+### Security Integration
+- Multi-zone arming modes
+- Panic alarm features
+- Automatic lighting control
+- Multi-channel alerting
 
-The workflows use JavaScript code nodes for complex logic:
-- Dynamic scene generation
-- Intelligent energy management
-- Security threat assessment
-- Adaptive climate control
+### External Service Integration
+- 350+ service connectors via n8n
+- Database logging for analytics
+- Scheduled reporting
+- Custom JavaScript logic
 
-### Event Correlation
+## Customization
 
-Events are correlated across different systems:
-- Security + Lighting
-- Energy + Climate
-- Presence + Scenes
+All workflows use JavaScript code nodes that can be easily customized:
 
-### State Management
+1. **Modify Logic**: Edit the JavaScript in code nodes
+2. **Add Services**: Use n8n's node library to add integrations
+3. **Create Conditions**: Add IF nodes for conditional logic
+4. **Schedule Tasks**: Use schedule triggers for automation
 
-The system maintains state through:
-- Database persistence
-- Workflow variables
-- External service integration
+## Best Practices
+
+1. **Test First**: Use the simple example to verify connectivity
+2. **Start Small**: Begin with one workflow and expand
+3. **Monitor Logs**: Check n8n execution logs for debugging
+4. **Use Variables**: Store common values in workflow variables
+5. **Error Handling**: Add error workflows for resilience
+
+## Requirements
+
+- n8n instance (self-hosted or cloud)
+- Loxone MCP server running
+- API key configured in MCP server
+- Network connectivity between n8n and MCP server
 
 ## Troubleshooting
 
-### Common Issues
+### Connection Issues
+- Verify MCP server is accessible from n8n
+- Check API key is correct
+- Ensure proper URL format (http/https)
 
-1. **Authentication Errors**
-   - Verify API key in credentials
-   - Check Bearer token format
+### Workflow Errors
+- Check n8n execution logs
+- Verify all credentials are configured
+- Test individual nodes step by step
 
-2. **Connection Timeouts**
-   - Ensure Loxone MCP server is running
-   - Check network connectivity
-   - Verify firewall rules
+### Performance
+- Use webhook triggers instead of polling
+- Implement caching where appropriate
+- Monitor n8n resource usage
 
-3. **Missing Events**
-   - Check SSE connection status
-   - Verify event subscriptions
-   - Review server logs
+## Additional Resources
 
-### Debug Mode
+- [n8n Documentation](https://docs.n8n.io)
+- [n8n Community](https://community.n8n.io)
+- [MCP Loxone Documentation](../README.md)
 
-Enable debug output in n8n:
-1. Set environment variable: `N8N_LOG_LEVEL=debug`
-2. Check workflow execution logs
-3. Use "Test" mode for individual nodes
+## License
 
-## Extension Ideas
-
-1. **Weather Integration**
-   - Connect to weather API
-   - Adjust blinds based on sun position
-   - Predictive climate control
-
-2. **AI/ML Integration**
-   - Pattern learning for occupancy
-   - Predictive maintenance alerts
-   - Energy usage optimization
-
-3. **Voice Control**
-   - Integration with Alexa/Google Home
-   - Custom voice commands
-   - Status announcements
-
-4. **Mobile App Integration**
-   - Push notifications
-   - Remote control interface
-   - Presence detection
-
-## Performance Optimization
-
-- Use webhook response immediately for fast acknowledgment
-- Implement caching for frequently accessed data
-- Batch similar operations
-- Use async processing for non-critical tasks
-
-## Security Considerations
-
-- Always use HTTPS for webhooks
-- Implement IP whitelisting where possible
-- Rotate API keys regularly
-- Log all security-related events
-- Use encrypted connections for database
+These workflows are provided under the MIT License. See the main project LICENSE file for details.

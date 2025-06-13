@@ -3,30 +3,31 @@
 //! This module provides HTTP server capabilities with Server-Sent Events (SSE)
 //! transport for the Model Context Protocol, making it compatible with n8n.
 
-use crate::mcp_server::LoxoneMcpServer;
 use crate::error::{LoxoneError, Result};
+use crate::server::LoxoneMcpServer;
+use rmcp::ServerHandler;
 
 use axum::{
-    extract::{State, Query},
-    http::{StatusCode, HeaderMap, header},
-    response::{IntoResponse, sse::{Event, Sse}},
+    extract::{Query, State},
+    http::{header, HeaderMap, StatusCode},
+    response::{
+        sse::{Event, Sse},
+        IntoResponse,
+    },
     routing::get,
     Json, Router,
 };
-use tower::ServiceBuilder;
-use tower_http::{
-    cors::{Any, CorsLayer},
-};
-use rmcp::ServerHandler;
-use serde::{Deserialize, Serialize};
-use std::sync::Arc;
-use tokio::net::TcpListener;
-use tracing::{info, warn, debug};
 use chrono;
 use futures_util::stream::{self};
 use futures_util::StreamExt;
+use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::net::TcpListener;
+use tower::ServiceBuilder;
+use tower_http::cors::{Any, CorsLayer};
+use tracing::{debug, info, warn};
 
 /// Authentication configuration
 #[derive(Debug, Clone)]
@@ -35,11 +36,26 @@ pub struct AuthConfig {
     pub api_key: String,
 }
 
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            api_key: "default-api-key".to_string(),
+impl AuthConfig {
+    /// Create auth config from environment variable
+    pub fn from_env() -> std::result::Result<Self, String> {
+        match std::env::var("HTTP_API_KEY") {
+            Ok(api_key) => {
+                if api_key.trim().is_empty() {
+                    Err("HTTP_API_KEY environment variable is empty".to_string())
+                } else {
+                    Ok(Self { api_key })
+                }
+            }
+            Err(_) => {
+                Err("HTTP_API_KEY environment variable not set. Set a secure API key.".to_string())
+            }
         }
+    }
+
+    /// Create auth config with explicit key (for testing)
+    pub fn with_key(api_key: String) -> Self {
+        Self { api_key }
     }
 }
 
@@ -88,19 +104,32 @@ impl HttpTransportServer {
     /// Start the HTTP server
     pub async fn start(&self) -> Result<()> {
         let app = self.create_router().await?;
-        
-        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port)).await
-            .map_err(|e| LoxoneError::connection(format!("Failed to bind to port {}: {}", self.port, e)))?;
-        
+
+        let listener = TcpListener::bind(format!("0.0.0.0:{}", self.port))
+            .await
+            .map_err(|e| {
+                LoxoneError::connection(format!("Failed to bind to port {}: {}", self.port, e))
+            })?;
+
         info!("🌐 HTTP MCP server starting on port {}", self.port);
-        info!("📬 MCP HTTP endpoint: http://localhost:{}/message (MCP Inspector)", self.port);
-        info!("📡 SSE stream: http://localhost:{}/sse (optional)", self.port);
-        info!("📡 SSE endpoint: http://localhost:{}/mcp/sse (n8n legacy)", self.port);
+        info!(
+            "📬 MCP HTTP endpoint: http://localhost:{}/message (MCP Inspector)",
+            self.port
+        );
+        info!(
+            "📡 SSE stream: http://localhost:{}/sse (optional)",
+            self.port
+        );
+        info!(
+            "📡 SSE endpoint: http://localhost:{}/mcp/sse (n8n legacy)",
+            self.port
+        );
         info!("🏥 Health check: http://localhost:{}/health", self.port);
-        
-        axum::serve(listener, app).await
+
+        axum::serve(listener, app)
+            .await
             .map_err(|e| LoxoneError::connection(format!("HTTP server error: {}", e)))?;
-        
+
         Ok(())
     }
 
@@ -120,23 +149,17 @@ impl HttpTransportServer {
             // Health check endpoint (no auth required)
             .route("/health", get(health_check))
             .route("/", get(root_handler))
-            
             // MCP Streamable HTTP transport endpoints
-            .route("/sse", get(sse_handler))  // Optional SSE stream for server→client  
-            .route("/message", axum::routing::post(handle_mcp_message))  // Main HTTP POST endpoint
-            .route("/messages", axum::routing::post(handle_mcp_message))  // n8n compatibility
-            
+            .route("/sse", get(sse_handler)) // Optional SSE stream for server→client
+            .route("/message", axum::routing::post(handle_mcp_message)) // Main HTTP POST endpoint
+            .route("/messages", axum::routing::post(handle_mcp_message)) // n8n compatibility
             // Legacy endpoints for backwards compatibility
-            .route("/mcp/sse", get(sse_handler))  // Alternative for n8n
+            .route("/mcp/sse", get(sse_handler)) // Alternative for n8n
             .route("/mcp/info", get(server_info))
             .route("/mcp/tools", get(list_tools))
-            
             // Admin endpoints (require admin auth)
             .route("/admin/status", get(admin_status))
-            
-            .layer(ServiceBuilder::new()
-                .layer(cors)
-                .into_inner())
+            .layer(ServiceBuilder::new().layer(cors).into_inner())
             .with_state(shared_state);
 
         Ok(app)
@@ -169,7 +192,7 @@ async fn root_handler() -> impl IntoResponse {
 /// Health check endpoint
 async fn health_check(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     debug!("Health check requested");
-    
+
     // Check Loxone connectivity
     let loxone_status = match state.mcp_server.get_system_status().await {
         Ok(_) => "healthy",
@@ -198,15 +221,18 @@ async fn sse_handler(
     // Log all headers and authentication info for debugging
     info!("SSE request received with headers: {:?}", headers);
     if let Err(err) = validate_auth(&headers, &state.auth_config) {
-        warn!("SSE authentication failed (allowing for debugging): {}", err);
+        warn!(
+            "SSE authentication failed (allowing for debugging): {}",
+            err
+        );
         // For now, continue without failing for debugging
     } else {
         info!("SSE authentication successful");
     }
 
-    let client_id = query.client_id.unwrap_or_else(|| {
-        uuid::Uuid::new_v4().to_string()
-    });
+    let client_id = query
+        .client_id
+        .unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
 
     info!("SSE connection established for client: {}", client_id);
 
@@ -215,50 +241,48 @@ async fn sse_handler(
 }
 
 /// Create proper MCP SSE stream
-async fn create_mcp_sse_stream(
-    mcp_server: &LoxoneMcpServer,
-    client_id: &str,
-) -> impl IntoResponse {
+async fn create_mcp_sse_stream(mcp_server: &LoxoneMcpServer, client_id: &str) -> impl IntoResponse {
     info!("Creating MCP SSE stream for client: {}", client_id);
-    
+
     // Clone the server and client_id for use in the stream
     let server = mcp_server.clone();
     let client_id = client_id.to_string();
-    
+
     // Create SSE stream that sends initial connection event
     let stream = stream::once(async move {
         // Send initial connection event
-        let connection_event = Event::default()
-            .event("connection")
-            .data(serde_json::json!({
+        let connection_event = Event::default().event("connection").data(
+            serde_json::json!({
                 "type": "connection",
                 "status": "connected",
                 "client_id": client_id
-            }).to_string());
-        
+            })
+            .to_string(),
+        );
+
         Ok::<Event, Infallible>(connection_event)
-    }).chain(stream::unfold(server, move |server| async move {
+    })
+    .chain(stream::unfold(server, move |server| async move {
         // Keep connection alive with periodic pings
         tokio::time::sleep(Duration::from_secs(30)).await;
-        
-        let ping_event = Event::default()
-            .event("ping")
-            .data(serde_json::json!({
+
+        let ping_event = Event::default().event("ping").data(
+            serde_json::json!({
                 "type": "ping",
                 "timestamp": chrono::Utc::now().to_rfc3339()
-            }).to_string());
-        
+            })
+            .to_string(),
+        );
+
         Some((Ok::<Event, Infallible>(ping_event), server))
     }));
-    
-    Sse::new(stream)
-        .keep_alive(
-            axum::response::sse::KeepAlive::new()
-                .interval(Duration::from_secs(15))
-                .text("keep-alive")
-        )
-}
 
+    Sse::new(stream).keep_alive(
+        axum::response::sse::KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
+    )
+}
 
 /// Handle MCP messages via HTTP POST (Streamable HTTP transport for MCP Inspector)
 async fn handle_mcp_message(
@@ -272,7 +296,7 @@ async fn handle_mcp_message(
     }
 
     info!("Received MCP message: {:?}", request);
-    
+
     // Handle different MCP request types according to MCP specification
     if let Some(method) = request.get("method").and_then(|m| m.as_str()) {
         match method {
@@ -448,9 +472,9 @@ async fn handle_mcp_message(
                             "properties": {},
                             "required": []
                         }
-                    })
+                    }),
                 ];
-                
+
                 let response = serde_json::json!({
                     "jsonrpc": "2.0",
                     "id": request.get("id"),
@@ -467,14 +491,17 @@ async fn handle_mcp_message(
                     .and_then(|p| p.get("name"))
                     .and_then(|n| n.as_str())
                     .ok_or((StatusCode::BAD_REQUEST, "Missing tool name"))?;
-                
+
                 let arguments = params
                     .and_then(|p| p.get("arguments"))
                     .cloned()
                     .unwrap_or_else(|| serde_json::json!({}));
-                
-                info!("Calling tool: {} with arguments: {:?}", tool_name, arguments);
-                
+
+                info!(
+                    "Calling tool: {} with arguments: {:?}",
+                    tool_name, arguments
+                );
+
                 // Call the actual MCP server to execute the tool
                 match state.mcp_server.call_tool(tool_name, arguments).await {
                     Ok(result) => {
@@ -516,10 +543,7 @@ async fn handle_mcp_message(
 }
 
 /// Get server information
-async fn server_info(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn server_info(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(_err) = validate_auth(&headers, &state.auth_config) {
         return Err((StatusCode::UNAUTHORIZED, "Authentication required"));
     }
@@ -535,10 +559,7 @@ async fn server_info(
 }
 
 /// List available tools
-async fn list_tools(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn list_tools(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(_err) = validate_auth(&headers, &state.auth_config) {
         return Err((StatusCode::UNAUTHORIZED, "Authentication required"));
     }
@@ -552,7 +573,7 @@ async fn list_tools(
                 "parameters": {}
             },
             {
-                "name": "control_device", 
+                "name": "control_device",
                 "description": "Control a Loxone device",
                 "parameters": {
                     "device_id": {"type": "string", "description": "Device UUID"},
@@ -561,7 +582,7 @@ async fn list_tools(
             },
             {
                 "name": "set_room_temperature",
-                "description": "Set the temperature for a room", 
+                "description": "Set the temperature for a room",
                 "parameters": {
                     "room_name": {"type": "string", "description": "Room name"},
                     "temperature": {"type": "number", "description": "Target temperature"}
@@ -574,10 +595,7 @@ async fn list_tools(
 }
 
 /// Admin status endpoint
-async fn admin_status(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
+async fn admin_status(State(state): State<Arc<AppState>>, headers: HeaderMap) -> impl IntoResponse {
     if let Err(_err) = validate_auth(&headers, &state.auth_config) {
         return Err((StatusCode::UNAUTHORIZED, "Authentication required"));
     }
@@ -595,12 +613,15 @@ async fn admin_status(
 
 /// Validate Bearer token authentication
 fn validate_auth(headers: &HeaderMap, auth_config: &AuthConfig) -> Result<()> {
-    let auth_header = headers.get(header::AUTHORIZATION)
+    let auth_header = headers
+        .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .ok_or_else(|| LoxoneError::authentication("Missing Authorization header"))?;
 
     if !auth_header.starts_with("Bearer ") {
-        return Err(LoxoneError::authentication("Invalid Authorization header format"));
+        return Err(LoxoneError::authentication(
+            "Invalid Authorization header format",
+        ));
     }
 
     let token = &auth_header[7..]; // Remove "Bearer " prefix

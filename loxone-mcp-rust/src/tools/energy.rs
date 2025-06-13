@@ -15,7 +15,7 @@ pub async fn get_energy_consumption(
 
     // TODO: Implement get_status method in LoxoneClient
     let response = Value::Null; // Placeholder
-    
+
     Ok(json!({
         "status": "success",
         "energy_data": response
@@ -29,14 +29,17 @@ pub async fn get_power_meters(
     ctx: Arc<ToolContext>,
 ) -> Result<Value> {
     let devices = ctx.context.devices.read().await;
-    let meters: Vec<Value> = devices.values()
+    let meters: Vec<Value> = devices
+        .values()
         .filter(|device| device.device_type == "PowerMeter")
-        .map(|device| json!({
-            "uuid": device.uuid,
-            "name": device.name,
-            "room": device.room,
-            "type": device.device_type
-        }))
+        .map(|device| {
+            json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room,
+                "type": device.device_type
+            })
+        })
         .collect();
 
     Ok(json!({
@@ -56,7 +59,7 @@ pub async fn get_solar_production(
 
     // TODO: Implement get_status method in LoxoneClient
     let response = Value::Null; // Placeholder
-    
+
     Ok(json!({
         "status": "success",
         "solar_data": response
@@ -72,7 +75,7 @@ pub async fn optimize_energy_usage(
     let client = &ctx.client;
 
     client.send_command("energy/optimize", "optimize").await?;
-    
+
     Ok(json!({
         "status": "success",
         "message": "Energy optimization initiated"

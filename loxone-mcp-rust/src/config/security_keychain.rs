@@ -1,5 +1,5 @@
 //! Alternative keychain access using macOS security command
-//! 
+//!
 //! This module provides keychain access via the `security` command-line tool
 //! which may avoid password prompts in some cases.
 
@@ -15,7 +15,9 @@ impl SecurityKeychain {
         let output = Command::new("security")
             .args(["find-generic-password", "-s", service, "-a", account, "-w"])
             .output()
-            .map_err(|e| LoxoneError::credentials(format!("Failed to run security command: {}", e)))?;
+            .map_err(|e| {
+                LoxoneError::credentials(format!("Failed to run security command: {}", e))
+            })?;
 
         if !output.status.success() {
             return Err(LoxoneError::credentials(format!(

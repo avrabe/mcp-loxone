@@ -1,0 +1,188 @@
+//! Tests for parallel command execution
+
+use async_trait::async_trait;
+use loxone_mcp_rust::{
+    client::{ClientContext, LoxoneClient, LoxoneResponse},
+    error::Result,
+    tools::ToolContext,
+};
+use std::{
+    sync::Arc,
+    time::{Duration, Instant},
+};
+use tokio::sync::RwLock;
+
+/// Mock client for testing parallel execution
+struct MockLoxoneClient {
+    /// Simulated delay for each command
+    delay_ms: u64,
+    /// Track call count
+    call_count: Arc<RwLock<usize>>,
+}
+
+#[async_trait]
+impl LoxoneClient for MockLoxoneClient {
+    async fn connect(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn disconnect(&mut self) -> Result<()> {
+        Ok(())
+    }
+
+    async fn is_connected(&self) -> Result<bool> {
+        Ok(true)
+    }
+
+    async fn send_command(&self, _uuid: &str, _command: &str) -> Result<LoxoneResponse> {
+        // Increment call count
+        let mut count = self.call_count.write().await;
+        *count += 1;
+        drop(count);
+
+        // Simulate processing delay
+        tokio::time::sleep(Duration::from_millis(self.delay_ms)).await;
+
+        Ok(LoxoneResponse {
+            control: "test/control".to_string(),
+            code: 200,
+            value: serde_json::json!({"status": "ok"}),
+        })
+    }
+
+    async fn get_structure(&self) -> Result<serde_json::Value> {
+        Ok(serde_json::json!({}))
+    }
+
+    async fn health_check(&self) -> Result<bool> {
+        Ok(true)
+    }
+}
+
+#[tokio::test]
+async fn test_parallel_execution_performance() {
+    let call_count = Arc::new(RwLock::new(0));
+    let mock_client = MockLoxoneClient {
+        delay_ms: 100, // 100ms per command
+        call_count: call_count.clone(),
+    };
+
+    let context = ToolContext::new(Arc::new(mock_client), Arc::new(ClientContext::new()));
+
+    // Create 10 commands
+    let commands: Vec<(String, String)> = (0..10)
+        .map(|i| (format!("device-{}", i), "on".to_string()))
+        .collect();
+
+    let start = Instant::now();
+    let results = context.send_parallel_commands(commands).await.unwrap();
+    let duration = start.elapsed();
+
+    // All commands should succeed
+    assert_eq!(results.len(), 10);
+    for result in &results {
+        assert!(result.is_ok());
+    }
+
+    // Verify all commands were called
+    let final_count = *call_count.read().await;
+    assert_eq!(final_count, 10);
+
+    // With parallel execution, 10 commands with 100ms each should take
+    // significantly less than 1000ms (sequential time)
+    assert!(
+        duration.as_millis() < 500,
+        "Parallel execution took {}ms, expected < 500ms",
+        duration.as_millis()
+    );
+}
+
+#[tokio::test]
+async fn test_parallel_execution_error_handling() {
+    struct FailingClient {
+        fail_indices: Vec<usize>,
+        call_index: Arc<RwLock<usize>>,
+    }
+
+    #[async_trait]
+    impl LoxoneClient for FailingClient {
+        async fn connect(&mut self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn disconnect(&mut self) -> Result<()> {
+            Ok(())
+        }
+
+        async fn is_connected(&self) -> Result<bool> {
+            Ok(true)
+        }
+
+        async fn send_command(&self, _uuid: &str, _command: &str) -> Result<LoxoneResponse> {
+            let mut index = self.call_index.write().await;
+            let current = *index;
+            *index += 1;
+            drop(index);
+
+            if self.fail_indices.contains(&current) {
+                Err(loxone_mcp_rust::error::LoxoneError::device_control(
+                    "Simulated failure",
+                ))
+            } else {
+                Ok(LoxoneResponse {
+                    control: "test/control".to_string(),
+                    code: 200,
+                    value: serde_json::json!({"status": "ok"}),
+                })
+            }
+        }
+
+        async fn get_structure(&self) -> Result<serde_json::Value> {
+            Ok(serde_json::json!({}))
+        }
+
+        async fn health_check(&self) -> Result<bool> {
+            Ok(true)
+        }
+    }
+
+    let client = FailingClient {
+        fail_indices: vec![2, 5, 7], // Fail commands at indices 2, 5, 7
+        call_index: Arc::new(RwLock::new(0)),
+    };
+
+    let context = ToolContext::new(Arc::new(client), Arc::new(ClientContext::new()));
+
+    let commands: Vec<(String, String)> = (0..10)
+        .map(|i| (format!("device-{}", i), "on".to_string()))
+        .collect();
+
+    let results = context.send_parallel_commands(commands).await.unwrap();
+
+    // Check that we have the right mix of successes and failures
+    assert_eq!(results.len(), 10);
+
+    let failures: Vec<_> = results
+        .iter()
+        .enumerate()
+        .filter(|(_, r)| r.is_err())
+        .map(|(i, _)| i)
+        .collect();
+
+    assert_eq!(failures, vec![2, 5, 7]);
+}
+
+#[tokio::test]
+async fn test_parallel_execution_empty_commands() {
+    let mock_client = MockLoxoneClient {
+        delay_ms: 100,
+        call_count: Arc::new(RwLock::new(0)),
+    };
+
+    let context = ToolContext::new(Arc::new(mock_client), Arc::new(ClientContext::new()));
+
+    let commands: Vec<(String, String)> = vec![];
+    let results = context.send_parallel_commands(commands).await.unwrap();
+
+    assert_eq!(results.len(), 0);
+}

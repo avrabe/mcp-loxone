@@ -1,0 +1,161 @@
+name: WASM Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  wasm-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown,wasm32-wasip2
+        components: clippy, rustfmt
+    
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    
+    - name: Install Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+    
+    - name: Cache dependencies
+      uses: actions/cache@v3
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          target/
+        key: ${{ runner.os }}-wasm-${{ hashFiles('**/Cargo.lock') }}
+    
+    - name: Check WASM compilation
+      run: |
+        cd loxone-mcp-rust
+        cargo check --target wasm32-unknown-unknown --no-default-features --features wasm-storage
+        cargo check --target wasm32-wasip2 --no-default-features --features wasm-storage
+    
+    - name: Build WASM package
+      run: |
+        cd loxone-mcp-rust
+        wasm-pack build --target web --out-dir pkg-web
+        wasm-pack build --target nodejs --out-dir pkg-node
+    
+    - name: Test WASM in browser
+      run: |
+        cd loxone-mcp-rust
+        wasm-pack test --headless --chrome --firefox
+    
+    - name: Test WASM in Node.js
+      run: |
+        cd loxone-mcp-rust
+        wasm-pack test --node
+    
+    - name: Run WASM size analysis
+      run: |
+        cd loxone-mcp-rust
+        ls -la pkg-web/
+        echo "WASM binary size:"
+        ls -lh pkg-web/*.wasm
+    
+    - name: Test WASM performance
+      run: |
+        cd loxone-mcp-rust
+        node -e "
+          const pkg = require('./pkg-node');
+          const start = Date.now();
+          pkg.main();
+          const end = Date.now();
+          console.log(\`WASM initialization took \${end - start}ms\`);
+        "
+
+  wasm-size-check:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    
+    - name: Install wasm-pack and wasm-opt
+      run: |
+        curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        wget https://github.com/WebAssembly/binaryen/releases/download/version_116/binaryen-version_116-x86_64-linux.tar.gz
+        tar -xzf binaryen-version_116-x86_64-linux.tar.gz
+        sudo cp binaryen-version_116/bin/wasm-opt /usr/local/bin/
+    
+    - name: Build optimized WASM
+      run: |
+        cd loxone-mcp-rust
+        wasm-pack build --target web --release
+        wasm-opt -Oz pkg/loxone_mcp_rust_bg.wasm -o pkg/loxone_mcp_rust_optimized.wasm
+    
+    - name: Check WASM size
+      run: |
+        cd loxone-mcp-rust
+        echo "Original WASM size:"
+        ls -lh pkg/loxone_mcp_rust_bg.wasm
+        echo "Optimized WASM size:"
+        ls -lh pkg/loxone_mcp_rust_optimized.wasm
+        
+        # Fail if WASM is larger than 2MB
+        ORIGINAL_SIZE=$(stat -c%s pkg/loxone_mcp_rust_bg.wasm)
+        OPTIMIZED_SIZE=$(stat -c%s pkg/loxone_mcp_rust_optimized.wasm)
+        
+        if [ $ORIGINAL_SIZE -gt 2097152 ]; then
+          echo "❌ Original WASM size too large: $ORIGINAL_SIZE bytes > 2MB"
+          exit 1
+        fi
+        
+        if [ $OPTIMIZED_SIZE -gt 1048576 ]; then
+          echo "❌ Optimized WASM size too large: $OPTIMIZED_SIZE bytes > 1MB"
+          exit 1
+        fi
+        
+        echo "✅ WASM size checks passed"
+        echo "Original: $(($ORIGINAL_SIZE / 1024))KB"
+        echo "Optimized: $(($OPTIMIZED_SIZE / 1024))KB"
+        echo "Reduction: $(((($ORIGINAL_SIZE - $OPTIMIZED_SIZE) * 100) / $ORIGINAL_SIZE))%"
+
+  wasm-compatibility:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        browser: [chrome, firefox]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install Rust
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: wasm32-unknown-unknown
+    
+    - name: Install wasm-pack
+      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+    
+    - name: Test WASM in ${{ matrix.browser }}
+      run: |
+        cd loxone-mcp-rust
+        wasm-pack test --headless --${{ matrix.browser }}
+    
+    - name: Test feature compatibility
+      run: |
+        cd loxone-mcp-rust
+        # Test with different feature combinations
+        wasm-pack test --headless --${{ matrix.browser }} --features wasm-storage
+        wasm-pack test --headless --${{ matrix.browser }} --no-default-features

@@ -15,7 +15,7 @@ pub async fn get_alarm_status(
 
     // TODO: Implement get_status method in LoxoneClient
     let response = Value::Null; // Placeholder
-    
+
     Ok(json!({
         "status": "success",
         "alarm_status": response
@@ -31,7 +31,7 @@ pub async fn arm_alarm(
     let client = &ctx.client;
 
     client.send_command("alarm/arm", "arm").await?;
-    
+
     Ok(json!({
         "status": "success",
         "message": "Alarm system armed"
@@ -47,7 +47,7 @@ pub async fn disarm_alarm(
     let client = &ctx.client;
 
     client.send_command("alarm/disarm", "disarm").await?;
-    
+
     Ok(json!({
         "status": "success",
         "message": "Alarm system disarmed"
@@ -61,14 +61,17 @@ pub async fn get_security_cameras(
     ctx: Arc<ToolContext>,
 ) -> Result<Value> {
     let devices = ctx.context.devices.read().await;
-    let cameras: Vec<Value> = devices.values()
+    let cameras: Vec<Value> = devices
+        .values()
         .filter(|device| device.device_type == "Camera")
-        .map(|device| json!({
-            "uuid": device.uuid,
-            "name": device.name,
-            "room": device.room,
-            "type": device.device_type
-        }))
+        .map(|device| {
+            json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room,
+                "type": device.device_type
+            })
+        })
         .collect();
 
     Ok(json!({

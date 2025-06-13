@@ -137,16 +137,22 @@ impl NetworkDiscovery {
 
         // Loxone discovery messages (varies by version, try common ones)
         let discovery_messages = [
-            b"LoxLIVE".as_slice(),      // Common discovery message
-            b"eWeLink".as_slice(),      // Alternative discovery
+            b"LoxLIVE".as_slice(),          // Common discovery message
+            b"eWeLink".as_slice(),          // Alternative discovery
             b"\x00\x00\x00\x00".as_slice(), // Simple broadcast
         ];
 
-        // Send discovery packets to common ports
-        let ports = [7777, 7700, 80, 8080];
-        for port in &ports {
+        // Send discovery packets to configurable ports
+        let ports_env = std::env::var("DISCOVERY_UDP_PORTS")
+            .ok()
+            .and_then(|p| serde_json::from_str::<Vec<u16>>(&p).ok())
+            .unwrap_or_else(|| vec![7777, 7700, 80, 8080]);
+        let broadcast_base = std::env::var("DISCOVERY_BROADCAST_ADDRESS")
+            .unwrap_or_else(|_| "255.255.255.255".to_string());
+
+        for port in &ports_env {
             for message in &discovery_messages {
-                let broadcast_addr = format!("255.255.255.255:{}", port);
+                let broadcast_addr = format!("{}:{}", broadcast_base, port);
                 if let Ok(addr) = broadcast_addr.parse::<SocketAddr>() {
                     let _ = socket.send_to(message, addr);
                 }
@@ -165,7 +171,8 @@ impl NetworkDiscovery {
                     if responded_ips.insert(ip.clone()) {
                         // New response from this IP
                         let data = &buffer[..len];
-                        let server_name = parse_udp_response(data).unwrap_or("Loxone Miniserver".to_string());
+                        let server_name =
+                            parse_udp_response(data).unwrap_or("Loxone Miniserver".to_string());
 
                         servers.push(DiscoveredServer {
                             ip,
@@ -238,7 +245,12 @@ impl NetworkDiscovery {
     }
 
     /// Test connection to a discovered server
-    pub async fn test_connection(&self, host: &str, username: &str, password: &str) -> Result<HashMap<String, String>> {
+    pub async fn test_connection(
+        &self,
+        host: &str,
+        username: &str,
+        password: &str,
+    ) -> Result<HashMap<String, String>> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(5))
             .build()?;
@@ -257,14 +269,16 @@ impl NetworkDiscovery {
             if let Some(ms_info) = data.get("msInfo") {
                 info.insert(
                     "name".to_string(),
-                    ms_info.get("projectName")
+                    ms_info
+                        .get("projectName")
                         .and_then(|v| v.as_str())
                         .unwrap_or("Unknown")
                         .to_string(),
                 );
                 info.insert(
                     "version".to_string(),
-                    ms_info.get("swVersion")
+                    ms_info
+                        .get("swVersion")
                         .and_then(|v| v.as_str())
                         .unwrap_or("Unknown")
                         .to_string(),
@@ -273,15 +287,23 @@ impl NetworkDiscovery {
 
             Ok(info)
         } else if response.status() == 401 {
-            Err(LoxoneError::credentials("Invalid username or password".to_string()))
+            Err(LoxoneError::credentials(
+                "Invalid username or password".to_string(),
+            ))
         } else {
-            Err(LoxoneError::credentials(format!("HTTP {}", response.status())))
+            Err(LoxoneError::credentials(format!(
+                "HTTP {}",
+                response.status()
+            )))
         }
     }
 }
 
 /// Check if an IP address hosts a Loxone Miniserver via HTTP
-async fn check_loxone_http(client: &reqwest::Client, ip: String) -> Result<Option<DiscoveredServer>> {
+async fn check_loxone_http(
+    client: &reqwest::Client,
+    ip: String,
+) -> Result<Option<DiscoveredServer>> {
     let url = format!("http://{}/", ip);
 
     match client.get(&url).send().await {
@@ -291,10 +313,18 @@ async fn check_loxone_http(client: &reqwest::Client, ip: String) -> Result<Optio
             let mut version = "Unknown".to_string();
 
             // Try to get version info without auth
-            if let Ok(version_response) = client.get(format!("http://{}/jdev/sys/getversion", ip)).send().await {
+            if let Ok(version_response) = client
+                .get(format!("http://{}/jdev/sys/getversion", ip))
+                .send()
+                .await
+            {
                 if version_response.status().is_success() {
                     if let Ok(data) = version_response.json::<serde_json::Value>().await {
-                        if let Some(v) = data.get("LL").and_then(|ll| ll.get("value")).and_then(|v| v.as_str()) {
+                        if let Some(v) = data
+                            .get("LL")
+                            .and_then(|ll| ll.get("value"))
+                            .and_then(|v| v.as_str())
+                        {
                             version = v.to_string();
                         }
                     }
@@ -302,10 +332,15 @@ async fn check_loxone_http(client: &reqwest::Client, ip: String) -> Result<Optio
             }
 
             // Try to get project name (might require auth)
-            if let Ok(cfg_response) = client.get(format!("http://{}/jdev/cfg/api", ip)).send().await {
+            if let Ok(cfg_response) = client
+                .get(format!("http://{}/jdev/cfg/api", ip))
+                .send()
+                .await
+            {
                 if cfg_response.status().is_success() {
                     if let Ok(data) = cfg_response.json::<serde_json::Value>().await {
-                        if let Some(project_name) = data.get("LL")
+                        if let Some(project_name) = data
+                            .get("LL")
                             .and_then(|ll| ll.get("value"))
                             .and_then(|v| v.get("name"))
                             .and_then(|n| n.as_str())
@@ -340,14 +375,25 @@ fn get_local_ip() -> Result<String> {
     use socket2::{Domain, Socket, Type};
     use std::net::SocketAddr;
 
+    // Use configurable DNS server for connectivity check
+    let dns_server =
+        std::env::var("DISCOVERY_DNS_SERVER").unwrap_or_else(|_| "8.8.8.8".to_string());
+    let dns_port = std::env::var("DISCOVERY_DNS_PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(80);
+    let connect_addr = format!("{}:{}", dns_server, dns_port);
+
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
-    socket.connect(&"8.8.8.8:80".parse::<SocketAddr>().unwrap().into())?;
+    socket.connect(&connect_addr.parse::<SocketAddr>().unwrap().into())?;
     let local_addr = socket.local_addr()?;
-    
+
     if let Some(addr) = local_addr.as_socket_ipv4() {
         Ok(addr.ip().to_string())
     } else {
-        Err(LoxoneError::discovery("Failed to get local IP address".to_string()))
+        Err(LoxoneError::discovery(
+            "Failed to get local IP address".to_string(),
+        ))
     }
 }
 
@@ -373,8 +419,7 @@ fn parse_udp_response(data: &[u8]) -> Option<String> {
             }
         }
     }
-    
+
     // Default name if parsing fails
     None
 }
-

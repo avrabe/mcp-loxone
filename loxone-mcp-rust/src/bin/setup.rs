@@ -1,5 +1,5 @@
 //! Enhanced setup utility for Loxone MCP Rust server
-//! 
+//!
 //! This utility helps configure credentials for the Rust server with:
 //! - Interactive and non-interactive modes
 //! - Multi-backend credential storage (Infisical, keychain, environment)
@@ -7,12 +7,16 @@
 
 use clap::{Parser, ValueEnum};
 use loxone_mcp_rust::{
-    config::credentials::{LoxoneCredentials, create_best_credential_manager, CredentialManager},
+    config::credentials::{create_best_credential_manager, CredentialManager, LoxoneCredentials},
     config::CredentialStore,
     Result,
 };
-use std::{io::{self, Write}, time::Duration, process::Command};
-use tracing::{info, error, warn};
+use std::{
+    io::{self, Write},
+    process::Command,
+    time::Duration,
+};
+use tracing::{error, info};
 
 /// Available credential storage backends
 #[derive(Debug, Clone, ValueEnum)]
@@ -77,9 +81,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::fmt()
-        .with_env_filter("info")
-        .init();
+    tracing_subscriber::fmt().with_env_filter("info").init();
 
     let args = Args::parse();
 
@@ -87,22 +89,22 @@ async fn main() -> Result<()> {
     println!("========================================");
 
     // Quick start for local development
-    println!("\n🚀 Quick Start (Lokale Entwicklung):");
+    println!("\n🚀 Quick Start (Local Development):");
     println!("────────────────────────────────────");
-    println!("Für einen schnellen Test, kopiere und führe aus:\n");
+    println!("For a quick test, copy and run:\n");
     println!("```bash");
-    println!("# Option 1: Direkte Umgebungsvariablen");
+    println!("# Option 1: Direct environment variables");
     println!("export LOXONE_USER=\"admin\"");
     println!("export LOXONE_PASS=\"password\"");
     println!("export LOXONE_HOST=\"192.168.1.100\"");
     println!("cargo run --bin loxone-mcp-server");
     println!("```\n");
     println!("```bash");
-    println!("# Option 2: Keychain Setup (einmalig)");
+    println!("# Option 2: Keychain Setup (one-time)");
     println!("cargo run --bin loxone-mcp-setup");
-    println!("# Folge den Anweisungen...");
+    println!("# Follow the instructions...");
     println!("```\n");
-    
+
     // Determine which credential backend to use
     let selected_backend = if let Some(backend_choice) = args.backend {
         backend_choice
@@ -114,7 +116,7 @@ async fn main() -> Result<()> {
         select_credential_backend_interactive()?
     };
 
-    println!("\n💡 Gewählter Credential Backend: {:?}", selected_backend);
+    println!("\n💡 Selected Credential Backend: {:?}", selected_backend);
 
     // Handle server discovery/host selection
     let host = if let Some(host) = args.host {
@@ -131,20 +133,25 @@ async fn main() -> Result<()> {
     } else {
         // Try network discovery
         println!("🔍 Discovering Loxone Miniservers on your network...");
-        
+
         #[cfg(feature = "discovery")]
         {
             use loxone_mcp_rust::network_discovery::NetworkDiscovery;
-            
+
             let discovery = NetworkDiscovery::new(Duration::from_secs_f64(args.discovery_timeout));
             match discovery.discover_servers().await {
                 Ok(servers) if !servers.is_empty() => {
                     println!("\n✅ Found {} Loxone Miniserver(s):", servers.len());
                     for (i, server) in servers.iter().enumerate() {
-                        println!("  {}. {} at {} (discovered via {})", 
-                            i + 1, server.name, server.ip, server.method);
+                        println!(
+                            "  {}. {} at {} (discovered via {})",
+                            i + 1,
+                            server.name,
+                            server.ip,
+                            server.method
+                        );
                     }
-                    
+
                     if args.non_interactive {
                         // Use first discovered server in non-interactive mode
                         println!("\n📍 Using first discovered server: {}", servers[0].ip);
@@ -152,10 +159,10 @@ async fn main() -> Result<()> {
                     } else if servers.len() == 1 {
                         // Single server found - confirm with user
                         let confirm = get_manual_input(&format!(
-                            "\nUse {} at {}? [Y/n]: ", 
+                            "\nUse {} at {}? [Y/n]: ",
                             servers[0].name, servers[0].ip
                         ))?;
-                        
+
                         if confirm.to_lowercase() != "n" {
                             servers[0].ip.clone()
                         } else {
@@ -164,13 +171,17 @@ async fn main() -> Result<()> {
                     } else {
                         // Multiple servers - let user choose
                         loop {
-                            let choice = get_manual_input("\nSelect server number or enter IP manually: ")?;
-                            
+                            let choice =
+                                get_manual_input("\nSelect server number or enter IP manually: ")?;
+
                             if let Ok(num) = choice.parse::<usize>() {
                                 if num > 0 && num <= servers.len() {
                                     break servers[num - 1].ip.clone();
                                 } else {
-                                    println!("❌ Invalid selection. Please choose 1-{}", servers.len());
+                                    println!(
+                                        "❌ Invalid selection. Please choose 1-{}",
+                                        servers.len()
+                                    );
                                 }
                             } else if !choice.is_empty() {
                                 // Assume it's an IP address
@@ -189,7 +200,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    warn!("Discovery failed: {}", e);
+                    eprintln!("Warning: Discovery failed: {}", e);
                     if args.non_interactive {
                         error!("❌ Error: --host required when discovery fails");
                         std::process::exit(1);
@@ -199,7 +210,7 @@ async fn main() -> Result<()> {
                 }
             }
         }
-        
+
         #[cfg(not(feature = "discovery"))]
         {
             println!("ℹ️  Discovery feature not enabled. Build with --features discovery");
@@ -214,15 +225,15 @@ async fn main() -> Result<()> {
 
     // Check if localhost/127.0.0.1 is configured and offer mock server
     let mock_server_handle = if host.starts_with("127.0.0.1") || host.starts_with("localhost") {
-        println!("\n🧪 Localhost konfiguriert! Möchtest du den Mock Server verwenden?");
-        
+        println!("\n🧪 Localhost configured! Would you like to use the Mock Server?");
+
         // Default mock server runs on port 8080
         let mock_host = if host.contains(':') {
             host.clone()
         } else {
             format!("{}:8080", host)
         };
-        
+
         // Check if mock server is already running
         let test_url = format!("http://{}/", mock_host);
         let is_running = reqwest::Client::new()
@@ -231,35 +242,35 @@ async fn main() -> Result<()> {
             .send()
             .await
             .is_ok();
-            
+
         if is_running {
-            println!("✅ Mock Server läuft bereits auf {}", host);
+            println!("✅ Mock Server already running on {}", host);
             None
         } else if !args.non_interactive {
-            let use_mock = get_manual_input("Mock Server automatisch starten? [Y/n]: ")?;
+            let use_mock = get_manual_input("Start Mock Server automatically? [Y/n]: ")?;
             if use_mock.to_lowercase() != "n" {
-                println!("🚀 Starte Mock Server auf {}...", mock_host);
-                
+                println!("🚀 Starting Mock Server on {}...", mock_host);
+
                 // Start mock server in background
                 let child = Command::new("cargo")
                     .args(["run", "--bin", "loxone-mcp-mock-server"])
                     .spawn()
                     .map_err(loxone_mcp_rust::error::LoxoneError::Io)?;
-                    
+
                 // Wait a bit for server to start
                 tokio::time::sleep(Duration::from_secs(2)).await;
-                
+
                 // Update host to include port if needed
                 if !host.contains(':') {
-                    println!("📝 Mock Server läuft auf Port 8080");
-                    println!("   Verwende: export LOXONE_HOST=\"127.0.0.1:8080\"");
+                    println!("📝 Mock Server running on port 8080");
+                    println!("   Use: export LOXONE_HOST=\"127.0.0.1:8080\"");
                 }
-                
+
                 // Set mock server credentials
-                println!("📝 Verwende Mock Server Credentials:");
+                println!("📝 Using Mock Server Credentials:");
                 println!("   Username: admin");
                 println!("   Password: test");
-                
+
                 Some(child)
             } else {
                 None
@@ -273,7 +284,15 @@ async fn main() -> Result<()> {
 
     // Override credentials if mock server is being used
     let (username, password) = if mock_server_handle.is_some() {
-        ("admin".to_string(), "test".to_string())
+        // Use environment variables if set, otherwise use safe defaults
+        if let (Ok(user), Ok(pass)) = (std::env::var("MOCK_USER"), std::env::var("MOCK_PASS")) {
+            (user, pass)
+        } else {
+            eprintln!(
+                "⚠️  Using default mock credentials. Set MOCK_USER and MOCK_PASS for custom ones."
+            );
+            ("mock_admin".to_string(), "mock_secure".to_string())
+        }
     } else {
         // Collect credentials normally
         let username = if let Some(username) = args.username {
@@ -293,10 +312,9 @@ async fn main() -> Result<()> {
             error!("❌ Error: Password not available from CLI arguments");
             std::process::exit(1);
         };
-        
+
         (username, password)
     };
-
 
     // Test connection before saving
     println!("\n🔌 Testing connection...");
@@ -348,12 +366,18 @@ async fn main() -> Result<()> {
 
     // Create credential manager based on selected backend
     let credential_manager = create_credential_manager_for_backend(&selected_backend).await?;
-    
+
     // Store credentials
-    info!("💾 Storing credentials using {:?} backend...", selected_backend);
+    info!(
+        "💾 Storing credentials using {:?} backend...",
+        selected_backend
+    );
     credential_manager.store_credentials(&credentials).await?;
 
-    println!("\n✅ Credentials stored successfully in {:?}!", selected_backend);
+    println!(
+        "\n✅ Credentials stored successfully in {:?}!",
+        selected_backend
+    );
     println!("   Host: {}", host);
     println!("   User: {}", username);
     println!("   Pass: {}", "*".repeat(8));
@@ -398,7 +422,13 @@ async fn main() -> Result<()> {
     println!("\n🎉 Setup complete!");
 
     // Show environment variables for server usage
-    show_environment_variables(&selected_backend, &host, &username, &credentials, args.export_env);
+    show_environment_variables(
+        &selected_backend,
+        &host,
+        &username,
+        &credentials,
+        args.export_env,
+    );
 
     // Show backend-specific configuration advice
     show_backend_configuration_advice(&selected_backend);
@@ -497,7 +527,7 @@ fn generate_api_key() -> String {
     use rand::Rng;
     const CHARSET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
     let mut rng = rand::thread_rng();
-    
+
     (0..43) // URL-safe base64 length for 32 bytes
         .map(|_| {
             let idx = rng.gen_range(0..CHARSET.len());
@@ -507,7 +537,11 @@ fn generate_api_key() -> String {
 }
 
 /// Test connection to Loxone Miniserver
-async fn test_connection(host: &str, username: &str, password: &str) -> Result<std::collections::HashMap<String, String>> {
+async fn test_connection(
+    host: &str,
+    username: &str,
+    password: &str,
+) -> Result<std::collections::HashMap<String, String>> {
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(5))
         .build()?;
@@ -526,14 +560,16 @@ async fn test_connection(host: &str, username: &str, password: &str) -> Result<s
         if let Some(ms_info) = data.get("msInfo") {
             info.insert(
                 "name".to_string(),
-                ms_info.get("projectName")
+                ms_info
+                    .get("projectName")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown")
                     .to_string(),
             );
             info.insert(
                 "version".to_string(),
-                ms_info.get("swVersion")
+                ms_info
+                    .get("swVersion")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Unknown")
                     .to_string(),
@@ -542,9 +578,14 @@ async fn test_connection(host: &str, username: &str, password: &str) -> Result<s
 
         Ok(info)
     } else if response.status() == 401 {
-        Err(loxone_mcp_rust::error::LoxoneError::credentials("Invalid username or password".to_string()))
+        Err(loxone_mcp_rust::error::LoxoneError::credentials(
+            "Invalid username or password".to_string(),
+        ))
     } else {
-        Err(loxone_mcp_rust::error::LoxoneError::credentials(format!("HTTP {}", response.status())))
+        Err(loxone_mcp_rust::error::LoxoneError::credentials(format!(
+            "HTTP {}",
+            response.status()
+        )))
     }
 }
 
@@ -552,15 +593,15 @@ async fn test_connection(host: &str, username: &str, password: &str) -> Result<s
 fn select_credential_backend_interactive() -> Result<CredentialBackend> {
     println!("\n🔧 Credential Storage Backend Auswahl:");
     println!("────────────────────────────────────────");
-    
+
     // Check what's available
-    let infisical_available = std::env::var("INFISICAL_PROJECT_ID").is_ok() 
+    let infisical_available = std::env::var("INFISICAL_PROJECT_ID").is_ok()
         && std::env::var("INFISICAL_CLIENT_ID").is_ok()
         && std::env::var("INFISICAL_CLIENT_SECRET").is_ok();
 
     println!("Verfügbare Backends:");
     println!("  1. Auto (empfohlen) - Automatische Auswahl");
-    
+
     if infisical_available {
         println!("  2. Infisical ✅ - Team Secret Management (konfiguriert)");
     } else {
@@ -570,13 +611,13 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
         println!("                    export INFISICAL_CLIENT_SECRET=\"st.secret456\"");
         println!("                    # Für lokale Instanz: export INFISICAL_HOST=\"http://localhost:8080\"");
     }
-    
+
     println!("  3. Keychain - System Keychain (macOS/Windows/Linux)");
     println!("  4. Environment - Umgebungsvariablen (temporär)");
 
     loop {
         let choice = get_manual_input("\nWähle Backend [1-4]: ")?;
-        
+
         match choice.as_str() {
             "1" | "" => return Ok(CredentialBackend::Auto),
             "2" => {
@@ -585,44 +626,52 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
                 } else {
                     println!("\n❌ Infisical nicht konfiguriert!");
                     println!();
-                    println!("🚀 Schnell-Setup für Infisical:");
-                    println!("   1. Öffne: https://app.infisical.com/signup");
-                    println!("   2. Erstelle ein Projekt (z.B. 'loxone-home')");
-                    println!("   3. Gehe zu Settings → Service Tokens → Create Token");
-                    println!("   4. Setze die Umgebungsvariablen:");
+                    println!("🚀 Quick Setup for Infisical:");
+                    println!("   1. Go to: https://app.infisical.com/signup");
+                    println!("   2. Create a project (e.g., 'loxone-home')");
+                    println!("   3. Go to Settings → Service Tokens → Create Token");
+                    println!("   4. Set the environment variables:");
                     println!();
-                    println!("   export INFISICAL_PROJECT_ID=\"proj_abc123...\"    # Von der Projekt-URL");
-                    println!("   export INFISICAL_CLIENT_ID=\"st.client123...\"   # Machine Identity ID");
-                    println!("   export INFISICAL_CLIENT_SECRET=\"st.secret456...\" # Service Token");
+                    println!("   export INFISICAL_PROJECT_ID=\"proj_abc123...\"    # From the project URL");
+                    println!(
+                        "   export INFISICAL_CLIENT_ID=\"st.client123...\"   # Machine Identity ID"
+                    );
+                    println!(
+                        "   export INFISICAL_CLIENT_SECRET=\"st.secret456...\" # Service Token"
+                    );
                     println!("   export INFISICAL_ENVIRONMENT=\"dev\"             # Optional");
                     println!();
-                    println!("   🏠 Für lokale/selbst-gehostete Instanz zusätzlich:");
-                    println!("   export INFISICAL_HOST=\"http://localhost:8080\"  # Lokale Docker-Instanz");
-                    println!("   # oder: export INFISICAL_HOST=\"https://your-infisical.domain.com\"");
+                    println!("   🏠 For local/self-hosted instance additionally:");
+                    println!("   export INFISICAL_HOST=\"http://localhost:8080\"  # Local Docker instance");
+                    println!(
+                        "   # or: export INFISICAL_HOST=\"https://your-infisical.domain.com\""
+                    );
                     println!();
-                    println!("📖 Detailierte Anleitung: siehe INFISICAL_SETUP.md");
-                    
-                    let setup_now = get_manual_input("\nJetzt Umgebungsvariablen setzen? [y/N]: ")?;
+                    println!("📖 Detailed guide: see INFISICAL_SETUP.md");
+
+                    let setup_now = get_manual_input("\nSet environment variables now? [y/N]: ")?;
                     if setup_now.to_lowercase() == "y" {
-                        println!("\n💡 Öffne ein neues Terminal und führe aus:");
-                        println!("   export INFISICAL_PROJECT_ID=\"deine-projekt-id\"");
-                        println!("   export INFISICAL_CLIENT_ID=\"deine-client-id\"");
-                        println!("   export INFISICAL_CLIENT_SECRET=\"dein-service-token\"");
+                        println!("\n💡 Open a new terminal and run:");
+                        println!("   export INFISICAL_PROJECT_ID=\"your-project-id\"");
+                        println!("   export INFISICAL_CLIENT_ID=\"your-client-id\"");
+                        println!("   export INFISICAL_CLIENT_SECRET=\"your-service-token\"");
                         println!("   cargo run --bin loxone-mcp-setup --backend infisical");
                         std::process::exit(0);
                     }
                     continue;
                 }
-            },
+            }
             "3" => return Ok(CredentialBackend::Keychain),
             "4" => {
-                println!("⚠️  Environment Variables sind nur temporär und gehen beim Neustart verloren!");
+                println!(
+                    "⚠️  Environment Variables sind nur temporär und gehen beim Neustart verloren!"
+                );
                 let confirm = get_manual_input("Trotzdem verwenden? [y/N]: ")?;
                 if confirm.to_lowercase() == "y" {
                     return Ok(CredentialBackend::Environment);
                 }
                 continue;
-            },
+            }
             _ => {
                 println!("❌ Ungültige Auswahl. Bitte wähle 1-4.");
                 continue;
@@ -632,7 +681,9 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
 }
 
 /// Create credential manager for specific backend
-async fn create_credential_manager_for_backend(backend: &CredentialBackend) -> Result<CredentialManager> {
+async fn create_credential_manager_for_backend(
+    backend: &CredentialBackend,
+) -> Result<CredentialManager> {
     match backend {
         CredentialBackend::Auto => {
             // Use the existing multi-backend logic
@@ -644,7 +695,8 @@ async fn create_credential_manager_for_backend(backend: &CredentialBackend) -> R
                     if std::env::var("INFISICAL_PROJECT_ID").is_ok() {
                         Some(CredentialStore::Infisical {
                             project_id: std::env::var("INFISICAL_PROJECT_ID").unwrap(),
-                            environment: std::env::var("INFISICAL_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string()),
+                            environment: std::env::var("INFISICAL_ENVIRONMENT")
+                                .unwrap_or_else(|_| "dev".to_string()),
                             client_id: std::env::var("INFISICAL_CLIENT_ID").unwrap(),
                             client_secret: std::env::var("INFISICAL_CLIENT_SECRET").unwrap(),
                             host: std::env::var("INFISICAL_HOST").ok(),
@@ -657,52 +709,68 @@ async fn create_credential_manager_for_backend(backend: &CredentialBackend) -> R
                 #[cfg(feature = "keyring-storage")]
                 Some(CredentialStore::Keyring),
             ];
-            
+
             for store in stores.into_iter().flatten() {
                 if let Ok(manager) = CredentialManager::new_async(store).await {
                     return Ok(manager);
                 }
             }
-            
-            Err(loxone_mcp_rust::error::LoxoneError::credentials("No working credential backend found".to_string()))
-        },
+
+            Err(loxone_mcp_rust::error::LoxoneError::credentials(
+                "No working credential backend found".to_string(),
+            ))
+        }
         CredentialBackend::Infisical => {
             #[cfg(feature = "infisical")]
             {
                 let store = CredentialStore::Infisical {
-                    project_id: std::env::var("INFISICAL_PROJECT_ID")
-                        .map_err(|_| loxone_mcp_rust::error::LoxoneError::credentials("INFISICAL_PROJECT_ID not set".to_string()))?,
-                    environment: std::env::var("INFISICAL_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string()),
-                    client_id: std::env::var("INFISICAL_CLIENT_ID")
-                        .map_err(|_| loxone_mcp_rust::error::LoxoneError::credentials("INFISICAL_CLIENT_ID not set".to_string()))?,
-                    client_secret: std::env::var("INFISICAL_CLIENT_SECRET")
-                        .map_err(|_| loxone_mcp_rust::error::LoxoneError::credentials("INFISICAL_CLIENT_SECRET not set".to_string()))?,
+                    project_id: std::env::var("INFISICAL_PROJECT_ID").map_err(|_| {
+                        loxone_mcp_rust::error::LoxoneError::credentials(
+                            "INFISICAL_PROJECT_ID not set".to_string(),
+                        )
+                    })?,
+                    environment: std::env::var("INFISICAL_ENVIRONMENT")
+                        .unwrap_or_else(|_| "dev".to_string()),
+                    client_id: std::env::var("INFISICAL_CLIENT_ID").map_err(|_| {
+                        loxone_mcp_rust::error::LoxoneError::credentials(
+                            "INFISICAL_CLIENT_ID not set".to_string(),
+                        )
+                    })?,
+                    client_secret: std::env::var("INFISICAL_CLIENT_SECRET").map_err(|_| {
+                        loxone_mcp_rust::error::LoxoneError::credentials(
+                            "INFISICAL_CLIENT_SECRET not set".to_string(),
+                        )
+                    })?,
                     host: std::env::var("INFISICAL_HOST").ok(),
                 };
                 CredentialManager::new_async(store).await
             }
             #[cfg(not(feature = "infisical"))]
-            Err(loxone_mcp_rust::error::LoxoneError::credentials("Infisical feature not enabled".to_string()))
-        },
+            Err(loxone_mcp_rust::error::LoxoneError::credentials(
+                "Infisical feature not enabled".to_string(),
+            ))
+        }
         CredentialBackend::Environment => {
             CredentialManager::new_async(CredentialStore::Environment).await
-        },
+        }
         CredentialBackend::Keychain => {
             #[cfg(feature = "keyring-storage")]
             {
                 CredentialManager::new_async(CredentialStore::Keyring).await
             }
             #[cfg(not(feature = "keyring-storage"))]
-            Err(loxone_mcp_rust::error::LoxoneError::credentials("Keyring feature not enabled".to_string()))
-        },
+            Err(loxone_mcp_rust::error::LoxoneError::credentials(
+                "Keyring feature not enabled".to_string(),
+            ))
+        }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::WasiKeyValue => {
             CredentialManager::new_async(CredentialStore::WasiKeyValue { store_name: None }).await
-        },
+        }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::LocalStorage => {
             CredentialManager::new_async(CredentialStore::LocalStorage).await
-        },
+        }
     }
 }
 
@@ -719,8 +787,8 @@ fn show_environment_variables(
 
     match backend {
         CredentialBackend::Environment => {
-            println!("\n💡 Da du Environment Variables gewählt hast, setze diese für den Server:");
-            
+            println!("\n💡 Since you chose Environment Variables, set these for the server:");
+
             if export_format {
                 println!("\n# Kopiere diese Befehle:");
                 println!("export LOXONE_USER=\"{}\"", username);
@@ -739,13 +807,16 @@ fn show_environment_variables(
                 }
                 println!("```");
             }
-        },
+        }
         CredentialBackend::Infisical => {
-            let infisical_host = std::env::var("INFISICAL_HOST").unwrap_or_else(|_| "https://app.infisical.com".to_string());
+            let infisical_host = std::env::var("INFISICAL_HOST")
+                .unwrap_or_else(|_| "https://app.infisical.com".to_string());
             let is_custom_host = std::env::var("INFISICAL_HOST").is_ok();
-            
-            println!("\n💡 Für Infisical stelle sicher, dass diese Umgebungsvariablen gesetzt sind:");
-            
+
+            println!(
+                "\n💡 Für Infisical stelle sicher, dass diese Umgebungsvariablen gesetzt sind:"
+            );
+
             if export_format {
                 println!("\n# Infisical Konfiguration:");
                 if let Ok(project_id) = std::env::var("INFISICAL_PROJECT_ID") {
@@ -782,7 +853,10 @@ fn show_environment_variables(
                     println!("export INFISICAL_CLIENT_ID=\"{}\"", client_id);
                 }
                 if let Ok(client_secret) = std::env::var("INFISICAL_CLIENT_SECRET") {
-                    println!("export INFISICAL_CLIENT_SECRET=\"{}***\"", &client_secret[..8.min(client_secret.len())]);
+                    println!(
+                        "export INFISICAL_CLIENT_SECRET=\"{}***\"",
+                        &client_secret[..8.min(client_secret.len())]
+                    );
                 }
                 if let Ok(environment) = std::env::var("INFISICAL_ENVIRONMENT") {
                     println!("export INFISICAL_ENVIRONMENT=\"{}\"", environment);
@@ -799,18 +873,23 @@ fn show_environment_variables(
                     println!("   (Custom/Self-hosted Instanz)");
                 } else {
                     println!("   (Offizielle Cloud-Instanz)");
-                    println!("   Dashboard: https://app.infisical.com/project/{}/overview", 
-                        std::env::var("INFISICAL_PROJECT_ID").unwrap_or_else(|_| "YOUR_PROJECT_ID".to_string()));
+                    println!(
+                        "   Dashboard: https://app.infisical.com/project/{}/overview",
+                        std::env::var("INFISICAL_PROJECT_ID")
+                            .unwrap_or_else(|_| "YOUR_PROJECT_ID".to_string())
+                    );
                 }
             }
-        },
+        }
         CredentialBackend::Keychain | CredentialBackend::Auto => {
-            println!("\n✅ Credentials sind im Keychain gespeichert - keine Umgebungsvariablen nötig!");
-            println!("   Der Server lädt sie automatisch aus dem sicheren Keychain.");
-            
-            println!("\n📌 Optional: Du kannst diese Umgebungsvariablen setzen um das Keychain zu überschreiben:");
+            println!("\n✅ Credentials are stored in Keychain - no environment variables needed!");
+            println!("   The server loads them automatically from the secure Keychain.");
+
+            println!(
+                "\n📌 Optional: You can set these environment variables to override Keychain:"
+            );
             if export_format {
-                println!("\n# Optional (überschreibt Keychain):");
+                println!("\n# Optional (overrides Keychain):");
                 println!("# export LOXONE_USER=\"{}\"", username);
                 println!("# export LOXONE_PASS=\"{}\"", credentials.password);
                 println!("# export LOXONE_HOST=\"{}\"", host);
@@ -828,15 +907,20 @@ fn show_environment_variables(
                 }
                 println!("```");
             }
-        },
+        }
         #[cfg(target_arch = "wasm32")]
         _ => {
             println!("\n💡 WASM Umgebung - Credentials sind im Browser Storage gespeichert.");
-        },
+        }
     }
 
     // Generate export script if requested
-    if export_format && matches!(backend, CredentialBackend::Environment | CredentialBackend::Infisical) {
+    if export_format
+        && matches!(
+            backend,
+            CredentialBackend::Environment | CredentialBackend::Infisical
+        )
+    {
         generate_export_script(backend, host, username, credentials);
     }
 
@@ -849,7 +933,7 @@ fn show_environment_variables(
             println!();
             println!("# Option 2: Mit dem generierten Script");
             println!("source export_env.sh && cargo run --bin loxone-mcp-server stdio");
-        },
+        }
         _ => {
             println!("cargo run --bin loxone-mcp-server stdio    # Für Claude Desktop");
             println!("cargo run --bin loxone-mcp-server http     # Für n8n/Web");
@@ -869,38 +953,52 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
             println!("   1. Infisical (wenn konfiguriert)");
             println!("   2. Umgebungsvariablen");
             println!("   3. System Keychain");
-        },
+        }
         CredentialBackend::Infisical => {
-            let infisical_host = std::env::var("INFISICAL_HOST").unwrap_or_else(|_| "https://app.infisical.com".to_string());
+            let infisical_host = std::env::var("INFISICAL_HOST")
+                .unwrap_or_else(|_| "https://app.infisical.com".to_string());
             let is_custom_host = std::env::var("INFISICAL_HOST").is_ok();
-            let project_id = std::env::var("INFISICAL_PROJECT_ID").unwrap_or_else(|_| "YOUR_PROJECT_ID".to_string());
-            
+            let project_id = std::env::var("INFISICAL_PROJECT_ID")
+                .unwrap_or_else(|_| "YOUR_PROJECT_ID".to_string());
+
             println!("\n🔐 Infisical Konfiguration:");
             println!("   • Credentials sind in Infisical gespeichert");
             println!("   • Team-Mitglieder können dieselben Credentials verwenden");
-            println!("   • Audit-Log verfügbar für Zugriffskontrolle");
+            println!("   • Audit log available for access control");
             println!("   • Rotiere regelmäßig deine Service Tokens");
             println!();
             println!("🌐 Infisical Instance:");
             println!("   URL: {}", infisical_host);
             if is_custom_host {
                 println!("   Type: Self-hosted/Custom Instance");
-                println!("   Project Dashboard: {}/project/{}/overview", infisical_host, project_id);
-                println!("   Settings: {}/project/{}/settings", infisical_host, project_id);
+                println!(
+                    "   Project Dashboard: {}/project/{}/overview",
+                    infisical_host, project_id
+                );
+                println!(
+                    "   Settings: {}/project/{}/settings",
+                    infisical_host, project_id
+                );
             } else {
                 println!("   Type: Official Cloud Instance");
-                println!("   Project Dashboard: https://app.infisical.com/project/{}/overview", project_id);
-                println!("   Settings: https://app.infisical.com/project/{}/settings", project_id);
+                println!(
+                    "   Project Dashboard: https://app.infisical.com/project/{}/overview",
+                    project_id
+                );
+                println!(
+                    "   Settings: https://app.infisical.com/project/{}/settings",
+                    project_id
+                );
                 println!("   Service Tokens: https://app.infisical.com/project/{}/settings/service-tokens", project_id);
             }
-        },
+        }
         CredentialBackend::Environment => {
             println!("\n⚠️  Environment Variables Konfiguration:");
             println!("   • Credentials sind nur temporär (verschwinden beim Neustart)");
-            println!("   • Gut für CI/CD und temporäre Tests");
+            println!("   • Good for CI/CD and temporary tests");
             println!("   • Für persistente Speicherung verwende Keychain oder Infisical");
             println!("   • Stelle sicher, dass die Variablen in deiner Shell gesetzt sind");
-        },
+        }
         CredentialBackend::Keychain => {
             println!("\n🔒 Keychain Konfiguration:");
             println!("   • Credentials sind sicher im System Keychain gespeichert");
@@ -909,28 +1007,28 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
             println!("     - macOS: Keychain Access App");
             println!("     - Windows: Credential Manager");
             println!("     - Linux: GNOME Keyring / KDE Wallet");
-            
+
             #[cfg(target_os = "macos")]
             println!("\n   💡 macOS: Öffne 'Keychain Access' um Credentials zu verwalten");
-            
+
             #[cfg(target_os = "windows")]
             println!("\n   💡 Windows: Öffne 'Credential Manager' um Credentials zu verwalten");
-            
+
             #[cfg(target_os = "linux")]
             println!("\n   💡 Linux: Verwende 'seahorse' oder 'kwalletmanager' um Credentials zu verwalten");
-        },
+        }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::WasiKeyValue => {
             println!("\n🌐 WASI Key-Value Konfiguration:");
             println!("   • Credentials sind im WASI Key-Value Store gespeichert");
             println!("   • Verfügbar in WASM Component Model Umgebungen");
-        },
+        }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::LocalStorage => {
             println!("\n🌐 Browser Local Storage Konfiguration:");
             println!("   • Credentials sind im Browser Local Storage gespeichert");
-            println!("   • Nur für Browser-basierte WASM Anwendungen");
-        },
+            println!("   • Only for browser-based WASM applications");
+        }
     }
 
     println!("\n📚 Weitere Hilfe:");
@@ -968,14 +1066,19 @@ echo "   Host: $LOXONE_HOST"
                 username,
                 credentials.password,
                 host,
-                credentials.api_key.as_ref().map(|key| format!("\nexport LOXONE_API_KEY=\"{}\"", key)).unwrap_or_default()
+                credentials
+                    .api_key
+                    .as_ref()
+                    .map(|key| format!("\nexport LOXONE_API_KEY=\"{}\"", key))
+                    .unwrap_or_default()
             )
-        },
+        }
         CredentialBackend::Infisical => {
             let project_id = std::env::var("INFISICAL_PROJECT_ID").unwrap_or_default();
             let client_id = std::env::var("INFISICAL_CLIENT_ID").unwrap_or_default();
             let client_secret = std::env::var("INFISICAL_CLIENT_SECRET").unwrap_or_default();
-            let environment = std::env::var("INFISICAL_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string());
+            let environment =
+                std::env::var("INFISICAL_ENVIRONMENT").unwrap_or_else(|_| "dev".to_string());
             let infisical_host = std::env::var("INFISICAL_HOST").unwrap_or_default();
 
             format!(
@@ -1000,9 +1103,13 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
                 client_id,
                 client_secret,
                 environment,
-                if !infisical_host.is_empty() { format!("\nexport INFISICAL_HOST=\"{}\"", infisical_host) } else { "".to_string() }
+                if !infisical_host.is_empty() {
+                    format!("\nexport INFISICAL_HOST=\"{}\"", infisical_host)
+                } else {
+                    "".to_string()
+                }
             )
-        },
+        }
         _ => return, // Only generate for Environment and Infisical
     };
 
@@ -1010,7 +1117,7 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
         Ok(_) => {
             println!("\n📄 Script generiert: export_env.sh");
             println!("   Verwende: source export_env.sh");
-            
+
             // Make executable on Unix systems
             #[cfg(unix)]
             {
@@ -1021,7 +1128,7 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
                     let _ = std::fs::set_permissions("export_env.sh", permissions);
                 }
             }
-        },
+        }
         Err(e) => {
             println!("\n⚠️  Konnte export_env.sh nicht erstellen: {}", e);
         }
