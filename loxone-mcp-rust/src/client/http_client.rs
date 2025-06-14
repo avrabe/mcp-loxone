@@ -414,14 +414,14 @@ impl LoxoneHttpClient {
     /// Get structure using streaming parser for large files
     pub async fn get_structure_streaming(&self) -> Result<LoxoneStructure> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with streaming parser");
 
         // Get structure file: /data/LoxAPP3.json
         let url = self.build_url("data/LoxAPP3.json")?;
 
         let response = self.execute_request(url).await?;
-        
+
         // Use streaming parser
         let mut parser = StreamingStructureParser::new();
         let structure = parser.parse_from_response(response).await?;
@@ -441,12 +441,12 @@ impl LoxoneHttpClient {
         config: crate::client::streaming_parser::StreamingParserConfig,
     ) -> Result<LoxoneStructure> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with custom streaming config");
 
         let url = self.build_url("data/LoxAPP3.json")?;
         let response = self.execute_request(url).await?;
-        
+
         let mut parser = StreamingStructureParser::with_config(config);
         let structure = parser.parse_from_response(response).await?;
 
@@ -462,14 +462,17 @@ impl LoxoneHttpClient {
     /// Get structure with progress reporting
     pub async fn get_structure_with_progress(
         &self,
-    ) -> Result<(LoxoneStructure, tokio::sync::mpsc::UnboundedReceiver<crate::client::streaming_parser::ParseProgress>)> {
+    ) -> Result<(
+        LoxoneStructure,
+        tokio::sync::mpsc::UnboundedReceiver<crate::client::streaming_parser::ParseProgress>,
+    )> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with progress reporting");
 
         let url = self.build_url("data/LoxAPP3.json")?;
         let response = self.execute_request(url).await?;
-        
+
         let mut parser = StreamingStructureParser::new();
         let progress_rx = parser.with_progress_reporting();
         let structure = parser.parse_from_response(response).await?;

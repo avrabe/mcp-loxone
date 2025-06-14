@@ -486,6 +486,20 @@ impl ServerConfig {
             );
         }
 
+        // Load authentication method
+        if let Ok(auth_method) = env::var("LOXONE_AUTH_METHOD") {
+            config.loxone.auth_method = match auth_method.to_lowercase().as_str() {
+                "basic" => AuthMethod::Basic,
+                "token" => AuthMethod::Token,
+                _ => {
+                    return Err(LoxoneError::config(format!(
+                        "Invalid LOXONE_AUTH_METHOD: {}. Use 'basic' or 'token'",
+                        auth_method
+                    )));
+                }
+            };
+        }
+
         // Load logging configuration
         if let Ok(level) = env::var("RUST_LOG") {
             config.logging.level = level;

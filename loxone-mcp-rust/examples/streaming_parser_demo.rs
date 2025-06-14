@@ -1,16 +1,16 @@
 //! Streaming JSON Parser Demo
-//! 
+//!
 //! This example demonstrates the streaming JSON parser for large Loxone structure files,
 //! showing memory-efficient parsing, progress reporting, and different configuration options.
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
     use loxone_mcp_rust::client::http_client::LoxoneHttpClient;
     use loxone_mcp_rust::client::streaming_parser::{
-        StreamingParserConfig, StreamingStructureParser, StructureSection
+        StreamingParserConfig, StreamingStructureParser, StructureSection,
     };
+    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
     use std::time::Duration;
     use url::Url;
 
@@ -42,9 +42,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demo 1: Standard HTTP client vs Streaming Parser
     println!("1️⃣  Comparing Standard vs Streaming Parsing");
-    
+
     match LoxoneHttpClient::new(config.clone(), credentials.clone()).await {
-        Ok(client) => {
+        Ok(_client) => {
             println!("   ✅ HTTP client created successfully");
 
             // Traditional parsing (loads entire file into memory)
@@ -74,21 +74,34 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Default configuration
     let default_config = StreamingParserConfig::default();
     println!("   🎯 Default Configuration:");
-    println!("      Buffer size: {:.1} MB", default_config.max_buffer_size as f64 / 1024.0 / 1024.0);
-    println!("      Progress interval: {} items", default_config.progress_interval);
+    println!(
+        "      Buffer size: {:.1} MB",
+        default_config.max_buffer_size as f64 / 1024.0 / 1024.0
+    );
+    println!(
+        "      Progress interval: {} items",
+        default_config.progress_interval
+    );
     println!("      Timeout: {:?}", default_config.parse_timeout);
     println!("      Partial parsing: {}", default_config.allow_partial);
-    println!("      Section filter: {}", if default_config.sections.is_empty() { "All sections" } else { "Filtered" });
+    println!(
+        "      Section filter: {}",
+        if default_config.sections.is_empty() {
+            "All sections"
+        } else {
+            "Filtered"
+        }
+    );
 
     // Large installation configuration
-    let large_parser = StreamingStructureParser::for_large_installation();
+    let _large_parser = StreamingStructureParser::for_large_installation();
     println!("\n   🏢 Large Installation Preset:");
     println!("      Optimized for >5000 devices");
     println!("      100MB buffer, 10min timeout");
     println!("      Complete parsing required");
 
     // Quick overview configuration
-    let quick_parser = StreamingStructureParser::for_quick_overview();
+    let _quick_parser = StreamingStructureParser::for_quick_overview();
     println!("\n   ⚡ Quick Overview Preset:");
     println!("      Optimized for fast startup");
     println!("      10MB buffer, 1min timeout");
@@ -106,15 +119,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("\n   ⚙️  Custom Configuration:");
-    println!("      Buffer size: {:.1} MB", custom_config.max_buffer_size as f64 / 1024.0 / 1024.0);
-    println!("      Progress every: {} items", custom_config.progress_interval);
+    println!(
+        "      Buffer size: {:.1} MB",
+        custom_config.max_buffer_size as f64 / 1024.0 / 1024.0
+    );
+    println!(
+        "      Progress every: {} items",
+        custom_config.progress_interval
+    );
     println!("      Timeout: {:?}", custom_config.parse_timeout);
     println!("      Sections: {} selected", custom_config.sections.len());
-    println!("      Max items/section: {}", custom_config.max_items_per_section);
+    println!(
+        "      Max items/section: {}",
+        custom_config.max_items_per_section
+    );
 
     // Demo 3: Section-Specific Parsing
     println!("\n3️⃣  Section-Specific Parsing");
-    
+
     let all_sections = vec![
         StructureSection::Controls,
         StructureSection::Rooms,
@@ -157,7 +179,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Simulate progress data
     let mock_progress = loxone_mcp_rust::client::streaming_parser::ParseProgress {
-        bytes_processed: 15 * 1024 * 1024, // 15MB
+        bytes_processed: 15 * 1024 * 1024,   // 15MB
         total_bytes: Some(60 * 1024 * 1024), // 60MB total
         items_parsed: 2500,
         current_section: Some("controls".to_string()),
@@ -168,16 +190,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("   📈 Example Progress Report:");
-    println!("      Bytes processed: {:.1} MB / {:.1} MB", 
+    println!(
+        "      Bytes processed: {:.1} MB / {:.1} MB",
         mock_progress.bytes_processed as f64 / 1024.0 / 1024.0,
         mock_progress.total_bytes.unwrap() as f64 / 1024.0 / 1024.0
     );
     println!("      Items parsed: {}", mock_progress.items_parsed);
-    println!("      Current section: {}", mock_progress.current_section.as_ref().unwrap());
+    println!(
+        "      Current section: {}",
+        mock_progress.current_section.as_ref().unwrap()
+    );
     println!("      Elapsed time: {:?}", mock_progress.elapsed);
-    println!("      Completion: {:.1}%", mock_progress.completion_percentage.unwrap());
-    println!("      Memory usage: {:.1} MB", mock_progress.memory_usage as f64 / 1024.0 / 1024.0);
-    println!("      Parse rate: {:.1} items/sec", mock_progress.parse_rate);
+    println!(
+        "      Completion: {:.1}%",
+        mock_progress.completion_percentage.unwrap()
+    );
+    println!(
+        "      Memory usage: {:.1} MB",
+        mock_progress.memory_usage as f64 / 1024.0 / 1024.0
+    );
+    println!(
+        "      Parse rate: {:.1} items/sec",
+        mock_progress.parse_rate
+    );
 
     // Demo 6: Error Handling and Recovery
     println!("\n6️⃣  Error Handling and Recovery");

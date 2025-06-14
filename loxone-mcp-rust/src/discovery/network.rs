@@ -116,7 +116,7 @@ impl NetworkDiscovery {
     /// Discover Loxone servers using mDNS/Zeroconf
     #[cfg(feature = "discovery")]
     async fn mdns_discovery(&self) -> Result<Vec<DiscoveredServer>> {
-        crate::mdns_discovery::discover_via_mdns(self.timeout).await
+        super::mdns::discover_via_mdns(self.timeout).await
     }
 
     /// Fallback when mDNS feature is not available

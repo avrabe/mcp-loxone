@@ -28,6 +28,7 @@
 //! }
 //! ```
 
+pub mod audit_log;
 pub mod client;
 pub mod config;
 pub mod error;
@@ -35,7 +36,6 @@ pub mod http_transport;
 pub mod logging;
 pub mod mcp_consent;
 pub mod server;
-pub mod simple_server;
 pub mod tools;
 pub mod validation;
 
@@ -44,17 +44,11 @@ pub mod crypto;
 
 pub mod discovery;
 
-#[cfg(feature = "discovery")]
-pub mod mdns_discovery;
-#[cfg(feature = "discovery")]
-pub mod network_discovery;
-
 // Re-export main types
 pub use crate::{
     config::{CredentialStore, ServerConfig},
     error::{LoxoneError, Result},
     server::LoxoneMcpServer,
-    simple_server::SimpleLoxoneMcpServer,
 };
 
 // Re-export MCP types from rmcp
@@ -64,10 +58,4 @@ pub use crate::{
 mod wasm;
 
 #[cfg(target_arch = "wasm32")]
-mod wasm_component;
-
-#[cfg(target_arch = "wasm32")]
 pub use wasm::*;
-
-#[cfg(target_arch = "wasm32")]
-pub use wasm_component::*;

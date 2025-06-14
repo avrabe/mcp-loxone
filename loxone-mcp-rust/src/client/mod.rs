@@ -438,24 +438,38 @@ pub async fn create_client(
     credentials: &LoxoneCredentials,
 ) -> Result<Box<dyn LoxoneClient>> {
     use crate::config::AuthMethod;
-    
+
     match config.auth_method {
         AuthMethod::Token => {
             #[cfg(feature = "crypto")]
             {
                 use crate::client::token_http_client::TokenHttpClient;
-                let client = TokenHttpClient::new(config.clone(), credentials.clone()).await?;
-                Ok(Box::new(client))
+                match TokenHttpClient::new(config.clone(), credentials.clone()).await {
+                    Ok(client) => {
+                        tracing::info!("✅ Token authentication initialized successfully");
+                        Ok(Box::new(client))
+                    }
+                    Err(e) => {
+                        tracing::warn!("⚠️ Token authentication failed: {}", e);
+                        tracing::info!("🔄 Falling back to basic authentication");
+                        let client =
+                            http_client::LoxoneHttpClient::new(config.clone(), credentials.clone())
+                                .await?;
+                        Ok(Box::new(client))
+                    }
+                }
             }
             #[cfg(not(feature = "crypto"))]
             {
                 tracing::warn!("Token authentication requested but crypto feature is disabled, falling back to basic auth");
-                let client = http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
+                let client =
+                    http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
                 Ok(Box::new(client))
             }
         }
         AuthMethod::Basic => {
-            let client = http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
+            let client =
+                http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
             Ok(Box::new(client))
         }
     }
@@ -481,7 +495,9 @@ pub async fn create_hybrid_client(
             #[cfg(not(feature = "crypto"))]
             {
                 tracing::warn!("Token authentication requested but crypto feature is disabled, falling back to basic auth");
-                Arc::new(http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?)
+                Arc::new(
+                    http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?,
+                )
             }
         }
         crate::config::AuthMethod::Basic => {
@@ -490,11 +506,8 @@ pub async fn create_hybrid_client(
     };
 
     // Create WebSocket client with HTTP client for hybrid operation
-    LoxoneWebSocketClient::new_with_http_client(
-        config.clone(),
-        credentials.clone(),
-        http_client,
-    ).await
+    LoxoneWebSocketClient::new_with_http_client(config.clone(), credentials.clone(), http_client)
+        .await
 }
 
 /// Create standalone WebSocket client (for real-time monitoring only)

@@ -1,10 +1,10 @@
 //! Tests for authentication method selection
 
-use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-use loxone_mcp_rust::config::credentials::LoxoneCredentials;
 use loxone_mcp_rust::client::create_client;
-use url::Url;
+use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
 use std::time::Duration;
+use url::Url;
 
 #[tokio::test]
 async fn test_token_auth_selection() {
@@ -30,13 +30,18 @@ async fn test_token_auth_selection() {
 
     let client = create_client(&config, &credentials).await;
     assert!(client.is_ok(), "Token client creation should succeed");
-    
+
     // Verify it's the right type with crypto feature enabled
     #[cfg(feature = "crypto")]
     {
         let client = client.unwrap();
-        let is_token_client = client.as_any().is::<loxone_mcp_rust::client::token_http_client::TokenHttpClient>();
-        assert!(is_token_client, "Should create TokenHttpClient when token auth is selected");
+        let is_token_client = client
+            .as_any()
+            .is::<loxone_mcp_rust::client::token_http_client::TokenHttpClient>();
+        assert!(
+            is_token_client,
+            "Should create TokenHttpClient when token auth is selected"
+        );
     }
 }
 
@@ -64,16 +69,25 @@ async fn test_basic_auth_selection() {
 
     let client = create_client(&config, &credentials).await;
     assert!(client.is_ok(), "Basic client creation should succeed");
-    
+
     // Verify it's the basic HTTP client
     let client = client.unwrap();
-    let is_basic_client = client.as_any().is::<loxone_mcp_rust::client::http_client::LoxoneHttpClient>();
-    assert!(is_basic_client, "Should create LoxoneHttpClient when basic auth is selected");
+    let is_basic_client = client
+        .as_any()
+        .is::<loxone_mcp_rust::client::http_client::LoxoneHttpClient>();
+    assert!(
+        is_basic_client,
+        "Should create LoxoneHttpClient when basic auth is selected"
+    );
 }
 
 #[tokio::test]
 async fn test_default_auth_method() {
     // Test that default is Token
     let auth_method = AuthMethod::default();
-    assert_eq!(auth_method, AuthMethod::Token, "Default auth method should be Token");
+    assert_eq!(
+        auth_method,
+        AuthMethod::Token,
+        "Default auth method should be Token"
+    );
 }

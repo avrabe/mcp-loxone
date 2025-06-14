@@ -1,14 +1,14 @@
 //! Demonstration of authentication method selection
-//! 
+//!
 //! This example shows how the client factory function chooses between
 //! basic HTTP authentication and token-based authentication based on
 //! the configuration.
 
-use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-use loxone_mcp_rust::config::credentials::LoxoneCredentials;
 use loxone_mcp_rust::client::create_client;
-use url::Url;
+use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
 use std::time::Duration;
+use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

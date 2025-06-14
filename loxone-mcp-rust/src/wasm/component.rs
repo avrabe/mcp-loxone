@@ -8,6 +8,26 @@ use crate::error::{LoxoneError, Result};
 use crate::wasm::wasip2::{Wasip2ConfigLoader, Wasip2CredentialManager, Wasip2McpServer};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Mutex;
+
+#[cfg(target_arch = "wasm32")]
+use wasm_bindgen::prelude::*;
+
+#[cfg(target_arch = "wasm32")]
+use web_sys::console;
+
+use crate::config::credentials::{
+    create_best_credential_manager, LoxoneCredentials, MultiBackendCredentialManager,
+};
+
+// Global state for the WASM component
+static COMPONENT_STATE: Mutex<Option<ComponentState>> = Mutex::new(None);
+
+struct ComponentState {
+    credential_manager: MultiBackendCredentialManager,
+    loxone_client: Option<crate::client::LoxoneClient>,
+    config: ServerConfig,
+}
 
 /// WASM Component Model exports for the Loxone MCP server
 pub mod exports {
@@ -358,6 +378,31 @@ pub mod exports {
     }
 }
 
+/// Initialize the WASM component with logging
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen(start)]
+pub fn wasm_main() {
+    // Set up panic hook for better error messages
+    console_error_panic_hook::set_once();
+
+    // Initialize tracing for WASM
+    #[cfg(feature = "debug-logging")]
+    {
+        use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+        use tracing_wasm::WASMLayerConfigBuilder;
+
+        let wasm_layer = tracing_wasm::WASMLayer::new(
+            WASMLayerConfigBuilder::new()
+                .set_max_level(tracing::Level::DEBUG)
+                .build(),
+        );
+
+        tracing_subscriber::registry().with(wasm_layer).init();
+    }
+
+    console::log_1(&"Loxone MCP WASM component initialized".into());
+}
+
 /// Component initialization for WASIP2
 #[cfg(target_arch = "wasm32")]
 pub fn init_component() -> Result<(), Box<dyn std::error::Error>> {
@@ -390,6 +435,121 @@ pub fn init_component() -> Result<(), Box<dyn std::error::Error>> {
     }));
 
     Ok(())
+}
+
+/// Export the MCP server interface for WASM components
+pub mod mcp_server_impl {
+    use super::*;
+
+    /// Initialize the MCP server with configuration
+    pub async fn initialize(config_json: &str) -> Result<()> {
+        let config: ServerConfig = serde_json::from_str(config_json)
+            .map_err(|e| LoxoneError::config(format!("Invalid configuration: {}", e)))?;
+
+        // Create credential manager
+        let credential_manager = create_best_credential_manager().await?;
+
+        // Initialize component state
+        let state = ComponentState {
+            credential_manager,
+            loxone_client: None,
+            config,
+        };
+
+        *COMPONENT_STATE.lock().unwrap() = Some(state);
+
+        tracing::info!("MCP server initialized successfully");
+        Ok(())
+    }
+
+    /// List available MCP tools
+    pub fn list_tools() -> Result<Vec<String>> {
+        let tools = vec![
+            "get_rooms".to_string(),
+            "get_room_devices".to_string(),
+            "control_device".to_string(),
+            "get_device_state".to_string(),
+            "discover_sensors".to_string(),
+            "list_credentials".to_string(),
+            "validate_credentials".to_string(),
+        ];
+
+        Ok(tools)
+    }
+
+    /// Call an MCP tool
+    pub async fn call_tool(name: &str, arguments_json: &str) -> Result<String> {
+        let state_guard = COMPONENT_STATE.lock().unwrap();
+        let state = state_guard
+            .as_ref()
+            .ok_or_else(|| LoxoneError::config("Component not initialized"))?;
+
+        match name {
+            "get_rooms" => {
+                if let Some(client) = &state.loxone_client {
+                    let rooms = client.get_rooms().await?;
+                    Ok(serde_json::to_string(&rooms)?)
+                } else {
+                    Err(LoxoneError::config("Loxone client not connected"))
+                }
+            }
+
+            "list_credentials" => {
+                // This is safe to call without Loxone connection
+                drop(state_guard); // Release the lock
+
+                // Use a mock result for now
+                let credentials = vec!["LOXONE_HOST", "LOXONE_USER", "LOXONE_PASS"];
+                Ok(serde_json::to_string(&credentials)?)
+            }
+
+            "validate_credentials" => {
+                drop(state_guard); // Release the lock
+
+                let state_guard = COMPONENT_STATE.lock().unwrap();
+                let state = state_guard.as_ref().unwrap();
+
+                // Try to get credentials to validate they exist
+                match state.credential_manager.get_credentials().await {
+                    Ok(_) => Ok(serde_json::to_string(&true)?),
+                    Err(_) => Ok(serde_json::to_string(&false)?),
+                }
+            }
+
+            _ => Err(LoxoneError::config(format!("Unknown tool: {}", name))),
+        }
+    }
+
+    /// Get server capabilities
+    pub fn get_capabilities() -> Result<String> {
+        let capabilities = serde_json::json!({
+            "name": "Loxone MCP (WASM)",
+            "version": env!("CARGO_PKG_VERSION"),
+            "runtime": "wasm-wasip2",
+            "features": [
+                "credential-management",
+                "device-control",
+                "sensor-discovery",
+                "infisical-integration",
+                "wasi-keyvalue"
+            ],
+            "backends": [
+                "environment",
+                "infisical",
+                "wasi-keyvalue",
+                "local-storage"
+            ]
+        });
+
+        Ok(capabilities.to_string())
+    }
+
+    /// Shutdown the server
+    pub fn shutdown() -> Result<()> {
+        *COMPONENT_STATE.lock().unwrap() = None;
+        tracing::info!("MCP server shutdown complete");
+        Ok(())
+    }
 }
 
 /// Component metadata

@@ -393,11 +393,17 @@ impl CredentialManager {
 
     async fn get_environment(&self) -> Result<LoxoneCredentials> {
         let username = env::var(Self::USERNAME_KEY).map_err(|_| {
-            LoxoneError::credentials(&format!("{} environment variable not set", Self::USERNAME_KEY))
+            LoxoneError::credentials(format!(
+                "{} environment variable not set",
+                Self::USERNAME_KEY
+            ))
         })?;
 
         let password = env::var(Self::PASSWORD_KEY).map_err(|_| {
-            LoxoneError::credentials(&format!("{} environment variable not set", Self::PASSWORD_KEY))
+            LoxoneError::credentials(format!(
+                "{} environment variable not set",
+                Self::PASSWORD_KEY
+            ))
         })?;
 
         // Try new name first, then fall back to old name for compatibility
@@ -786,7 +792,8 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
     let mut stores = Vec::new();
     let mut infisical_configured = false;
     // Check if environment variables for Loxone are configured
-    let env_configured = std::env::var("LOXONE_USERNAME").is_ok() && std::env::var("LOXONE_PASSWORD").is_ok();
+    let env_configured =
+        std::env::var("LOXONE_USERNAME").is_ok() && std::env::var("LOXONE_PASSWORD").is_ok();
 
     // Try Infisical first if configured (preferred for team environments)
     #[cfg(feature = "infisical")]
@@ -845,11 +852,15 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
         #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
         {
             tracing::info!("📋 Credential source: System keychain (fallback)");
-            tracing::info!("💡 Tip: Set LOXONE_USERNAME and LOXONE_PASSWORD for direct configuration");
+            tracing::info!(
+                "💡 Tip: Set LOXONE_USERNAME and LOXONE_PASSWORD for direct configuration"
+            );
         }
         #[cfg(not(all(feature = "keyring-storage", not(target_arch = "wasm32"))))]
         {
-            tracing::warn!("⚠️  No credentials configured. Set LOXONE_USERNAME and LOXONE_PASSWORD");
+            tracing::warn!(
+                "⚠️  No credentials configured. Set LOXONE_USERNAME and LOXONE_PASSWORD"
+            );
         }
     }
 

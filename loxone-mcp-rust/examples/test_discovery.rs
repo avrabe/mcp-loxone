@@ -2,7 +2,7 @@
 //!
 //! Run with: cargo run --example test_discovery --features discovery
 
-use loxone_mcp_rust::network_discovery::NetworkDiscovery;
+use loxone_mcp_rust::discovery::network::NetworkDiscovery;
 use std::time::Duration;
 
 #[tokio::main]

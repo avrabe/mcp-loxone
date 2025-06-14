@@ -5,13 +5,13 @@
 
 use crate::client::{
     auth::TokenAuthClient,
-    command_queue::{CommandQueue, QueuedCommand, CommandPriority},
+    command_queue::{CommandPriority, CommandQueue, QueuedCommand},
     connection_pool::{ConnectionPool, PoolBuilder},
     ClientContext, LoxoneClient, LoxoneDevice, LoxoneResponse, LoxoneStructure,
 };
 use crate::config::{credentials::LoxoneCredentials, LoxoneConfig};
 use crate::error::{LoxoneError, Result};
-use crate::mcp_consent::{ConsentManager, OperationType, ConsentDecision};
+use crate::mcp_consent::{ConsentDecision, ConsentManager, OperationType};
 use async_trait::async_trait;
 use reqwest::{Client, ClientBuilder};
 use serde_json;
@@ -323,7 +323,10 @@ impl TokenHttpClient {
 #[async_trait]
 impl LoxoneClient for TokenHttpClient {
     async fn connect(&mut self) -> Result<()> {
-        info!("Connecting to Loxone Miniserver at {} using token authentication", self.base_url);
+        info!(
+            "Connecting to Loxone Miniserver at {} using token authentication",
+            self.base_url
+        );
 
         // Perform initial authentication
         self.ensure_authenticated().await?;
@@ -353,12 +356,12 @@ impl LoxoneClient for TokenHttpClient {
                 }
 
                 info!("✅ Connected to Loxone Miniserver with token authentication");
-                
+
                 // Process queued commands if command queue is enabled
                 if let Some(_queue) = &self.command_queue {
                     self.process_command_queue().await?;
                 }
-                
+
                 Ok(())
             }
             Ok(false) => Err(LoxoneError::connection("Health check failed")),
@@ -376,11 +379,11 @@ impl LoxoneClient for TokenHttpClient {
     async fn disconnect(&mut self) -> Result<()> {
         self.connected = false;
         *self.context.connected.write().await = false;
-        
+
         // Clear authentication
         let mut auth = self.auth_client.write().await;
         auth.clear();
-        
+
         info!("Disconnected from Loxone Miniserver");
         Ok(())
     }
@@ -390,25 +393,43 @@ impl LoxoneClient for TokenHttpClient {
         if !self.connected {
             if let Some(queue) = &self.command_queue {
                 debug!("Not connected - queuing command '{command}' for device {uuid}");
-                
+
                 // Determine priority based on command type
-                let priority = if command.contains("alarm") || command.contains("security") || command.contains("emergency") {
+                let priority = if command.contains("alarm")
+                    || command.contains("security")
+                    || command.contains("emergency")
+                {
                     CommandPriority::Critical
-                } else if command.contains("lock") || command.contains("unlock") || command.contains("arm") {
+                } else if command.contains("lock")
+                    || command.contains("unlock")
+                    || command.contains("arm")
+                {
                     CommandPriority::High
                 } else {
                     CommandPriority::Normal
                 };
-                
+
                 let queued_command = match priority {
-                    CommandPriority::Critical => QueuedCommand::new_critical(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
-                    CommandPriority::High => QueuedCommand::new_high_priority(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
-                    _ => QueuedCommand::new(uuid.to_string(), command.to_string(), "HTTP API".to_string()),
+                    CommandPriority::Critical => QueuedCommand::new_critical(
+                        uuid.to_string(),
+                        command.to_string(),
+                        "HTTP API".to_string(),
+                    ),
+                    CommandPriority::High => QueuedCommand::new_high_priority(
+                        uuid.to_string(),
+                        command.to_string(),
+                        "HTTP API".to_string(),
+                    ),
+                    _ => QueuedCommand::new(
+                        uuid.to_string(),
+                        command.to_string(),
+                        "HTTP API".to_string(),
+                    ),
                 };
 
                 let command_id = queue.enqueue(queued_command).await?;
                 info!("Command queued with ID: {}", command_id);
-                
+
                 // Return a synthetic response indicating command was queued
                 return Ok(LoxoneResponse {
                     code: 202, // Accepted
@@ -441,19 +462,19 @@ impl LoxoneClient for TokenHttpClient {
             };
 
             // Request consent first
-            let decision = consent_manager.request_consent(operation, "HTTP API".to_string()).await?;
-            
+            let decision = consent_manager
+                .request_consent(operation, "HTTP API".to_string())
+                .await?;
+
             match decision {
                 ConsentDecision::Approved | ConsentDecision::AutoApproved { .. } => {
                     // Execute the operation
                     self.send_command_without_consent(uuid, command).await
                 }
-                ConsentDecision::Denied { reason } => {
-                    Err(LoxoneError::consent_denied(reason))
-                }
-                ConsentDecision::TimedOut => {
-                    Err(LoxoneError::consent_denied("Consent request timed out".to_string()))
-                }
+                ConsentDecision::Denied { reason } => Err(LoxoneError::consent_denied(reason)),
+                ConsentDecision::TimedOut => Err(LoxoneError::consent_denied(
+                    "Consent request timed out".to_string(),
+                )),
             }
         } else {
             // Execute without consent (backward compatibility)
@@ -588,7 +609,8 @@ impl TokenHttpClient {
 
         // Check for consent if enabled and operation qualifies as bulk
         if let Some(consent_manager) = &self.consent_manager {
-            if commands.len() >= 3 { // Consider 3+ devices as bulk operation
+            if commands.len() >= 3 {
+                // Consider 3+ devices as bulk operation
                 let operation = OperationType::BulkDeviceControl {
                     device_count: commands.len(),
                     room_name: None, // Could be enhanced to detect room
@@ -596,8 +618,10 @@ impl TokenHttpClient {
                 };
 
                 // Request consent first
-                let decision = consent_manager.request_consent(operation, "HTTP API Bulk".to_string()).await?;
-                
+                let decision = consent_manager
+                    .request_consent(operation, "HTTP API Bulk".to_string())
+                    .await?;
+
                 match decision {
                     ConsentDecision::Approved | ConsentDecision::AutoApproved { .. } => {
                         // Execute commands in parallel using futures
@@ -617,7 +641,9 @@ impl TokenHttpClient {
                         return Err(LoxoneError::consent_denied(reason));
                     }
                     ConsentDecision::TimedOut => {
-                        return Err(LoxoneError::consent_denied("Bulk operation consent timed out".to_string()));
+                        return Err(LoxoneError::consent_denied(
+                            "Bulk operation consent timed out".to_string(),
+                        ));
                     }
                 }
             }
@@ -626,18 +652,20 @@ impl TokenHttpClient {
         // Execute commands in parallel using futures (normal path)
         use futures::future::join_all;
 
-        let futures = commands.into_iter().map(|(uuid, command)| {
-            async move {
-                self.send_command(&uuid, &command).await
-            }
-        });
+        let futures = commands
+            .into_iter()
+            .map(|(uuid, command)| async move { self.send_command(&uuid, &command).await });
 
         let results = join_all(futures).await;
         Ok(results)
     }
 
     /// Send command without consent check (internal use)
-    async fn send_command_without_consent(&self, uuid: &str, command: &str) -> Result<LoxoneResponse> {
+    async fn send_command_without_consent(
+        &self,
+        uuid: &str,
+        command: &str,
+    ) -> Result<LoxoneResponse> {
         let url = self.build_url(&format!("jdev/sps/io/{uuid}/{command}"))?;
 
         let response = self.execute_request(url).await?;
@@ -662,14 +690,14 @@ impl TokenHttpClient {
     /// Get structure using streaming parser for large files
     pub async fn get_structure_streaming(&self) -> Result<LoxoneStructure> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with streaming parser");
 
         // Get structure file: /data/LoxAPP3.json
         let url = self.build_url("data/LoxAPP3.json")?;
 
         let response = self.execute_request(url).await?;
-        
+
         // Use streaming parser
         let mut parser = StreamingStructureParser::new();
         let structure = parser.parse_from_response(response).await?;
@@ -689,12 +717,12 @@ impl TokenHttpClient {
         config: crate::client::streaming_parser::StreamingParserConfig,
     ) -> Result<LoxoneStructure> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with custom streaming config");
 
         let url = self.build_url("data/LoxAPP3.json")?;
         let response = self.execute_request(url).await?;
-        
+
         let mut parser = StreamingStructureParser::with_config(config);
         let structure = parser.parse_from_response(response).await?;
 
@@ -710,14 +738,17 @@ impl TokenHttpClient {
     /// Get structure with progress reporting
     pub async fn get_structure_with_progress(
         &self,
-    ) -> Result<(LoxoneStructure, tokio::sync::mpsc::UnboundedReceiver<crate::client::streaming_parser::ParseProgress>)> {
+    ) -> Result<(
+        LoxoneStructure,
+        tokio::sync::mpsc::UnboundedReceiver<crate::client::streaming_parser::ParseProgress>,
+    )> {
         use crate::client::streaming_parser::StreamingStructureParser;
-        
+
         debug!("Fetching structure file with progress reporting");
 
         let url = self.build_url("data/LoxAPP3.json")?;
         let response = self.execute_request(url).await?;
-        
+
         let mut parser = StreamingStructureParser::new();
         let progress_rx = parser.with_progress_reporting();
         let structure = parser.parse_from_response(response).await?;
@@ -746,16 +777,22 @@ impl TokenHttpClient {
         if let Some(queue) = &self.command_queue {
             let queue_size = queue.get_current_queue_size().await;
             if queue_size > 0 {
-                info!("Processing {} queued commands after reconnection", queue_size);
-                
+                info!(
+                    "Processing {} queued commands after reconnection",
+                    queue_size
+                );
+
                 // Since we can't capture self in a closure easily, we'll process one by one for now
                 // This is a simplified implementation - in production you'd want proper batch processing
                 let mut successful = 0;
                 let mut failed = 0;
-                
+
                 while queue.get_current_queue_size().await > 0 {
                     if let Some(command) = queue.dequeue().await {
-                        match self.send_command_without_consent(&command.device_uuid, &command.command).await {
+                        match self
+                            .send_command_without_consent(&command.device_uuid, &command.command)
+                            .await
+                        {
                             Ok(_) => successful += 1,
                             Err(_) => failed += 1,
                         }
@@ -763,11 +800,14 @@ impl TokenHttpClient {
                         break;
                     }
                 }
-                
-                info!("Processed queued commands: {} successful, {} failed", successful, failed);
+
+                info!(
+                    "Processed queued commands: {} successful, {} failed",
+                    successful, failed
+                );
             }
         }
-        
+
         Ok(())
     }
 
@@ -775,33 +815,41 @@ impl TokenHttpClient {
     pub async fn execute_all_queued_commands(&self) -> Result<usize> {
         if let Some(queue) = &self.command_queue {
             let mut total_executed = 0;
-            
+
             // Keep processing commands until queue is empty
             loop {
                 let queue_size = queue.get_current_queue_size().await;
                 if queue_size == 0 {
                     break;
                 }
-                
+
                 if let Some(command) = queue.dequeue().await {
-                    match self.send_command_without_consent(&command.device_uuid, &command.command).await {
+                    match self
+                        .send_command_without_consent(&command.device_uuid, &command.command)
+                        .await
+                    {
                         Ok(_) => {
-                            debug!("Executed queued command: {} -> {}", command.device_uuid, command.command);
+                            debug!(
+                                "Executed queued command: {} -> {}",
+                                command.device_uuid, command.command
+                            );
                             total_executed += 1;
                         }
                         Err(e) => {
-                            warn!("Failed to execute queued command: {} -> {} ({})", 
-                                  command.device_uuid, command.command, e);
+                            warn!(
+                                "Failed to execute queued command: {} -> {} ({})",
+                                command.device_uuid, command.command, e
+                            );
                         }
                     }
-                    
+
                     // Small delay between commands to avoid overwhelming the server
                     tokio::time::sleep(Duration::from_millis(50)).await;
                 } else {
                     break;
                 }
             }
-            
+
             Ok(total_executed)
         } else {
             Ok(0)

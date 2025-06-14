@@ -1,15 +1,17 @@
 //! WebSocket Real-Time Integration Demo
-//! 
+//!
 //! This example demonstrates the enhanced WebSocket client with real-time
 //! state updates, event filtering, subscription management, and hybrid operation.
 
 #[cfg(feature = "websocket")]
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+    use loxone_mcp_rust::client::websocket_client::{
+        EventFilter, LoxoneEventType, ReconnectionConfig,
+    };
     use loxone_mcp_rust::client::{create_hybrid_client, create_websocket_client};
-    use loxone_mcp_rust::client::websocket_client::{EventFilter, LoxoneEventType, ReconnectionConfig};
+    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
     use std::collections::HashSet;
     use std::time::Duration;
     use url::Url;
@@ -87,7 +89,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("\n   📈 Current Statistics:");
             println!("      Messages received: {}", stats.messages_received);
             println!("      State updates: {}", stats.state_updates);
-            println!("      Reconnection attempts: {}", stats.reconnection_attempts);
+            println!(
+                "      Reconnection attempts: {}",
+                stats.reconnection_attempts
+            );
 
             println!("   ⚠️  Note: Connection would be established in a real environment");
         }
@@ -124,7 +129,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demo 4: Advanced Filtering
     println!("\n4️⃣  Advanced Event Filtering");
-    let mut advanced_filter = EventFilter {
+    let advanced_filter = EventFilter {
         device_uuids: {
             let mut set = HashSet::new();
             set.insert("device-uuid-1".to_string());
@@ -152,11 +157,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("   🎯 Filter Configuration:");
-    println!("      Device UUIDs: {} devices", advanced_filter.device_uuids.len());
-    println!("      Event types: {} types", advanced_filter.event_types.len());
+    println!(
+        "      Device UUIDs: {} devices",
+        advanced_filter.device_uuids.len()
+    );
+    println!(
+        "      Event types: {} types",
+        advanced_filter.event_types.len()
+    );
     println!("      Rooms: {} rooms", advanced_filter.rooms.len());
     println!("      States: {} state types", advanced_filter.states.len());
-    println!("      Debounce interval: {:?}", advanced_filter.min_interval);
+    println!(
+        "      Debounce interval: {:?}",
+        advanced_filter.min_interval
+    );
 
     println!("\n✨ WebSocket Features Summary:");
     println!("   • Real-time device state updates");

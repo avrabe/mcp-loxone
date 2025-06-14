@@ -3,8 +3,8 @@
 //! This module implements real mDNS discovery using the mdns crate
 //! to find Loxone Miniservers on the local network.
 
+use super::network::DiscoveredServer;
 use crate::error::{LoxoneError, Result};
-use crate::network_discovery::DiscoveredServer;
 use mdns::{Record, RecordKind};
 use std::collections::HashSet;
 use std::time::Duration;

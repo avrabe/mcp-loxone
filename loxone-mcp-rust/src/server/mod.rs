@@ -3,13 +3,13 @@
 //! This module implements the MCP server using the correct API from the rmcp crate.
 
 use crate::client::{create_client, ClientContext, LoxoneClient};
-use crate::config::ServerConfig;
+use crate::config::{LoxoneConfig, ServerConfig};
 use crate::error::{LoxoneError, Result};
 
 use rmcp::ServiceExt;
 use std::sync::Arc;
 use tokio::io::{stdin, stdout};
-use tracing::{error, info};
+use tracing::{error, info, warn};
 
 use health_check::{HealthCheckConfig, HealthChecker};
 use loxone_batch_executor::LoxoneBatchExecutor;
@@ -118,21 +118,110 @@ impl LoxoneMcpServer {
         match client.health_check().await {
             Ok(true) => info!("✅ Connected to Loxone successfully"),
             Ok(false) => {
-                error!("⚠️ Loxone connection established but may have issues");
-                return Err(LoxoneError::connection(
-                    "Loxone system is not fully healthy",
-                ));
+                warn!("⚠️ Loxone connection established but health check shows issues");
+                info!("🔄 Attempting to continue with degraded health status...");
+                // Don't fail here - let's try to continue and see if we can get structure
             }
             Err(e) => {
-                error!("❌ Failed to connect to Loxone: {}", e);
-                return Err(e);
+                warn!("⚠️ Health check failed: {}", e);
+
+                // If we're using token auth and it's failing, try to fall back to basic auth
+                if loxone_config.auth_method == crate::config::AuthMethod::Token {
+                    warn!("🔄 Token authentication health check failed, attempting fallback to basic authentication");
+                    let mut basic_config = loxone_config.clone();
+                    basic_config.auth_method = crate::config::AuthMethod::Basic;
+
+                    match create_client(&basic_config, &credentials).await {
+                        Ok(basic_client) => {
+                            info!("✅ Successfully fell back to basic authentication");
+                            // Test the basic client
+                            match basic_client.health_check().await {
+                                Ok(true) => {
+                                    info!("✅ Basic authentication health check passed");
+                                    // Replace the client with the basic auth client
+                                    return Self::new_with_client(basic_client, basic_config).await;
+                                }
+                                Ok(false) => {
+                                    warn!("⚠️ Basic authentication health check shows issues, continuing anyway");
+                                }
+                                Err(e) => {
+                                    error!("❌ Basic authentication also failed: {}", e);
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        Err(fallback_err) => {
+                            error!(
+                                "❌ Failed to create basic auth fallback client: {}",
+                                fallback_err
+                            );
+                            error!("❌ Original token auth error: {}", e);
+                            return Err(e);
+                        }
+                    }
+                } else {
+                    error!("❌ Failed to connect to Loxone: {}", e);
+                    return Err(e);
+                }
             }
         }
 
         // Load structure
         info!("📊 Loading Loxone structure...");
-        let structure = client.get_structure().await?;
-        info!("✅ Structure loaded successfully");
+        let structure = match client.get_structure().await {
+            Ok(structure) => {
+                info!("✅ Structure loaded successfully");
+                structure
+            }
+            Err(e) => {
+                warn!("⚠️ Structure loading failed: {}", e);
+
+                // If we're using token auth and structure loading fails, try basic auth fallback
+                if loxone_config.auth_method == crate::config::AuthMethod::Token {
+                    warn!("🔄 Token authentication structure loading failed, attempting fallback to basic authentication");
+                    let mut basic_config = loxone_config.clone();
+                    basic_config.auth_method = crate::config::AuthMethod::Basic;
+
+                    match create_client(&basic_config, &credentials).await {
+                        Ok(basic_client) => {
+                            info!("✅ Successfully created basic authentication client");
+                            // Try to load structure with basic client
+                            match basic_client.get_structure().await {
+                                Ok(structure) => {
+                                    info!("✅ Structure loaded successfully with basic authentication");
+                                    // Create context
+                                    let context = Arc::new(ClientContext::new());
+                                    context.update_structure(structure).await?;
+                                    return Self::new_with_context(
+                                        basic_client,
+                                        basic_config,
+                                        context,
+                                    )
+                                    .await;
+                                }
+                                Err(basic_err) => {
+                                    error!(
+                                        "❌ Basic authentication structure loading also failed: {}",
+                                        basic_err
+                                    );
+                                    return Err(e);
+                                }
+                            }
+                        }
+                        Err(fallback_err) => {
+                            error!(
+                                "❌ Failed to create basic auth fallback client: {}",
+                                fallback_err
+                            );
+                            return Err(e);
+                        }
+                    }
+                } else {
+                    error!("❌ Failed to load structure: {}", e);
+                    return Err(e);
+                }
+            }
+        };
 
         // Create context
         let context = Arc::new(ClientContext::new());
@@ -184,6 +273,87 @@ impl LoxoneMcpServer {
 
         Ok(Self {
             config,
+            client: client_arc,
+            context,
+            rate_limiter,
+            health_checker,
+            request_coalescer,
+            schema_validator,
+            resource_monitor,
+        })
+    }
+
+    /// Helper method to create server with specific client and config
+    async fn new_with_client(client: Box<dyn LoxoneClient>, config: LoxoneConfig) -> Result<Self> {
+        info!("🚀 Initializing Loxone MCP server with fallback client...");
+
+        // Load structure with the new client
+        info!("📊 Loading Loxone structure...");
+        let structure = client.get_structure().await?;
+        info!("✅ Structure loaded successfully");
+
+        // Create context
+        let context = Arc::new(ClientContext::new());
+        context.update_structure(structure).await?;
+
+        Self::new_with_context(client, config, context).await
+    }
+
+    /// Helper method to create server with specific client, config, and context
+    async fn new_with_context(
+        client: Box<dyn LoxoneClient>,
+        config: LoxoneConfig,
+        context: Arc<ClientContext>,
+    ) -> Result<Self> {
+        {
+            let capabilities = context.capabilities.read().await;
+            info!("🏠 System capabilities:");
+            info!("  - {} rooms", context.rooms.read().await.len());
+            info!("  - {} devices", context.devices.read().await.len());
+            info!("  - {} lights", capabilities.light_count);
+            info!("  - {} blinds", capabilities.blind_count);
+            info!("  - {} climate zones", capabilities.climate_count);
+            info!("  - {} sensors", capabilities.sensor_count);
+        }
+
+        // Initialize rate limiter with sensible defaults
+        info!("🛡️ Initializing rate limiter...");
+        let rate_config = RateLimitConfig::default();
+        let rate_limiter = Arc::new(RateLimitMiddleware::new(rate_config));
+        info!("✅ Rate limiter initialized");
+
+        // Convert client to Arc for sharing
+        let client_arc: Arc<dyn LoxoneClient> = Arc::from(client);
+
+        // Initialize health checker
+        info!("🏥 Initializing health checker...");
+        let health_config = HealthCheckConfig::default();
+        let health_checker = Arc::new(HealthChecker::new(client_arc.clone(), health_config));
+        info!("✅ Health checker initialized");
+
+        // Initialize request coalescer
+        info!("⚡ Initializing request coalescer...");
+        let coalescing_config = CoalescingConfig::default();
+        let batch_executor = Arc::new(LoxoneBatchExecutor::new(client_arc.clone()));
+        let request_coalescer = Arc::new(RequestCoalescer::new(coalescing_config, batch_executor));
+        info!("✅ Request coalescer initialized");
+
+        // Initialize schema validator
+        info!("📋 Initializing schema validator...");
+        let schema_validator = Arc::new(SchemaValidator::new());
+        info!("✅ Schema validator initialized with standard tool schemas");
+
+        // Initialize resource monitor
+        info!("📊 Initializing resource monitor...");
+        let resource_limits = resource_monitor::ResourceLimits::default();
+        let resource_monitor = Arc::new(resource_monitor::ResourceMonitor::new(resource_limits));
+        info!("✅ Resource monitor initialized with default limits");
+
+        Ok(Self {
+            config: ServerConfig {
+                loxone: config,
+                ..Default::default()
+            },
             client: client_arc,
             context,
             rate_limiter,

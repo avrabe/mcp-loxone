@@ -2,7 +2,7 @@
 //!
 //! This module provides WebSocket-based real-time communication with Loxone
 //! Miniservers for live state updates, sensor monitoring, and event streaming.
-//! 
+//!
 //! Features:
 //! - Real-time device state updates
 //! - Event filtering and subscription management  
@@ -13,11 +13,13 @@
 #[cfg(feature = "websocket")]
 use crate::client::{ClientContext, LoxoneClient, LoxoneResponse, LoxoneStructure};
 #[cfg(feature = "websocket")]
-use crate::config::{credentials::LoxoneCredentials, LoxoneConfig, AuthMethod};
+use crate::config::{credentials::LoxoneCredentials, AuthMethod, LoxoneConfig};
 #[cfg(feature = "websocket")]
 use crate::error::{LoxoneError, Result};
 #[cfg(feature = "websocket")]
 use async_trait::async_trait;
+#[cfg(feature = "websocket")]
+use rand;
 #[cfg(feature = "websocket")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "websocket")]
@@ -27,7 +29,7 @@ use std::sync::Arc;
 #[cfg(feature = "websocket")]
 use std::time::Duration;
 #[cfg(feature = "websocket")]
-use tokio::sync::{mpsc, RwLock, Mutex};
+use tokio::sync::{mpsc, Mutex, RwLock};
 #[cfg(feature = "websocket")]
 use tokio::time::{sleep, Instant};
 #[cfg(feature = "websocket")]
@@ -36,11 +38,12 @@ use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, Web
 use tracing::{debug, error, info, warn};
 #[cfg(feature = "websocket")]
 use url::Url;
-#[cfg(feature = "websocket")]
-use rand;
 
 #[cfg(feature = "websocket")]
 type WsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
+
+#[cfg(feature = "websocket")]
+type SubscriberList = Arc<RwLock<Vec<(mpsc::UnboundedSender<StateUpdate>, EventFilter)>>>;
 
 /// WebSocket message types from Loxone
 #[cfg(feature = "websocket")]
@@ -227,7 +230,7 @@ pub struct LoxoneWebSocketClient {
     state_sender: Option<mpsc::UnboundedSender<StateUpdate>>,
 
     /// Event subscribers with filters
-    subscribers: Arc<RwLock<Vec<(mpsc::UnboundedSender<StateUpdate>, EventFilter)>>>,
+    subscribers: SubscriberList,
 
     /// Connection state
     connected: Arc<RwLock<bool>>,
@@ -239,6 +242,7 @@ pub struct LoxoneWebSocketClient {
     reconnection_config: ReconnectionConfig,
 
     /// Last event timestamps for debouncing
+    #[allow(dead_code)]
     last_event_times: Arc<RwLock<HashMap<String, Instant>>>,
 
     /// HTTP client for hybrid operation (structure fetching, commands)
@@ -329,7 +333,9 @@ impl LoxoneWebSocketClient {
                         .append_pair("password", &self.credentials.password);
                 } else {
                     // No HTTP client available, use basic auth
-                    warn!("No HTTP client available for token auth, using basic auth for WebSocket");
+                    warn!(
+                        "No HTTP client available for token auth, using basic auth for WebSocket"
+                    );
                     ws_url
                         .query_pairs_mut()
                         .append_pair("user", &self.credentials.username)
@@ -363,18 +369,22 @@ impl LoxoneWebSocketClient {
                     let mut devices = context.devices.write().await;
                     if let Some(device) = devices.get_mut(&update.uuid) {
                         let previous_value = device.states.get(&update.state).cloned();
-                        device.states.insert(update.state.clone(), update.value.clone());
-                        
+                        device
+                            .states
+                            .insert(update.state.clone(), update.value.clone());
+
                         // Log state change if sensor logger is available
                         if let Some(logger) = context.get_sensor_logger().await {
-                            logger.log_state_change(
-                                update.uuid.clone(),
-                                previous_value.unwrap_or_default(),
-                                update.value.clone(),
-                                Some(device.name.clone()),
-                                None, // TODO: Map device type to sensor type
-                                device.room.clone(),
-                            ).await;
+                            logger
+                                .log_state_change(
+                                    update.uuid.clone(),
+                                    previous_value.unwrap_or_default(),
+                                    update.value.clone(),
+                                    Some(device.name.clone()),
+                                    None, // TODO: Map device type to sensor type
+                                    device.room.clone(),
+                                )
+                                .await;
                         }
                     }
                 }
@@ -434,7 +444,8 @@ impl LoxoneWebSocketClient {
                     info!("Attempting WebSocket reconnection #{}", attempt);
 
                     // Add jitter to prevent thundering herd
-                    let jitter = (delay.as_millis() as f64 * reconnection_config.jitter_factor) as u64;
+                    let jitter =
+                        (delay.as_millis() as f64 * reconnection_config.jitter_factor) as u64;
                     let random_jitter = if jitter > 0 {
                         rand::random::<u64>() % jitter
                     } else {
@@ -449,8 +460,9 @@ impl LoxoneWebSocketClient {
 
                     // Exponential backoff
                     delay = Duration::from_millis(
-                        (delay.as_millis() as f64 * reconnection_config.backoff_multiplier) as u64
-                    ).min(reconnection_config.max_delay);
+                        (delay.as_millis() as f64 * reconnection_config.backoff_multiplier) as u64,
+                    )
+                    .min(reconnection_config.max_delay);
                 }
             }))
         } else {
@@ -499,7 +511,10 @@ impl LoxoneWebSocketClient {
     }
 
     /// Subscribe to filtered state updates
-    pub async fn subscribe_with_filter(&self, filter: EventFilter) -> mpsc::UnboundedReceiver<StateUpdate> {
+    pub async fn subscribe_with_filter(
+        &self,
+        filter: EventFilter,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
         let (tx, rx) = mpsc::unbounded_channel();
         let mut subscribers = self.subscribers.write().await;
         subscribers.push((tx, filter));
@@ -512,7 +527,10 @@ impl LoxoneWebSocketClient {
     }
 
     /// Subscribe to specific device UUIDs
-    pub async fn subscribe_to_devices(&self, device_uuids: HashSet<String>) -> mpsc::UnboundedReceiver<StateUpdate> {
+    pub async fn subscribe_to_devices(
+        &self,
+        device_uuids: HashSet<String>,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
         let filter = EventFilter {
             device_uuids,
             ..Default::default()
@@ -521,7 +539,10 @@ impl LoxoneWebSocketClient {
     }
 
     /// Subscribe to specific rooms
-    pub async fn subscribe_to_rooms(&self, rooms: HashSet<String>) -> mpsc::UnboundedReceiver<StateUpdate> {
+    pub async fn subscribe_to_rooms(
+        &self,
+        rooms: HashSet<String>,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
         let filter = EventFilter {
             rooms,
             ..Default::default()
@@ -530,7 +551,10 @@ impl LoxoneWebSocketClient {
     }
 
     /// Subscribe to specific event types
-    pub async fn subscribe_to_event_types(&self, event_types: HashSet<LoxoneEventType>) -> mpsc::UnboundedReceiver<StateUpdate> {
+    pub async fn subscribe_to_event_types(
+        &self,
+        event_types: HashSet<LoxoneEventType>,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
         let filter = EventFilter {
             event_types,
             ..Default::default()

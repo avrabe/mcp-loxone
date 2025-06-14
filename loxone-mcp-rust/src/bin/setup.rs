@@ -136,7 +136,7 @@ async fn main() -> Result<()> {
 
         #[cfg(feature = "discovery")]
         {
-            use loxone_mcp_rust::network_discovery::NetworkDiscovery;
+            use loxone_mcp_rust::discovery::network::NetworkDiscovery;
 
             let discovery = NetworkDiscovery::new(Duration::from_secs_f64(args.discovery_timeout));
             match discovery.discover_servers().await {
@@ -396,7 +396,7 @@ async fn main() -> Result<()> {
     } else {
         // For other backends, store normally
         let credential_manager = create_credential_manager_for_backend(&selected_backend).await?;
-        
+
         info!(
             "💾 Storing credentials using {:?} backend...",
             selected_backend

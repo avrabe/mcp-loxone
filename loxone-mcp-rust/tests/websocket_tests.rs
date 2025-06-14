@@ -2,10 +2,12 @@
 
 #[cfg(feature = "websocket")]
 mod websocket_integration_tests {
-    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+    use loxone_mcp_rust::client::websocket_client::{
+        EventFilter, LoxoneEventType, ReconnectionConfig,
+    };
     use loxone_mcp_rust::client::{create_hybrid_client, create_websocket_client};
-    use loxone_mcp_rust::client::websocket_client::{EventFilter, LoxoneEventType, ReconnectionConfig};
+    use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+    use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
     use std::collections::HashSet;
     use std::time::Duration;
     use url::Url;
@@ -37,7 +39,7 @@ mod websocket_integration_tests {
     #[tokio::test]
     async fn test_websocket_client_creation() {
         let (config, credentials) = create_test_config().await;
-        
+
         let client = create_websocket_client(&config, &credentials).await;
         assert!(client.is_ok(), "WebSocket client creation should succeed");
     }
@@ -45,9 +47,12 @@ mod websocket_integration_tests {
     #[tokio::test]
     async fn test_hybrid_client_creation() {
         let (config, credentials) = create_test_config().await;
-        
+
         let hybrid_client = create_hybrid_client(&config, &credentials).await;
-        assert!(hybrid_client.is_ok(), "Hybrid client creation should succeed");
+        assert!(
+            hybrid_client.is_ok(),
+            "Hybrid client creation should succeed"
+        );
     }
 
     #[tokio::test]
@@ -95,7 +100,7 @@ mod websocket_integration_tests {
     #[tokio::test]
     async fn test_websocket_subscription_filtering() {
         let (config, credentials) = create_test_config().await;
-        
+
         let hybrid_client = create_hybrid_client(&config, &credentials).await;
         assert!(hybrid_client.is_ok());
 
@@ -103,7 +108,7 @@ mod websocket_integration_tests {
 
         // Test different subscription methods
         let _all_updates = client.subscribe().await;
-        
+
         let mut device_uuids = HashSet::new();
         device_uuids.insert("test-device-1".to_string());
         let _device_updates = client.subscribe_to_devices(device_uuids).await;
@@ -124,7 +129,7 @@ mod websocket_integration_tests {
 
     #[tokio::test]
     async fn test_websocket_client_with_token_auth() {
-        let mut config = LoxoneConfig {
+        let config = LoxoneConfig {
             url: Url::parse("http://192.168.1.100").unwrap(),
             username: "test".to_string(),
             verify_ssl: false,
@@ -146,7 +151,10 @@ mod websocket_integration_tests {
 
         // This should work even with token auth (falls back to basic for WebSocket)
         let hybrid_client = create_hybrid_client(&config, &credentials).await;
-        assert!(hybrid_client.is_ok(), "Hybrid client with token auth should succeed");
+        assert!(
+            hybrid_client.is_ok(),
+            "Hybrid client with token auth should succeed"
+        );
     }
 
     #[tokio::test]
@@ -159,7 +167,8 @@ mod websocket_integration_tests {
 
         // Test unknown event type
         let unknown_json = "\"custom\"";
-        let unknown: LoxoneEventType = serde_json::from_str(unknown_json).unwrap_or(LoxoneEventType::Unknown("custom".to_string()));
+        let unknown: LoxoneEventType = serde_json::from_str(unknown_json)
+            .unwrap_or(LoxoneEventType::Unknown("custom".to_string()));
         match unknown {
             LoxoneEventType::Unknown(name) => assert_eq!(name, "custom"),
             _ => panic!("Expected Unknown event type"),

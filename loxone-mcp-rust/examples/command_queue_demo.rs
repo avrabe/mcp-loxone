@@ -1,15 +1,15 @@
 //! Command Queue Demo
-//! 
+//!
 //! This example demonstrates the command queuing system for handling commands
 //! during disconnection periods. Commands are queued when the client is offline
 //! and automatically executed when reconnection is established.
 
-use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-use loxone_mcp_rust::config::credentials::LoxoneCredentials;
-use loxone_mcp_rust::client::token_http_client::TokenHttpClient;
 use loxone_mcp_rust::client::command_queue::{
-    CommandQueue, CommandQueueConfig, QueuedCommand, CommandPriority, ExecutionStrategy
+    CommandQueue, CommandQueueConfig, ExecutionStrategy, QueuedCommand,
 };
+use loxone_mcp_rust::client::token_http_client::TokenHttpClient;
+use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
 use std::sync::Arc;
 use std::time::Duration;
 use url::Url;
@@ -24,16 +24,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demo 1: Command Queue Configuration
     println!("1️⃣  Command Queue Configuration Options");
-    
+
     // Default configuration
     let default_config = CommandQueueConfig::default();
     println!("   🎯 Default Configuration:");
     println!("      Max queue size: {}", default_config.max_queue_size);
-    println!("      Default expiration: {:?}", default_config.default_expiration);
-    println!("      Max concurrent executions: {}", default_config.max_concurrent_executions);
+    println!(
+        "      Default expiration: {:?}",
+        default_config.default_expiration
+    );
+    println!(
+        "      Max concurrent executions: {}",
+        default_config.max_concurrent_executions
+    );
     println!("      Batch size: {}", default_config.batch_size);
     println!("      Batch timeout: {:?}", default_config.batch_timeout);
-    println!("      Cleanup interval: {:?}", default_config.cleanup_interval);
+    println!(
+        "      Cleanup interval: {:?}",
+        default_config.cleanup_interval
+    );
 
     // High-throughput configuration
     let high_throughput_config = CommandQueueConfig {
@@ -47,10 +56,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("\n   🚀 High-Throughput Configuration:");
-    println!("      Max queue size: {}", high_throughput_config.max_queue_size);
-    println!("      Max concurrent: {}", high_throughput_config.max_concurrent_executions);
+    println!(
+        "      Max queue size: {}",
+        high_throughput_config.max_queue_size
+    );
+    println!(
+        "      Max concurrent: {}",
+        high_throughput_config.max_concurrent_executions
+    );
     println!("      Batch size: {}", high_throughput_config.batch_size);
-    println!("      Preserve order: {}", high_throughput_config.preserve_order);
+    println!(
+        "      Preserve order: {}",
+        high_throughput_config.preserve_order
+    );
 
     // Conservative configuration for critical systems
     let conservative_config = CommandQueueConfig {
@@ -65,44 +83,77 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("\n   🛡️  Conservative Configuration:");
-    println!("      Max queue size: {}", conservative_config.max_queue_size);
-    println!("      Expiration: {:?}", conservative_config.default_expiration);
+    println!(
+        "      Max queue size: {}",
+        conservative_config.max_queue_size
+    );
+    println!(
+        "      Expiration: {:?}",
+        conservative_config.default_expiration
+    );
     println!("      Max retries: {}", conservative_config.max_retries);
-    println!("      Preserve order: {}", conservative_config.preserve_order);
+    println!(
+        "      Preserve order: {}",
+        conservative_config.preserve_order
+    );
 
     // Demo 2: Command Priorities and Types
     println!("\n2️⃣  Command Priorities and Types");
 
     let commands = vec![
         (
-            QueuedCommand::new("device1".to_string(), "status".to_string(), "demo".to_string()),
-            "Normal priority - routine operation"
+            QueuedCommand::new(
+                "device1".to_string(),
+                "status".to_string(),
+                "demo".to_string(),
+            ),
+            "Normal priority - routine operation",
         ),
         (
-            QueuedCommand::new_high_priority("device2".to_string(), "emergency_off".to_string(), "demo".to_string()),
-            "High priority - important operation"
+            QueuedCommand::new_high_priority(
+                "device2".to_string(),
+                "emergency_off".to_string(),
+                "demo".to_string(),
+            ),
+            "High priority - important operation",
         ),
         (
-            QueuedCommand::new_critical("security1".to_string(), "alarm_arm".to_string(), "demo".to_string()),
-            "Critical priority - security operation"
+            QueuedCommand::new_critical(
+                "security1".to_string(),
+                "alarm_arm".to_string(),
+                "demo".to_string(),
+            ),
+            "Critical priority - security operation",
         ),
         (
-            QueuedCommand::new("device3".to_string(), "lights_on".to_string(), "demo".to_string())
-                .with_expiration(Duration::from_secs(300)),
-            "Normal priority with 5-minute expiration"
+            QueuedCommand::new(
+                "device3".to_string(),
+                "lights_on".to_string(),
+                "demo".to_string(),
+            )
+            .with_expiration(Duration::from_secs(300)),
+            "Normal priority with 5-minute expiration",
         ),
         (
-            QueuedCommand::new("device4".to_string(), "batch_operation".to_string(), "demo".to_string())
-                .with_strategy(ExecutionStrategy::Batch { max_batch_size: 5 }),
-            "Batch execution strategy"
+            QueuedCommand::new(
+                "device4".to_string(),
+                "batch_operation".to_string(),
+                "demo".to_string(),
+            )
+            .with_strategy(ExecutionStrategy::Batch { max_batch_size: 5 }),
+            "Batch execution strategy",
         ),
         (
-            QueuedCommand::new("device5".to_string(), "retry_operation".to_string(), "demo".to_string())
-                .with_strategy(ExecutionStrategy::Retry { 
-                    max_retries: 3, 
-                    backoff: Duration::from_millis(500) 
-                }),
-            "Retry execution strategy"
+            QueuedCommand::new(
+                "device5".to_string(),
+                "retry_operation".to_string(),
+                "demo".to_string(),
+            )
+            .with_strategy(ExecutionStrategy::Retry {
+                max_retries: 3,
+                backoff: Duration::from_millis(500),
+            }),
+            "Retry execution strategy",
         ),
     ];
 
@@ -113,9 +164,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
         match command.strategy {
             ExecutionStrategy::Immediate => println!("      Strategy: Immediate execution"),
-            ExecutionStrategy::Delayed { delay } => println!("      Strategy: Delayed by {:?}", delay),
-            ExecutionStrategy::Batch { max_batch_size } => println!("      Strategy: Batch (max {})", max_batch_size),
-            ExecutionStrategy::Retry { max_retries, backoff } => println!("      Strategy: Retry ({} attempts, {:?} backoff)", max_retries, backoff),
+            ExecutionStrategy::Delayed { delay } => {
+                println!("      Strategy: Delayed by {:?}", delay)
+            }
+            ExecutionStrategy::Batch { max_batch_size } => {
+                println!("      Strategy: Batch (max {})", max_batch_size)
+            }
+            ExecutionStrategy::Retry {
+                max_retries,
+                backoff,
+            } => println!(
+                "      Strategy: Retry ({} attempts, {:?} backoff)",
+                max_retries, backoff
+            ),
         }
     }
 
@@ -124,14 +185,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let queue = CommandQueue::with_config(default_config);
     queue.start().await?;
-    
+
     println!("   ✅ Command queue created and started");
 
     // Add various commands to demonstrate priority ordering
-    let low_cmd = QueuedCommand::new("device1".to_string(), "low_priority".to_string(), "demo".to_string());
-    let normal_cmd = QueuedCommand::new("device2".to_string(), "normal_priority".to_string(), "demo".to_string());
-    let high_cmd = QueuedCommand::new_high_priority("device3".to_string(), "high_priority".to_string(), "demo".to_string());
-    let critical_cmd = QueuedCommand::new_critical("device4".to_string(), "critical_priority".to_string(), "demo".to_string());
+    let low_cmd = QueuedCommand::new(
+        "device1".to_string(),
+        "low_priority".to_string(),
+        "demo".to_string(),
+    );
+    let normal_cmd = QueuedCommand::new(
+        "device2".to_string(),
+        "normal_priority".to_string(),
+        "demo".to_string(),
+    );
+    let high_cmd = QueuedCommand::new_high_priority(
+        "device3".to_string(),
+        "high_priority".to_string(),
+        "demo".to_string(),
+    );
+    let critical_cmd = QueuedCommand::new_critical(
+        "device4".to_string(),
+        "critical_priority".to_string(),
+        "demo".to_string(),
+    );
 
     // Enqueue in random order
     queue.enqueue(normal_cmd).await?;
@@ -152,7 +229,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n   📤 Dequeuing commands (should be in priority order):");
     for i in 1..=4 {
         if let Some(command) = queue.dequeue().await {
-            println!("      {}. {} (Priority: {:?})", i, command.command, command.priority);
+            println!(
+                "      {}. {} (Priority: {:?})",
+                i, command.command, command.priority
+            );
         }
     }
 
@@ -182,14 +262,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match TokenHttpClient::new(config, credentials).await {
         Ok(mut client) => {
             println!("   ✅ HTTP client created successfully");
-            
+
             // Enable command queuing
             let command_queue = Arc::new(CommandQueue::new());
             command_queue.start().await?;
             client.enable_command_queue(command_queue);
-            
+
             println!("   ✅ Command queuing enabled for HTTP client");
-            
+
             if client.has_command_queue() {
                 println!("   ✅ Command queue is active");
             }
@@ -197,12 +277,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // Simulate commands while disconnected
             println!("\n   🔌 Simulating commands while disconnected:");
             println!("      Commands will be queued instead of failing");
-            
+
             // These would normally be queued since client is not connected
             println!("      • send_command('light1', 'on') -> Would be queued");
-            println!("      • send_command('security', 'arm') -> Would be queued with high priority");
+            println!(
+                "      • send_command('security', 'arm') -> Would be queued with high priority"
+            );
             println!("      • send_command('alarm', 'emergency') -> Would be queued with critical priority");
-            
+
             // Show queue statistics
             if let Some(stats) = client.get_queue_stats().await {
                 println!("   📊 Client Queue Statistics:");
@@ -220,8 +302,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     cleanup_queue.start().await?;
 
     // Add a command with very short expiration
-    let short_lived_command = QueuedCommand::new("device1".to_string(), "test".to_string(), "demo".to_string())
-        .with_expiration(Duration::from_millis(100));
+    let short_lived_command = QueuedCommand::new(
+        "device1".to_string(),
+        "test".to_string(),
+        "demo".to_string(),
+    )
+    .with_expiration(Duration::from_millis(100));
 
     cleanup_queue.enqueue(short_lived_command).await?;
     println!("   ⏰ Added command with 100ms expiration");
@@ -234,8 +320,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   🧹 Cleaned up {} expired commands", expired_count);
 
     let final_stats = cleanup_queue.get_statistics().await;
-    println!("   📊 After cleanup - Queue size: {}, Expired total: {}", 
-             final_stats.current_queue_size, final_stats.expired_commands);
+    println!(
+        "   📊 After cleanup - Queue size: {}, Expired total: {}",
+        final_stats.current_queue_size, final_stats.expired_commands
+    );
 
     // Demo 6: Batch Execution Simulation
     println!("\n6️⃣  Batch Execution Simulation");
@@ -251,7 +339,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let command = QueuedCommand::new(
             format!("device{}", i),
             format!("batch_cmd_{}", i),
-            "demo".to_string()
+            "demo".to_string(),
         );
         batch_queue.enqueue(command).await?;
     }
@@ -262,20 +350,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let executor = |command: QueuedCommand| {
         Box::pin(async move {
             // Simulate command execution
-            println!("      Executing: {} -> {}", command.device_uuid, command.command);
+            println!(
+                "      Executing: {} -> {}",
+                command.device_uuid, command.command
+            );
             tokio::time::sleep(Duration::from_millis(50)).await;
             Ok(serde_json::json!({"result": "success", "device": command.device_uuid}))
         })
     };
 
     let results = batch_queue.execute_batch(executor).await?;
-    println!("   ✅ Batch execution completed: {} commands processed", results.len());
+    println!(
+        "   ✅ Batch execution completed: {} commands processed",
+        results.len()
+    );
 
     for result in &results {
-        println!("      Command {}: {} in {:?}", 
-                 result.command_id, 
-                 if result.success { "✅ Success" } else { "❌ Failed" },
-                 result.duration);
+        println!(
+            "      Command {}: {} in {:?}",
+            result.command_id,
+            if result.success {
+                "✅ Success"
+            } else {
+                "❌ Failed"
+            },
+            result.duration
+        );
     }
 
     // Demo 7: Recovery and Reconnection Scenario
@@ -287,7 +387,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   3. Commands are queued instead of failing");
     println!("   4. Connection is restored");
     println!("   5. Queued commands are automatically executed");
-    
+
     println!("\n   🔄 Implementation Steps:");
     println!("   • Enable command queue: client.enable_command_queue(queue)");
     println!("   • Commands during disconnection are queued with appropriate priority");

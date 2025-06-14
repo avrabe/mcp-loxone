@@ -1,19 +1,18 @@
 //! MCP Consent Flow Demo
-//! 
+//!
 //! This example demonstrates the consent management system for sensitive operations
 //! in the Loxone MCP server, showing how to configure consent policies, handle
 //! consent requests, and integrate with device control operations.
 
-use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
-use loxone_mcp_rust::config::credentials::LoxoneCredentials;
 use loxone_mcp_rust::client::token_http_client::TokenHttpClient;
+use loxone_mcp_rust::config::credentials::LoxoneCredentials;
+use loxone_mcp_rust::config::{AuthMethod, LoxoneConfig};
 use loxone_mcp_rust::mcp_consent::{
-    ConsentManager, ConsentConfig, ConsentRequest, ConsentResponse, OperationType, SensitivityLevel
+    ConsentConfig, ConsentManager, OperationType, SensitivityLevel,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::mpsc;
 use url::Url;
 
 #[tokio::main]
@@ -26,16 +25,31 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demo 1: Consent Configuration Options
     println!("1️⃣  Consent Configuration Options");
-    
+
     // Default configuration
     let default_config = ConsentConfig::default();
     println!("   🎯 Default Configuration:");
     println!("      Enabled: {}", default_config.enabled);
-    println!("      Default timeout: {:?}", default_config.default_timeout);
-    println!("      Required for sensitivity levels: {:?}", default_config.required_for_sensitivity);
-    println!("      Bulk consent required: {}", default_config.require_bulk_consent);
-    println!("      Bulk threshold: {} devices", default_config.bulk_threshold);
-    println!("      Audit all decisions: {}", default_config.audit_all_decisions);
+    println!(
+        "      Default timeout: {:?}",
+        default_config.default_timeout
+    );
+    println!(
+        "      Required for sensitivity levels: {:?}",
+        default_config.required_for_sensitivity
+    );
+    println!(
+        "      Bulk consent required: {}",
+        default_config.require_bulk_consent
+    );
+    println!(
+        "      Bulk threshold: {} devices",
+        default_config.bulk_threshold
+    );
+    println!(
+        "      Audit all decisions: {}",
+        default_config.audit_all_decisions
+    );
 
     // Strict security configuration
     let mut required_levels = HashSet::new();
@@ -58,8 +72,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("\n   🔒 Strict Security Configuration:");
     println!("      Timeout: {:?}", strict_config.default_timeout);
-    println!("      Bulk threshold: {} devices", strict_config.bulk_threshold);
-    println!("      Cache duration: {:?}", strict_config.consent_cache_duration);
+    println!(
+        "      Bulk threshold: {} devices",
+        strict_config.bulk_threshold
+    );
+    println!(
+        "      Cache duration: {:?}",
+        strict_config.consent_cache_duration
+    );
 
     // Permissive configuration
     let mut permissive_levels = HashSet::new();
@@ -79,9 +99,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     println!("\n   🔓 Permissive Configuration:");
-    println!("      Only requires consent for: {:?}", permissive_config.required_for_sensitivity);
-    println!("      Bulk consent: {}", permissive_config.require_bulk_consent);
-    println!("      Audit decisions: {}", permissive_config.audit_all_decisions);
+    println!(
+        "      Only requires consent for: {:?}",
+        permissive_config.required_for_sensitivity
+    );
+    println!(
+        "      Bulk consent: {}",
+        permissive_config.require_bulk_consent
+    );
+    println!(
+        "      Audit decisions: {}",
+        permissive_config.audit_all_decisions
+    );
 
     // Demo 2: Operation Types and Sensitivity Levels
     println!("\n2️⃣  Operation Types and Sensitivity Levels");
@@ -93,7 +122,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 device_name: "Living Room Light".to_string(),
                 command: "on".to_string(),
             },
-            "Individual device control"
+            "Individual device control",
         ),
         (
             OperationType::BulkDeviceControl {
@@ -101,14 +130,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 room_name: Some("Living Room".to_string()),
                 operation_type: "lights_off".to_string(),
             },
-            "Bulk device control"
+            "Bulk device control",
         ),
         (
             OperationType::SecurityControl {
                 action: "arm_system".to_string(),
                 scope: "full_house".to_string(),
             },
-            "Security system control"
+            "Security system control",
         ),
         (
             OperationType::SystemConfiguration {
@@ -116,29 +145,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 old_value: Some("hidden".to_string()),
                 new_value: "hidden".to_string(),
             },
-            "System configuration change"
+            "System configuration change",
         ),
         (
             OperationType::DataExport {
                 data_type: "user_data".to_string(),
                 scope: "all_rooms".to_string(),
             },
-            "Data export operation"
+            "Data export operation",
         ),
         (
             OperationType::ConnectionManagement {
                 action: "disconnect".to_string(),
                 target: "miniserver".to_string(),
             },
-            "Connection management"
+            "Connection management",
         ),
     ];
 
     for (operation, description) in operations {
-        let consent_manager = ConsentManager::with_config(default_config.clone());
+        let _consent_manager = ConsentManager::with_config(default_config.clone());
         let sensitivity = match &operation {
             OperationType::DeviceControl { command, .. } => {
-                if command.contains("security") || command.contains("alarm") || command.contains("lock") {
+                if command.contains("security")
+                    || command.contains("alarm")
+                    || command.contains("lock")
+                {
                     SensitivityLevel::High
                 } else {
                     SensitivityLevel::Medium
@@ -164,10 +196,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n3️⃣  Consent Manager Setup");
 
     let mut consent_manager = ConsentManager::with_config(default_config);
-    
+
     // Setup channels for consent communication
-    let (request_rx, response_tx) = consent_manager.setup_channels().await;
-    
+    let (_request_rx, _response_tx) = consent_manager.setup_channels().await;
+
     println!("   ✅ Consent manager created with default configuration");
     println!("   ✅ Communication channels established");
     println!("   📡 Ready to handle consent requests and responses");
@@ -176,7 +208,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n4️⃣  Mock Consent Request Simulation");
 
     // Simulate a high-sensitivity device control operation
-    let mock_operation = OperationType::DeviceControl {
+    let _mock_operation = OperationType::DeviceControl {
         device_uuid: "security-lock-uuid".to_string(),
         device_name: "Front Door Lock".to_string(),
         command: "unlock".to_string(),
@@ -220,14 +252,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match TokenHttpClient::new(config, credentials).await {
         Ok(mut client) => {
             println!("   ✅ HTTP client created successfully");
-            
+
             // Enable consent management
             let consent_manager = Arc::new(ConsentManager::new());
             client.enable_consent_management(consent_manager);
-            
+
             println!("   ✅ Consent management enabled for HTTP client");
             println!("   🛡️  All device commands will now require appropriate consent");
-            
+
             if client.has_consent_management() {
                 println!("   ✅ Consent management is active");
             }
@@ -241,7 +273,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("   📖 Scenario 1: Auto-approved operation");
     println!("      • Low sensitivity operation");
     println!("      • Operation type not in consent requirements");
-    println!      • Result: Immediate approval");
+    println!("      • Result: Immediate approval");
 
     println!("\n   📖 Scenario 2: User consent required");
     println!("      • High sensitivity operation");

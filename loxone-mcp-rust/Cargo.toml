@@ -97,6 +97,8 @@ rsa = { version = "0.9", optional = true, features = ["sha2"] }
 aes = { version = "0.8", optional = true }
 rand = { version = "0.8" }  # Used by crypto feature and setup tool
 sha2 = { version = "0.10", optional = true }
+x509-parser = { version = "0.15", optional = true }
+hostname = "0.4"
 
 # WebSocket (conditional for WASM compatibility)
 tokio-tungstenite = { version = "0.20", optional = true, features = ["rustls-tls-webpki-roots"] }
@@ -171,8 +173,9 @@ features = ["sync", "macros", "io-util", "rt", "time"]
 default-features = false
 
 [features]
-default = ["crypto", "websocket", "infisical", "discovery"]
-crypto = ["rsa", "aes"]
+default = ["crypto", "websocket", "infisical", "discovery", "audit"]
+crypto = ["rsa", "aes", "x509-parser"]
+audit = ["dep:sha2"]
 websocket = ["tokio-tungstenite"]
 keyring-storage = ["keyring"]
 infisical = []

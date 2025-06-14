@@ -1,14 +1,13 @@
 //! Discovery Cache Demo
-//! 
+//!
 //! This example demonstrates the discovery result caching system that helps
 //! reduce network overhead and improve performance during repeated discovery
 //! operations by caching previously discovered devices.
 
 use loxone_mcp_rust::discovery::{
-    DiscoveryCache, DiscoveryCacheConfig, DiscoveredDevice, NetworkContext
+    DiscoveredDevice, DiscoveryCache, DiscoveryCacheConfig, NetworkContext,
 };
-use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr};
+use std::net::IpAddr;
 use std::time::Duration;
 
 #[tokio::main]
@@ -21,15 +20,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Demo 1: Discovery Cache Configuration
     println!("1️⃣  Discovery Cache Configuration Options");
-    
+
     // Default configuration
     let default_config = DiscoveryCacheConfig::default();
     println!("   🎯 Default Configuration:");
     println!("      Default TTL: {:?}", default_config.default_ttl);
     println!("      Max entries: {}", default_config.max_entries);
-    println!("      Cleanup interval: {:?}", default_config.cleanup_interval);
-    println!("      Min scan interval: {:?}", default_config.min_scan_interval);
-    println!("      Enable persistence: {}", default_config.enable_persistence);
+    println!(
+        "      Cleanup interval: {:?}",
+        default_config.cleanup_interval
+    );
+    println!(
+        "      Min scan interval: {:?}",
+        default_config.min_scan_interval
+    );
+    println!(
+        "      Enable persistence: {}",
+        default_config.enable_persistence
+    );
 
     // Method-specific TTLs
     println!("\n   ⏰ Method-specific TTLs:");
@@ -50,29 +58,44 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n   🚀 High-Performance Configuration:");
     println!("      Default TTL: {:?}", high_perf_config.default_ttl);
     println!("      Max entries: {}", high_perf_config.max_entries);
-    println!("      Cleanup interval: {:?}", high_perf_config.cleanup_interval);
+    println!(
+        "      Cleanup interval: {:?}",
+        high_perf_config.cleanup_interval
+    );
 
     // Demo 2: Device Discovery and Caching
     println!("\n2️⃣  Device Discovery and Caching");
 
     let cache = DiscoveryCache::with_config(default_config);
     cache.start().await?;
-    
+
     println!("   ✅ Discovery cache started");
 
     // Create sample discovered devices
     let devices = vec![
-        create_sample_device("192.168.1.100", "1001AB234", "Living Room Miniserver", "mdns"),
+        create_sample_device(
+            "192.168.1.100",
+            "1001AB234",
+            "Living Room Miniserver",
+            "mdns",
+        ),
         create_sample_device("192.168.1.101", "1001AB235", "Kitchen Extension", "upnp"),
-        create_sample_device("192.168.1.102", "1001AB236", "Garage Controller", "network_scan"),
+        create_sample_device(
+            "192.168.1.102",
+            "1001AB236",
+            "Garage Controller",
+            "network_scan",
+        ),
         create_sample_device("192.168.1.103", "1001AB237", "Garden Sensors", "manual"),
     ];
 
     // Add devices to cache
     for device in &devices {
         cache.add_device(device.clone()).await?;
-        println!("   📥 Cached device: {} at {} (via {})", 
-                 device.name, device.ip_address, device.discovery_method);
+        println!(
+            "   📥 Cached device: {} at {} (via {})",
+            device.name, device.ip_address, device.discovery_method
+        );
     }
 
     // Show cache statistics
@@ -96,15 +119,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Get device by serial number
     if let Some(device) = cache.get_device_by_serial("1001AB235").await {
-        println!("   🎯 Found device by serial: {} at {}", device.name, device.ip_address);
+        println!(
+            "   🎯 Found device by serial: {} at {}",
+            device.name, device.ip_address
+        );
     }
 
     // Get all cached devices
     let all_devices = cache.get_all_devices().await;
     println!("   📋 All cached devices ({} total):", all_devices.len());
     for device in &all_devices {
-        println!("      • {} ({}) - Age: {:?}", 
-                 device.name, device.ip_address, device.age());
+        println!(
+            "      • {} ({}) - Age: {:?}",
+            device.name,
+            device.ip_address,
+            device.age()
+        );
     }
 
     // Get devices by discovery method
@@ -147,16 +177,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n6️⃣  Scan Interval Management");
 
     println!("   ⏱️  Full scan needed: {}", cache.needs_full_scan().await);
-    
+
     // Mark scan as completed
     cache.mark_full_scan_completed().await;
     println!("   ✅ Marked full scan as completed");
-    
-    println!("   ⏱️  Full scan needed now: {}", cache.needs_full_scan().await);
-    
+
+    println!(
+        "   ⏱️  Full scan needed now: {}",
+        cache.needs_full_scan().await
+    );
+
     // Wait a bit and check again
     tokio::time::sleep(Duration::from_secs(1)).await;
-    println!("   ⏱️  Full scan needed after 1s: {}", cache.needs_full_scan().await);
+    println!(
+        "   ⏱️  Full scan needed after 1s: {}",
+        cache.needs_full_scan().await
+    );
 
     // Demo 7: Cache Expiration and Cleanup
     println!("\n7️⃣  Cache Expiration and Cleanup");
@@ -184,7 +220,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Wait for expiration
     tokio::time::sleep(Duration::from_millis(150)).await;
-    
+
     // Manual cleanup
     let expired_count = expiry_cache.cleanup_expired().await?;
     println!("   🧹 Cleaned up {} expired entries", expired_count);
@@ -204,7 +240,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     stale_cache.start().await?;
 
     // Add device and make it stale
-    let mut stale_device = create_sample_device("192.168.1.250", "STALE001", "Stale Device", "test");
+    let mut stale_device =
+        create_sample_device("192.168.1.250", "STALE001", "Stale Device", "test");
     stale_device.last_seen = std::time::SystemTime::now() - Duration::from_millis(100); // Make it old
     stale_cache.add_device(stale_device).await?;
 
@@ -225,20 +262,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let persistent_cache = DiscoveryCache::with_config(persistent_config);
     persistent_cache.start().await?;
-    
+
     // Add some devices
     for i in 1..=3 {
         let device = create_sample_device(
             &format!("192.168.1.{}", 150 + i),
             &format!("PERSIST{:03}", i),
             &format!("Persistent Device {}", i),
-            "manual"
+            "manual",
         );
         persistent_cache.add_device(device).await?;
     }
 
     println!("   💾 Added devices to persistent cache");
-    
+
     // Stop cache (triggers save)
     persistent_cache.stop().await?;
     println!("   💾 Cache stopped and saved to disk");
@@ -268,12 +305,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             &format!("10.0.0.{}", i),
             &format!("PERF{:03}", i),
             &format!("Performance Test Device {}", i),
-            "benchmark"
+            "benchmark",
         );
         performance_cache.add_device(device).await?;
     }
     let insert_duration = start_time.elapsed();
-    
+
     println!("   ⚡ Added 100 devices in {:?}", insert_duration);
 
     // Test retrieval performance
@@ -283,14 +320,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         performance_cache.get_device(&ip).await;
     }
     let retrieval_duration = start_time.elapsed();
-    
+
     println!("   ⚡ Retrieved 100 devices in {:?}", retrieval_duration);
 
     let perf_stats = performance_cache.get_statistics().await;
     println!("   📊 Performance Statistics:");
     println!("      Total entries: {}", perf_stats.total_entries);
-    println!("      Memory usage: {} bytes", perf_stats.memory_usage_bytes);
-    println!("      Avg per device: {} bytes", perf_stats.memory_usage_bytes / perf_stats.total_entries);
+    println!(
+        "      Memory usage: {} bytes",
+        perf_stats.memory_usage_bytes
+    );
+    println!(
+        "      Avg per device: {} bytes",
+        perf_stats.memory_usage_bytes / perf_stats.total_entries
+    );
 
     // Summary
     println!("\n✨ Discovery Cache Benefits Summary:");
@@ -335,7 +378,7 @@ fn create_sample_device(ip: &str, serial: &str, name: &str, method: &str) -> Dis
     device.add_capability("loxone-api".to_string());
     device.add_metadata("version".to_string(), "12.3.4.5".to_string());
     device.add_metadata("location".to_string(), "Home Network".to_string());
-    
+
     if method == "mdns" {
         device.add_capability("mdns".to_string());
         device.add_metadata("mdns_type".to_string(), "_loxone._tcp".to_string());
@@ -345,19 +388,19 @@ fn create_sample_device(ip: &str, serial: &str, name: &str, method: &str) -> Dis
     }
 
     device.response_time = Duration::from_millis(50 + rand::random::<u64>() % 200);
-    
+
     device
 }
 
 // Simple random number generation for demo purposes
 mod rand {
     use std::sync::atomic::{AtomicU64, Ordering};
-    
+
     static COUNTER: AtomicU64 = AtomicU64::new(1);
-    
-    pub fn random<T>() -> T 
-    where 
-        T: From<u64>
+
+    pub fn random<T>() -> T
+    where
+        T: From<u64>,
     {
         let val = COUNTER.fetch_add(1, Ordering::Relaxed);
         T::from(val.wrapping_mul(1103515245).wrapping_add(12345))
