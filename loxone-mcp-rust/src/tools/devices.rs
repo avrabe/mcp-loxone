@@ -538,6 +538,245 @@ pub async fn get_devices_by_category(
     )
 }
 
+/// Get available system capabilities based on discovered devices
+// #[tool] // TODO: Re-enable when rmcp API is clarified
+pub async fn get_available_capabilities(context: ToolContext) -> ToolResponse {
+    let capabilities = context.context.capabilities.read().await;
+    let devices = context.context.devices.read().await;
+
+    let mut available_features = serde_json::Map::new();
+
+    // Lighting capability
+    if capabilities.has_lighting {
+        available_features.insert(
+            "lighting".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": capabilities.light_count,
+                "tools": [
+                    "control_device",
+                    "control_multiple_devices",
+                    "control_all_lights",
+                    "control_room_lights",
+                    "get_devices_by_type (with 'LightController')",
+                    "get_devices_by_category (with 'lighting')"
+                ],
+                "description": "Control lights, dimmers, and switches"
+            }),
+        );
+    }
+
+    // Blinds/Rolladen capability
+    if capabilities.has_blinds {
+        available_features.insert(
+            "blinds_rolladen".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": capabilities.blind_count,
+                "tools": [
+                    "control_device",
+                    "control_multiple_devices",
+                    "control_all_rolladen",
+                    "control_room_rolladen",
+                    "get_devices_by_type (with 'Jalousie')",
+                    "get_devices_by_category (with 'blinds')"
+                ],
+                "description": "Control blinds, shutters, and rolladen (up/down/stop)"
+            }),
+        );
+    }
+
+    // Weather capability
+    if capabilities.has_weather {
+        available_features.insert(
+            "weather".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": devices.values()
+                    .filter(|d| d.category == "weather")
+                    .count(),
+                "tools": ["get_weather_data", "get_outdoor_conditions"],
+                "description": "Weather stations and environmental sensors"
+            }),
+        );
+    }
+
+    // Security capability
+    if capabilities.has_security {
+        available_features.insert(
+            "security".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": devices.values()
+                    .filter(|d| d.category == "security")
+                    .count(),
+                "tools": ["get_security_status", "get_all_door_window_sensors"],
+                "description": "Security system, alarms, and access control"
+            }),
+        );
+    }
+
+    // Energy capability
+    if capabilities.has_energy {
+        available_features.insert(
+            "energy".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": devices.values()
+                    .filter(|d| d.category == "energy")
+                    .count(),
+                "tools": ["get_energy_consumption"],
+                "description": "Power monitoring and energy management"
+            }),
+        );
+    }
+
+    // Audio capability
+    if capabilities.has_audio {
+        available_features.insert(
+            "audio".to_string(),
+            serde_json::json!({
+                "available": true,
+                "zone_count": devices.values()
+                    .filter(|d| d.category == "audio")
+                    .count(),
+                "tools": [
+                    "get_audio_zones",
+                    "control_audio_zone",
+                    "get_audio_sources",
+                    "set_audio_volume"
+                ],
+                "description": "Multiroom audio system control"
+            }),
+        );
+    }
+
+    // Climate capability
+    if capabilities.has_climate {
+        available_features.insert(
+            "climate".to_string(),
+            serde_json::json!({
+                "available": true,
+                "device_count": capabilities.climate_count,
+                "tools": ["get_climate_control", "get_temperature_sensors"],
+                "description": "HVAC, heating, and climate control"
+            }),
+        );
+    }
+
+    // Sensors capability
+    if capabilities.has_sensors {
+        available_features.insert(
+            "sensors".to_string(),
+            serde_json::json!({
+                "available": true,
+                "sensor_count": capabilities.sensor_count,
+                "tools": [
+                    "get_all_door_window_sensors",
+                    "get_temperature_sensors",
+                    "list_discovered_sensors",
+                    "get_sensor_details",
+                    "get_recent_sensor_changes"
+                ],
+                "description": "Various sensors including motion, temperature, door/window"
+            }),
+        );
+    }
+
+    // Room management (always available)
+    available_features.insert(
+        "room_management".to_string(),
+        serde_json::json!({
+            "available": true,
+            "room_count": context.context.rooms.read().await.len(),
+            "tools": [
+                "list_rooms",
+                "get_room_devices",
+                "control_room_lights",
+                "control_room_rolladen"
+            ],
+            "description": "Room-based device organization and control"
+        }),
+    );
+
+    // Device discovery (always available)
+    available_features.insert(
+        "device_discovery".to_string(),
+        serde_json::json!({
+            "available": true,
+            "total_devices": devices.len(),
+            "tools": [
+                "discover_all_devices",
+                "get_devices_by_type",
+                "get_devices_by_category",
+                "get_all_categories_overview"
+            ],
+            "description": "Device discovery and categorization"
+        }),
+    );
+
+    let response_data = serde_json::json!({
+        "system_capabilities": available_features,
+        "note": "Available features depend on your Loxone system configuration"
+    });
+
+    ToolResponse::success_with_message(
+        response_data,
+        format!("Found {} available capabilities", available_features.len()),
+    )
+}
+
+/// Get all categories overview
+// #[tool] // TODO: Re-enable when rmcp API is clarified
+pub async fn get_all_categories_overview(context: ToolContext) -> ToolResponse {
+    let devices = context.context.devices.read().await;
+
+    // Count devices by category
+    let mut category_counts: HashMap<String, usize> = HashMap::new();
+    let mut category_examples: HashMap<String, Vec<String>> = HashMap::new();
+
+    for device in devices.values() {
+        *category_counts.entry(device.category.clone()).or_insert(0) += 1;
+
+        let examples = category_examples
+            .entry(device.category.clone())
+            .or_default();
+
+        // Keep up to 3 examples per category
+        if examples.len() < 3 {
+            examples.push(format!("{} ({})", device.name, device.device_type));
+        }
+    }
+
+    let categories: Vec<_> = category_counts
+        .into_iter()
+        .map(|(category, count)| {
+            serde_json::json!({
+                "category": category,
+                "device_count": count,
+                "examples": category_examples.get(&category).unwrap_or(&Vec::new()),
+                "tools": vec![
+                    format!("get_devices_by_category('{}')", category),
+                    format!("control_all_{}", if category == "lighting" { "lights" }
+                        else if category == "blinds" { "rolladen" }
+                        else { &category })
+                ]
+            })
+        })
+        .collect();
+
+    let response_data = serde_json::json!({
+        "total_categories": categories.len(),
+        "categories": categories,
+        "note": "Use get_devices_by_category to see all devices in a specific category"
+    });
+
+    ToolResponse::success_with_message(
+        response_data,
+        format!("Found {} device categories", categories.len()),
+    )
+}
+
 /// Get devices by type
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_devices_by_type(

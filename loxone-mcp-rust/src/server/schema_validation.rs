@@ -708,6 +708,286 @@ impl SchemaValidator {
         self.add_tool_constraints("health_check", vec![]); // No parameters
 
         self.add_tool_constraints("get_health_status", vec![]); // No parameters
+
+        // NEW TOOLS: Add validation for newly implemented tools
+
+        // control_multiple_devices validation
+        self.add_tool_constraints(
+            "control_multiple_devices",
+            vec![
+                SchemaConstraint {
+                    field: "devices".to_string(),
+                    field_type: "array".to_string(),
+                    required: true,
+                    pattern: None,
+                    pattern_description: Some("Array of device names or UUIDs".to_string()),
+                    min_length: Some(1),  // At least one device
+                    max_length: Some(50), // Reasonable limit
+                    min_value: None,
+                    max_value: None,
+                    enum_values: None,
+                    examples: vec![
+                        json!(["Living Room Light", "Kitchen Light"]),
+                        json!(["0CD8C06B.855703.I2", "12345678-1234-1234-1234-123456789abc"]),
+                    ],
+                    default: None,
+                },
+                SchemaConstraint::device_action("action", true),
+            ],
+        );
+
+        // get_devices_by_category validation
+        self.add_tool_constraints(
+            "get_devices_by_category",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "category",
+                    r"^(lighting|blinds|climate|sensors|audio|security|energy|all)$",
+                    "Device category",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("lighting"),
+                    json!("blinds"),
+                    json!("climate"),
+                    json!("sensors"),
+                    json!("audio"),
+                ]),
+                SchemaConstraint {
+                    field: "limit".to_string(),
+                    field_type: "number".to_string(),
+                    required: false,
+                    pattern: None,
+                    pattern_description: Some("Maximum number of devices to return".to_string()),
+                    min_length: None,
+                    max_length: None,
+                    min_value: Some(1.0),
+                    max_value: Some(1000.0),
+                    enum_values: None,
+                    examples: vec![json!(10), json!(25), json!(50), json!(100)],
+                    default: None,
+                },
+                SchemaConstraint::boolean("include_state", false).with_default(json!(false)),
+            ],
+        );
+
+        // get_devices_by_type validation
+        self.add_tool_constraints(
+            "get_devices_by_type",
+            vec![SchemaConstraint::string_with_pattern(
+                "device_type",
+                r"^[a-zA-Z0-9_-]+$",
+                "Device type (e.g., Switch, Jalousie, Dimmer)",
+                false,
+            )
+            .unwrap()
+            .with_examples(vec![
+                json!("Switch"),
+                json!("Jalousie"),
+                json!("Dimmer"),
+                json!("LightController"),
+            ])],
+        );
+
+        // get_available_capabilities validation
+        self.add_tool_constraints("get_available_capabilities", vec![]); // No parameters
+
+        // discover_all_devices validation
+        self.add_tool_constraints("discover_all_devices", vec![]); // No parameters
+
+        // discover_new_sensors validation
+        self.add_tool_constraints(
+            "discover_new_sensors",
+            vec![SchemaConstraint {
+                field: "duration_seconds".to_string(),
+                field_type: "number".to_string(),
+                required: false,
+                pattern: None,
+                pattern_description: Some("Discovery duration in seconds".to_string()),
+                min_length: None,
+                max_length: None,
+                min_value: Some(5.0),
+                max_value: Some(300.0), // 5 minutes max
+                enum_values: None,
+                examples: vec![json!(30), json!(60), json!(120)],
+                default: Some(json!(60)),
+            }],
+        );
+
+        // list_discovered_sensors validation
+        self.add_tool_constraints(
+            "list_discovered_sensors",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "sensor_type",
+                    r"^(door_window|motion|analog|temperature|light|noisy|unknown)$",
+                    "Sensor type filter",
+                    false,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("door_window"),
+                    json!("motion"),
+                    json!("temperature"),
+                    json!("analog"),
+                ]),
+                SchemaConstraint::room_name("room", false),
+            ],
+        );
+
+        // get_all_door_window_sensors validation
+        self.add_tool_constraints("get_all_door_window_sensors", vec![]); // No parameters
+
+        // get_temperature_sensors validation
+        self.add_tool_constraints("get_temperature_sensors", vec![]); // No parameters
+
+        // get_system_status validation
+        self.add_tool_constraints("get_system_status", vec![]); // No parameters
+
+        // Audio tools validation
+        self.add_tool_constraints("get_audio_zones", vec![]); // No parameters
+
+        self.add_tool_constraints("get_audio_sources", vec![]); // No parameters
+
+        self.add_tool_constraints(
+            "control_audio_zone",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "zone_name",
+                    r"^.+$",
+                    "Audio zone name",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("Living Room"),
+                    json!("Kitchen"),
+                    json!("Office"),
+                ]),
+                SchemaConstraint::string_with_pattern(
+                    "action",
+                    r"^(play|stop|pause|volume|mute|unmute|next|previous)$",
+                    "Audio control action",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("play"),
+                    json!("stop"),
+                    json!("volume"),
+                    json!("mute"),
+                ]),
+                SchemaConstraint::percentage("value", false).with_examples(vec![
+                    json!(50),
+                    json!(75),
+                    json!(100),
+                ]),
+            ],
+        );
+
+        self.add_tool_constraints(
+            "set_audio_volume",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "zone_name",
+                    r"^.+$",
+                    "Audio zone name",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![json!("Living Room"), json!("Kitchen")]),
+                SchemaConstraint::percentage("volume", true).with_examples(vec![
+                    json!(25),
+                    json!(50),
+                    json!(75),
+                ]),
+            ],
+        );
+
+        // Health check tools validation
+        self.add_tool_constraints("get_health_check", vec![]); // No parameters
+
+        // Workflow tools validation
+        self.add_tool_constraints("list_predefined_workflows", vec![]); // No parameters
+
+        self.add_tool_constraints("get_workflow_examples", vec![]); // No parameters
+
+        self.add_tool_constraints(
+            "execute_workflow_demo",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "workflow_name",
+                    r"^(morning_routine|parallel_demo|conditional_demo|security_check|evening_routine)$",
+                    "Predefined workflow name",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("morning_routine"),
+                    json!("parallel_demo"),
+                    json!("security_check"),
+                ]),
+                SchemaConstraint {
+                    field: "variables".to_string(),
+                    field_type: "object".to_string(),
+                    required: false,
+                    pattern: None,
+                    pattern_description: Some("Optional variables for the workflow".to_string()),
+                    min_length: None,
+                    max_length: None,
+                    min_value: None,
+                    max_value: None,
+                    enum_values: None,
+                    examples: vec![
+                        json!({}),
+                        json!({"room": "Living Room", "brightness": 75}),
+                    ],
+                    default: Some(json!({})),
+                },
+            ],
+        );
+
+        // Enhanced room device query validation
+        self.add_tool_constraints(
+            "get_room_devices",
+            vec![
+                SchemaConstraint::room_name("room_name", true),
+                SchemaConstraint::string_with_pattern(
+                    "device_type",
+                    r"^[a-zA-Z0-9_-]*$",
+                    "Optional device type filter",
+                    false,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("Switch"),
+                    json!("Jalousie"),
+                    json!("Dimmer"),
+                ]),
+            ],
+        );
+
+        // Enhanced device control validation (already exists but update parameter names)
+        self.add_tool_constraints(
+            "control_device",
+            vec![
+                SchemaConstraint::string_with_pattern(
+                    "device",
+                    r"^.+$",
+                    "Device UUID or name",
+                    true,
+                )
+                .unwrap()
+                .with_examples(vec![
+                    json!("12345678-1234-1234-1234-123456789abc"),
+                    json!("0CD8C06B.855703.I2"),
+                    json!("Living Room Light"),
+                ]),
+                SchemaConstraint::device_action("action", true),
+                SchemaConstraint::room_name("room", false),
+            ],
+        );
     }
 
     /// Get all available tool schemas
@@ -810,14 +1090,14 @@ mod tests {
 
         // Valid device control
         let params = json!({
-            "uuid": "12345678-1234-1234-1234-123456789abc",
+            "device": "12345678-1234-1234-1234-123456789abc",
             "action": "on"
         });
         assert!(validator
             .validate_tool_parameters("control_device", &params)
             .is_ok());
 
-        // Invalid device control (missing UUID)
+        // Invalid device control (missing device)
         let invalid_params = json!({
             "action": "on"
         });
@@ -827,7 +1107,7 @@ mod tests {
 
         // Invalid device control (bad action)
         let invalid_params2 = json!({
-            "uuid": "12345678-1234-1234-1234-123456789abc",
+            "device": "12345678-1234-1234-1234-123456789abc",
             "action": "invalid_action"
         });
         assert!(validator
@@ -841,12 +1121,12 @@ mod tests {
         let schema = validator.get_tool_schema("control_device").unwrap();
 
         assert!(schema["type"] == "object");
-        assert!(schema["properties"]["uuid"]["type"] == "string");
+        assert!(schema["properties"]["device"]["type"] == "string");
         assert!(schema["properties"]["action"]["enum"].is_array());
         assert!(schema["required"]
             .as_array()
             .unwrap()
-            .contains(&json!("uuid")));
+            .contains(&json!("device")));
         assert!(schema["required"]
             .as_array()
             .unwrap()

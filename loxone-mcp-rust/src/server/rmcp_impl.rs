@@ -6,6 +6,7 @@
 use super::{
     rate_limiter::RateLimitResult,
     request_context::{RequestContext as McpRequestContext, RequestTracker},
+    response_cache::create_cache_key,
     LoxoneMcpServer,
 };
 use crate::logging::{
@@ -21,9 +22,14 @@ use rmcp::{
     Error, RoleServer, ServerHandler,
 };
 use std::sync::Arc;
-use tracing::warn;
+use tracing::{debug, warn};
 
 impl ServerHandler for LoxoneMcpServer {
+    async fn ping(&self, _context: RequestContext<RoleServer>) -> Result<(), Error> {
+        debug!("Ping request received");
+        Ok(())
+    }
+
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::default(),
@@ -94,6 +100,27 @@ impl ServerHandler for LoxoneMcpServer {
                         }
                     },
                     "required": ["device", "action"]
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "control_multiple_devices".into(),
+                description: "Control multiple devices simultaneously with the same action".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "devices": {
+                            "type": "array",
+                            "description": "List of device names or UUIDs to control",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "action": {
+                            "type": "string",
+                            "description": "Action to perform on all devices (on, off, up, down, stop)"
+                        }
+                    },
+                    "required": ["devices", "action"]
                 }).as_object().unwrap().clone()),
             },
             Tool {
@@ -180,6 +207,46 @@ impl ServerHandler for LoxoneMcpServer {
                             "description": "Type of devices to filter (optional, shows all types if not specified)"
                         }
                     },
+                    "required": []
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "get_devices_by_category".into(),
+                description: "Get all devices filtered by category with pagination support".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "category": {
+                            "type": "string",
+                            "description": "Device category (lighting, blinds, climate, sensors, etc.)"
+                        },
+                        "limit": {
+                            "type": "number",
+                            "description": "Maximum number of devices to return (optional)"
+                        },
+                        "include_state": {
+                            "type": "boolean",
+                            "description": "Include current device state (optional, default: false)"
+                        }
+                    },
+                    "required": ["category"]
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "get_available_capabilities".into(),
+                description: "Get available system capabilities based on your Loxone configuration".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "get_all_categories_overview".into(),
+                description: "Get overview of all device categories with counts and examples".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {},
                     "required": []
                 }).as_object().unwrap().clone()),
             },
@@ -283,6 +350,38 @@ impl ServerHandler for LoxoneMcpServer {
                 input_schema: Arc::new(serde_json::json!({
                     "type": "object",
                     "properties": {},
+                    "required": []
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "discover_new_sensors".into(),
+                description: "Discover sensors by monitoring WebSocket traffic or analyzing structure".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "duration_seconds": {
+                            "type": "number",
+                            "description": "Discovery duration in seconds (default: 60)"
+                        }
+                    },
+                    "required": []
+                }).as_object().unwrap().clone()),
+            },
+            Tool {
+                name: "list_discovered_sensors".into(),
+                description: "List all discovered sensors with optional filtering".into(),
+                input_schema: Arc::new(serde_json::json!({
+                    "type": "object",
+                    "properties": {
+                        "sensor_type": {
+                            "type": "string",
+                            "description": "Filter by sensor type (door_window, motion, temperature, etc.)"
+                        },
+                        "room": {
+                            "type": "string",
+                            "description": "Filter by room name"
+                        }
+                    },
                     "required": []
                 }).as_object().unwrap().clone()),
             },
@@ -459,6 +558,27 @@ impl ServerHandler for LoxoneMcpServer {
         // Enhanced structured logging
         StructuredLogger::log_request_start(&structured_ctx, &args_value);
 
+        // Check cache for read-only tools
+        let cache_key = create_cache_key(&request.name, &args_value);
+        let is_read_only_tool = is_read_only_tool(&request.name);
+
+        if is_read_only_tool {
+            if let Some(cached_result) = self.response_cache.get(&cache_key).await {
+                debug!("Cache hit for tool: {}", request.name);
+
+                // Record cache hit metrics
+                get_metrics()
+                    .record_request_end(&request.name, req_ctx.elapsed(), true)
+                    .await;
+
+                // Convert cached JSON back to CallToolResult
+                return Ok(CallToolResult::success(vec![Content::text(
+                    serde_json::to_string_pretty(&cached_result)
+                        .unwrap_or_else(|_| "{}".to_string()),
+                )]));
+            }
+        }
+
         // Validate parameters using schema validator
         let validation_result = self
             .schema_validator
@@ -538,6 +658,31 @@ impl ServerHandler for LoxoneMcpServer {
                 self.control_device_enhanced(device, action, room)
                     .await
                     .map_err(|_| Error::invalid_params("Failed to control device", None))
+            }
+
+            "control_multiple_devices" => {
+                let args = request
+                    .arguments
+                    .ok_or_else(|| Error::invalid_params("Missing arguments", None))?;
+                let devices = args
+                    .get("devices")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                            .collect::<Vec<String>>()
+                    })
+                    .ok_or_else(|| {
+                        Error::invalid_params("Missing or invalid devices parameter", None)
+                    })?;
+                let action = args
+                    .get("action")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| Error::invalid_params("Missing action parameter", None))?;
+                self.control_multiple_devices(devices, action)
+                    .await
+                    .map_err(|_| Error::invalid_params("Failed to control multiple devices", None))
             }
 
             "control_all_rolladen" => {
@@ -622,6 +767,38 @@ impl ServerHandler for LoxoneMcpServer {
                     .map_err(|_| Error::invalid_params("Failed to get devices by type", None))
             }
 
+            "get_devices_by_category" => {
+                let args = request
+                    .arguments
+                    .ok_or_else(|| Error::invalid_params("Missing arguments", None))?;
+                let category = args
+                    .get("category")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| Error::invalid_params("Missing category parameter", None))?;
+                let limit = args
+                    .get("limit")
+                    .and_then(|v| v.as_u64())
+                    .map(|n| n as usize);
+                let include_state = args
+                    .get("include_state")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(false);
+                self.get_devices_by_category(category, limit, include_state)
+                    .await
+                    .map_err(|_| Error::invalid_params("Failed to get devices by category", None))
+            }
+
+            "get_available_capabilities" => self
+                .get_available_capabilities()
+                .await
+                .map_err(|_| Error::invalid_params("Failed to get available capabilities", None)),
+
+            "get_all_categories_overview" => self
+                .get_all_categories_overview()
+                .await
+                .map_err(|_| Error::invalid_params("Failed to get categories overview", None)),
+
             "get_system_status" => self
                 .get_system_status()
                 .await
@@ -695,6 +872,29 @@ impl ServerHandler for LoxoneMcpServer {
                 .await
                 .map_err(|_| Error::invalid_params("Failed to get temperature sensors", None)),
 
+            "discover_new_sensors" => {
+                let args = request.arguments.unwrap_or_default();
+                let duration_seconds = args.get("duration_seconds").and_then(|v| v.as_u64());
+                self.discover_new_sensors(duration_seconds)
+                    .await
+                    .map_err(|_| Error::invalid_params("Failed to discover new sensors", None))
+            }
+
+            "list_discovered_sensors" => {
+                let args = request.arguments.unwrap_or_default();
+                let sensor_type = args
+                    .get("sensor_type")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                let room = args
+                    .get("room")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
+                self.list_discovered_sensors(sensor_type, room)
+                    .await
+                    .map_err(|_| Error::invalid_params("Failed to list discovered sensors", None))
+            }
+
             // Workflow Tools
             "create_workflow" => self
                 .create_workflow(request.arguments.unwrap_or_default().into())
@@ -760,6 +960,87 @@ impl ServerHandler for LoxoneMcpServer {
             }
         }
 
+        // Store result in cache for read-only tools
+        if is_read_only_tool {
+            if let Ok(ref call_result) = result {
+                // Extract the response data from CallToolResult
+                if let Some(content) = call_result.content.first() {
+                    if let Some(text_content) = content.as_text() {
+                        // Try to parse the response as JSON for caching
+                        if let Ok(json_value) =
+                            serde_json::from_str::<serde_json::Value>(&text_content.text)
+                        {
+                            // Cache with appropriate TTL based on tool type
+                            let ttl = get_cache_ttl(&request.name);
+                            self.response_cache
+                                .put_with_ttl(cache_key, json_value, ttl)
+                                .await;
+                            debug!("Cached result for tool: {} (TTL: {:?})", request.name, ttl);
+                        }
+                    }
+                }
+            }
+        }
+
         result
+    }
+}
+
+/// Check if a tool is read-only (safe to cache)
+fn is_read_only_tool(tool_name: &str) -> bool {
+    matches!(
+        tool_name,
+        "list_rooms"
+            | "get_room_devices"
+            | "discover_all_devices"
+            | "get_devices_by_type"
+            | "get_devices_by_category"
+            | "get_available_capabilities"
+            | "get_system_status"
+            | "get_audio_zones"
+            | "get_audio_sources"
+            | "get_health_check"
+            | "get_health_status"
+            | "get_all_door_window_sensors"
+            | "get_temperature_sensors"
+            | "discover_new_sensors"
+            | "list_discovered_sensors"
+            | "list_predefined_workflows"
+            | "get_workflow_examples"
+    )
+}
+
+/// Get appropriate cache TTL for different tool types
+fn get_cache_ttl(tool_name: &str) -> std::time::Duration {
+    match tool_name {
+        // Static structure data - cache longer
+        "list_rooms"
+        | "discover_all_devices"
+        | "get_devices_by_type"
+        | "get_devices_by_category"
+        | "get_available_capabilities" => {
+            std::time::Duration::from_secs(600) // 10 minutes
+        }
+        // System status - medium cache
+        "get_system_status" | "get_health_status" => {
+            std::time::Duration::from_secs(60) // 1 minute
+        }
+        // Audio and sensor data - shorter cache
+        "get_audio_zones"
+        | "get_audio_sources"
+        | "get_all_door_window_sensors"
+        | "get_temperature_sensors" => {
+            std::time::Duration::from_secs(30) // 30 seconds
+        }
+        // Discovery operations - very short cache
+        "discover_new_sensors" | "list_discovered_sensors" => {
+            std::time::Duration::from_secs(10) // 10 seconds
+        }
+        // Documentation and static content - long cache
+        "list_predefined_workflows" | "get_workflow_examples" => {
+            std::time::Duration::from_secs(3600) // 1 hour
+        }
+        // Default cache duration
+        _ => std::time::Duration::from_secs(120), // 2 minutes
     }
 }

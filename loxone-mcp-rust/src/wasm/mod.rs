@@ -7,9 +7,6 @@
 pub mod wasip2;
 
 #[cfg(target_arch = "wasm32")]
-pub mod browser;
-
-#[cfg(target_arch = "wasm32")]
 pub mod component;
 
 #[cfg(target_arch = "wasm32")]
@@ -18,9 +15,6 @@ pub mod optimizations;
 // Re-export main WASM functionality
 #[cfg(target_arch = "wasm32")]
 pub use wasip2::*;
-
-#[cfg(target_arch = "wasm32")]
-pub use browser::*;
 
 #[cfg(target_arch = "wasm32")]
 pub use component::*;
@@ -38,7 +32,7 @@ pub fn get_wasm_target() -> WasmTarget {
 
     #[cfg(all(target_arch = "wasm32", not(target_os = "wasi")))]
     {
-        return WasmTarget::Browser;
+        return WasmTarget::None; // Browser target removed
     }
 
     #[cfg(not(target_arch = "wasm32"))]
@@ -50,18 +44,17 @@ pub fn get_wasm_target() -> WasmTarget {
 #[derive(Debug, Clone, PartialEq)]
 pub enum WasmTarget {
     None,
-    Browser,
     Wasip1,
     Wasip2,
 }
 
 impl WasmTarget {
     pub fn supports_keyvalue(&self) -> bool {
-        matches!(self, WasmTarget::Wasip2 | WasmTarget::Browser)
+        matches!(self, WasmTarget::Wasip2)
     }
 
     pub fn supports_http(&self) -> bool {
-        matches!(self, WasmTarget::Wasip2 | WasmTarget::Browser)
+        matches!(self, WasmTarget::Wasip2)
     }
 
     pub fn supports_config(&self) -> bool {
@@ -154,22 +147,6 @@ impl WasmConfig {
         }
     }
 
-    /// Create config for browser environment
-    pub fn for_browser() -> Self {
-        Self {
-            target: WasmTarget::Browser,
-            max_memory_mb: 32, // Limited memory for browser
-            enable_debug_logging: false,
-            keyvalue_namespace: "loxone-mcp-browser".to_string(),
-            http_timeout_ms: 15000, // Shorter timeout for browser
-            component_features: vec![
-                "credential-management".to_string(),
-                "device-control".to_string(),
-                "local-storage".to_string(),
-            ],
-        }
-    }
-
     /// Validate configuration for target
     pub fn validate(&self) -> Result<(), WasmError> {
         match self.target {
@@ -186,11 +163,6 @@ impl WasmConfig {
                     return Err(WasmError::ComponentInitFailed {
                         reason: "WASIP2 requires wasi-keyvalue feature".to_string(),
                     });
-                }
-            }
-            WasmTarget::Browser => {
-                if self.max_memory_mb > 64 {
-                    return Err(WasmError::MemoryLimitExceeded { limit_mb: 64 });
                 }
             }
             WasmTarget::Wasip1 => {
@@ -263,13 +235,6 @@ impl WasmCapabilities {
 fn detect_crypto_support() -> bool {
     #[cfg(target_arch = "wasm32")]
     {
-        // Check for WebCrypto API in browser
-        if let Some(window) = web_sys::window() {
-            if let Ok(crypto) = js_sys::Reflect::get(&window, &"crypto".into()) {
-                return !crypto.is_undefined();
-            }
-        }
-
         // Check for WASI crypto interface
         // This would be implemented when WASI crypto is standardized
         false
@@ -299,7 +264,6 @@ pub fn initialize_wasm_module() -> Result<WasmConfig, WasmError> {
     let target = get_wasm_target();
     let config = match target {
         WasmTarget::Wasip2 => WasmConfig::for_wasip2(),
-        WasmTarget::Browser => WasmConfig::for_browser(),
         WasmTarget::Wasip1 => WasmConfig::default(),
         WasmTarget::None => {
             return Err(WasmError::UnsupportedTarget { target });
@@ -340,19 +304,10 @@ fn log_wasm_info(config: &WasmConfig) {
                 );
             }
         }
-        WasmTarget::Browser => {
-            web_sys::console::log_1(
-                &format!(
-                    "Loxone MCP: WASM module initialized for {:?}",
-                    config.target
-                )
-                .into(),
-            );
-        }
         _ => {
-            // Basic console output
+            // Basic console output for WASIP1
             #[cfg(feature = "debug-logging")]
-            web_sys::console::log_1(&"Loxone MCP: WASM module initialized".into());
+            eprintln!("Loxone MCP: WASM module initialized");
         }
     }
 }
@@ -384,8 +339,8 @@ mod tests {
         let config = WasmConfig::default();
         assert!(config.validate().is_ok());
 
-        let mut invalid_config = WasmConfig::for_browser();
-        invalid_config.max_memory_mb = 128; // Too much for browser
+        let mut invalid_config = WasmConfig::for_wasip2();
+        invalid_config.target = WasmTarget::None; // Invalid target
         assert!(invalid_config.validate().is_err());
     }
 

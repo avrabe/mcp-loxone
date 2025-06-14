@@ -5,7 +5,7 @@
 use crate::tools::{ToolContext, ToolResponse};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -493,7 +493,7 @@ pub struct DiscoveredSensor {
 }
 
 /// Sensor type classification
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum SensorType {
     /// Door/window sensor (binary)
     DoorWindow,
@@ -542,50 +542,172 @@ pub struct SensorStatistics {
 /// Discover new sensors by monitoring WebSocket traffic
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn discover_new_sensors(
-    _context: ToolContext,
+    context: ToolContext,
     // #[description("Discovery duration in seconds")] // TODO: Re-enable when rmcp API is clarified
     duration_seconds: Option<u64>,
 ) -> ToolResponse {
     let duration = std::time::Duration::from_secs(duration_seconds.unwrap_or(60));
 
-    // This would implement real sensor discovery via WebSocket monitoring
-    // For now, return a placeholder response
+    // Ensure WebSocket connection is available
+    #[cfg(feature = "websocket")]
+    {
+        use crate::client::websocket_client::{
+            EventFilter, LoxoneEventType, LoxoneWebSocketClient,
+        };
+        use std::collections::HashSet;
 
-    let discovered_sensors = vec![DiscoveredSensor {
-        uuid: "example-sensor-1".to_string(),
-        name: Some("Kitchen Window".to_string()),
-        current_value: serde_json::Value::Number(serde_json::Number::from(0)),
-        value_history: vec![
-            serde_json::Value::Number(serde_json::Number::from(0)),
-            serde_json::Value::Number(serde_json::Number::from(1)),
-            serde_json::Value::Number(serde_json::Number::from(0)),
-        ],
-        first_seen: chrono::Utc::now() - chrono::Duration::minutes(5),
-        last_updated: chrono::Utc::now(),
-        update_count: 3,
-        sensor_type: SensorType::DoorWindow,
-        confidence: 0.95,
-        pattern_score: 0.8,
-        room: Some("Kitchen".to_string()),
-        metadata: HashMap::new(),
-    }];
+        // Check if the client supports WebSocket
+        let ws_client = context
+            .client
+            .as_any()
+            .downcast_ref::<LoxoneWebSocketClient>();
+
+        if let Some(ws_client) = ws_client {
+            info!(
+                "Starting sensor discovery via WebSocket for {}s",
+                duration.as_secs()
+            );
+
+            // Create filter for sensor events
+            let mut event_types = HashSet::new();
+            event_types.insert(LoxoneEventType::State);
+            event_types.insert(LoxoneEventType::Sensor);
+
+            let filter = EventFilter {
+                event_types,
+                min_interval: Some(std::time::Duration::from_millis(50)), // Faster for discovery
+                ..Default::default()
+            };
+
+            // Subscribe to filtered events
+            let mut event_receiver = ws_client.subscribe_with_filter(filter).await;
+
+            // Track discovered sensors
+            let mut discovered = HashMap::new();
+            let discovery_start = chrono::Utc::now();
+            let deadline = tokio::time::Instant::now() + duration;
+
+            // Monitor events until deadline
+            while tokio::time::Instant::now() < deadline {
+                tokio::select! {
+                    Some(update) = event_receiver.recv() => {
+                        let sensor_entry = discovered.entry(update.uuid.clone())
+                            .or_insert_with(|| DiscoveredSensor {
+                                uuid: update.uuid.clone(),
+                                name: update.device_name.clone(),
+                                current_value: update.value.clone(),
+                                value_history: Vec::new(),
+                                first_seen: discovery_start,
+                                last_updated: chrono::Utc::now(),
+                                update_count: 0,
+                                sensor_type: SensorType::Unknown,
+                                confidence: 0.0,
+                                pattern_score: 0.0,
+                                room: update.room.clone(),
+                                metadata: HashMap::new(),
+                            });
+
+                        // Update sensor data
+                        sensor_entry.value_history.push(update.value.clone());
+                        sensor_entry.current_value = update.value;
+                        sensor_entry.last_updated = chrono::Utc::now();
+                        sensor_entry.update_count += 1;
+
+                        // Keep value history limited
+                        if sensor_entry.value_history.len() > 100 {
+                            sensor_entry.value_history.remove(0);
+                        }
+
+                        // Analyze pattern after sufficient samples
+                        if sensor_entry.update_count >= 3 {
+                            analyze_sensor_pattern(sensor_entry);
+                        }
+                    }
+                    _ = tokio::time::sleep(std::time::Duration::from_millis(100)) => {
+                        // Check timeout periodically
+                    }
+                }
+            }
+
+            // Final analysis pass
+            for sensor in discovered.values_mut() {
+                if sensor.sensor_type == SensorType::Unknown {
+                    analyze_sensor_pattern(sensor);
+                }
+            }
+
+            let discovered_sensors: Vec<DiscoveredSensor> = discovered.into_values().collect();
+            let stats = calculate_sensor_statistics(&discovered_sensors);
+
+            let response_data = serde_json::json!({
+                "discovery_duration": format!("{}s", duration.as_secs()),
+                "discovered_sensors": discovered_sensors,
+                "statistics": stats,
+                "discovery_complete": true,
+                "timestamp": chrono::Utc::now()
+            });
+
+            return ToolResponse::success_with_message(
+                response_data,
+                format!(
+                    "Discovered {} sensors in {}s",
+                    discovered_sensors.len(),
+                    duration.as_secs()
+                ),
+            );
+        }
+    }
+
+    // Fallback: Discover sensors from structure (not real-time)
+    info!("WebSocket not available, discovering sensors from structure");
+
+    let devices = match context.context.get_devices_by_category("sensors").await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(format!("Failed to get sensor devices: {}", e)),
+    };
+
+    let mut discovered_sensors = Vec::new();
+    for device in devices {
+        let sensor_type = classify_sensor_type(&device);
+
+        let sensor = DiscoveredSensor {
+            uuid: device.uuid.clone(),
+            name: Some(device.name.clone()),
+            current_value: device
+                .states
+                .get("value")
+                .cloned()
+                .unwrap_or(serde_json::Value::Null),
+            value_history: Vec::new(),
+            first_seen: chrono::Utc::now(),
+            last_updated: chrono::Utc::now(),
+            update_count: 1,
+            sensor_type,
+            confidence: 0.7, // Lower confidence without real-time data
+            pattern_score: 0.5,
+            room: device.room.clone(),
+            metadata: device.states.clone(),
+        };
+
+        discovered_sensors.push(sensor);
+    }
 
     let stats = calculate_sensor_statistics(&discovered_sensors);
 
     let response_data = serde_json::json!({
-        "discovery_duration": format!("{}s", duration.as_secs()),
+        "discovery_method": "structure_analysis",
         "discovered_sensors": discovered_sensors,
         "statistics": stats,
         "discovery_complete": true,
-        "timestamp": chrono::Utc::now()
+        "timestamp": chrono::Utc::now(),
+        "note": "Real-time discovery requires WebSocket connection"
     });
 
     ToolResponse::success_with_message(
         response_data,
         format!(
-            "Discovered {} sensors in {}s",
-            discovered_sensors.len(),
-            duration.as_secs()
+            "Found {} sensors from structure analysis",
+            discovered_sensors.len()
         ),
     )
 }
@@ -1105,6 +1227,119 @@ fn analyze_sensor_capabilities(device: &crate::client::LoxoneDevice) -> serde_js
     );
 
     serde_json::Value::Object(capabilities)
+}
+
+/// Analyze sensor pattern to determine type and characteristics
+fn analyze_sensor_pattern(sensor: &mut DiscoveredSensor) {
+    if sensor.value_history.is_empty() {
+        return;
+    }
+
+    // Analyze value patterns
+    let mut distinct_values = HashSet::new();
+    let mut numeric_values = Vec::new();
+    let mut binary_pattern = true;
+
+    for value in &sensor.value_history {
+        distinct_values.insert(value.to_string());
+
+        match value {
+            serde_json::Value::Number(n) => {
+                if let Some(f) = n.as_f64() {
+                    numeric_values.push(f);
+                    // Check if it's binary (0/1 or close to it)
+                    if f != 0.0 && f != 1.0 && !(-0.1..=1.1).contains(&f) {
+                        binary_pattern = false;
+                    }
+                }
+            }
+            serde_json::Value::Bool(_) => {
+                // Boolean values are binary by nature
+            }
+            _ => {
+                binary_pattern = false;
+            }
+        }
+    }
+
+    // Calculate confidence based on sample count
+    sensor.confidence = (sensor.update_count as f64 / 10.0).min(1.0);
+
+    // Determine sensor type based on patterns
+    if binary_pattern && distinct_values.len() <= 2 {
+        // Binary sensor detected
+        sensor.pattern_score = 0.9;
+
+        // Try to determine specific binary type based on name
+        if let Some(ref name) = sensor.name {
+            let name_lower = name.to_lowercase();
+            if name_lower.contains("door")
+                || name_lower.contains("window")
+                || name_lower.contains("fenster")
+                || name_lower.contains("tür")
+            {
+                sensor.sensor_type = SensorType::DoorWindow;
+            } else if name_lower.contains("motion")
+                || name_lower.contains("bewegung")
+                || name_lower.contains("pir")
+            {
+                sensor.sensor_type = SensorType::Motion;
+            } else {
+                sensor.sensor_type = SensorType::DoorWindow; // Default binary to door/window
+            }
+        } else {
+            sensor.sensor_type = SensorType::DoorWindow; // Default binary
+        }
+    } else if !numeric_values.is_empty() {
+        // Analog sensor detected
+        let avg = numeric_values.iter().sum::<f64>() / numeric_values.len() as f64;
+        let variance = numeric_values
+            .iter()
+            .map(|v| (v - avg).powi(2))
+            .sum::<f64>()
+            / numeric_values.len() as f64;
+
+        sensor.pattern_score = 1.0 - (variance / 1000.0).min(1.0); // Lower variance = higher score
+
+        // Determine analog type based on value range and name
+        if let Some(ref name) = sensor.name {
+            let name_lower = name.to_lowercase();
+            if name_lower.contains("temp") || name_lower.contains("thermometer") {
+                sensor.sensor_type = SensorType::Temperature;
+            } else if name_lower.contains("light")
+                || name_lower.contains("lux")
+                || name_lower.contains("brightness")
+            {
+                sensor.sensor_type = SensorType::Light;
+            } else {
+                sensor.sensor_type = SensorType::Analog;
+            }
+        } else {
+            // Check value range for temperature
+            if numeric_values.iter().all(|&v| (-50.0..=100.0).contains(&v))
+                && numeric_values.iter().any(|&v| (10.0..=40.0).contains(&v))
+            {
+                sensor.sensor_type = SensorType::Temperature;
+            } else {
+                sensor.sensor_type = SensorType::Analog;
+            }
+        }
+    } else {
+        // Unknown or noisy sensor
+        sensor.sensor_type = SensorType::Unknown;
+        sensor.pattern_score = 0.3;
+    }
+
+    // Check for noisy sensors (too many updates)
+    let update_rate = sensor.update_count as f64
+        / (chrono::Utc::now() - sensor.first_seen)
+            .num_seconds()
+            .max(1) as f64;
+    if update_rate > 1.0 {
+        // More than 1 update per second
+        sensor.sensor_type = SensorType::Noisy;
+        sensor.pattern_score *= 0.5; // Reduce confidence for noisy sensors
+    }
 }
 
 /// Calculate sensor statistics

@@ -230,6 +230,33 @@ impl LoxoneMcpServer {
         }
     }
 
+    /// Control multiple devices simultaneously
+    pub async fn control_multiple_devices(
+        &self,
+        devices: Vec<String>,
+        action: String,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{devices::control_multiple_devices, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = control_multiple_devices(tool_context, devices, action).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
     /// Control all rolladen in the system
     pub async fn control_all_rolladen(
         &self,
@@ -547,6 +574,84 @@ impl LoxoneMcpServer {
         }
     }
 
+    /// Get devices filtered by category with pagination
+    pub async fn get_devices_by_category(
+        &self,
+        category: String,
+        limit: Option<usize>,
+        _include_state: bool,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{devices::get_devices_by_category, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = get_devices_by_category(tool_context, category, limit).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
+    /// Get available system capabilities
+    pub async fn get_available_capabilities(
+        &self,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{devices::get_available_capabilities, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = get_available_capabilities(tool_context).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
+    /// Get all categories overview
+    pub async fn get_all_categories_overview(
+        &self,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{devices::get_all_categories_overview, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = get_all_categories_overview(tool_context).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
     /// Get audio zones and their status
     pub async fn get_audio_zones(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
@@ -778,6 +883,45 @@ impl LoxoneMcpServer {
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
 
         let response = sensors::get_temperature_sensors(tool_context).await;
+        let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(content)]))
+        }
+    }
+
+    /// Discover new sensors dynamically
+    pub async fn discover_new_sensors(
+        &self,
+        duration_seconds: Option<u64>,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{sensors, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = sensors::discover_new_sensors(tool_context, duration_seconds).await;
+        let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(content)]))
+        }
+    }
+
+    /// List discovered sensors with optional filtering
+    pub async fn list_discovered_sensors(
+        &self,
+        sensor_type: Option<String>,
+        room: Option<String>,
+    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+        use crate::tools::{sensors, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = sensors::list_discovered_sensors(tool_context, sensor_type, room).await;
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {

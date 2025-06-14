@@ -12,7 +12,7 @@
 //! - Climate control with 6 room controllers
 //! - WebSocket and HTTP client support
 //! - Secure credential management
-//! - WASM-compatible for browser and server deployment
+//! - WASM-compatible for server deployment via WASIP2
 //!
 //! # Example
 //!

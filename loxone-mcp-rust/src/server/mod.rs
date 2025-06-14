@@ -15,6 +15,7 @@ use health_check::{HealthCheckConfig, HealthChecker};
 use loxone_batch_executor::LoxoneBatchExecutor;
 use rate_limiter::{RateLimitConfig, RateLimitMiddleware};
 use request_coalescing::{CoalescingConfig, RequestCoalescer};
+use response_cache::ToolResponseCache;
 use schema_validation::SchemaValidator;
 
 pub mod handlers;
@@ -25,6 +26,7 @@ pub mod rate_limiter;
 pub mod request_coalescing;
 pub mod request_context;
 pub mod resource_monitor;
+pub mod response_cache;
 pub mod response_optimization;
 pub mod rmcp_impl;
 pub mod schema_validation;
@@ -60,6 +62,9 @@ pub struct LoxoneMcpServer {
 
     /// Resource monitor for system resource management
     pub(crate) resource_monitor: Arc<resource_monitor::ResourceMonitor>,
+
+    /// Response cache for MCP tools
+    pub(crate) response_cache: Arc<ToolResponseCache>,
 }
 
 impl LoxoneMcpServer {
@@ -271,6 +276,11 @@ impl LoxoneMcpServer {
         let resource_monitor = Arc::new(resource_monitor::ResourceMonitor::new(resource_limits));
         info!("✅ Resource monitor initialized with default limits");
 
+        // Initialize response cache
+        info!("🗄️ Initializing response cache...");
+        let response_cache = Arc::new(ToolResponseCache::new());
+        info!("✅ Response cache initialized with TTL-based eviction");
+
         Ok(Self {
             config,
             client: client_arc,
@@ -280,6 +290,7 @@ impl LoxoneMcpServer {
             request_coalescer,
             schema_validator,
             resource_monitor,
+            response_cache,
         })
     }
 
@@ -349,6 +360,11 @@ impl LoxoneMcpServer {
         let resource_monitor = Arc::new(resource_monitor::ResourceMonitor::new(resource_limits));
         info!("✅ Resource monitor initialized with default limits");
 
+        // Initialize response cache
+        info!("🗄️ Initializing response cache...");
+        let response_cache = Arc::new(ToolResponseCache::new());
+        info!("✅ Response cache initialized with TTL-based eviction");
+
         Ok(Self {
             config: ServerConfig {
                 loxone: config,
@@ -361,6 +377,7 @@ impl LoxoneMcpServer {
             request_coalescer,
             schema_validator,
             resource_monitor,
+            response_cache,
         })
     }
 
@@ -394,5 +411,25 @@ impl LoxoneMcpServer {
     /// Get request coalescer metrics
     pub fn get_coalescing_metrics(&self) -> request_coalescing::CoalescingMetrics {
         self.request_coalescer.get_metrics()
+    }
+
+    /// Check if a tool is read-only (safe to cache)
+    pub fn is_read_only_tool(tool_name: &str) -> bool {
+        matches!(
+            tool_name,
+            "list_rooms"
+                | "list_devices"
+                | "list_devices_in_room"
+                | "get_device_state"
+                | "get_room_devices"
+                | "get_system_info"
+                | "get_weather_info"
+                | "get_energy_info"
+                | "get_sensor_readings"
+                | "health_check"
+                | "test_connection"
+                | "discover_rooms"
+                | "discover_devices"
+        )
     }
 }
