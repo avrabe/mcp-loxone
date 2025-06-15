@@ -10,6 +10,7 @@ use crate::error::{LoxoneError, Result};
 use crate::performance::{
     middleware::PerformanceMiddleware, PerformanceConfig, PerformanceMonitor,
 };
+use crate::security::key_store::{KeyStore, KeyStoreBackend, KeyStoreConfig};
 use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
 pub use authentication::AuthConfig;
@@ -115,6 +116,7 @@ pub struct SseConnectionManager {
     /// Broadcast channel for sending notifications to all SSE connections
     notification_sender: broadcast::Sender<SseNotificationEvent>,
     /// Active SSE connections tracking
+    #[allow(dead_code)]
     connections: Arc<RwLock<HashMap<String, broadcast::Receiver<SseNotificationEvent>>>>,
 }
 
@@ -252,6 +254,8 @@ pub struct HttpTransportServer {
     security_middleware: Option<Arc<SecurityMiddleware>>,
     /// Performance middleware
     performance_middleware: Option<Arc<PerformanceMiddleware>>,
+    /// API key store
+    key_store: Arc<KeyStore>,
     /// Metrics collector
     #[cfg(feature = "influxdb")]
     metrics_collector: Arc<MetricsCollector>,
@@ -336,12 +340,23 @@ impl HttpTransportServer {
             None
         };
 
+        // Initialize key store
+        let key_store_config = KeyStoreConfig {
+            backend: KeyStoreBackend::File,
+            file_path: Some(crate::security::key_store::default_key_store_path()),
+            auto_save: true,
+            encrypt_at_rest: false,
+        };
+        let key_store = Arc::new(KeyStore::new(key_store_config).await?);
+        info!("🔑 API key store initialized");
+
         Ok(Self {
             mcp_server,
             auth_manager,
             rate_limiter: EnhancedRateLimiter::with_defaults(),
             security_middleware,
             performance_middleware,
+            key_store,
             #[cfg(feature = "influxdb")]
             metrics_collector,
             #[cfg(feature = "influxdb")]
@@ -418,6 +433,12 @@ impl HttpTransportServer {
             info!("📊 Dashboard endpoints disabled (enable with --features influxdb)");
         }
 
+        // Show key management UI endpoint
+        info!(
+            "🔑 API key management: http://localhost:{}/admin/keys (web browser)",
+            self.port
+        );
+
         // Start background task to collect system metrics
         #[cfg(feature = "influxdb")]
         {
@@ -472,6 +493,7 @@ impl HttpTransportServer {
             influx_manager: self.influx_manager.clone(),
             history_store,
             sse_manager,
+            key_store: self.key_store.clone(),
         });
 
         let cors = CorsLayer::new()
@@ -591,6 +613,14 @@ impl HttpTransportServer {
             app
         };
 
+        // Add key management UI routes
+        // let key_management_router = create_key_management_router(shared_state.key_store.clone());
+        // let app = app.nest("/admin", key_management_router);
+        info!(
+            "🔑 API key management UI: http://localhost:{}/admin/keys",
+            self.port
+        );
+
         Ok(app)
     }
 }
@@ -607,6 +637,8 @@ struct AppState {
     influx_manager: Option<Arc<InfluxManager>>,
     history_store: Option<Arc<UnifiedHistoryStore>>,
     sse_manager: Arc<SseConnectionManager>,
+    #[allow(dead_code)]
+    key_store: Arc<KeyStore>,
 }
 
 /// Root handler
@@ -621,7 +653,8 @@ async fn root_handler() -> impl IntoResponse {
             "mcp_info": "/mcp/info",
             "tools": "/mcp/tools",
             "dashboard": "/dashboard/",
-            "history_dashboard": "/history/"
+            "history_dashboard": "/history/",
+            "key_management": "/admin/keys"
         },
         "mcp_features": {
             "tools": "30+ automation and control tools",
@@ -639,7 +672,8 @@ async fn root_handler() -> impl IntoResponse {
         "web_access": {
             "monitoring": "Open http://localhost:3001/dashboard/ in your web browser",
             "history": "Open http://localhost:3001/history/ in your web browser",
-            "api_info": "Open http://localhost:3001/ in your web browser"
+            "api_info": "Open http://localhost:3001/ in your web browser",
+            "key_management": "Open http://localhost:3001/admin/keys in your web browser"
         },
         "authentication": "Bearer token required for MCP endpoints"
     }))

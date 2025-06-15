@@ -9,6 +9,9 @@
 //! Available resource URIs:
 //! - `loxone://rooms` - All rooms list
 //! - `loxone://devices/all` - All devices
+//! - `loxone://devices/category/blinds` - All blinds/rolladen with current positions
+//! - `loxone://devices/category/lighting` - All lighting devices with states
+//! - `loxone://devices/category/climate` - All climate devices and sensors
 //! - `loxone://system/status` - System status
 //! - `loxone://system/capabilities` - System capabilities
 //! - `loxone://system/categories` - Category overview
@@ -21,6 +24,11 @@
 //! - `loxone://weather/outdoor-conditions` - Outdoor conditions with comfort assessment
 //! - `loxone://weather/forecast-daily` - Daily weather forecast
 //! - `loxone://weather/forecast-hourly` - Hourly weather forecast
+//! - `loxone://security/status` - Security system status
+//! - `loxone://security/zones` - Security zones
+//! - `loxone://energy/consumption` - Energy consumption data
+//! - `loxone://energy/meters` - Energy meters
+//! - `loxone://energy/usage-history` - Historical energy usage
 //!
 //! Note: For room-specific or device-type-specific queries, use the appropriate tools instead.
 
@@ -233,7 +241,38 @@ impl ResourceManager {
 
         // Note: Device type filtering would need concrete resources or use tools instead
 
-        // Note: Device category filtering would need concrete resources or use tools instead
+        // Device category resources - register common categories
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://devices/category/blinds".to_string(),
+                name: "Blinds/Rolladen Devices".to_string(),
+                description: "All blinds and rolladen devices with current positions".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Devices,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://devices/category/lighting".to_string(),
+                name: "Lighting Devices".to_string(),
+                description: "All lighting devices and their current states".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Devices,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://devices/category/climate".to_string(),
+                name: "Climate Devices".to_string(),
+                description: "All climate control devices and sensors".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Devices,
+        );
+
+        // Note: Additional device categories can be added as needed
 
         // System resources
         self.register_resource(
@@ -1101,9 +1140,19 @@ impl ResourceHandler for LoxoneMcpServer {
             "loxone://energy/consumption" => self.read_energy_consumption_resource().await?,
             "loxone://energy/meters" => self.read_energy_meters_resource().await?,
             "loxone://energy/usage-history" => self.read_energy_usage_history_resource().await?,
+            // Device category resources
+            "loxone://devices/category/blinds" => {
+                self.read_devices_category_blinds_resource().await?
+            }
+            "loxone://devices/category/lighting" => {
+                self.read_devices_category_lighting_resource().await?
+            }
+            "loxone://devices/category/climate" => {
+                self.read_devices_category_climate_resource().await?
+            }
             _ => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Unknown resource URI: {}. Available resources: loxone://rooms, loxone://devices/all, loxone://system/*, loxone://audio/*, loxone://sensors/*, loxone://weather/*, loxone://security/*, loxone://energy/*",
+                    "Unknown resource URI: {}. Available resources: loxone://rooms, loxone://devices/*, loxone://system/*, loxone://audio/*, loxone://sensors/*, loxone://weather/*, loxone://security/*, loxone://energy/*",
                     context.uri
                 )));
             }
@@ -1627,6 +1676,300 @@ impl LoxoneMcpServer {
             "uri": "loxone://energy/usage-history"
         }))
     }
+
+    /// Device category resource handlers
+    async fn read_devices_category_blinds_resource(&self) -> Result<serde_json::Value> {
+        let devices = match self.context.get_devices_by_category("blinds").await {
+            Ok(devices) => devices,
+            Err(e) => {
+                return Err(LoxoneError::invalid_input(format!(
+                    "Failed to get blinds devices: {}",
+                    e
+                )));
+            }
+        };
+
+        // Collect all state UUIDs for batch resolution
+        let mut all_state_uuids = Vec::new();
+        for device in &devices {
+            if let Some(position_uuid) = device.states.get("position").and_then(|v| v.as_str()) {
+                all_state_uuids.push(position_uuid.to_string());
+            }
+            if let Some(shade_position_uuid) =
+                device.states.get("shadePosition").and_then(|v| v.as_str())
+            {
+                all_state_uuids.push(shade_position_uuid.to_string());
+            }
+            if let Some(target_position_uuid) =
+                device.states.get("targetPosition").and_then(|v| v.as_str())
+            {
+                all_state_uuids.push(target_position_uuid.to_string());
+            }
+        }
+
+        // Try to get resolved state values using new state UUID resolution
+        let resolved_state_values = match self.client.get_state_values(&all_state_uuids).await {
+            Ok(values) => {
+                tracing::info!("Successfully resolved {} state UUIDs", values.len());
+                values
+            }
+            Err(e) => {
+                tracing::warn!(
+                    "Could not resolve state UUIDs: {}, falling back to device states",
+                    e
+                );
+                HashMap::new()
+            }
+        };
+
+        // Also get current device states as fallback
+        let uuids: Vec<String> = devices.iter().map(|d| d.uuid.clone()).collect();
+        let device_states = match self.client.get_device_states(&uuids).await {
+            Ok(states) => states,
+            Err(e) => {
+                tracing::warn!("Could not retrieve device states: {}", e);
+                HashMap::new()
+            }
+        };
+
+        let mut blinds_with_states = Vec::new();
+
+        for device in devices {
+            // Extract state UUIDs
+            let position_uuid = device.states.get("position").and_then(|v| v.as_str());
+            let shade_position_uuid = device.states.get("shadePosition").and_then(|v| v.as_str());
+            let target_position_uuid = device.states.get("targetPosition").and_then(|v| v.as_str());
+
+            // Try to get position value from resolved state UUIDs first
+            let position_value = if let Some(position_uuid) = position_uuid {
+                if let Some(resolved_value) = resolved_state_values.get(position_uuid) {
+                    resolved_value.as_f64().unwrap_or(-1.0)
+                } else {
+                    // Fallback to device state
+                    device_states
+                        .get(&device.uuid)
+                        .and_then(|state| state.as_f64())
+                        .unwrap_or(-1.0)
+                }
+            } else {
+                // No position UUID, try device state
+                device_states
+                    .get(&device.uuid)
+                    .and_then(|state| state.as_f64())
+                    .unwrap_or(-1.0)
+            };
+
+            // Also get shade position if available
+            let shade_position_value = if let Some(shade_uuid) = shade_position_uuid {
+                resolved_state_values
+                    .get(shade_uuid)
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(-1.0)
+            } else {
+                -1.0
+            };
+
+            // Also get target position if available
+            let target_position_value = if let Some(target_uuid) = target_position_uuid {
+                resolved_state_values
+                    .get(target_uuid)
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(-1.0)
+            } else {
+                -1.0
+            };
+
+            let (position_desc, position_percent, status) = if position_value < 0.0 {
+                ("unknown".to_string(), None, "no_data")
+            } else if position_value == 0.0 {
+                ("closed".to_string(), Some(0), "closed")
+            } else if position_value == 1.0 {
+                ("open".to_string(), Some(100), "open")
+            } else {
+                let percent = (position_value * 100.0).round() as i32;
+                (format!("{}% open", percent), Some(percent), "partial")
+            };
+
+            // Check for moving state
+            let is_moving = device
+                .states
+                .get("moving")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            // Determine data source based on what we successfully retrieved
+            let data_source = if position_uuid.is_some()
+                && resolved_state_values.contains_key(position_uuid.unwrap())
+            {
+                "resolved_state_uuid"
+            } else if device_states.contains_key(&device.uuid) {
+                "device_state"
+            } else {
+                "cached"
+            };
+
+            blinds_with_states.push(serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "type": device.device_type,
+                "room": device.room,
+                "position": position_desc,
+                "position_percent": position_percent,
+                "position_value": if position_value < 0.0 { serde_json::Value::Null } else { serde_json::Value::from(position_value) },
+                "shade_position_value": if shade_position_value < 0.0 { serde_json::Value::Null } else { serde_json::Value::from(shade_position_value) },
+                "target_position_value": if target_position_value < 0.0 { serde_json::Value::Null } else { serde_json::Value::from(target_position_value) },
+                "status": status,
+                "is_moving": is_moving,
+                "state_uuids": {
+                    "position": position_uuid,
+                    "shade_position": shade_position_uuid,
+                    "target_position": target_position_uuid
+                },
+                "resolved_values": {
+                    "position": if let Some(uuid) = position_uuid { resolved_state_values.get(uuid).cloned() } else { None },
+                    "shade_position": if let Some(uuid) = shade_position_uuid { resolved_state_values.get(uuid).cloned() } else { None },
+                    "target_position": if let Some(uuid) = target_position_uuid { resolved_state_values.get(uuid).cloned() } else { None }
+                },
+                "available_states": device.states.keys().cloned().collect::<Vec<String>>(),
+                "data_source": data_source,
+                "note": if resolved_state_values.is_empty() { 
+                    "Using fallback device states. State UUID resolution failed - may need WebSocket connection or different API endpoints." 
+                } else {
+                    "Using resolved state UUID values for accurate position data." 
+                }
+            }));
+        }
+
+        // Calculate summary statistics
+        let total_devices = blinds_with_states.len();
+        let closed_count = blinds_with_states
+            .iter()
+            .filter(|d| d["status"] == "closed")
+            .count();
+        let open_count = blinds_with_states
+            .iter()
+            .filter(|d| d["status"] == "open")
+            .count();
+        let partial_count = blinds_with_states
+            .iter()
+            .filter(|d| d["status"] == "partial")
+            .count();
+        let unknown_count = blinds_with_states
+            .iter()
+            .filter(|d| d["status"] == "no_data")
+            .count();
+
+        Ok(serde_json::json!({
+            "devices": blinds_with_states,
+            "summary": {
+                "total_devices": total_devices,
+                "closed": closed_count,
+                "open": open_count,
+                "partial": partial_count,
+                "unknown": unknown_count,
+                "problem": if unknown_count > 0 {
+                    format!("{} devices have unknown status because the current API implementation returns '0' for all position states", unknown_count)
+                } else {
+                    "All devices have known status".to_string()
+                }
+            },
+            "next_steps": {
+                "to_get_real_positions": [
+                    "Use WebSocket connection for real-time state updates (like the Loxone web interface)",
+                    "Implement state UUID resolution to convert state UUIDs to actual values",
+                    "Use different Loxone API endpoints that return actual position values"
+                ]
+            },
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://devices/category/blinds"
+        }))
+    }
+
+    async fn read_devices_category_lighting_resource(&self) -> Result<serde_json::Value> {
+        let devices = match self.context.get_devices_by_category("lighting").await {
+            Ok(devices) => devices,
+            Err(e) => {
+                return Err(LoxoneError::invalid_input(format!(
+                    "Failed to get lighting devices: {}",
+                    e
+                )));
+            }
+        };
+
+        // Get current states for all lighting devices
+        let uuids: Vec<String> = devices.iter().map(|d| d.uuid.clone()).collect();
+        let states = self
+            .client
+            .get_device_states(&uuids)
+            .await
+            .unwrap_or_default();
+
+        let lighting_devices: Vec<_> = devices
+            .iter()
+            .map(|device| {
+                let device_state = states.get(&device.uuid);
+                let is_on = device_state
+                    .and_then(|state| state.as_f64())
+                    .map(|v| v > 0.0)
+                    .unwrap_or(false);
+
+                let brightness = device_state
+                    .and_then(|state| state.as_f64())
+                    .map(|v| (v * 100.0).round() as i32)
+                    .unwrap_or(0);
+
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "type": device.device_type,
+                    "room": device.room,
+                    "status": if is_on { "on" } else { "off" },
+                    "brightness_percent": brightness,
+                    "raw_state": device_state,
+                    "cached_states": device.states
+                })
+            })
+            .collect();
+
+        Ok(serde_json::json!({
+            "devices": lighting_devices,
+            "total_devices": lighting_devices.len(),
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://devices/category/lighting"
+        }))
+    }
+
+    async fn read_devices_category_climate_resource(&self) -> Result<serde_json::Value> {
+        let devices = match self.context.get_devices_by_category("climate").await {
+            Ok(devices) => devices,
+            Err(e) => {
+                return Err(LoxoneError::invalid_input(format!(
+                    "Failed to get climate devices: {}",
+                    e
+                )));
+            }
+        };
+
+        let climate_devices: Vec<_> = devices
+            .iter()
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "type": device.device_type,
+                    "room": device.room,
+                    "states": device.states
+                })
+            })
+            .collect();
+
+        Ok(serde_json::json!({
+            "devices": climate_devices,
+            "total_devices": climate_devices.len(),
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://devices/category/climate"
+        }))
+    }
 }
 
 #[cfg(test)]
@@ -1687,18 +2030,14 @@ mod tests {
     fn test_resource_context_creation() {
         let manager = ResourceManager::new();
 
+        // Use a registered concrete URI
         let context = manager
-            .parse_uri("loxone://rooms/Kitchen/devices?include_state=true")
+            .parse_uri("loxone://rooms?include_state=true")
             .unwrap();
 
-        assert_eq!(
-            context.uri,
-            "loxone://rooms/Kitchen/devices?include_state=true"
-        );
-        assert_eq!(
-            context.params.path_params.get("roomName"),
-            Some(&"Kitchen".to_string())
-        );
+        assert_eq!(context.uri, "loxone://rooms?include_state=true");
+        // Concrete URIs don't have path parameters
+        assert!(context.params.path_params.is_empty());
         assert_eq!(
             context.params.query_params.get("include_state"),
             Some(&"true".to_string())

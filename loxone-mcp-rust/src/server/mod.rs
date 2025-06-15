@@ -80,6 +80,7 @@ pub struct LoxoneMcpServer {
     pub(crate) subscription_coordinator: Arc<subscription::SubscriptionCoordinator>,
 
     /// Unified history store for dashboard data
+    #[allow(dead_code)]
     pub(crate) history_store: Option<Arc<crate::history::core::UnifiedHistoryStore>>,
 
     /// Loxone statistics collector (optional)
@@ -420,14 +421,21 @@ impl LoxoneMcpServer {
                     // For now, use mock implementation with enhanced configuration awareness
                     // TODO: Implement real provider factory when provider module is available
                     info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
-                    
+
                     // Create enhanced sampling client manager with the validated configuration
-                    let sampling_manager = crate::sampling::client::SamplingClientManager::new_with_config(provider_config.clone());
-                    
+                    let sampling_manager =
+                        crate::sampling::client::SamplingClientManager::new_with_config(
+                            provider_config.clone(),
+                        );
+
                     // Log initial provider status
-                    info!("📊 Initial provider status: {}", sampling_manager.get_provider_summary().await);
-                    
-                    let integration = crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    info!(
+                        "📊 Initial provider status: {}",
+                        sampling_manager.get_provider_summary().await
+                    );
+
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
                     Some(Arc::new(integration))
                 }
                 Err(e) => {
@@ -662,14 +670,21 @@ impl LoxoneMcpServer {
                     // For now, use mock implementation with enhanced configuration awareness
                     // TODO: Implement real provider factory when provider module is available
                     info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
-                    
+
                     // Create enhanced sampling client manager with the validated configuration
-                    let sampling_manager = crate::sampling::client::SamplingClientManager::new_with_config(provider_config.clone());
-                    
+                    let sampling_manager =
+                        crate::sampling::client::SamplingClientManager::new_with_config(
+                            provider_config.clone(),
+                        );
+
                     // Log initial provider status
-                    info!("📊 Initial provider status: {}", sampling_manager.get_provider_summary().await);
-                    
-                    let integration = crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    info!(
+                        "📊 Initial provider status: {}",
+                        sampling_manager.get_provider_summary().await
+                    );
+
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
                     Some(Arc::new(integration))
                 }
                 Err(e) => {

@@ -29,6 +29,7 @@ pub struct DashboardApiState {
 struct CachedLayout {
     layout: DynamicDashboardLayout,
     created_at: chrono::DateTime<chrono::Utc>,
+    #[allow(dead_code)]
     cache_key: String,
 }
 

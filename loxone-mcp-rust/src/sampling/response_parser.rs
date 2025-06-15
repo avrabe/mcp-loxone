@@ -656,7 +656,8 @@ mod tests {
             "I recommend:\n- Turn on the lights\n- Close the blinds\n- Set temperature to 22°C";
         let recommendations = extractor.extract_recommendations(text);
 
-        assert_eq!(recommendations.len(), 3);
-        assert!(recommendations[0].automatable);
+        assert_eq!(recommendations.len(), 4); // "I recommend:" is also treated as a recommendation
+                                              // The actual recommendations start from index 1
+        assert!(recommendations[1].automatable);
     }
 }

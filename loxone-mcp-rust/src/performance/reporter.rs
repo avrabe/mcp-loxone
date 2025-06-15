@@ -1017,25 +1017,25 @@ impl PerformanceReporter {
         &self,
         _statistics: &PerformanceStatistics,
     ) -> Result<Vec<PerformanceRecommendation>> {
-        let mut recommendations = Vec::new();
-
-        recommendations.push(PerformanceRecommendation {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: "Implement response caching".to_string(),
-            description: "Cache frequently requested data to reduce response times".to_string(),
-            priority: RecommendationPriority::Medium,
-            expected_impact: "30-70% reduction in response time for cached requests".to_string(),
-            effort: ImplementationEffort::Medium,
-        });
-
-        recommendations.push(PerformanceRecommendation {
-            id: uuid::Uuid::new_v4().to_string(),
-            title: "Optimize database queries".to_string(),
-            description: "Review and optimize slow database queries".to_string(),
-            priority: RecommendationPriority::High,
-            expected_impact: "20-50% reduction in query response time".to_string(),
-            effort: ImplementationEffort::High,
-        });
+        let recommendations = vec![
+            PerformanceRecommendation {
+                id: uuid::Uuid::new_v4().to_string(),
+                title: "Implement response caching".to_string(),
+                description: "Cache frequently requested data to reduce response times".to_string(),
+                priority: RecommendationPriority::Medium,
+                expected_impact: "30-70% reduction in response time for cached requests"
+                    .to_string(),
+                effort: ImplementationEffort::Medium,
+            },
+            PerformanceRecommendation {
+                id: uuid::Uuid::new_v4().to_string(),
+                title: "Optimize database queries".to_string(),
+                description: "Review and optimize slow database queries".to_string(),
+                priority: RecommendationPriority::High,
+                expected_impact: "20-50% reduction in query response time".to_string(),
+                effort: ImplementationEffort::High,
+            },
+        ];
 
         Ok(recommendations)
     }

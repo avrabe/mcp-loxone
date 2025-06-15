@@ -1,0 +1,44 @@
+# Example API Keys Configuration
+# Copy this to ~/.config/loxone-mcp/keys.toml and customize
+
+[[keys]]
+id = "lmcp_admin_001_abc123def456"
+name = "Main Admin Key"
+role = "admin"
+created_by = "setup"
+created_at = "2024-01-15T10:00:00Z"
+active = true
+# Optional: Set expiration
+# expires_at = "2025-01-15T10:00:00Z"
+# Optional: IP whitelist (empty = all allowed)
+# ip_whitelist = ["192.168.1.0/24"]
+
+[[keys]]
+id = "lmcp_operator_002_home789assist"  
+name = "Home Assistant Integration"
+role = "operator"
+created_by = "admin"
+created_at = "2024-01-20T15:00:00Z"
+active = true
+# Restrict to Home Assistant server
+ip_whitelist = ["192.168.1.50"]
+
+[[keys]]
+id = "lmcp_monitor_003_dashboard123"
+name = "Dashboard Read-Only"
+role = "monitor"
+created_by = "admin"
+created_at = "2024-02-01T09:00:00Z"
+active = true
+# Allow entire local network
+ip_whitelist = ["192.168.1.0/24", "10.0.0.0/8"]
+
+[[keys]]
+id = "lmcp_device_004_bedroom456"
+name = "Bedroom Controller"
+role = { device = { allowed_devices = ["bedroom-light", "bedroom-blinds", "bedroom-climate"] } }
+created_by = "admin"
+created_at = "2024-02-10T14:00:00Z"
+active = true
+# Only allow from bedroom tablet
+ip_whitelist = ["192.168.1.105"]

@@ -370,7 +370,9 @@ pub async fn security_middleware_handler(
 /// Rate limit information to pass through request extensions
 #[derive(Clone)]
 struct RateLimitInfo {
+    #[allow(dead_code)]
     remaining: u32,
+    #[allow(dead_code)]
     reset: u64,
 }
 

@@ -9,8 +9,8 @@ use tracing::{info, Level};
 
 fn extract_content_text(result: &mcp_foundation::model::CallToolResult) -> String {
     if let Some(content) = result.content.first() {
-        match &content.raw {
-            mcp_foundation::model::RawContent::Text(text) => text.text.clone(),
+        match content {
+            mcp_foundation::model::Content::Text { text } => text.clone(),
             _ => "No text content".to_string(),
         }
     } else {

@@ -9,13 +9,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 🦀 Rust Project Overview
 
-This is a high-performance **Rust implementation** of a Model Context Protocol (MCP) server for Loxone home automation systems. The project consists of:
+This is a **Rust implementation** of a Model Context Protocol (MCP) server for Loxone home automation systems (development prototype). The project consists of:
 
-- **183 Rust source files** across 12 major modules
-- **30+ MCP tools** for device control (audio, climate, devices, energy, etc.)
-- **WASM compilation support** with WASIP2 target
-- **Production-grade security** and performance optimizations
-- **Real-time dashboard** with WebSocket streaming
+- **Rust codebase** across multiple modules
+- **17 working MCP tools** for device control and sensor management
+- **WASM compilation support** (experimental)
+- **Basic security** with API key authentication
+- **Basic dashboard** (static HTML, limited functionality)
 
 ## 🛠️ Common Development Commands
 
@@ -40,10 +40,10 @@ export LOXONE_PASS="your-password"
 export LOXONE_HOST="your-miniserver-ip"
 
 # Alternative: Interactive credential setup
-cargo run --bin setup-credentials
+cargo run --bin loxone-mcp-setup
 
 # Verify credentials work
-cargo run --bin verify-connection
+cargo run --bin loxone-mcp-verify
 ```
 
 ### Running the Server

@@ -66,6 +66,7 @@ struct IndexEntry {
 #[derive(Debug, Default)]
 struct ColdStorageStats {
     total_files: usize,
+    #[allow(dead_code)]
     total_events: u64,
     bytes_written: u64,
     bytes_read: u64,

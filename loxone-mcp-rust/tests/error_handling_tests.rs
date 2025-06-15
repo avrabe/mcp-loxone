@@ -82,7 +82,7 @@ async fn test_structured_error_macro() {
     log_structured_error!(error, "config_manager", "load_config", "test_correlation");
 
     // If we get here without panicking, the macro works
-    assert!(true);
+    // No assertion needed - getting here means success
 }
 
 #[test]

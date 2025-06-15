@@ -297,6 +297,7 @@ pub struct MetricStats {
 pub struct MetricsCollector {
     config: MetricsConfig,
     metrics_storage: Arc<RwLock<MetricsStorage>>,
+    #[allow(dead_code)]
     start_time: Instant,
 }
 

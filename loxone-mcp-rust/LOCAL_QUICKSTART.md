@@ -2,17 +2,14 @@
 
 ## 1-Minute Setup
 
-### 🧪 Option 0: Mock Server (Kein echter Miniserver nötig!)
+### 🧪 Option 0: Mock Server (Optional - Kein echter Miniserver nötig!)
 
 ```bash
-# Terminal 1: Mock Server starten
-cargo run --bin loxone-mcp-mock-server
+# NOTE: Mock server binary currently not implemented
+# Use Option A with real Loxone hardware instead
 
-# Terminal 2: MCP Server mit Mock verbinden
-export LOXONE_HOST="127.0.0.1:8080"
-export LOXONE_USERNAME="admin"
-export LOXONE_PASSWORD="test"
-cargo run --bin loxone-mcp-server
+# Alternative: Use the mock client in test code
+# See src/mock/mod.rs for MockLoxoneClient implementation
 ```
 
 ### Option A: Environment Variables (Schnellster Start)

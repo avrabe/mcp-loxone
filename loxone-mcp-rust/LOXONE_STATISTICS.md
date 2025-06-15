@@ -65,11 +65,11 @@ export LOXONE_STATS_INTERVAL=60
 
 ```bash
 # Start with InfluxDB features enabled
-cargo run --features=influxdb --bin loxone-mcp-server
+cargo run --features=influxdb --bin loxone-mcp-server -- http
 
-# Or using UV
-uvx --from . loxone-mcp setup
-uv run mcp dev src/loxone_mcp/server.py
+# Or build with all features
+cargo build --release --features=influxdb
+./target/release/loxone-mcp-server http --port 3001
 ```
 
 ## Dashboard Access

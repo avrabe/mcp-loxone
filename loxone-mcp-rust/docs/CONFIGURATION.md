@@ -79,12 +79,12 @@ graph TD
 
 | Variable | Description | Default | Required | Example |
 |----------|-------------|---------|----------|---------|
-| `LOXONE_API_KEY` | API key for HTTP mode | - | Conditional | `sk-abc123...` |
+| `SECURITY_LEVEL` | Security mode (development/staging/production) | `development` | No | `production` |
+| `LOXONE_API_KEYS` | JSON array of API keys | - | No | `[{"id":"lmcp_admin_001","role":"admin"}]` |
 | `LOXONE_CORS_ORIGINS` | Allowed CORS origins | `*` | No | `https://app.com` |
 | `LOXONE_RATE_LIMIT` | Requests per minute | `60` | No | `120` |
 | `LOXONE_MAX_REQUEST_SIZE` | Max request size (MB) | `10` | No | `50` |
 | `LOXONE_AUDIT_LOG` | Enable audit logging | `false` | No | `true` |
-| `LOXONE_CONSENT_REQUIRED` | Require user consent | `true` | No | `false` |
 
 ### Credential Backend
 

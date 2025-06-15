@@ -674,6 +674,17 @@ mod tests {
             }
         }
 
+        async fn get_state_values(
+            &self,
+            _state_uuids: &[String],
+        ) -> Result<std::collections::HashMap<String, serde_json::Value>> {
+            if self.should_fail {
+                Err(LoxoneError::connection("Mock failure"))
+            } else {
+                Ok(std::collections::HashMap::new())
+            }
+        }
+
         async fn health_check(&self) -> Result<bool> {
             Ok(!self.should_fail)
         }

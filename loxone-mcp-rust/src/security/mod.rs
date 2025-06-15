@@ -3,6 +3,7 @@
 pub mod cors;
 pub mod headers;
 pub mod input_sanitization;
+pub mod key_store;
 pub mod middleware;
 pub mod policy;
 pub mod rate_limiting;
@@ -259,14 +260,12 @@ impl SecurityHardeningService {
 
     /// Generate security recommendations
     fn generate_recommendations(&self, warnings: &[SecurityWarning]) -> Vec<String> {
-        let mut recommendations = Vec::new();
-
-        // Add general recommendations
-        recommendations
-            .push("Regularly update dependencies to patch security vulnerabilities".to_string());
-        recommendations.push("Implement comprehensive logging and monitoring".to_string());
-        recommendations.push("Use strong authentication mechanisms".to_string());
-        recommendations.push("Regularly backup and test recovery procedures".to_string());
+        let mut recommendations = vec![
+            "Regularly update dependencies to patch security vulnerabilities".to_string(),
+            "Implement comprehensive logging and monitoring".to_string(),
+            "Use strong authentication mechanisms".to_string(),
+            "Regularly backup and test recovery procedures".to_string(),
+        ];
 
         // Add specific recommendations based on warnings
         for warning in warnings {

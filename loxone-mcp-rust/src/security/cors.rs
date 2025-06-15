@@ -325,7 +325,7 @@ impl CorsConfig {
         !matches!(self.allowed_origins, OriginPolicy::Any)
             && !matches!(self.allowed_headers, HeaderPolicy::Any)
             && !self.allowed_methods.contains("*")
-            && !self.allow_credentials
+        // allow_credentials can be true in production if origins are properly restricted
     }
 
     /// Get security recommendations

@@ -97,3 +97,4 @@ RUST_SETUP_COMPLETE.md
 node_modules/
 package-lock.json
 loxone-mcp-rust/target/
+loxone-mcp-rust/loxone-mcp/

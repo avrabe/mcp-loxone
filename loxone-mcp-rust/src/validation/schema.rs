@@ -16,6 +16,7 @@ pub struct SchemaValidator {
     /// MCP response schemas  
     response_schemas: HashMap<String, Schema>,
     /// Global schema definitions
+    #[allow(dead_code)]
     definitions: HashMap<String, Schema>,
 }
 

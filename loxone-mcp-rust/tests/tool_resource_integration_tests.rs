@@ -5,8 +5,7 @@
 
 #[cfg(test)]
 mod tests {
-    use loxone_mcp_rust::server::resources::{ResourceContext, ResourceManager};
-    use serde_json::json;
+    use loxone_mcp_rust::server::resources::ResourceManager;
 
     /// Test resource URI validation and parameter extraction
     #[tokio::test]
@@ -40,16 +39,25 @@ mod tests {
             // Verify parameters are extracted correctly for parameterized URIs
             match uri {
                 uri if uri.contains("/Kitchen/") => {
-                    assert!(context.parameters.contains_key("room_name"));
-                    assert_eq!(context.parameters.get("room_name").unwrap(), "Kitchen");
+                    assert!(context.params.path_params.contains_key("room_name"));
+                    assert_eq!(
+                        context.params.path_params.get("room_name").unwrap(),
+                        "Kitchen"
+                    );
                 }
                 uri if uri.contains("/type/Switch") => {
-                    assert!(context.parameters.contains_key("device_type"));
-                    assert_eq!(context.parameters.get("device_type").unwrap(), "Switch");
+                    assert!(context.params.path_params.contains_key("device_type"));
+                    assert_eq!(
+                        context.params.path_params.get("device_type").unwrap(),
+                        "Switch"
+                    );
                 }
                 uri if uri.contains("/category/lighting") => {
-                    assert!(context.parameters.contains_key("category"));
-                    assert_eq!(context.parameters.get("category").unwrap(), "lighting");
+                    assert!(context.params.path_params.contains_key("category"));
+                    assert_eq!(
+                        context.params.path_params.get("category").unwrap(),
+                        "lighting"
+                    );
                 }
                 _ => {} // No parameters expected for other URIs
             }
@@ -110,7 +118,7 @@ mod tests {
             assert!(!resource.uri.is_empty());
             assert!(!resource.name.is_empty());
             assert!(!resource.description.is_empty());
-            assert_eq!(resource.mime_type, "application/json");
+            assert_eq!(resource.mime_type, Some("application/json".to_string()));
         }
     }
 
@@ -130,8 +138,11 @@ mod tests {
             let context = resource_manager
                 .parse_uri(uri)
                 .expect("Failed to parse room URI");
-            assert_eq!(context.resource_type, "rooms");
-            assert_eq!(context.parameters.get("room_name").unwrap(), expected_room);
+            // Resource type is inferred from URI structure, not stored in context
+            assert_eq!(
+                context.params.path_params.get("room_name").unwrap(),
+                expected_room
+            );
         }
 
         // Test device type patterns
@@ -145,9 +156,9 @@ mod tests {
             let context = resource_manager
                 .parse_uri(uri)
                 .expect("Failed to parse device type URI");
-            assert_eq!(context.resource_type, "devices");
+            // Resource type is inferred from URI structure, not stored in context
             assert_eq!(
-                context.parameters.get("device_type").unwrap(),
+                context.params.path_params.get("device_type").unwrap(),
                 expected_type
             );
         }
@@ -163,9 +174,9 @@ mod tests {
             let context = resource_manager
                 .parse_uri(uri)
                 .expect("Failed to parse category URI");
-            assert_eq!(context.resource_type, "devices");
+            // Resource type is inferred from URI structure, not stored in context
             assert_eq!(
-                context.parameters.get("category").unwrap(),
+                context.params.path_params.get("category").unwrap(),
                 expected_category
             );
         }
@@ -188,16 +199,16 @@ mod tests {
             ("loxone://energy/consumption", "energy"),
         ];
 
-        for (uri, expected_type) in simple_contexts {
+        for (uri, _expected_type) in simple_contexts {
             let context = resource_manager
                 .parse_uri(uri)
                 .unwrap_or_else(|_| panic!("Failed to parse URI: {}", uri));
 
             assert_eq!(context.uri, uri);
-            assert_eq!(context.resource_type, expected_type);
+            // Resource type is inferred from URI structure, not stored in context
             assert!(
-                context.parameters.is_empty(),
-                "Simple contexts should have no parameters"
+                context.params.path_params.is_empty(),
+                "Simple contexts should have no path parameters"
             );
         }
 
@@ -223,10 +234,10 @@ mod tests {
                 .unwrap_or_else(|_| panic!("Failed to parse URI: {}", uri));
 
             assert_eq!(context.uri, uri);
-            assert_eq!(context.parameters.len(), expected_params.len());
+            assert_eq!(context.params.path_params.len(), expected_params.len());
 
             for (key, value) in expected_params {
-                assert_eq!(context.parameters.get(key).unwrap(), value);
+                assert_eq!(context.params.path_params.get(key).unwrap(), value);
             }
         }
     }
@@ -259,12 +270,9 @@ mod tests {
 
             // Verify basic context properties
             assert_eq!(context.uri, uri);
-            assert!(!context.resource_type.is_empty());
+            // Resource type is inferred from URI structure, not stored in context
 
-            println!(
-                "✓ Successfully parsed resource: {} (type: {})",
-                uri, context.resource_type
-            );
+            println!("✓ Successfully parsed resource: {}", uri);
         }
 
         // Step 3: Test parameterized resource URIs
@@ -281,7 +289,7 @@ mod tests {
 
             // Verify parameters were extracted
             assert!(
-                !context.parameters.is_empty(),
+                !context.params.path_params.is_empty(),
                 "Parameterized URI {} should have parameters",
                 uri
             );
@@ -289,7 +297,7 @@ mod tests {
             println!(
                 "✓ Successfully parsed parameterized resource: {} with {} parameters",
                 uri,
-                context.parameters.len()
+                context.params.path_params.len()
             );
         }
     }

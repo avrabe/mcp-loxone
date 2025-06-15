@@ -1,37 +1,47 @@
 # 🏠 Loxone MCP Rust Server
 
-**High-performance Model Context Protocol server for Loxone home automation systems**  
-*WebAssembly-ready • Production-grade security • 30+ built-in tools*
+**Model Context Protocol server for Loxone home automation systems**  
+*Development prototype • 17 working tools • Basic security*
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
-[![WASM](https://img.shields.io/badge/WASM-WASIP2-blue.svg)](https://wasmtime.dev)
-[![Security](https://img.shields.io/badge/security-audited-green.svg)](#-security-features)
+[![Status](https://img.shields.io/badge/status-development-yellow.svg)](#-development-status)
+[![WASM](https://img.shields.io/badge/WASM-experimental-blue.svg)](https://wasmtime.dev)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+> **⚠️ Development Status**: This is a working prototype with basic functionality. See [WISHLIST.md](WISHLIST.md) for planned features.
 
 ## 🚀 Quick Start
 
 ```bash
-# One-command setup
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh && \
-git clone <repo> && cd loxone-mcp-rust && ./dev-env.sh
+# Setup (requires manual configuration)
+git clone https://github.com/your-repo/loxone-mcp-rust && cd loxone-mcp-rust
+cargo build
+
+# Configure credentials
+export LOXONE_HOST="192.168.1.100"
+export LOXONE_USER="admin"
+export LOXONE_PASS="password"
+
+# Generate API key
+cargo run --bin loxone-mcp-keys -- generate --role admin --name "YourName"
 
 # Run server
 cargo run --bin loxone-mcp-server -- stdio  # Claude Desktop integration
-cargo run --bin loxone-mcp-server -- http   # n8n/Web API mode
+cargo run --bin loxone-mcp-server -- http --port 3001   # HTTP API mode
 ```
 
-**Ready in 30 seconds** • **Zero configuration** • **Auto-discovery**
+**Basic setup** • **Manual configuration required** • **Development status**
 
 ## ✨ What You Get
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| **🎛️ 30+ MCP Tools** | Audio, climate, devices, energy, sensors, security | ✅ Production Ready |
-| **🌐 WASM Deployment** | 2MB binary for browser & edge computing | ✅ WASIP2 Ready |
-| **🛡️ Security Hardened** | Input validation, rate limiting, audit logging | ✅ Security Audited |
-| **📊 Real-time Dashboard** | WebSocket streaming, InfluxDB metrics | ✅ Live Monitoring |
-| **🐳 Multi-Platform** | Linux, macOS, Windows, Docker, WASM | ✅ Universal |
-| **⚡ High Performance** | Async I/O, connection pooling, batch operations | ✅ Optimized |
+| **🎛️ 17 MCP Tools** | Device control, sensor management, basic system info | ✅ Working |
+| **🌐 WASM Support** | Basic WASM compilation (needs testing) | ⚠️ Experimental |
+| **🛡️ Basic Security** | API key authentication, basic validation | ⚠️ Limited |
+| **📊 Dashboard** | Static HTML dashboard (no real-time data) | ⚠️ Basic |
+| **🐳 Multi-Platform** | Linux, macOS, Windows builds | ✅ Working |
+| **⚡ Core Performance** | Basic async I/O, single connections | ⚠️ Basic |
 
 ## 🏗️ Architecture Overview
 
@@ -47,7 +57,7 @@ cargo run --bin loxone-mcp-server -- http   # n8n/Web API mode
               │          🦀 Rust MCP Server                    │
               │  ┌─────────┬─────────┬─────────┬─────────┐    │
               │  │ 🎛️ Tools│🛡️Security│📊Monitor│🌐 WASM │    │
-              │  │ 30+ MCP │Rate Limit│Real-time│2MB Size │    │
+              │  │ 17 MCP  │Basic Auth│Static   │Exp.    │    │
               │  │ Commands│Validation│Dashboard│Deploy   │    │
               │  └─────────┴─────────┴─────────┴─────────┘    │
               │  ┌─────────────────────────────────────────┐    │
@@ -86,11 +96,14 @@ make dev-run  # Hot reload + inspector
 ```
 
 ### 🛡️ **Production Security**
+- ✅ **Multi-user API keys** with role-based access control (RBAC)
+- ✅ **Web-based key management** UI at `/admin/keys`
 - ✅ **Input validation** against injection attacks
 - ✅ **Rate limiting** with token bucket algorithm
+- ✅ **IP whitelisting** for API key restrictions
 - ✅ **Credential sanitization** in logs
 - ✅ **CORS protection** with configurable policies
-- ✅ **Audit logging** for all operations
+- ✅ **Audit logging** with usage tracking
 - ✅ **Request size limits** (DoS prevention)
 
 ### ⚡ **Performance Optimized**
@@ -108,10 +121,10 @@ make dev-run  # Hot reload + inspector
 | 🏁 **Quick Start** | Get running in 5 minutes | [docs/QUICK_START.md](docs/QUICK_START.md) |
 | 🎛️ **Configuration** | Complete setup guide & wizard | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
 | 🏗️ **Architecture** | System design & 12 modules | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| 🔧 **API Reference** | All 30+ MCP tools | [docs/API_REFERENCE.md](docs/API_REFERENCE.md) |
-| 🚀 **Deployment** | Docker, WASM, production | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
-| 🛠️ **Development** | Contributing guide | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) |
-| 🆘 **Troubleshooting** | Common issues & solutions | [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) |
+| 🔒 **Security** | API keys & access control | [docs/SECURITY_ARCHITECTURE.md](docs/SECURITY_ARCHITECTURE.md) |
+| 📊 **Resources** | 22 data resources | [docs/RESOURCES.md](docs/RESOURCES.md) |
+| 🔧 **API Tools** | 30+ MCP tools quick reference | [docs/RESOURCE_QUICK_REFERENCE.md](docs/RESOURCE_QUICK_REFERENCE.md) |
+| 🚀 **Local Testing** | Quick start guide | [LOCAL_QUICKSTART.md](LOCAL_QUICKSTART.md) |
 
 ## 🛠️ Development
 
@@ -123,8 +136,11 @@ make dev-run  # Hot reload + inspector
 ### Quick Development Setup
 ```bash
 # Clone and setup
-git clone <repo> && cd loxone-mcp-rust
+git clone https://github.com/your-repo/loxone-mcp-rust && cd loxone-mcp-rust
 ./dev-env.sh  # Sets up credentials & environment
+
+# Generate API keys for secure access
+cargo run --bin loxone-mcp-keys -- generate --role admin --name "Main Admin"
 
 # Build & Test
 cargo build                    # Native build
@@ -145,7 +161,8 @@ src/
 ├── 🎛️  tools/          # 30+ device control tools (12 files)
 ├── 🔌 client/         # HTTP/WebSocket clients (7 files)
 ├── ⚙️  config/         # Credential management (7 files)
-├── 🛡️  security/       # Input validation, rate limiting (6 files)
+├── 🛡️  security/       # API keys, validation, rate limiting (8 files)
+├── 🔑 key_store/      # Multi-user key management
 ├── 📊 performance/    # Monitoring, profiling (6 files)
 ├── 📈 monitoring/     # Dashboard, metrics (6 files)
 ├── 📚 history/        # Time-series data storage (13 files)
@@ -164,9 +181,32 @@ src/
 | **🏗️ Modules** | 12 major systems | Modular architecture |
 | **📦 Binary Size** | 2MB (WASM) | Edge deployment ready |
 | **⚡ Performance** | <10ms latency | Production optimized |
-| **🛡️ Security** | 100% validated | All inputs sanitized |
+| **🛡️ Security** | RBAC + validation | Multi-user API keys |
 | **✅ Test Coverage** | 226 tests | Comprehensive testing |
 | **🌐 Platforms** | 6 targets | Universal deployment |
+
+## 🔑 API Key Management
+
+### Generate and Manage Keys
+```bash
+# Generate admin key
+cargo run --bin loxone-mcp-keys -- generate --role admin --name "Admin User"
+
+# Generate operator key with 30-day expiration
+cargo run --bin loxone-mcp-keys -- generate --role operator --name "Home Assistant" --expires 30
+
+# List all keys
+cargo run --bin loxone-mcp-keys -- list
+
+# Access web UI for key management
+Open http://localhost:3001/admin/keys in your browser
+```
+
+### Key Roles
+- **Admin**: Full system access including key management
+- **Operator**: Device control and monitoring
+- **Monitor**: Read-only access to all resources
+- **Device**: Limited to specific device control
 
 ## 🔗 Integration Examples
 
@@ -187,8 +227,10 @@ src/
 # Start HTTP server for n8n
 cargo run --bin loxone-mcp-server -- http --port 3001
 
-# Use in n8n HTTP Request node
+# Use in n8n HTTP Request node with API key
 POST http://localhost:3001/tools/call
+Headers:
+  X-API-Key: lmcp_operator_001_abc123def456
 ```
 
 ### WASM Edge Deployment
@@ -202,10 +244,10 @@ wasmtime --serve target/wasm32-wasip2/release/loxone-mcp-server.wasm
 
 ## 🤝 Community & Support
 
-- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)  
-- **📖 Documentation**: [Full Docs](docs/)
-- **🔒 Security**: [Security Policy](SECURITY.md)
+- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/loxone-mcp-rust/issues)
+- **💬 Discussions**: [GitHub Discussions](https://github.com/your-repo/loxone-mcp-rust/discussions)  
+- **📖 Documentation**: [Full Docs](docs/README.md)
+- **🔒 Security**: [Security Policy](docs/SECURITY_ARCHITECTURE.md)
 
 ## 📈 Roadmap
 

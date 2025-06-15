@@ -353,8 +353,13 @@ impl AuthManager {
         debug!("Added legacy HTTP_API_KEY for backward compatibility");
     }
 
-    /// Authenticate request with API key
-    pub async fn authenticate(&self, headers: &HeaderMap, client_ip: String) -> AuthResult {
+    /// Authenticate request with API key (supports both headers and query parameters)
+    pub async fn authenticate(
+        &self,
+        headers: &HeaderMap,
+        query_string: Option<&str>,
+        client_ip: String,
+    ) -> AuthResult {
         if !self.config.require_api_key {
             return AuthResult::Success {
                 role: UserRole::Admin,
@@ -362,7 +367,7 @@ impl AuthManager {
             };
         }
 
-        let api_key = match self.extract_api_key(headers) {
+        let api_key = match self.extract_api_key(headers, query_string) {
             Some(key) => key,
             None => {
                 self.log_auth_failure("missing_api_key", client_ip, String::new())
@@ -431,8 +436,8 @@ impl AuthManager {
         false
     }
 
-    /// Extract API key from headers
-    fn extract_api_key(&self, headers: &HeaderMap) -> Option<String> {
+    /// Extract API key from headers or query parameters
+    fn extract_api_key(&self, headers: &HeaderMap, query_string: Option<&str>) -> Option<String> {
         // Try custom header first
         if let Some(key) = headers.get(&self.config.api_key_header) {
             if let Ok(key_str) = key.to_str() {
@@ -445,6 +450,21 @@ impl AuthManager {
             if let Ok(auth_str) = auth.to_str() {
                 if let Some(token) = auth_str.strip_prefix("Bearer ") {
                     return Some(token.to_string());
+                }
+            }
+        }
+
+        // Try query parameter for browser-friendly access
+        if let Some(query) = query_string {
+            for param in query.split('&') {
+                if let Some((key, value)) = param.split_once('=') {
+                    if key == "api_key" {
+                        // URL decode the value
+                        if let Ok(decoded) = urlencoding::decode(value) {
+                            return Some(decoded.to_string());
+                        }
+                        return Some(value.to_string());
+                    }
                 }
             }
         }
@@ -606,8 +626,13 @@ pub async fn auth_middleware(
     let path = request.uri().path().to_string();
     let method = request.method().as_str().to_string();
 
+    // Extract query string for API key support
+    let query_string = request.uri().query();
+
     // Authenticate request
-    let auth_result = auth_manager.authenticate(headers, client_ip.clone()).await;
+    let auth_result = auth_manager
+        .authenticate(headers, query_string, client_ip.clone())
+        .await;
 
     match auth_result {
         AuthResult::Success { role, session_id } => {

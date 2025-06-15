@@ -341,6 +341,7 @@ impl SanitizationConfig {
 pub struct InputSanitizer {
     config: SanitizationConfig,
     blacklist_regexes: Vec<Regex>,
+    #[allow(dead_code)]
     whitelist_regexes: HashMap<String, Regex>,
     rule_regexes: HashMap<String, Regex>,
 }
@@ -547,7 +548,28 @@ impl InputSanitizer {
             s.truncate(self.config.max_string_length);
         }
 
-        // Check blacklist patterns
+        // Run specific threat detection first (before generic cleanup)
+        // XSS prevention
+        if self.config.xss_prevention {
+            self.prevent_xss(s, path, issues);
+        }
+
+        // SQL injection prevention
+        if self.config.sql_injection_prevention {
+            self.prevent_sql_injection(s, path, issues);
+        }
+
+        // Path traversal prevention
+        if self.config.path_traversal_prevention {
+            self.prevent_path_traversal(s, path, issues);
+        }
+
+        // HTML sanitization
+        if self.config.html_sanitization {
+            self.sanitize_html(s, path, issues);
+        }
+
+        // Check blacklist patterns (generic cleanup after specific threat detection)
         for regex in &self.blacklist_regexes {
             if regex.is_match(s) {
                 issues.push(SanitizationIssue {
@@ -570,26 +592,6 @@ impl InputSanitizer {
             }
         }
 
-        // XSS prevention
-        if self.config.xss_prevention {
-            self.prevent_xss(s, path, issues);
-        }
-
-        // HTML sanitization
-        if self.config.html_sanitization {
-            self.sanitize_html(s, path, issues);
-        }
-
-        // SQL injection prevention
-        if self.config.sql_injection_prevention {
-            self.prevent_sql_injection(s, path, issues);
-        }
-
-        // Path traversal prevention
-        if self.config.path_traversal_prevention {
-            self.prevent_path_traversal(s, path, issues);
-        }
-
         if *s != original {
             warnings.push(format!("Content modified in field: {}", path));
         }
@@ -602,7 +604,7 @@ impl InputSanitizer {
         rule: &SanitizationRule,
         path: &str,
         issues: &mut Vec<SanitizationIssue>,
-        _warnings: &mut Vec<String>,
+        _warnings: &mut [String],
     ) {
         match rule.rule_type {
             SanitizationRuleType::Regex => {

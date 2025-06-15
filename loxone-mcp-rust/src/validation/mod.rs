@@ -311,6 +311,7 @@ pub trait Validator: Send + Sync {
 /// Composite validator that runs multiple validators
 pub struct CompositeValidator {
     validators: Vec<Box<dyn Validator>>,
+    #[allow(dead_code)]
     config: ValidationConfig,
 }
 

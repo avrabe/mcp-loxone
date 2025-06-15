@@ -41,7 +41,7 @@ struct WebSocketManager {
 
 /// WebSocket statistics
 #[derive(Default)]
-struct WebSocketStats {
+pub struct WebSocketStats {
     total_connections: u64,
     active_connections: u32,
     messages_sent: u64,
@@ -50,11 +50,12 @@ struct WebSocketStats {
 
 /// Query parameters for dashboard API
 #[derive(Debug, Deserialize)]
-struct DashboardQuery {
+pub struct DashboardQuery {
     /// Data sections to include
     sections: Option<String>,
 
     /// Data format (json, minimal)
+    #[allow(dead_code)]
     format: Option<String>,
 
     /// Include metadata

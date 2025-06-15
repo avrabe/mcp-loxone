@@ -17,6 +17,7 @@ use tracing::{debug, info, warn};
 /// Detects resource changes from Loxone WebSocket events
 pub struct ResourceChangeDetector {
     /// Loxone client for WebSocket monitoring
+    #[allow(dead_code)]
     client: Option<Arc<dyn LoxoneClient>>,
 
     /// Broadcast sender for system events
@@ -305,6 +306,7 @@ impl ResourceChangeDetector {
     }
 
     /// Map a Loxone UUID to resource URI
+    #[allow(dead_code)]
     async fn map_uuid_to_resource(&self, uuid: &str) -> Option<String> {
         let cache = self.uuid_to_resource_cache.read().await;
         let result = cache.get(uuid).cloned();
@@ -323,6 +325,7 @@ impl ResourceChangeDetector {
     }
 
     /// Check if a change should be debounced
+    #[cfg(test)]
     async fn should_debounce(&self, resource_uri: &str) -> bool {
         let last_times = self.last_change_times.read().await;
 
@@ -338,6 +341,7 @@ impl ResourceChangeDetector {
     }
 
     /// Update the last change time for debouncing
+    #[cfg(test)]
     async fn update_last_change_time(&self, resource_uri: &str) {
         let mut last_times = self.last_change_times.write().await;
         last_times.insert(resource_uri.to_string(), SystemTime::now());

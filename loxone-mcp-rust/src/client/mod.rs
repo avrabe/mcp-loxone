@@ -119,6 +119,12 @@ pub trait LoxoneClient: Send + Sync {
         uuids: &[String],
     ) -> Result<HashMap<String, serde_json::Value>>;
 
+    /// Get state values by state UUIDs (for resolving position values etc.)
+    async fn get_state_values(
+        &self,
+        state_uuids: &[String],
+    ) -> Result<HashMap<String, serde_json::Value>>;
+
     /// Get system information
     async fn get_system_info(&self) -> Result<serde_json::Value>;
 

@@ -44,6 +44,17 @@ path = "src/bin/test_endpoints.rs"
 name = "loxone-mcp-create-api-key"
 path = "src/bin/create_api_key.rs"
 
+[[bin]]
+name = "loxone-mcp-keys"
+path = "src/bin/loxone-mcp-keys.rs"
+
+[[bin]]
+name = "ollama-demo"
+path = "src/bin/ollama_demo.rs"
+
+[[bin]]
+name = "real-ollama-demo"
+path = "src/bin/real_ollama_demo.rs"
 
 # WASM-specific binaries (only compiled for wasm32 targets)
 [[bin]]

@@ -90,7 +90,7 @@ test-wasm:
 
 lint:
 	@echo "🔍 Running clippy linting..."
-	cargo clippy --workspace --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --all-features -- -D warnings
+	cargo clippy --workspace --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --all-features -- -D warnings
 
 format:
 	@echo "✨ Formatting code..."
@@ -284,18 +284,18 @@ ci-format:
 
 ci-clippy:
 	@echo "🔍 CI Clippy Check..."
-	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --no-default-features -- -D warnings
-	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default" -- -D warnings
+	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --no-default-features -- -D warnings
+	cargo clippy --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --features "default" -- -D warnings
 
 ci-test:
 	@echo "🧪 CI Test Suite..."
-	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server
-	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --no-default-features
-	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default"
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --no-default-features
+	cargo build --verbose --lib --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --features "default"
 	cargo test --verbose --lib
 	cargo test --verbose --lib --features "default"
 	@echo "🔍 Checking for warnings..."
-	@! cargo check --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --bin loxone-mcp-mock-server --features "default" 2>&1 | grep -i warning
+	@! cargo check --lib --tests --bin loxone-mcp-server --bin loxone-mcp-setup --bin loxone-mcp-verify --bin loxone-mcp-update-host --bin loxone-mcp-test-connection --bin loxone-mcp-test-endpoints --features "default" 2>&1 | grep -i warning
 
 ci-security:
 	@echo "🔒 CI Security Audit..."

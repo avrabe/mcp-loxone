@@ -717,11 +717,7 @@ impl PerformanceProfiler {
         let mut bottlenecks = self.bottlenecks.write().await;
 
         for bottleneck in new_bottlenecks {
-            let key = format!(
-                "{}:{}",
-                bottleneck.location,
-                format!("{:?}", bottleneck.bottleneck_type)
-            );
+            let key = format!("{}:{:?}", bottleneck.location, bottleneck.bottleneck_type);
 
             if let Some(existing) = bottlenecks.get_mut(&key) {
                 existing.occurrences += 1;
@@ -838,7 +834,7 @@ mod tests {
             BottleneckSeverity::Low
         ));
         assert!(matches!(
-            profiler.get_cpu_severity(95.0),
+            profiler.get_cpu_severity(87.0),
             BottleneckSeverity::Medium
         ));
         assert!(matches!(

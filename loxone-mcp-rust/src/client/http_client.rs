@@ -324,6 +324,13 @@ impl LoxoneClient for LoxoneHttpClient {
         Ok(states)
     }
 
+    async fn get_state_values(
+        &self,
+        state_uuids: &[String],
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        self.get_state_values_impl(state_uuids).await
+    }
+
     async fn get_system_info(&self) -> Result<serde_json::Value> {
         debug!("Fetching system information");
 
@@ -391,6 +398,95 @@ impl LoxoneHttpClient {
             .filter(|device| device.device_type == device_type)
             .cloned()
             .collect())
+    }
+
+    /// Get state values by state UUIDs
+    pub async fn get_state_values_impl(
+        &self,
+        state_uuids: &[String],
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        let mut state_values = HashMap::new();
+
+        for state_uuid in state_uuids {
+            // Try different endpoints to get state values
+            match self.get_state_value_by_uuid(state_uuid).await {
+                Ok(value) => {
+                    state_values.insert(state_uuid.clone(), value);
+                }
+                Err(e) => {
+                    warn!("Failed to get state value for UUID {state_uuid}: {e}");
+                    // Continue with other states
+                }
+            }
+        }
+
+        Ok(state_values)
+    }
+
+    /// Get a single state value by UUID - try different API approaches
+    async fn get_state_value_by_uuid(&self, state_uuid: &str) -> Result<serde_json::Value> {
+        debug!("Attempting to get state value for UUID: {}", state_uuid);
+
+        // Method 1: Try status endpoint first (this is what works for state UUIDs)
+        let status_url = self.build_url(&format!("jdev/sps/status/{}", state_uuid))?;
+        if let Ok(response) = self.execute_request(status_url).await {
+            if let Ok(text) = response.text().await {
+                let loxone_response = Self::parse_loxone_response(&text);
+                if loxone_response.code == 200 {
+                    debug!(
+                        "Got state value via status endpoint: {:?}",
+                        loxone_response.value
+                    );
+                    // Parse numeric values from status responses
+                    if let Some(value_str) = loxone_response.value.as_str() {
+                        // Try to extract numeric value from status strings like "Running 100/sec" or "0.5"
+                        if let Ok(numeric_value) = value_str.parse::<f64>() {
+                            return Ok(serde_json::Value::from(numeric_value));
+                        }
+                        // For non-numeric status, return as-is
+                        return Ok(loxone_response.value);
+                    } else if !loxone_response.value.is_null() {
+                        return Ok(loxone_response.value);
+                    }
+                }
+            }
+        }
+
+        // Method 2: Try direct state access via device UUID
+        if let Ok(response) = self.send_command(state_uuid, "").await {
+            if response.code == 200 && !response.value.is_null() {
+                debug!("Got state value via direct access: {:?}", response.value);
+                return Ok(response.value);
+            }
+        }
+
+        // Method 3: Try state command
+        if let Ok(response) = self.send_command(state_uuid, "state").await {
+            if response.code == 200 && !response.value.is_null() {
+                debug!("Got state value via state command: {:?}", response.value);
+                return Ok(response.value);
+            }
+        }
+
+        // Method 4: Try value endpoint
+        let value_url = self.build_url(&format!("jdev/sps/value/{}", state_uuid))?;
+        if let Ok(response) = self.execute_request(value_url).await {
+            if let Ok(text) = response.text().await {
+                let loxone_response = Self::parse_loxone_response(&text);
+                if loxone_response.code == 200 && !loxone_response.value.is_null() {
+                    debug!(
+                        "Got state value via value endpoint: {:?}",
+                        loxone_response.value
+                    );
+                    return Ok(loxone_response.value);
+                }
+            }
+        }
+
+        Err(LoxoneError::device_control(format!(
+            "Could not retrieve state value for UUID: {}",
+            state_uuid
+        )))
     }
 
     /// Control multiple devices in parallel

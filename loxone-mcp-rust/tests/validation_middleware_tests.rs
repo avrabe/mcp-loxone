@@ -254,8 +254,10 @@ async fn test_performance_warnings() {
 
 #[tokio::test]
 async fn test_security_policy_violations() {
-    let mut config = ValidationConfig::default();
-    config.max_request_size = 100; // Very small size
+    let config = ValidationConfig {
+        max_request_size: 100, // Very small size
+        ..Default::default()
+    };
     let middleware = ValidationMiddleware::with_config(config);
 
     let large_request = json!({

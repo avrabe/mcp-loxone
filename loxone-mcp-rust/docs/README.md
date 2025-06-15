@@ -27,8 +27,11 @@ New to the project? Start here! Learn how to install, configure, and run your fi
 - 🔐 Security levels and credential backends
 - ⚡ Performance tuning scenarios
 
-### 🎛️ [User Guide](./tools/README.md)
-Comprehensive guide to all 30+ MCP tools, integrations, and practical examples for controlling your Loxone system.
+### 🔑 [API Reference](./API_REFERENCE.md)
+Complete documentation for all 30+ MCP tools with examples, parameters, and authentication.
+
+### 🛡️ [Security Guide](./SECURITY_ARCHITECTURE.md)
+Multi-user API key management, role-based access control, and web UI for key administration.
 
 ### 🏗️ [Architecture](./ARCHITECTURE.md)
 Deep dive into the system design, understanding the 12 core modules and how they work together.
@@ -58,10 +61,12 @@ Solutions to common problems and debugging techniques.
 <td width="50%">
 
 ### 🛡️ Production Security
+- **Multi-user API Keys** with role-based access control
+- **Web-based Key Management** UI at `/admin/keys`
 - **Input Validation** on all parameters
 - **Rate Limiting** with intelligent throttling
 - **Audit Logging** for compliance
-- **CORS Protection** for web deployments
+- **IP Whitelisting** for key restrictions
 
 </td>
 </tr>
@@ -111,8 +116,17 @@ Assistant: I'll turn on all lights in the living room for you.
 
 ### Sensor Monitoring
 ```bash
-curl -X POST http://localhost:3001/tools/call \
-  -d '{"tool": "get_temperature_sensors", "arguments": {}}'
+curl -X POST http://localhost:3001/message \
+  -H "X-API-Key: lmcp_monitor_001_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "get_temperature_sensors",
+      "arguments": {}
+    },
+    "id": 1
+  }'
 ```
 
 ## 🏃 Quick Start Options
@@ -130,10 +144,10 @@ curl -X POST http://localhost:3001/tools/call \
 
 ## 📖 How to Use This Documentation
 
-1. **New Users**: Start with [Quick Start](./QUICK_START.md) → [User Guide](./tools/README.md)
+1. **New Users**: Start with [Quick Start](./QUICK_START.md) → [API Reference](./API_REFERENCE.md)
 2. **Developers**: Check [Architecture](./ARCHITECTURE.md) → [Development](./DEVELOPMENT.md)
-3. **DevOps**: Focus on [Deployment](./DEPLOYMENT.md) → [Security](./security/README.md)
-4. **Troubleshooting**: Jump to [FAQ](./faq.md) → [Troubleshooting](./TROUBLESHOOTING.md)
+3. **DevOps**: Focus on [Deployment](./DEPLOYMENT.md) → [Security](./SECURITY_ARCHITECTURE.md)
+4. **Troubleshooting**: Jump to [Troubleshooting](./TROUBLESHOOTING.md)
 
 ## 🔍 Search Tips
 

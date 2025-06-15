@@ -349,6 +349,7 @@ pub enum PerformanceIssueType {
 pub struct PerformanceMonitor {
     config: PerformanceConfig,
     metrics_collector: metrics::MetricsCollector,
+    #[allow(dead_code)]
     profiler: profiler::PerformanceProfiler,
     analyzer: analyzer::PerformanceAnalyzer,
     reporter: reporter::PerformanceReporter,

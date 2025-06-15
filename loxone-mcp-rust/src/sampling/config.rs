@@ -483,9 +483,29 @@ impl LlmConfigManager {
     /// Create new configuration manager
     pub fn new(config_path: PathBuf) -> Result<Self> {
         let config = if config_path.exists() {
-            LlmConfig::load_from_file(&config_path)?
+            let file_size = std::fs::metadata(&config_path)
+                .map(|metadata| metadata.len())
+                .unwrap_or(0);
+
+            if file_size > 0 {
+                // File exists and is not empty, try to load it
+                match LlmConfig::load_from_file(&config_path) {
+                    Ok(config) => config,
+                    Err(_) => {
+                        // File exists but is corrupted/empty, create default and save
+                        let default_config = LlmConfig::default();
+                        default_config.save_to_file(&config_path)?;
+                        default_config
+                    }
+                }
+            } else {
+                // File exists but is empty - create default config and save it
+                let default_config = LlmConfig::default();
+                default_config.save_to_file(&config_path)?;
+                default_config
+            }
         } else {
-            // Create default config and save it
+            // File doesn't exist - create default config and save it
             let default_config = LlmConfig::default();
             default_config.save_to_file(&config_path)?;
             default_config
@@ -656,7 +676,7 @@ impl LlmConfigManager {
 }
 
 /// Environment-based provider configuration for the LLM provider factory
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ProviderFactoryConfig {
     /// Ollama configuration (PRIMARY provider)
     pub ollama: OllamaConfig,
@@ -752,23 +772,11 @@ pub struct ProviderHealthConfig {
     pub auto_disable_unhealthy: bool,
 }
 
-impl Default for ProviderFactoryConfig {
-    fn default() -> Self {
-        Self {
-            ollama: OllamaConfig::default(),
-            openai: OpenAIConfig::default(),
-            anthropic: AnthropicConfig::default(),
-            selection: ProviderSelectionConfig::default(),
-            health: ProviderHealthConfig::default(),
-        }
-    }
-}
-
 impl Default for OllamaConfig {
     fn default() -> Self {
         Self {
             base_url: "http://localhost:11434".to_string(),
-            default_model: "llama3.2".to_string(),
+            default_model: "qwen3:14b".to_string(),
             available_models: vec![], // Auto-detected
             auto_download_models: true,
             timeout_seconds: 60,

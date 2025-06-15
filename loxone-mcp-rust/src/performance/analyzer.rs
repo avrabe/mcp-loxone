@@ -785,6 +785,7 @@ pub enum ImplementationEffort {
 pub struct PerformanceAnalyzer {
     config: AnalyzerConfig,
     measurements: Arc<RwLock<Vec<PerformanceMeasurement>>>,
+    #[allow(dead_code)]
     baselines: Arc<RwLock<HashMap<String, f64>>>,
     last_analysis: Arc<RwLock<Option<AnalysisResult>>>,
 }

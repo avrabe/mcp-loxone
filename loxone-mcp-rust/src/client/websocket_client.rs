@@ -792,6 +792,38 @@ impl LoxoneClient for LoxoneWebSocketClient {
         Ok(states)
     }
 
+    async fn get_state_values(
+        &self,
+        state_uuids: &[String],
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        // Use HTTP client if available for state UUID resolution
+        if let Some(http_client) = &self.http_client {
+            http_client.get_state_values(state_uuids).await
+        } else {
+            // Fallback: try to resolve from cached device states
+            let mut state_values = HashMap::new();
+            let devices = self.context.devices.read().await;
+
+            for state_uuid in state_uuids {
+                // Look for the state UUID in device states
+                for device in devices.values() {
+                    for state_value in device.states.values() {
+                        if let Some(uuid_str) = state_value.as_str() {
+                            if uuid_str == state_uuid {
+                                // Found the state UUID, but we need the actual value
+                                // For now, return the UUID itself - this is a limitation without HTTP client
+                                state_values.insert(state_uuid.clone(), state_value.clone());
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+
+            Ok(state_values)
+        }
+    }
+
     async fn get_system_info(&self) -> Result<serde_json::Value> {
         // Use HTTP client if available, otherwise error
         if let Some(http_client) = &self.http_client {

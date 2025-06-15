@@ -1,8 +1,9 @@
 //! Input sanitization and normalization
 
+#[cfg(test)]
+use super::ValidationConfig;
 use super::{
-    utils, ValidationConfig, ValidationContext, ValidationResult, ValidationWarning,
-    ValidationWarningCode, Validator,
+    utils, ValidationContext, ValidationResult, ValidationWarning, ValidationWarningCode, Validator,
 };
 use crate::error::Result;
 use serde_json::{Map, Value};
@@ -79,24 +80,9 @@ impl SanitizerValidator {
     ) -> (String, Vec<ValidationWarning>) {
         let mut warnings = Vec::new();
         let original_length = value.len();
+        let mut sanitized = value.to_string();
 
-        // Remove null bytes and control characters
-        let mut sanitized = value
-            .chars()
-            .filter(|c| !c.is_control() || *c == '\n' || *c == '\r' || *c == '\t')
-            .collect::<String>();
-
-        // Trim whitespace
-        if self.config.trim_whitespace {
-            sanitized = sanitized.trim().to_string();
-        }
-
-        // Normalize whitespace
-        if self.config.normalize_whitespace {
-            sanitized = utils::sanitize_string(&sanitized, usize::MAX);
-        }
-
-        // Check for potentially malicious content
+        // Check for potentially malicious content FIRST (before any modification)
         if self.config.check_malicious_content && utils::contains_malicious_content(&sanitized) {
             warnings.push(ValidationWarning {
                 field: "string_content".to_string(),
@@ -109,6 +95,22 @@ impl SanitizerValidator {
             if self.config.remove_malicious_content {
                 sanitized = self.remove_malicious_patterns(&sanitized);
             }
+        }
+
+        // Remove null bytes and control characters
+        sanitized = sanitized
+            .chars()
+            .filter(|c| !c.is_control() || *c == '\n' || *c == '\r' || *c == '\t')
+            .collect::<String>();
+
+        // Trim whitespace
+        if self.config.trim_whitespace {
+            sanitized = sanitized.trim().to_string();
+        }
+
+        // Normalize whitespace
+        if self.config.normalize_whitespace {
+            sanitized = utils::sanitize_string(&sanitized, usize::MAX);
         }
 
         // Truncate if too long
@@ -249,7 +251,7 @@ impl SanitizerValidator {
             }
 
             // Check for precision loss
-            if f.abs() > 2_f64.powi(53) {
+            if f.abs() >= 2_f64.powi(53) {
                 warnings.push(ValidationWarning {
                     field: "number_precision".to_string(),
                     message: "Number may lose precision in JavaScript environments".to_string(),
@@ -440,8 +442,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_malicious_content_removal() {
-        let mut config = SanitizerConfig::default();
-        config.remove_malicious_content = true;
+        let config = SanitizerConfig {
+            remove_malicious_content: true,
+            normalize_whitespace: false, // Preserve spacing for this test
+            ..Default::default()
+        };
         let sanitizer = SanitizerValidator::new(config);
         let context = ValidationContext::new("test".to_string(), Default::default());
 

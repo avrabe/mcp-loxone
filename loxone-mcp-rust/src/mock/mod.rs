@@ -63,6 +63,18 @@ impl LoxoneClient for MockLoxoneClient {
         Ok(HashMap::new())
     }
 
+    async fn get_state_values(&self, _state_uuids: &[String]) -> Result<HashMap<String, Value>> {
+        // Mock implementation - return dummy values for testing
+        let mut state_values = HashMap::new();
+        for state_uuid in _state_uuids {
+            state_values.insert(
+                state_uuid.clone(),
+                Value::Number(serde_json::Number::from_f64(0.5).unwrap()),
+            );
+        }
+        Ok(state_values)
+    }
+
     async fn get_system_info(&self) -> Result<Value> {
         Ok(serde_json::json!({
             "version": "mock",

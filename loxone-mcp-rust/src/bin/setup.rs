@@ -252,26 +252,38 @@ async fn main() -> Result<()> {
                 println!("🚀 Starting Mock Server on {}...", mock_host);
 
                 // Start mock server in background
-                let child = Command::new("cargo")
+                let child_result = Command::new("cargo")
                     .args(["run", "--bin", "loxone-mcp-mock-server"])
-                    .spawn()
-                    .map_err(loxone_mcp_rust::error::LoxoneError::Io)?;
+                    .spawn();
 
-                // Wait a bit for server to start
-                tokio::time::sleep(Duration::from_secs(2)).await;
+                match child_result {
+                    Ok(child) => {
+                        println!("✅ Mock server started successfully");
 
-                // Update host to include port if needed
-                if !host.contains(':') {
-                    println!("📝 Mock Server running on port 8080");
-                    println!("   Use: export LOXONE_HOST=\"127.0.0.1:8080\"");
+                        // Wait a bit for server to start
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+
+                        // Update host to include port if needed
+                        if !host.contains(':') {
+                            println!("📝 Mock Server running on port 8080");
+                            println!("   Use: export LOXONE_HOST=\"127.0.0.1:8080\"");
+                        }
+
+                        // Set mock server credentials
+                        println!("📝 Using Mock Server Credentials:");
+                        println!("   Username: admin");
+                        println!("   Password: test");
+
+                        Some(child)
+                    }
+                    Err(_) => {
+                        println!(
+                            "⚠️  Mock server binary not available - continuing without mock server"
+                        );
+                        println!("   You can use real Loxone hardware instead");
+                        None
+                    }
                 }
-
-                // Set mock server credentials
-                println!("📝 Using Mock Server Credentials:");
-                println!("   Username: admin");
-                println!("   Password: test");
-
-                Some(child)
             } else {
                 None
             }
@@ -357,8 +369,8 @@ async fn main() -> Result<()> {
 
     // Create credentials
     let credentials = LoxoneCredentials {
-        username: username.clone(),
-        password: password.clone(),
+        username: username.to_string(),
+        password: password.to_string(),
         api_key,
         #[cfg(feature = "crypto")]
         public_key: None,

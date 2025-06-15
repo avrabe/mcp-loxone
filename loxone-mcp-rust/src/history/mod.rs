@@ -42,7 +42,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_history_store_creation() {
-        let config = HistoryConfig::default();
+        let temp_dir = std::env::temp_dir().join("loxone_test_history");
+        let mut config = HistoryConfig::default();
+        config.cold_storage.data_dir = temp_dir;
         let store = init(config).await.unwrap();
 
         // Test basic event recording

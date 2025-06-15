@@ -11,6 +11,7 @@
 pub mod influxdb;
 
 pub mod dashboard;
+pub mod key_management_ui;
 pub mod loxone_stats;
 pub mod metrics;
 pub mod unified_collector;

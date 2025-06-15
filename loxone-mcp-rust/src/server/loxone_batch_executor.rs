@@ -500,6 +500,20 @@ mod tests {
             }))
         }
 
+        async fn get_state_values(
+            &self,
+            state_uuids: &[String],
+        ) -> Result<HashMap<String, serde_json::Value>> {
+            let mut results = HashMap::new();
+            for state_uuid in state_uuids {
+                results.insert(
+                    state_uuid.clone(),
+                    serde_json::json!(0.5), // Mock value
+                );
+            }
+            Ok(results)
+        }
+
         async fn health_check(&self) -> Result<bool> {
             Ok(true)
         }

@@ -59,19 +59,19 @@ services:
     stdin_open: true
     tty: true
 
-  # Mock server for testing
-  loxone-mock:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder
-    container_name: loxone-mock
-    command: ["/app/target/release/loxone-mcp-mock-server"]
-    ports:
-      - "8080:8080"
-    environment:
-      - RUST_LOG=debug
-    restart: unless-stopped
+  # Mock server for testing (currently not implemented)
+  # loxone-mock:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #     target: builder
+  #   container_name: loxone-mock
+  #   command: ["/app/target/release/loxone-mcp-mock-server"]
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - RUST_LOG=debug
+  #   restart: unless-stopped
 
 # Optional: Add a reverse proxy for production use
   nginx:

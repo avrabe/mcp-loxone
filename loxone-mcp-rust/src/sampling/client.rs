@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Instant;
 use tokio::sync::RwLock;
-use tracing::{debug, warn, info, error};
+use tracing::{debug, error, info, warn};
 
 /// Trait for MCP sampling clients
 #[async_trait]
@@ -68,7 +68,13 @@ impl MockSamplingClient {
         let (max_tokens, models) = match provider_type {
             "ollama" => (8192, vec!["llama3.2".to_string(), "llama3.1".to_string()]),
             "openai" => (4096, vec!["gpt-4o".to_string(), "gpt-4".to_string()]),
-            "anthropic" => (200000, vec!["claude-3-5-sonnet-20241022".to_string(), "claude-3-sonnet".to_string()]),
+            "anthropic" => (
+                200000,
+                vec![
+                    "claude-3-5-sonnet-20241022".to_string(),
+                    "claude-3-sonnet".to_string(),
+                ],
+            ),
             _ => (4000, vec!["mock-model".to_string()]),
         };
 
@@ -90,7 +96,7 @@ impl MockSamplingClient {
     pub async fn health_check(&self) -> bool {
         // Update last health check time
         *self.last_health_check.write().await = Some(Instant::now());
-        
+
         // Simulate different health scenarios based on provider type
         match self.provider_type.as_str() {
             "ollama" => {
@@ -98,7 +104,10 @@ impl MockSamplingClient {
                 let available = std::env::var("OLLAMA_HEALTH_OVERRIDE")
                     .map(|v| v == "true")
                     .unwrap_or(true); // Default to healthy
-                debug!("🦙 Ollama health check: {}", if available { "healthy" } else { "unhealthy" });
+                debug!(
+                    "🦙 Ollama health check: {}",
+                    if available { "healthy" } else { "unhealthy" }
+                );
                 available
             }
             "openai" => {
@@ -106,7 +115,10 @@ impl MockSamplingClient {
                 let available = std::env::var("OPENAI_HEALTH_OVERRIDE")
                     .map(|v| v == "true")
                     .unwrap_or(true);
-                debug!("🤖 OpenAI health check: {}", if available { "healthy" } else { "unhealthy" });
+                debug!(
+                    "🤖 OpenAI health check: {}",
+                    if available { "healthy" } else { "unhealthy" }
+                );
                 available
             }
             "anthropic" => {
@@ -114,7 +126,10 @@ impl MockSamplingClient {
                 let available = std::env::var("ANTHROPIC_HEALTH_OVERRIDE")
                     .map(|v| v == "true")
                     .unwrap_or(true);
-                debug!("🏛️ Anthropic health check: {}", if available { "healthy" } else { "unhealthy" });
+                debug!(
+                    "🏛️ Anthropic health check: {}",
+                    if available { "healthy" } else { "unhealthy" }
+                );
                 available
             }
             _ => self.fallback_enabled,
@@ -156,7 +171,11 @@ impl SamplingClient for MockSamplingClient {
             .ok_or_else(|| LoxoneError::InvalidInput("No user message found".to_string()))?;
 
         let response_text = if let Some(text) = &user_message.content.text {
-            generate_mock_response_for_provider(text, request.system_prompt.as_deref(), &self.provider_type)
+            generate_mock_response_for_provider(
+                text,
+                request.system_prompt.as_deref(),
+                &self.provider_type,
+            )
         } else {
             format!("I understand your automation request. This is a {} mock response. For real AI-powered automation suggestions, please configure actual {} API credentials.", self.provider_type, self.provider_type)
         };
@@ -190,6 +209,7 @@ impl SamplingClient for MockSamplingClient {
 }
 
 /// Generate a mock response for testing
+#[allow(dead_code)]
 fn generate_mock_response(user_text: &str, _system_prompt: Option<&str>) -> String {
     let user_lower = user_text.to_lowercase();
 
@@ -204,11 +224,15 @@ fn generate_mock_response(user_text: &str, _system_prompt: Option<&str>) -> Stri
 }
 
 /// Generate a provider-specific mock response for testing
-fn generate_mock_response_for_provider(user_text: &str, _system_prompt: Option<&str>, provider_type: &str) -> String {
+fn generate_mock_response_for_provider(
+    user_text: &str,
+    _system_prompt: Option<&str>,
+    provider_type: &str,
+) -> String {
     let user_lower = user_text.to_lowercase();
     let provider_icon = match provider_type {
         "ollama" => "🦙",
-        "openai" => "🤖", 
+        "openai" => "🤖",
         "anthropic" => "🏛️",
         _ => "🧪",
     };
@@ -234,6 +258,7 @@ fn generate_mock_response_for_provider(user_text: &str, _system_prompt: Option<&
 }
 
 /// Sampling client manager with intelligent provider fallback
+#[derive(Clone)]
 pub struct SamplingClientManager {
     /// Primary client (usually mock or Ollama)
     primary_client: Arc<dyn SamplingClient>,
@@ -262,32 +287,41 @@ impl SamplingClientManager {
         } else {
             Arc::new(MockSamplingClient::new(true))
         };
-        
+
         let mut fallback_clients = Vec::new();
         let mut health_map = HashMap::new();
-        
+
         // Add fallback clients based on configuration priority
         let mut providers: Vec<_> = vec![
             ("openai", config.openai.enabled, config.openai.priority),
-            ("anthropic", config.anthropic.enabled, config.anthropic.priority),
+            (
+                "anthropic",
+                config.anthropic.enabled,
+                config.anthropic.priority,
+            ),
         ];
-        
+
         // Sort by priority (lower number = higher priority)
         providers.sort_by_key(|(_, _, priority)| *priority);
-        
+
         for (provider_name, enabled, _) in providers {
             if enabled {
-                let client: Arc<dyn SamplingClient> = Arc::new(MockSamplingClient::new_with_provider(provider_name));
+                let client: Arc<dyn SamplingClient> =
+                    Arc::new(MockSamplingClient::new_with_provider(provider_name));
                 fallback_clients.push(client);
                 health_map.insert(provider_name.to_string(), true);
                 debug!("📦 Added {} fallback client", provider_name);
             }
         }
-        
+
         // Set primary provider health
-        let primary_provider = if config.ollama.enabled { "ollama" } else { "mock" };
+        let primary_provider = if config.ollama.enabled {
+            "ollama"
+        } else {
+            "mock"
+        };
         health_map.insert(primary_provider.to_string(), true);
-        
+
         let capabilities = Arc::new(RwLock::new(primary_client.get_sampling_capabilities()));
         let provider_health = Arc::new(RwLock::new(health_map));
         let config_arc = Arc::new(config);
@@ -298,7 +332,7 @@ impl SamplingClientManager {
         if !fallback_clients.is_empty() {
             info!("✅ Intelligent fallback enabled");
         }
-        
+
         Self {
             primary_client,
             fallback_clients,
@@ -330,12 +364,15 @@ impl SamplingClientManager {
         // Try primary provider first
         match self.try_primary_client(&request).await {
             Ok(response) => {
-                debug!("✅ Primary provider response received from model: {}", response.model);
+                debug!(
+                    "✅ Primary provider response received from model: {}",
+                    response.model
+                );
                 Ok(response)
             }
             Err(primary_error) => {
                 warn!("⚠️ Primary provider failed: {}", primary_error);
-                
+
                 // Only attempt fallback if configured
                 if !self.config.selection.enable_fallback || self.fallback_clients.is_empty() {
                     warn!("🚫 No fallback providers configured or available");
@@ -343,14 +380,22 @@ impl SamplingClientManager {
                 }
 
                 info!("🔄 Attempting fallback providers...");
-                
+
                 // Try each fallback provider in priority order
                 for (index, fallback_client) in self.fallback_clients.iter().enumerate() {
-                    info!("🔄 Trying fallback provider {} of {}", index + 1, self.fallback_clients.len());
-                    
+                    info!(
+                        "🔄 Trying fallback provider {} of {}",
+                        index + 1,
+                        self.fallback_clients.len()
+                    );
+
                     match self.try_fallback_client(fallback_client, &request).await {
                         Ok(response) => {
-                            info!("✅ Fallback provider {} succeeded: {}", index + 1, response.model);
+                            info!(
+                                "✅ Fallback provider {} succeeded: {}",
+                                index + 1,
+                                response.model
+                            );
                             return Ok(response);
                         }
                         Err(e) => {
@@ -359,7 +404,7 @@ impl SamplingClientManager {
                         }
                     }
                 }
-                
+
                 error!("❌ All providers failed - returning original error");
                 Err(primary_error)
             }
@@ -369,11 +414,16 @@ impl SamplingClientManager {
     /// Try the primary client with health check
     async fn try_primary_client(&self, request: &SamplingRequest) -> Result<SamplingResponse> {
         // Check health of primary provider if it's a mock client with health check capability
-        if let Some(mock_client) = self.primary_client.as_any().downcast_ref::<MockSamplingClient>() {
+        if let Some(mock_client) = self
+            .primary_client
+            .as_any()
+            .downcast_ref::<MockSamplingClient>()
+        {
             if !mock_client.health_check().await {
-                return Err(LoxoneError::ServiceUnavailable(
-                    format!("{} provider is currently unhealthy", mock_client.provider_type())
-                ));
+                return Err(LoxoneError::ServiceUnavailable(format!(
+                    "{} provider is currently unhealthy",
+                    mock_client.provider_type()
+                )));
             }
         }
 
@@ -381,13 +431,18 @@ impl SamplingClientManager {
     }
 
     /// Try a fallback client with health check
-    async fn try_fallback_client(&self, client: &Arc<dyn SamplingClient>, request: &SamplingRequest) -> Result<SamplingResponse> {
+    async fn try_fallback_client(
+        &self,
+        client: &Arc<dyn SamplingClient>,
+        request: &SamplingRequest,
+    ) -> Result<SamplingResponse> {
         // Check health of fallback provider if it's a mock client with health check capability
         if let Some(mock_client) = client.as_any().downcast_ref::<MockSamplingClient>() {
             if !mock_client.health_check().await {
-                return Err(LoxoneError::ServiceUnavailable(
-                    format!("{} fallback provider is currently unhealthy", mock_client.provider_type())
-                ));
+                return Err(LoxoneError::ServiceUnavailable(format!(
+                    "{} fallback provider is currently unhealthy",
+                    mock_client.provider_type()
+                )));
             }
         }
 
@@ -402,16 +457,24 @@ impl SamplingClientManager {
     /// Check health of all providers and update health status
     pub async fn check_provider_health(&self) -> HashMap<String, bool> {
         let mut health_results = HashMap::new();
-        
+
         // Check primary provider health
-        let primary_provider = if self.config.ollama.enabled { "ollama" } else { "mock" };
-        let primary_healthy = if let Some(mock_client) = self.primary_client.as_any().downcast_ref::<MockSamplingClient>() {
+        let primary_provider = if self.config.ollama.enabled {
+            "ollama"
+        } else {
+            "mock"
+        };
+        let primary_healthy = if let Some(mock_client) = self
+            .primary_client
+            .as_any()
+            .downcast_ref::<MockSamplingClient>()
+        {
             mock_client.health_check().await
         } else {
             true // Assume healthy for non-mock clients
         };
         health_results.insert(primary_provider.to_string(), primary_healthy);
-        
+
         // Check fallback providers health
         for (i, client) in self.fallback_clients.iter().enumerate() {
             let provider_name = if i == 0 && self.config.openai.enabled {
@@ -421,15 +484,16 @@ impl SamplingClientManager {
             } else {
                 &format!("fallback_{}", i)
             };
-            
-            let healthy = if let Some(mock_client) = client.as_any().downcast_ref::<MockSamplingClient>() {
-                mock_client.health_check().await
-            } else {
-                true // Assume healthy for non-mock clients
-            };
+
+            let healthy =
+                if let Some(mock_client) = client.as_any().downcast_ref::<MockSamplingClient>() {
+                    mock_client.health_check().await
+                } else {
+                    true // Assume healthy for non-mock clients
+                };
             health_results.insert(provider_name.to_string(), healthy);
         }
-        
+
         // Update stored health status
         {
             let mut health_map = self.provider_health.write().await;
@@ -437,7 +501,7 @@ impl SamplingClientManager {
                 health_map.insert(provider.clone(), *healthy);
             }
         }
-        
+
         health_results
     }
 
@@ -451,12 +515,16 @@ impl SamplingClientManager {
         let health = self.get_provider_health().await;
         let total_providers = 1 + self.fallback_clients.len(); // Primary + fallbacks
         let healthy_providers = health.values().filter(|&&v| v).count();
-        
+
         format!(
             "Providers: {}/{} healthy (Primary: {}, Fallback: {} available)",
             healthy_providers,
             total_providers,
-            if self.config.ollama.enabled { "Ollama" } else { "Mock" },
+            if self.config.ollama.enabled {
+                "Ollama"
+            } else {
+                "Mock"
+            },
             self.fallback_clients.len()
         )
     }
@@ -488,27 +556,26 @@ mod tests {
         config.openai.enabled = true;
         config.openai.api_key = Some("test-key".to_string());
         config.selection.enable_fallback = true;
-        
+
         let manager = SamplingClientManager::new_with_config(config);
-        
+
         // Check that manager is available
         assert!(manager.is_available().await);
-        
+
         // Get provider summary
         let summary = manager.get_provider_summary().await;
         assert!(summary.contains("Primary: Ollama"));
         assert!(summary.contains("Fallback: 1 available"));
-        
+
         // Test health checking
         let health = manager.check_provider_health().await;
         assert!(health.contains_key("ollama"));
         assert!(health.contains_key("openai"));
-        
+
         // Test sampling request (should succeed with healthy providers)
-        let request = SamplingRequest::new(vec![SamplingMessage::user(
-            "Test message for fallback",
-        )]);
-        
+        let request =
+            SamplingRequest::new(vec![SamplingMessage::user("Test message for fallback")]);
+
         let response = manager.request_sampling(request).await.unwrap();
         assert_eq!(response.role, "assistant");
         assert!(response.content.text.is_some());
@@ -517,14 +584,14 @@ mod tests {
     #[tokio::test]
     async fn test_provider_health_checking() {
         let client = MockSamplingClient::new_with_provider("ollama");
-        
+
         // Test health check
         let is_healthy = client.health_check().await;
         assert!(is_healthy); // Should be healthy by default
-        
+
         // Test provider type
         assert_eq!(client.provider_type(), "ollama");
-        
+
         // Test capabilities
         let caps = client.get_sampling_capabilities();
         assert!(caps.supported);

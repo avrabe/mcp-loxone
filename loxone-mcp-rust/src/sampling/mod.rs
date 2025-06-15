@@ -7,6 +7,7 @@
 pub mod client;
 pub mod config;
 pub mod executor;
+pub mod ollama_http;
 pub mod protocol;
 // pub mod provider; // Removed - compilation issues
 pub mod response_parser;
@@ -113,6 +114,30 @@ impl Default for ModelPreferences {
     }
 }
 
+/// Sampling parameters for LLM requests
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SamplingParams {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_tokens: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub temperature: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub top_p: Option<f32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop_sequences: Option<Vec<String>>,
+}
+
+impl Default for SamplingParams {
+    fn default() -> Self {
+        Self {
+            max_tokens: Some(1000),
+            temperature: Some(0.7),
+            top_p: Some(0.9),
+            stop_sequences: None,
+        }
+    }
+}
+
 /// MCP Sampling request parameters
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SamplingRequest {
@@ -121,12 +146,8 @@ pub struct SamplingRequest {
     pub system_prompt: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub model_preferences: Option<ModelPreferences>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_tokens: Option<u32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stop_sequences: Option<Vec<String>>,
+    #[serde(flatten)]
+    pub sampling_params: SamplingParams,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub include_context: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -140,9 +161,7 @@ impl SamplingRequest {
             messages,
             system_prompt: None,
             model_preferences: Some(ModelPreferences::default()),
-            max_tokens: Some(1000),
-            temperature: Some(0.7),
-            stop_sequences: None,
+            sampling_params: SamplingParams::default(),
             include_context: None,
             metadata: None,
         }
@@ -162,13 +181,25 @@ impl SamplingRequest {
 
     /// Set max tokens
     pub fn with_max_tokens(mut self, max_tokens: u32) -> Self {
-        self.max_tokens = Some(max_tokens);
+        self.sampling_params.max_tokens = Some(max_tokens);
         self
     }
 
     /// Set temperature
     pub fn with_temperature(mut self, temperature: f32) -> Self {
-        self.temperature = Some(temperature);
+        self.sampling_params.temperature = Some(temperature);
+        self
+    }
+
+    /// Set top_p
+    pub fn with_top_p(mut self, top_p: f32) -> Self {
+        self.sampling_params.top_p = Some(top_p);
+        self
+    }
+
+    /// Set stop sequences
+    pub fn with_stop_sequences(mut self, stop_sequences: Vec<String>) -> Self {
+        self.sampling_params.stop_sequences = Some(stop_sequences);
         self
     }
 
@@ -403,8 +434,8 @@ mod tests {
             .with_temperature(0.5);
 
         assert_eq!(request.system_prompt.unwrap(), "System prompt");
-        assert_eq!(request.max_tokens.unwrap(), 500);
-        assert_eq!(request.temperature.unwrap(), 0.5);
+        assert_eq!(request.sampling_params.max_tokens.unwrap(), 500);
+        assert_eq!(request.sampling_params.temperature.unwrap(), 0.5);
     }
 
     #[test]

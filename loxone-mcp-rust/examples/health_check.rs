@@ -110,6 +110,21 @@ impl LoxoneClient for MockLoxoneClient {
         Ok(states)
     }
 
+    async fn get_state_values(
+        &self,
+        state_uuids: &[String],
+    ) -> Result<HashMap<String, serde_json::Value>> {
+        if self.slow_responses {
+            tokio::time::sleep(Duration::from_millis(600)).await;
+        }
+
+        let mut states = HashMap::new();
+        for uuid in state_uuids {
+            states.insert(uuid.clone(), serde_json::json!(42.0));
+        }
+        Ok(states)
+    }
+
     async fn get_system_info(&self) -> Result<serde_json::Value> {
         if self.should_fail_system_info {
             return Err(LoxoneError::connection("System info unavailable"));
