@@ -259,6 +259,94 @@
             transform: scale(1.1);
         }
 
+        .success-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.5s ease;
+        }
+
+        .success-animation.show {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .success-content {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 3rem;
+            text-align: center;
+            max-width: 500px;
+            transform: scale(0.8);
+            transition: transform 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+        }
+
+        .success-animation.show .success-content {
+            transform: scale(1);
+        }
+
+        .success-icon {
+            font-size: 4rem;
+            margin-bottom: 1rem;
+            animation: bounce 1s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+
+        .success-title {
+            font-size: 2rem;
+            color: var(--loxone-green);
+            margin-bottom: 1rem;
+        }
+
+        .success-subtitle {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .action-buttons .primary {
+            background: var(--loxone-green);
+            color: white;
+            border: none;
+        }
+
+        .action-buttons .secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
         button {
             background: linear-gradient(135deg, var(--rust-orange), var(--accent-yellow));
             color: white;
@@ -408,21 +496,32 @@
             opacity: 1;
         }
 
-        .feature-grid {
+        .llm-config-sections {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+            gap: 2rem;
             margin-top: 1rem;
         }
 
-        .feature-toggle {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 1rem;
+        .config-section {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
+            border-radius: 12px;
+            padding: 1.5rem;
+        }
+
+        .config-section h3 {
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .section-desc {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
         }
 
         .toggle-switch {
@@ -520,10 +619,14 @@
                 </div>
                 <div class="step" data-step="5">
                     <div class="step-circle" onclick="goToStep(5)">5</div>
-                    <div class="step-label">Features</div>
+                    <div class="step-label">Dashboard</div>
                 </div>
                 <div class="step" data-step="6">
                     <div class="step-circle" onclick="goToStep(6)">6</div>
+                    <div class="step-label">AI/LLM</div>
+                </div>
+                <div class="step" data-step="7">
+                    <div class="step-circle" onclick="goToStep(7)">7</div>
                     <div class="step-label">Review</div>
                 </div>
             </div>
@@ -539,9 +642,23 @@
         </div>
     </div>
 
+    <!-- Success Animation -->
+    <div class="success-animation" id="successAnimation">
+        <div class="success-content">
+            <div class="success-icon">🎉</div>
+            <h2 class="success-title">Configuration Complete!</h2>
+            <p class="success-subtitle">Your Loxone MCP server is ready to go. Copy your configuration and start automating!</p>
+            <div class="action-buttons">
+                <button class="primary" onclick="copyFinalConfig()">📋 Copy Configuration</button>
+                <button class="secondary" onclick="restartWizard()">🔄 Start Over</button>
+                <button class="secondary" onclick="closeSuccess()">✓ Done</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let currentStep = 1;
-        const totalSteps = 6;
+        const totalSteps = 7;
         const config = {
             useCase: '',
             transport: '',
@@ -554,13 +671,27 @@
                 auditLog: false,
                 consentRequired: true
             },
-            features: {
-                audio: true,
-                climate: true,
-                energy: true,
-                security: true,
-                workflows: true,
-                sampling: false
+            dashboard: {
+                ENABLE_LOXONE_STATS: true,
+                LOXONE_LOG_FILE: '',
+                HISTORY_COLD_DATA_DIR: '',
+                INFLUXDB_URL: '',
+                INFLUXDB_TOKEN: '',
+                PRODUCTION: false
+            },
+            llm: {
+                OLLAMA_BASE_URL: 'http://localhost:11434',
+                OLLAMA_DEFAULT_MODEL: 'llama3.2',
+                OLLAMA_ENABLED: true,
+                OPENAI_API_KEY: '',
+                OPENAI_DEFAULT_MODEL: 'gpt-4o',
+                ANTHROPIC_API_KEY: '',
+                ANTHROPIC_DEFAULT_MODEL: 'claude-3-5-sonnet-20241022',
+                LLM_ENABLE_FALLBACK: true,
+                LLM_PREFER_LOCAL: true,
+                LLM_COST_PRIORITY: '0.3',
+                LLM_SPEED_PRIORITY: '0.4',
+                LLM_QUALITY_PRIORITY: '0.3'
             },
             performance: {
                 connectionPoolSize: 10,
@@ -691,19 +822,66 @@
                 fields: []  // Dynamically populated based on use case
             },
             5: {
-                title: "Enable Features",
-                description: "Choose which MCP tools to enable",
-                type: 'features',
-                features: [
-                    { id: 'audio', label: 'Audio Control', default: true },
-                    { id: 'climate', label: 'Climate Control', default: true },
-                    { id: 'energy', label: 'Energy Management', default: true },
-                    { id: 'security', label: 'Security Systems', default: true },
-                    { id: 'workflows', label: 'Workflow Engine', default: true },
-                    { id: 'sampling', label: 'LLM Sampling', default: false }
+                title: "Dashboard & Monitoring",
+                description: "Configure dashboard, logging, and monitoring features",
+                type: 'form',
+                fields: [
+                    { id: 'ENABLE_LOXONE_STATS', label: 'Enable Dashboard & Statistics', type: 'checkbox', default: true, help: 'Enable web dashboard and statistics collection' },
+                    { id: 'LOXONE_LOG_FILE', label: 'Log File Path', type: 'text', placeholder: '/var/log/loxone-mcp.log', help: 'Full path to log file (optional)' },
+                    { id: 'HISTORY_COLD_DATA_DIR', label: 'Data Storage Directory', type: 'text', placeholder: '/var/lib/loxone-mcp/history', help: 'Directory for persistent data storage' },
+                    { id: 'INFLUXDB_URL', label: 'InfluxDB URL', type: 'text', placeholder: 'http://localhost:8086', help: 'InfluxDB server for metrics (optional)' },
+                    { id: 'INFLUXDB_TOKEN', label: 'InfluxDB Token', type: 'password', placeholder: 'your-influxdb-token', help: 'InfluxDB authentication token' },
+                    { id: 'PRODUCTION', label: 'Production Mode', type: 'checkbox', default: false, help: 'Enable production security and performance settings' }
                 ]
             },
             6: {
+                title: "LLM Sampling Configuration",
+                description: "Configure AI/LLM providers for intelligent automation suggestions",
+                type: 'llm_config',
+                sections: [
+                    {
+                        id: 'ollama',
+                        title: 'Ollama (Local LLM)',
+                        description: 'Primary local AI provider',
+                        fields: [
+                            { id: 'OLLAMA_BASE_URL', label: 'Ollama Server URL', type: 'text', placeholder: 'http://localhost:11434', default: 'http://localhost:11434' },
+                            { id: 'OLLAMA_DEFAULT_MODEL', label: 'Default Model', type: 'text', placeholder: 'llama3.2', default: 'llama3.2' },
+                            { id: 'OLLAMA_ENABLED', label: 'Enable Ollama', type: 'checkbox', default: true }
+                        ]
+                    },
+                    {
+                        id: 'openai',
+                        title: 'OpenAI (Fallback)',
+                        description: 'Cloud AI fallback provider',
+                        fields: [
+                            { id: 'OPENAI_API_KEY', label: 'API Key', type: 'password', placeholder: 'sk-...', help: 'OpenAI API key for fallback' },
+                            { id: 'OPENAI_DEFAULT_MODEL', label: 'Default Model', type: 'text', placeholder: 'gpt-4o', default: 'gpt-4o' }
+                        ]
+                    },
+                    {
+                        id: 'anthropic',
+                        title: 'Anthropic (Fallback)',
+                        description: 'Claude AI fallback provider',
+                        fields: [
+                            { id: 'ANTHROPIC_API_KEY', label: 'API Key', type: 'password', placeholder: 'sk-ant-...', help: 'Anthropic API key for fallback' },
+                            { id: 'ANTHROPIC_DEFAULT_MODEL', label: 'Default Model', type: 'text', placeholder: 'claude-3-5-sonnet-20241022', default: 'claude-3-5-sonnet-20241022' }
+                        ]
+                    },
+                    {
+                        id: 'optimization',
+                        title: 'AI Optimization',
+                        description: 'Configure AI provider selection strategy',
+                        fields: [
+                            { id: 'LLM_ENABLE_FALLBACK', label: 'Enable Cloud Fallback', type: 'checkbox', default: true, help: 'Use cloud providers when local fails' },
+                            { id: 'LLM_PREFER_LOCAL', label: 'Prefer Local Models', type: 'checkbox', default: true, help: 'Try local models first' },
+                            { id: 'LLM_COST_PRIORITY', label: 'Cost Priority (0-1)', type: 'number', placeholder: '0.3', default: '0.3', step: '0.1', min: '0', max: '1' },
+                            { id: 'LLM_SPEED_PRIORITY', label: 'Speed Priority (0-1)', type: 'number', placeholder: '0.4', default: '0.4', step: '0.1', min: '0', max: '1' },
+                            { id: 'LLM_QUALITY_PRIORITY', label: 'Quality Priority (0-1)', type: 'number', placeholder: '0.3', default: '0.3', step: '0.1', min: '0', max: '1' }
+                        ]
+                    }
+                ]
+            },
+            7: {
                 title: "Review Your Configuration",
                 description: "Export your configuration in the format you need",
                 type: 'review'
@@ -749,6 +927,8 @@
                         let configSection = config.credentials;
                         if (stepNumber === 4) {
                             configSection = config.security;
+                        } else if (stepNumber === 5) {
+                            configSection = config.dashboard;
                         }
                         
                         if (field.type === 'checkbox') {
@@ -788,18 +968,57 @@
                     html += '</div>';
                     break;
 
-                case 'features':
-                    html += '<div class="feature-grid">';
-                    step.features.forEach(feature => {
+                case 'llm_config':
+                    html += '<div class="llm-config-sections">';
+                    step.sections.forEach(section => {
                         html += `
-                            <div class="feature-toggle">
-                                <label for="${feature.id}">${feature.label}</label>
-                                <label class="toggle-switch">
-                                    <input type="checkbox" id="${feature.id}" ${config.features[feature.id] ? 'checked' : ''} onchange="toggleFeature('${feature.id}')">
-                                    <span class="slider"></span>
-                                </label>
-                            </div>
+                            <div class="config-section">
+                                <h3>${section.title}</h3>
+                                <p class="section-desc">${section.description}</p>
+                                <div class="form">
                         `;
+                        
+                        section.fields.forEach(field => {
+                            const value = config.llm[field.id] || field.default || '';
+                            
+                            if (field.type === 'checkbox') {
+                                html += `
+                                    <div class="input-group">
+                                        <label>
+                                            <input type="checkbox" id="${field.id}" ${config.llm[field.id] ? 'checked' : ''}>
+                                            ${field.label}
+                                        </label>
+                                        ${field.help ? `<p class="help-text">${field.help}</p>` : ''}
+                                    </div>
+                                `;
+                            } else {
+                                html += `
+                                    <div class="input-group">
+                                        <label for="${field.id}">${field.label}</label>
+                                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                            <input 
+                                                type="${field.type}" 
+                                                id="${field.id}" 
+                                                placeholder="${field.placeholder || ''}"
+                                                value="${value}"
+                                                style="flex: 1;"
+                                                ${field.step ? `step="${field.step}"` : ''}
+                                                ${field.min ? `min="${field.min}"` : ''}
+                                                ${field.max ? `max="${field.max}"` : ''}
+                                            >
+                                            ${(field.id.includes('API_KEY')) ? `
+                                                <button type="button" class="random-btn" onclick="generateRandom('${field.id}')" title="Generate random API key">
+                                                    🎲
+                                                </button>
+                                            ` : ''}
+                                        </div>
+                                        ${field.help ? `<p class="help-text">${field.help}</p>` : ''}
+                                    </div>
+                                `;
+                            }
+                        });
+                        
+                        html += '</div></div>';
                     });
                     html += '</div>';
                     break;
@@ -935,16 +1154,26 @@ LOXONE_RATE_LIMIT="${config.security.rateLimit || 60}"
 LOXONE_AUDIT_LOG="${config.security.auditLog ? 'true' : 'false'}"
 LOXONE_CONSENT_REQUIRED="${config.security.consentRequired ? 'true' : 'false'}"
 
-# Feature Flags
-${Object.entries(config.features).map(([feature, enabled]) => 
-    `LOXONE_ENABLE_${feature.toUpperCase()}="${enabled ? 'true' : 'false'}"`
-).join('\n')}
+# Dashboard & Monitoring
+${Object.entries(config.dashboard).map(([key, value]) => {
+    if (key.includes('ENABLE') || key === 'PRODUCTION') {
+        return `${key}="${value ? 'true' : 'false'}"`;
+    }
+    return value ? `${key}="${value}"` : `# ${key}=""`;
+}).join('\n')}
+
+# LLM/AI Configuration
+${Object.entries(config.llm).map(([key, value]) => {
+    if (key.includes('ENABLED') || key.includes('FALLBACK') || key.includes('LOCAL')) {
+        return `${key}="${value ? 'true' : 'false'}"`;
+    }
+    return value ? `${key}="${value}"` : `# ${key}=""`;
+}).join('\n')}
 
 # Logging
 RUST_LOG="${config.useCase === 'development' ? 'debug' : 'info'}"
-LOXONE_LOG_LEVEL="${config.useCase === 'development' ? 'debug' : 'info'}"
 
-# Performance
+# Performance (Optional)
 LOXONE_CONNECTION_POOL_SIZE="${config.performance.connectionPoolSize}"
 LOXONE_CACHE_TTL="${config.performance.cacheeTTL}"
 LOXONE_BATCH_SIZE="${config.performance.batchSize}"`;
@@ -979,10 +1208,21 @@ services:
       - LOXONE_CORS_ORIGINS=${config.security.corsOrigins || '*'}
       - LOXONE_RATE_LIMIT=${config.security.rateLimit || 60}
       
-      # Features
-      ${Object.entries(config.features).map(([feature, enabled]) => 
-        `- LOXONE_ENABLE_${feature.toUpperCase()}=${enabled ? 'true' : 'false'}`
-      ).join('\n      ')}
+      # Dashboard & Monitoring
+      ${Object.entries(config.dashboard).map(([key, value]) => {
+        if (key.includes('ENABLE') || key === 'PRODUCTION') {
+          return `- ${key}=${value ? 'true' : 'false'}`;
+        }
+        return value ? `- ${key}=${value}` : `# - ${key}=`;
+      }).join('\n      ')}
+      
+      # LLM/AI Configuration
+      ${Object.entries(config.llm).map(([key, value]) => {
+        if (key.includes('ENABLED') || key.includes('FALLBACK') || key.includes('LOCAL')) {
+          return `- ${key}=${value ? 'true' : 'false'}`;
+        }
+        return value ? `- ${key}=${value}` : `# - ${key}=`;
+      }).join('\n      ')}
       
       # Logging
       - RUST_LOG=${config.useCase === 'development' ? 'debug' : 'info'}
@@ -1009,6 +1249,18 @@ services:
         "LOXONE_USER": "${config.credentials.username || 'admin'}",
         "LOXONE_PASS": "${config.credentials.password || 'your-password'}",` : ''}
         "LOXONE_CREDENTIAL_BACKEND": "${config.credentialBackend || 'keychain'}",
+        ${Object.entries(config.dashboard).map(([key, value]) => {
+          if (value && value !== '') {
+            return `"${key}": "${key.includes('ENABLE') || key === 'PRODUCTION' ? (value ? 'true' : 'false') : value}"`;
+          }
+          return null;
+        }).filter(Boolean).join(',\n        ')}${Object.entries(config.dashboard).some(([k, v]) => v && v !== '') ? ',' : ''}
+        ${Object.entries(config.llm).map(([key, value]) => {
+          if (value && value !== '') {
+            return `"${key}": "${key.includes('ENABLED') || key.includes('FALLBACK') || key.includes('LOCAL') ? (value ? 'true' : 'false') : value}"`;
+          }
+          return null;
+        }).filter(Boolean).join(',\n        ')}${Object.entries(config.llm).some(([k, v]) => v && v !== '') ? ',' : ''}
         "RUST_LOG": "info"
       }
     }
@@ -1033,10 +1285,21 @@ export LOXONE_CREDENTIAL_BACKEND="${config.credentialBackend || 'env'}"
 ${config.security.apiKey ? `export LOXONE_API_KEY="${config.security.apiKey}"` : ''}
 export RUST_LOG="${config.useCase === 'development' ? 'debug' : 'info'}"
 
-# Enable features
-${Object.entries(config.features).map(([feature, enabled]) => 
-    `export LOXONE_ENABLE_${feature.toUpperCase()}="${enabled ? 'true' : 'false'}"`
-).join('\n')}
+# Dashboard & Monitoring
+${Object.entries(config.dashboard).map(([key, value]) => {
+  if (key.includes('ENABLE') || key === 'PRODUCTION') {
+    return `export ${key}="${value ? 'true' : 'false'}"`;
+  }
+  return value ? `export ${key}="${value}"` : `# export ${key}=""`;
+}).join('\n')}
+
+# LLM/AI Configuration
+${Object.entries(config.llm).map(([key, value]) => {
+  if (key.includes('ENABLED') || key.includes('FALLBACK') || key.includes('LOCAL')) {
+    return `export ${key}="${value ? 'true' : 'false'}"`;
+  }
+  return value ? `export ${key}="${value}"` : `# export ${key}=""`;
+}).join('\n')}
 
 ${config.credentialBackend === 'keychain' ? `
 # Setup keychain credentials
@@ -1108,6 +1371,43 @@ ${config.transport === 'stdio' ?
                 if (document.getElementById('consentRequired')) {
                     config.security.consentRequired = document.getElementById('consentRequired').checked;
                 }
+            } else if (currentStep === 5) {
+                // Save dashboard configuration
+                const dashboardFields = [
+                    'ENABLE_LOXONE_STATS', 'LOXONE_LOG_FILE', 'HISTORY_COLD_DATA_DIR',
+                    'INFLUXDB_URL', 'INFLUXDB_TOKEN', 'PRODUCTION'
+                ];
+                
+                dashboardFields.forEach(fieldId => {
+                    const element = document.getElementById(fieldId);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            config.dashboard[fieldId] = element.checked;
+                        } else {
+                            config.dashboard[fieldId] = element.value;
+                        }
+                    }
+                });
+            } else if (currentStep === 6) {
+                // Save LLM configuration
+                const llmFields = [
+                    'OLLAMA_BASE_URL', 'OLLAMA_DEFAULT_MODEL', 'OLLAMA_ENABLED',
+                    'OPENAI_API_KEY', 'OPENAI_DEFAULT_MODEL',
+                    'ANTHROPIC_API_KEY', 'ANTHROPIC_DEFAULT_MODEL',
+                    'LLM_ENABLE_FALLBACK', 'LLM_PREFER_LOCAL',
+                    'LLM_COST_PRIORITY', 'LLM_SPEED_PRIORITY', 'LLM_QUALITY_PRIORITY'
+                ];
+                
+                llmFields.forEach(fieldId => {
+                    const element = document.getElementById(fieldId);
+                    if (element) {
+                        if (element.type === 'checkbox') {
+                            config.llm[fieldId] = element.checked;
+                        } else {
+                            config.llm[fieldId] = element.value;
+                        }
+                    }
+                });
             }
         }
         
@@ -1163,6 +1463,9 @@ ${config.transport === 'stdio' ?
             
             if (currentStep < totalSteps) {
                 updateStepVisuals(currentStep + 1);
+            } else {
+                // We're at the last step - show success animation
+                showSuccessAnimation();
             }
         }
         
@@ -1217,10 +1520,71 @@ ${config.transport === 'stdio' ?
                     password += chars.charAt(Math.floor(Math.random() * chars.length));
                 }
                 field.value = password;
+            } else if (fieldType.includes('API_KEY')) {
+                // Generate a mock API key format
+                if (fieldType.includes('OPENAI')) {
+                    field.value = 'sk-' + Array(48).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
+                } else if (fieldType.includes('ANTHROPIC')) {
+                    field.value = 'sk-ant-' + Array(43).fill(0).map(() => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 62))).join('');
+                }
             }
             
             // Trigger change event to save the value
             field.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        function showSuccessAnimation() {
+            // Play success sound if available
+            try {
+                const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmYkBjur4/HKfyYEIWauy+GmUwwOUqPa6+u7KwstX6vQ2LGKLg==');
+                audio.volume = 0.3;
+                audio.play().catch(() => {}); // Ignore if audio fails
+            } catch (e) {}
+            
+            const animation = document.getElementById('successAnimation');
+            animation.classList.add('show');
+            
+            // Auto-hide after 10 seconds
+            setTimeout(() => {
+                if (animation.classList.contains('show')) {
+                    closeSuccess();
+                }
+            }, 10000);
+        }
+
+        function copyFinalConfig() {
+            const configText = generateConfig('env');
+            navigator.clipboard.writeText(configText).then(() => {
+                const btn = event.target;
+                const originalText = btn.textContent;
+                btn.textContent = '✅ Copied!';
+                btn.style.background = 'var(--loxone-green)';
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.style.background = '';
+                }, 2000);
+            });
+        }
+
+        function restartWizard() {
+            // Reset configuration
+            Object.keys(config).forEach(key => {
+                if (typeof config[key] === 'object') {
+                    Object.keys(config[key]).forEach(subKey => {
+                        config[key][subKey] = '';
+                    });
+                } else {
+                    config[key] = '';
+                }
+            });
+            
+            // Reset to step 1
+            closeSuccess();
+            updateStepVisuals(1);
+        }
+
+        function closeSuccess() {
+            document.getElementById('successAnimation').classList.remove('show');
         }
         
         // Initialize

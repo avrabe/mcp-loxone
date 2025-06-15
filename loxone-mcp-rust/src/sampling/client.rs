@@ -8,7 +8,7 @@ use crate::sampling::{SamplingRequest, SamplingResponse};
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use tokio::sync::RwLock;
 use tracing::{debug, warn, info, error};
 
@@ -479,5 +479,56 @@ mod tests {
         let response = client.create_message(request).await.unwrap();
         assert_eq!(response.role, "assistant");
         assert!(response.content.text.unwrap().contains("Cozy"));
+    }
+
+    #[tokio::test]
+    async fn test_sampling_client_manager_fallback() {
+        // Create a config with Ollama primary and OpenAI fallback
+        let mut config = crate::sampling::config::ProviderFactoryConfig::default();
+        config.openai.enabled = true;
+        config.openai.api_key = Some("test-key".to_string());
+        config.selection.enable_fallback = true;
+        
+        let manager = SamplingClientManager::new_with_config(config);
+        
+        // Check that manager is available
+        assert!(manager.is_available().await);
+        
+        // Get provider summary
+        let summary = manager.get_provider_summary().await;
+        assert!(summary.contains("Primary: Ollama"));
+        assert!(summary.contains("Fallback: 1 available"));
+        
+        // Test health checking
+        let health = manager.check_provider_health().await;
+        assert!(health.contains_key("ollama"));
+        assert!(health.contains_key("openai"));
+        
+        // Test sampling request (should succeed with healthy providers)
+        let request = SamplingRequest::new(vec![SamplingMessage::user(
+            "Test message for fallback",
+        )]);
+        
+        let response = manager.request_sampling(request).await.unwrap();
+        assert_eq!(response.role, "assistant");
+        assert!(response.content.text.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_provider_health_checking() {
+        let client = MockSamplingClient::new_with_provider("ollama");
+        
+        // Test health check
+        let is_healthy = client.health_check().await;
+        assert!(is_healthy); // Should be healthy by default
+        
+        // Test provider type
+        assert_eq!(client.provider_type(), "ollama");
+        
+        // Test capabilities
+        let caps = client.get_sampling_capabilities();
+        assert!(caps.supported);
+        assert_eq!(caps.max_tokens, Some(8192)); // Ollama config
+        assert!(caps.supported_models.contains(&"llama3.2".to_string()));
     }
 }

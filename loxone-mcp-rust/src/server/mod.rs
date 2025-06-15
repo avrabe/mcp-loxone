@@ -420,8 +420,14 @@ impl LoxoneMcpServer {
                     // For now, use mock implementation with enhanced configuration awareness
                     // TODO: Implement real provider factory when provider module is available
                     info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
-                    let integration =
-                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    
+                    // Create enhanced sampling client manager with the validated configuration
+                    let sampling_manager = crate::sampling::client::SamplingClientManager::new_with_config(provider_config.clone());
+                    
+                    // Log initial provider status
+                    info!("📊 Initial provider status: {}", sampling_manager.get_provider_summary().await);
+                    
+                    let integration = crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
                     Some(Arc::new(integration))
                 }
                 Err(e) => {
@@ -656,8 +662,14 @@ impl LoxoneMcpServer {
                     // For now, use mock implementation with enhanced configuration awareness
                     // TODO: Implement real provider factory when provider module is available
                     info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
-                    let integration =
-                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    
+                    // Create enhanced sampling client manager with the validated configuration
+                    let sampling_manager = crate::sampling::client::SamplingClientManager::new_with_config(provider_config.clone());
+                    
+                    // Log initial provider status
+                    info!("📊 Initial provider status: {}", sampling_manager.get_provider_summary().await);
+                    
+                    let integration = crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
                     Some(Arc::new(integration))
                 }
                 Err(e) => {
