@@ -1,0 +1,63 @@
+# GitHub Pages Configuration for MCP Loxone
+title: "MCP Loxone"
+description: "High-performance Rust server for Loxone home automation"
+url: "https://avrabe.github.io"
+baseurl: "/mcp-loxone"
+
+# Build settings
+markdown: kramdown
+highlighter: rouge
+theme: minima
+
+# Plugins
+plugins:
+  - jekyll-feed
+  - jekyll-sitemap
+  - jekyll-seo-tag
+
+# Exclude from processing
+exclude:
+  - README.md
+  - LICENSE
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
+  - .bundle
+  - .sass-cache
+  - .jekyll-cache
+  - .git
+  - .github
+
+# Include files/folders
+include:
+  - _pages
+
+# SEO settings
+author: "Ralf Anton Beier"
+twitter:
+  username: avrabe
+  card: summary_large_image
+
+social:
+  name: "Ralf Anton Beier"
+  links:
+    - "https://github.com/avrabe"
+
+# Logo and favicon
+logo: "/assets/images/logo.png"
+
+# Site verification
+google_site_verification: ""
+
+# Analytics
+google_analytics: ""
+
+# Default front matter
+defaults:
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: "default"
+      author: "Ralf Anton Beier"

@@ -40,7 +40,7 @@ source ~/.cargo/env
 
 ### Step 2: Build Rust Implementation
 ```bash
-cd mcp-loxone-gen1/loxone-mcp-rust
+cd mcp-loxone/loxone-mcp-rust
 cargo build --release
 ```
 

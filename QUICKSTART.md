@@ -5,7 +5,7 @@ Get your Loxone MCP server running in 5 minutes!
 ## Prerequisites
 - macOS, Linux, or Windows with WSL
 - Python 3.10 or higher
-- Loxone Miniserver Gen 1 on your network
+- Loxone Miniserver on your network
 
 ## Step 1: Install uv (if not already installed)
 
@@ -22,7 +22,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 ## Step 2: Set up credentials
 
 ```bash
-cd /Users/r/git/mcp-loxone-gen1
+cd /path/to/mcp-loxone
 chmod +x setup.sh
 ./setup.sh
 ```

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://avrabe.github.io/mcp-loxone/sitemap.xml

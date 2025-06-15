@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Documentation - MCP Loxone</title>
+    
+    <!-- Meta Tags -->
+    <meta name="description" content="Complete documentation for MCP Loxone - Configuration, API reference, examples, and guides.">
+    
+    <!-- Styles -->
+    <style>
+        :root {
+            --rust-orange: #ce422b;
+            --loxone-green: #059669;
+            --bg-dark: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--rust-orange), #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .docs-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .doc-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        .doc-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-color: var(--rust-orange);
+        }
+
+        .doc-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .doc-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .doc-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .doc-status {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-ready {
+            background: rgba(5, 150, 105, 0.2);
+            color: var(--loxone-green);
+        }
+
+        .status-new {
+            background: rgba(206, 66, 43, 0.2);
+            color: var(--rust-orange);
+        }
+
+        .breadcrumbs {
+            margin-bottom: 2rem;
+        }
+
+        .breadcrumbs a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        .breadcrumbs a:hover {
+            color: var(--text-primary);
+        }
+
+        @media (max-width: 768px) {
+            .docs-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="breadcrumbs">
+            <a href="index.html">← Back to Home</a>
+        </div>
+
+        <header>
+            <h1>📚 Documentation</h1>
+            <p class="subtitle">Everything you need to get started with MCP Loxone</p>
+        </header>
+
+        <div class="docs-grid">
+            <a href="guides/QUICK_START.html" class="doc-card">
+                <span class="doc-icon">🚀</span>
+                <h3>Quick Start Guide</h3>
+                <p>Get your MCP server running in 5 minutes. Perfect for beginners.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="guides/CONFIGURATION.html" class="doc-card">
+                <span class="doc-icon">🎛️</span>
+                <h3>Configuration Guide</h3>
+                <p>Complete configuration reference with interactive wizard and decision trees.</p>
+                <span class="doc-status status-new">New!</span>
+            </a>
+
+            <a href="config-wizard.html" class="doc-card">
+                <span class="doc-icon">🧙</span>
+                <h3>Interactive Wizard</h3>
+                <p>Step-by-step configuration wizard that generates configs for you.</p>
+                <span class="doc-status status-new">New!</span>
+            </a>
+
+            <a href="architecture/ARCHITECTURE.html" class="doc-card">
+                <span class="doc-icon">🏗️</span>
+                <h3>Architecture</h3>
+                <p>Deep dive into the system design and 12 core modules.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="api/index.html" class="doc-card">
+                <span class="doc-icon">🔧</span>
+                <h3>API Reference</h3>
+                <p>Complete reference for all 30+ MCP tools and REST endpoints.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="guides/deployment.html" class="doc-card">
+                <span class="doc-icon">🚀</span>
+                <h3>Deployment Guide</h3>
+                <p>Docker, Kubernetes, WASM, and production deployment strategies.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="guides/development.html" class="doc-card">
+                <span class="doc-icon">🛠️</span>
+                <h3>Development Guide</h3>
+                <p>Contributing guidelines, project structure, and development setup.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="guides/troubleshooting.html" class="doc-card">
+                <span class="doc-icon">🆘</span>
+                <h3>Troubleshooting</h3>
+                <p>Common issues, solutions, and debugging techniques.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="guides/security.html" class="doc-card">
+                <span class="doc-icon">🛡️</span>
+                <h3>Security Guide</h3>
+                <p>Best practices, credential management, and security configuration.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="https://avrabe.github.io/mcp-loxone/" class="doc-card">
+                <span class="doc-icon">📖</span>
+                <h3>Complete Documentation</h3>
+                <p>Browse the full documentation site with search and navigation.</p>
+                <span class="doc-status status-ready">Ready</span>
+            </a>
+
+            <a href="https://github.com/avrabe/mcp-loxone/releases" class="doc-card">
+                <span class="doc-icon">📦</span>
+                <h3>Releases & Downloads</h3>
+                <p>Download the latest binaries and view release notes.</p>
+                <span class="doc-status status-ready">GitHub</span>
+            </a>
+
+            <a href="https://github.com/avrabe/mcp-loxone/discussions" class="doc-card">
+                <span class="doc-icon">💬</span>
+                <h3>Community</h3>
+                <p>Ask questions, share ideas, and connect with other users.</p>
+                <span class="doc-status status-ready">GitHub</span>
+            </a>
+        </div>
+    </div>
+</body>
+</html>

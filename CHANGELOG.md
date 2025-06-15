@@ -78,7 +78,7 @@ This is a **complete rewrite** of the MCP Loxone server in Rust, providing massi
   - Credentials stored in system keychain
   - No plaintext passwords in configuration files
   - Support for basic HTTP authentication
-  - Local network only (Gen 1 limitation)
+  - Local network only (classic Miniserver limitation)
 
 ### **Limitations Addressed in Rust Version**
 - ❌ Performance bottlenecks → ✅ 10-100x faster

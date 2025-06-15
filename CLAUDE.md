@@ -108,7 +108,7 @@ make clean
 ## High-Level Architecture
 
 ### Project Structure
-The codebase implements a Model Context Protocol (MCP) server for controlling Loxone Generation 1 home automation systems. Key components:
+The codebase implements a Model Context Protocol (MCP) server for controlling Loxone home automation systems. Key components:
 
 1. **MCP Server** (`src/loxone_mcp/server.py`):
    - Built with FastMCP framework
@@ -160,7 +160,7 @@ The codebase implements a Model Context Protocol (MCP) server for controlling Lo
 
 ### Important Implementation Details
 
-1. **Authentication**: Gen 1 Miniservers use basic HTTP auth. The WebSocket client exists for future encrypted auth support but HTTP is currently used.
+1. **Authentication**: Classic Miniservers use basic HTTP auth. The WebSocket client exists for future encrypted auth support but HTTP is currently used.
 
 2. **State Management**: Device states are fetched on-demand via HTTP requests. The structure is cached at startup but states are always fresh.
 

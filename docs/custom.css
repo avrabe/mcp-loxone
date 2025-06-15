@@ -1,0 +1,255 @@
+/* Custom CSS for Loxone MCP Rust Documentation */
+
+/* Color scheme matching the main website */
+:root {
+    --rust-orange: #ce422b;
+    --loxone-green: #059669;
+    --loxone-blue: #0891b2;
+    --accent-yellow: #f59e0b;
+    --bg-dark: #0c1821;
+    --bg-secondary: #1a2332;
+    --bg-card: #243447;
+}
+
+/* Override mdBook theme colors */
+.rust {
+    --bg: var(--bg-dark);
+    --fg: #f8fafc;
+    --sidebar-bg: var(--bg-secondary);
+    --sidebar-fg: #94a3b8;
+    --sidebar-active: var(--rust-orange);
+    --links: var(--loxone-green);
+    --inline-code-color: var(--accent-yellow);
+    --theme-popup-bg: var(--bg-card);
+    --theme-popup-border: var(--rust-orange);
+    --quote-bg: var(--bg-card);
+    --quote-border: var(--loxone-green);
+    --table-header-bg: var(--bg-secondary);
+    --table-alternate-bg: var(--bg-card);
+}
+
+/* Custom header styling */
+#menu-bar {
+    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+    border-bottom: 2px solid var(--rust-orange);
+}
+
+/* Sidebar enhancements */
+.sidebar {
+    background: linear-gradient(180deg, var(--bg-secondary) 0%, var(--bg-dark) 100%);
+}
+
+.chapter li.chapter-item a:hover {
+    color: var(--rust-orange);
+    background: rgba(206, 66, 43, 0.1);
+    border-radius: 4px;
+}
+
+.chapter li.chapter-item strong {
+    color: var(--rust-orange);
+}
+
+/* Code blocks with Rust theme */
+pre {
+    background: var(--bg-secondary) !important;
+    border: 1px solid rgba(206, 66, 43, 0.3);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+pre code {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+}
+
+/* Custom blockquotes */
+blockquote {
+    border-left: 4px solid var(--loxone-green);
+    background: rgba(5, 150, 105, 0.05);
+    border-radius: 4px;
+}
+
+/* Tables with smart home theme */
+table {
+    border-collapse: collapse;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+table thead {
+    background: linear-gradient(135deg, var(--rust-orange) 0%, var(--loxone-green) 100%);
+    color: white;
+}
+
+table th {
+    padding: 12px 16px;
+    font-weight: 600;
+}
+
+table tbody tr:hover {
+    background: rgba(206, 66, 43, 0.05);
+}
+
+/* Feature badges */
+.hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.5rem;
+    background: linear-gradient(135deg, var(--rust-orange) 0%, var(--accent-yellow) 100%);
+    border-radius: 50px;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 12px rgba(206, 66, 43, 0.3);
+}
+
+/* Feature cards */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+    margin: 2rem 0;
+}
+
+.feature-card {
+    background: var(--bg-card);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid rgba(206, 66, 43, 0.2);
+    transition: all 0.3s;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(206, 66, 43, 0.2);
+    border-color: var(--rust-orange);
+}
+
+/* Custom buttons */
+.btn-rust {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, var(--rust-orange) 0%, var(--accent-yellow) 100%);
+    color: white;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(206, 66, 43, 0.3);
+}
+
+.btn-rust:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(206, 66, 43, 0.4);
+}
+
+/* Statistics display */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1.5rem;
+    margin: 2rem 0;
+}
+
+.stat-box {
+    background: var(--bg-card);
+    padding: 1.5rem;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid rgba(206, 66, 43, 0.2);
+}
+
+.stat-number {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--rust-orange);
+    display: block;
+}
+
+.stat-label {
+    color: var(--sidebar-fg);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+/* Warning/Info boxes */
+.warning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 2px solid var(--accent-yellow);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+}
+
+.info {
+    background: rgba(5, 150, 105, 0.1);
+    border: 2px solid var(--loxone-green);
+    border-radius: 8px;
+    padding: 1rem 1.5rem;
+    margin: 1.5rem 0;
+}
+
+/* Enhanced search */
+#searchresults {
+    background: var(--bg-card);
+    border: 1px solid var(--rust-orange);
+    border-radius: 8px;
+}
+
+.searchresults-header {
+    background: linear-gradient(135deg, var(--rust-orange) 0%, var(--loxone-green) 100%);
+    color: white;
+    padding: 0.75rem 1rem;
+    border-radius: 8px 8px 0 0;
+}
+
+/* Responsive improvements */
+@media (max-width: 768px) {
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Print styles */
+@media print {
+    .sidebar,
+    #menu-bar,
+    .nav-chapters {
+        display: none;
+    }
+    
+    .content {
+        max-width: 100%;
+    }
+}
+
+/* Smooth scrolling */
+html {
+    scroll-behavior: smooth;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 12px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--rust-orange);
+    border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-yellow);
+}

@@ -15,8 +15,8 @@ By participating in this project, you agree to abide by our Code of Conduct:
 1. Fork the repository
 2. Clone your fork:
    ```bash
-   git clone https://github.com/r/mcp-loxone-gen1.git
-   cd mcp-loxone-gen1
+   git clone https://github.com/avrabe/mcp-loxone.git
+   cd mcp-loxone
    ```
 
 3. Set up the development environment:
@@ -112,7 +112,7 @@ We use [Conventional Commits](https://www.conventionalcommits.org/) for our comm
 ## Project Structure
 
 ```
-mcp-loxone-gen1/
+mcp-loxone/
 ├── src/
 │   └── loxone_mcp/
 │       ├── __init__.py

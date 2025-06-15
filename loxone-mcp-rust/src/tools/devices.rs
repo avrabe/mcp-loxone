@@ -841,3 +841,140 @@ pub async fn get_devices_by_type(
         format!("Found {} devices of type '{}'", devices.len(), device_type),
     )
 }
+
+/// Get current status/positions of all blinds/rolladen
+// #[tool] // TODO: Re-enable when rmcp API is clarified
+pub async fn get_all_blinds_status(context: ToolContext) -> ToolResponse {
+    // Get all blind devices
+    let devices = match context.context.get_devices_by_category("blinds").await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(e.to_string()),
+    };
+
+    if devices.is_empty() {
+        return ToolResponse::empty_with_context("blinds/rolladen in system");
+    }
+
+    // Collect UUIDs for batch state retrieval
+    let uuids: Vec<String> = devices.iter().map(|d| d.uuid.clone()).collect();
+
+    // Get current states for all blinds
+    let states = match context.client.get_device_states(&uuids).await {
+        Ok(states) => states,
+        Err(e) => {
+            return ToolResponse::error(format!(
+                "Failed to retrieve blind states: {}",
+                e
+            ));
+        }
+    };
+
+    // Process each blind with its current state
+    let mut blind_statuses = Vec::new();
+    let mut total_open = 0;
+    let mut total_closed = 0;
+    let mut total_partial = 0;
+    let mut total_unknown = 0;
+
+    for device in &devices {
+        let current_state = states.get(&device.uuid);
+        
+        // Parse blind position (typically 0.0 = closed, 1.0 = open for Loxone)
+        let (position_percent, status_text) = if let Some(state_value) = current_state {
+            if let Some(position) = state_value.as_f64() {
+                let percent = (position * 100.0).round() as i32;
+                let status = match percent {
+                    0 => {
+                        total_closed += 1;
+                        "closed"
+                    }
+                    100 => {
+                        total_open += 1;
+                        "fully open"
+                    }
+                    1..=99 => {
+                        total_partial += 1;
+                        "partially open"
+                    }
+                    _ => {
+                        total_unknown += 1;
+                        "unknown position"
+                    }
+                };
+                (Some(percent), status.to_string())
+            } else if let Some(state_str) = state_value.as_str() {
+                // Try to parse string value
+                if let Ok(position) = state_str.parse::<f64>() {
+                    let percent = (position * 100.0).round() as i32;
+                    let status = match percent {
+                        0 => {
+                            total_closed += 1;
+                            "closed"
+                        }
+                        100 => {
+                            total_open += 1;
+                            "fully open"
+                        }
+                        1..=99 => {
+                            total_partial += 1;
+                            "partially open"
+                        }
+                        _ => {
+                            total_unknown += 1;
+                            "unknown position"
+                        }
+                    };
+                    (Some(percent), status.to_string())
+                } else {
+                    total_unknown += 1;
+                    (None, format!("unparseable state: {}", state_str))
+                }
+            } else {
+                total_unknown += 1;
+                (None, format!("complex state: {:?}", state_value))
+            }
+        } else {
+            total_unknown += 1;
+            (None, "no state data".to_string())
+        };
+
+        blind_statuses.push(serde_json::json!({
+            "name": device.name,
+            "uuid": device.uuid,
+            "room": device.room.as_ref().unwrap_or(&"No Room".to_string()),
+            "position_percent": position_percent,
+            "status": status_text,
+            "raw_state": current_state,
+            "device_type": device.device_type
+        }));
+    }
+
+    // Sort by room and then by name for better organization
+    blind_statuses.sort_by(|a, b| {
+        let room_a = a["room"].as_str().unwrap_or("");
+        let room_b = b["room"].as_str().unwrap_or("");
+        let name_a = a["name"].as_str().unwrap_or("");
+        let name_b = b["name"].as_str().unwrap_or("");
+        
+        room_a.cmp(room_b).then(name_a.cmp(name_b))
+    });
+
+    let response_data = serde_json::json!({
+        "total_blinds": devices.len(),
+        "summary": {
+            "fully_open": total_open,
+            "fully_closed": total_closed,
+            "partially_open": total_partial,
+            "unknown_status": total_unknown
+        },
+        "blinds": blind_statuses,
+        "timestamp": chrono::Utc::now().to_rfc3339()
+    });
+
+    let summary_message = format!(
+        "Retrieved status for {} blinds: {} closed, {} open, {} partial, {} unknown",
+        devices.len(), total_closed, total_open, total_partial, total_unknown
+    );
+
+    ToolResponse::success_with_message(response_data, summary_message)
+}

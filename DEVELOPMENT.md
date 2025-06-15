@@ -5,7 +5,7 @@ This guide helps you develop and extend the Loxone MCP Server.
 ## Project Structure
 
 ```
-mcp-loxone-gen1/
+mcp-loxone/
 ├── src/loxone_mcp/        # Main package
 │   ├── __init__.py        # Package initialization
 │   ├── __main__.py        # Entry point for python -m
@@ -23,7 +23,7 @@ mcp-loxone-gen1/
 1. **Clone and enter the directory:**
    ```bash
    git clone <your-repo>
-   cd mcp-loxone-gen1
+   cd mcp-loxone
    ```
 
 2. **Install dependencies:**

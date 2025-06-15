@@ -1,0 +1,891 @@
+<!--
+SPDX-License-Identifier: MIT
+Copyright (c) 2025 Ralf Anton Beier
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust MCP Server - High-Performance Loxone Integration</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="High-performance Rust implementation of Model Context Protocol for Loxone home automation. WebAssembly-ready, production-grade security, 30+ built-in tools.">
+    <meta name="keywords" content="Loxone, MCP, Rust, WebAssembly, Home Automation, Smart Home, Claude, n8n">
+    <meta name="author" content="Ralf Anton Beier">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="Loxone MCP Rust Server">
+    <meta property="og:description" content="Transform your Loxone home automation with modern, secure, high-performance MCP integration">
+    <meta property="og:image" content="mcp-loxone.png">
+    <meta property="og:type" content="website">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css">
+    
+    <style>
+        /* CSS Variables for Rust/Smart Home Theme */
+        :root {
+            --rust-orange: #ce422b;
+            --rust-brown: #8b4513;
+            --primary-color: #059669;
+            --secondary-color: #0891b2;
+            --accent-color: #f59e0b;
+            --warning-color: #dc2626;
+            --bg-primary: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --bg-code: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --gradient-rust: linear-gradient(135deg, #ce422b 0%, #f59e0b 100%);
+            --gradient-primary: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+            --gradient-hero: linear-gradient(135deg, #0c1821 0%, #1a2332 50%, #243447 100%);
+            --shadow-glow: 0 0 30px rgba(206, 66, 43, 0.3);
+            --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.3);
+            --border-radius: 12px;
+        }
+
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Animated Background */
+        .background-animation {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.3;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(206, 66, 43, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(5, 150, 105, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(8, 145, 178, 0.1) 0%, transparent 50%);
+            animation: float 20s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            33% { transform: translate(30px, -30px) scale(1.1); }
+            66% { transform: translate(-20px, 20px) scale(0.9); }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(12, 24, 33, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 1rem 0;
+            box-shadow: 0 2px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--gradient-rust);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .github-link {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            transition: all 0.3s;
+        }
+
+        .github-link:hover {
+            background: var(--rust-orange);
+            transform: translateY(-2px);
+        }
+
+        /* Hero Section */
+        .hero {
+            margin-top: 80px;
+            padding: 4rem 2rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1.5rem;
+            background: var(--gradient-rust);
+            border-radius: 50px;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            box-shadow: var(--shadow-glow);
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 8vw, 4.5rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--rust-orange) 50%, var(--primary-color) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .hero-subtitle {
+            font-size: 1.5rem;
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        /* Statistics Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+            margin: 4rem 0;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            text-align: center;
+            transition: all 0.3s;
+            border: 1px solid rgba(206, 66, 43, 0.2);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-card);
+            border-color: var(--rust-orange);
+        }
+
+        .stat-number {
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--rust-orange);
+            margin-bottom: 0.5rem;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        /* Quick Start Section */
+        .quick-start {
+            background: var(--bg-secondary);
+            padding: 4rem 2rem;
+            margin: 4rem 0;
+        }
+
+        .section-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .code-card {
+            background: var(--bg-code);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            margin: 2rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+            color: var(--text-secondary);
+        }
+
+        .copy-button {
+            background: var(--bg-card);
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .copy-button:hover {
+            background: var(--rust-orange);
+        }
+
+        pre {
+            overflow-x: auto;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Feature Grid */
+        .features {
+            padding: 4rem 2rem;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            padding: 2.5rem;
+            border-radius: var(--border-radius);
+            transition: all 0.3s;
+            border: 1px solid transparent;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: var(--gradient-rust);
+            border-radius: var(--border-radius);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: -1;
+        }
+
+        .feature-card:hover::before {
+            opacity: 1;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            background: var(--bg-card);
+        }
+
+        .feature-icon {
+            width: 60px;
+            height: 60px;
+            background: var(--gradient-rust);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .feature-title {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Architecture Diagram */
+        .architecture {
+            background: var(--bg-secondary);
+            padding: 4rem 2rem;
+            margin: 4rem 0;
+        }
+
+        .architecture-diagram {
+            background: var(--bg-code);
+            border-radius: var(--border-radius);
+            padding: 3rem;
+            margin: 2rem 0;
+            font-family: 'JetBrains Mono', monospace;
+            overflow-x: auto;
+            box-shadow: var(--shadow-card);
+        }
+
+        /* Interactive Demo */
+        .demo-section {
+            padding: 4rem 2rem;
+        }
+
+        .demo-container {
+            background: var(--bg-card);
+            border-radius: var(--border-radius);
+            padding: 2rem;
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+
+        .demo-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid var(--bg-secondary);
+        }
+
+        .demo-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+
+        .demo-tab.active {
+            color: var(--rust-orange);
+        }
+
+        .demo-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--rust-orange);
+        }
+
+        /* Call to Action */
+        .cta-section {
+            background: var(--gradient-rust);
+            padding: 4rem 2rem;
+            text-align: center;
+            margin: 4rem 0;
+            border-radius: var(--border-radius);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            margin-top: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 1rem 2.5rem;
+            border-radius: var(--border-radius);
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--bg-primary);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--text-primary);
+        }
+
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-secondary);
+            padding: 3rem 2rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+            
+            .feature-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .slide-in {
+            animation: slideIn 0.8s ease-out;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-50px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Animated Background -->
+    <div class="background-animation"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <a href="index.html" class="logo">
+                <div class="logo-icon">🦀</div>
+                <span>Loxone MCP Rust</span>
+            </a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#quick-start">Quick Start</a>
+                <a href="loxone-mcp-rust/docs/API_REFERENCE.md">API Docs</a>
+                <a href="https://github.com/your-repo" class="github-link">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content fade-in">
+            <div class="hero-badge">
+                🦀 Rust Powered • 🚀 WASM Ready • 🛡️ Production Grade
+            </div>
+            <h1>Loxone MCP Rust Server</h1>
+            <p class="hero-subtitle">
+                High-performance Model Context Protocol implementation for Loxone home automation.
+                Built with Rust for speed, safety, and scalability.
+            </p>
+            
+            <!-- Key Statistics -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number">30+</div>
+                    <div class="stat-label">MCP Tools</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">183</div>
+                    <div class="stat-label">Rust Files</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number">2MB</div>
+                    <div class="stat-label">WASM Size</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number"><10ms</div>
+                    <div class="stat-label">Latency</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start -->
+    <section class="quick-start" id="quick-start">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">🚀 Quick Start</h2>
+                <p class="section-subtitle">Get up and running in 30 seconds</p>
+            </div>
+            
+            <div class="code-card slide-in">
+                <div class="code-header">
+                    <span>One-Command Setup</span>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code class="language-bash"># Install everything and run the server
+curl -sSL https://raw.githubusercontent.com/your-repo/main/quick-start.sh | bash</code></pre>
+            </div>
+            
+            <div class="code-card slide-in">
+                <div class="code-header">
+                    <span>Run with Claude Desktop</span>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code class="language-bash"># Run MCP server in stdio mode
+cargo run --bin loxone-mcp-server -- stdio</code></pre>
+            </div>
+            
+            <div class="code-card slide-in">
+                <div class="code-header">
+                    <span>Run for n8n/Web API</span>
+                    <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code class="language-bash"># Start HTTP server
+cargo run --bin loxone-mcp-server -- http --port 3001</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">✨ Core Features</h2>
+                <p class="section-subtitle">Everything you need for professional home automation</p>
+            </div>
+            
+            <div class="feature-grid">
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🎛️</div>
+                    <h3 class="feature-title">30+ MCP Tools</h3>
+                    <p class="feature-description">
+                        Comprehensive device control including lights, climate, audio, sensors, security, and energy monitoring. 
+                        Every tool is type-safe and validated.
+                    </p>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🌐</div>
+                    <h3 class="feature-title">WASM Deployment</h3>
+                    <p class="feature-description">
+                        2MB WebAssembly binary runs in browsers and edge computing platforms. 
+                        Deploy anywhere with WASIP2 support.
+                    </p>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">Security First</h3>
+                    <p class="feature-description">
+                        Input validation, rate limiting, CORS protection, and audit logging. 
+                        Built with Rust's memory safety guarantees.
+                    </p>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">⚡</div>
+                    <h3 class="feature-title">Blazing Fast</h3>
+                    <p class="feature-description">
+                        Async I/O with Tokio, connection pooling, and zero-copy operations. 
+                        Handle 1000+ concurrent requests with <10ms latency.
+                    </p>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">📊</div>
+                    <h3 class="feature-title">Real-time Dashboard</h3>
+                    <p class="feature-description">
+                        WebSocket streaming, InfluxDB metrics, and live monitoring. 
+                        Track performance and device status in real-time.
+                    </p>
+                </div>
+                
+                <div class="feature-card fade-in">
+                    <div class="feature-icon">🐳</div>
+                    <h3 class="feature-title">Universal Deployment</h3>
+                    <p class="feature-description">
+                        Native binaries, Docker containers, Kubernetes, or WASM. 
+                        Deploy on any platform with consistent performance.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture -->
+    <section class="architecture" id="architecture">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">🏗️ Architecture</h2>
+                <p class="section-subtitle">Modular design with 12 major subsystems</p>
+            </div>
+            
+            <div class="architecture-diagram fade-in">
+                <pre>┌─────────── MCP Clients ──────────────┐    ┌─── Loxone Miniserver ────┐
+│  🤖 Claude Desktop (stdio)           │    │  🏠 HTTP/WebSocket API    │
+│  🔄 n8n Workflows (HTTP)            │◄──►│  💡 Device Controls       │
+│  🌐 Web Applications (REST)          │    │  📊 Real-time Events      │
+└───────────────────────────────────────┘    └───────────────────────────┘
+                    ▲                                     ▲
+                    │                                     │
+              ┌─────▼─────────────────────────────────────▼─────┐
+              │          🦀 Rust MCP Server                    │
+              │  ┌─────────┬─────────┬─────────┬─────────┐    │
+              │  │ 🎛️ Tools│🛡️Security│📊Monitor│🌐 WASM │    │
+              │  │ 30+ MCP │Rate Limit│Real-time│2MB Size │    │
+              │  │ Commands│Validation│Dashboard│Deploy   │    │
+              │  └─────────┴─────────┴─────────┴─────────┘    │
+              │  ┌─────────────────────────────────────────┐    │
+              │  │ 🔧 Core Engine                          │    │
+              │  │ • Async I/O (Tokio)                     │    │
+              │  │ • Connection Pooling                    │    │
+              │  │ • Batch Processing                      │    │
+              │  │ • Auto-discovery                        │    │
+              │  └─────────────────────────────────────────┘    │
+              └─────────────────────────────────────────────────┘</pre>
+            </div>
+            
+            <div class="cta-buttons">
+                <a href="loxone-mcp-rust/docs/ARCHITECTURE.md" class="btn btn-secondary">
+                    📖 Full Architecture Guide
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Interactive Demo -->
+    <section class="demo-section">
+        <div class="section-container">
+            <div class="section-header fade-in">
+                <h2 class="section-title">🎮 Try It Out</h2>
+                <p class="section-subtitle">Interactive examples</p>
+            </div>
+            
+            <div class="demo-container fade-in">
+                <div class="demo-tabs">
+                    <button class="demo-tab active" onclick="showDemo('lights')">💡 Lights</button>
+                    <button class="demo-tab" onclick="showDemo('climate')">🌡️ Climate</button>
+                    <button class="demo-tab" onclick="showDemo('sensors')">📡 Sensors</button>
+                </div>
+                
+                <div id="lights-demo" class="demo-content">
+                    <div class="code-card">
+                        <div class="code-header">
+                            <span>Control Room Lights</span>
+                            <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code class="language-bash">curl -X POST http://localhost:3001/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "control_room_devices",
+    "arguments": {
+      "room": "Living Room",
+      "device_type": "lights",
+      "action": "on"
+    }
+  }'</code></pre>
+                    </div>
+                </div>
+                
+                <div id="climate-demo" class="demo-content" style="display: none;">
+                    <div class="code-card">
+                        <div class="code-header">
+                            <span>Set Room Temperature</span>
+                            <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code class="language-bash">curl -X POST http://localhost:3001/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "set_room_temperature",
+    "arguments": {
+      "room": "Bedroom",
+      "temperature": 22.5
+    }
+  }'</code></pre>
+                    </div>
+                </div>
+                
+                <div id="sensors-demo" class="demo-content" style="display: none;">
+                    <div class="code-card">
+                        <div class="code-header">
+                            <span>Get Temperature Readings</span>
+                            <button class="copy-button" onclick="copyCode(this)">Copy</button>
+                        </div>
+                        <pre><code class="language-bash">curl -X POST http://localhost:3001/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tool": "get_temperature_sensors",
+    "arguments": {}
+  }'</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="cta-section">
+        <div class="section-container">
+            <h2 class="section-title">🚀 Ready to Transform Your Smart Home?</h2>
+            <p>Join developers using the most advanced Loxone integration available</p>
+            
+            <div class="cta-buttons">
+                <a href="https://github.com/your-repo" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                    </svg>
+                    View on GitHub
+                </a>
+                <a href="loxone-mcp-rust/docs/QUICK_START.md" class="btn btn-secondary">
+                    📖 Read Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2025 Loxone MCP Rust Server. MIT License.</p>
+        <p>Built with ❤️ in Rust by Ralf Anton Beier</p>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-rust.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+    
+    <script>
+        // Copy code functionality
+        function copyCode(button) {
+            const codeBlock = button.parentElement.nextElementSibling.querySelector('code');
+            const text = codeBlock.textContent;
+            
+            navigator.clipboard.writeText(text).then(() => {
+                button.textContent = 'Copied!';
+                button.style.background = '#059669';
+                
+                setTimeout(() => {
+                    button.textContent = 'Copy';
+                    button.style.background = '';
+                }, 2000);
+            });
+        }
+        
+        // Demo tab switching
+        function showDemo(demo) {
+            // Hide all demos
+            document.querySelectorAll('.demo-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.demo-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected demo
+            document.getElementById(demo + '-demo').style.display = 'block';
+            
+            // Add active class to clicked tab
+            event.target.classList.add('active');
+        }
+        
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+        
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.opacity = '1';
+                    entry.target.style.transform = 'translateY(0)';
+                }
+            });
+        }, observerOptions);
+        
+        // Observe all animated elements
+        document.querySelectorAll('.fade-in, .slide-in').forEach(el => {
+            el.style.opacity = '0';
+            el.style.transform = 'translateY(20px)';
+            el.style.transition = 'all 0.6s ease-out';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

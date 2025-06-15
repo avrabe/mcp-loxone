@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Reference - MCP Loxone</title>
+    
+    <style>
+        :root {
+            --rust-orange: #ce422b;
+            --loxone-green: #059669;
+            --bg-dark: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --border-color: #334155;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .breadcrumbs {
+            margin-bottom: 2rem;
+        }
+
+        .breadcrumbs a {
+            color: var(--text-secondary);
+            text-decoration: none;
+        }
+
+        h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--rust-orange), #f59e0b);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+            margin-bottom: 3rem;
+        }
+
+        .api-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .api-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+        }
+
+        .api-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border-color: var(--rust-orange);
+        }
+
+        .api-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .api-card h3 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .api-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .api-link {
+            color: var(--rust-orange);
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .api-link:hover {
+            text-decoration: underline;
+        }
+
+        .coming-soon {
+            opacity: 0.6;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="breadcrumbs">
+            <a href="../index.html">← Back to Home</a> / <a href="../docs.html">Documentation</a>
+        </div>
+
+        <header>
+            <h1>🔧 API Reference</h1>
+            <p class="subtitle">Complete reference for all MCP tools and REST endpoints</p>
+        </header>
+
+        <div class="api-grid">
+            <div class="api-card">
+                <div class="api-icon">🏠</div>
+                <h3>Room Tools</h3>
+                <p>Control devices by room with batch operations and smart grouping.</p>
+                <a href="#room-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">💡</div>
+                <h3>Device Tools</h3>
+                <p>Individual device control for lights, switches, dimmers, and more.</p>
+                <a href="#device-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🌡️</div>
+                <h3>Climate Tools</h3>
+                <p>Temperature control, HVAC management, and climate monitoring.</p>
+                <a href="#climate-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🎵</div>
+                <h3>Audio Tools</h3>
+                <p>Multi-zone audio control, volume management, and source selection.</p>
+                <a href="#audio-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🔐</div>
+                <h3>Security Tools</h3>
+                <p>Alarm systems, access control, and security monitoring.</p>
+                <a href="#security-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">📊</div>
+                <h3>Sensor Tools</h3>
+                <p>Temperature, motion, door/window sensors with real-time data.</p>
+                <a href="#sensor-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">⚡</div>
+                <h3>Energy Tools</h3>
+                <p>Power monitoring, consumption tracking, and energy analytics.</p>
+                <a href="#energy-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🌤️</div>
+                <h3>Weather Tools</h3>
+                <p>Weather station integration and environmental monitoring.</p>
+                <a href="#weather-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🔄</div>
+                <h3>Workflow Tools</h3>
+                <p>Automation scenarios, batch operations, and scene control.</p>
+                <a href="#workflow-tools" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🌐</div>
+                <h3>REST API</h3>
+                <p>HTTP endpoints for n8n integration and web applications.</p>
+                <a href="#rest-api" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🔌</div>
+                <h3>WebSocket API</h3>
+                <p>Real-time streaming API for live updates and monitoring.</p>
+                <a href="#websocket-api" class="api-link">View Documentation →</a>
+            </div>
+
+            <div class="api-card">
+                <div class="api-icon">🦀</div>
+                <h3>Rust Documentation</h3>
+                <p>Complete Rust API documentation for developers.</p>
+                <a href="https://avrabe.github.io/mcp-loxone/rust-docs/" class="api-link">View Rust Docs →</a>
+            </div>
+        </div>
+
+        <div style="margin-top: 3rem; text-align: center;">
+            <p class="coming-soon">
+                📝 Detailed API documentation is being generated automatically from the Rust code.<br>
+                Check back soon or view the <a href="https://github.com/avrabe/mcp-loxone" class="api-link">source code</a> for the latest information.
+            </p>
+        </div>
+    </div>
+</body>
+</html>

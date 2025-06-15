@@ -8,9 +8,9 @@ Copyright (c) 2025 Ralf Anton Beier
   
   # Loxone MCP Server
 
-  High-performance Rust implementation of Model Context Protocol (MCP) server for Loxone Generation 1 home automation systems. Enables AI assistants to control lights, blinds, sensors, and weather data through natural language commands.
+  High-performance Rust implementation of Model Context Protocol (MCP) server for Loxone home automation systems. Enables AI assistants to control lights, blinds, sensors, and weather data through natural language commands.
 
-  **[📖 Landing Page](https://avrabe.github.io/mcp-loxone-gen1/)** | **[⚡ Quick Start](#quick-start)** | **[📋 Documentation](loxone-mcp-rust/README.md)** | **[🐍 Python Legacy](archive/python-legacy/)**
+  **[📖 Landing Page](https://avrabe.github.io/mcp-loxone/)** | **[⚡ Quick Start](#quick-start)** | **[📋 Documentation](loxone-mcp-rust/README.md)** | **[🐍 Python Legacy](archive/python-legacy/)**
 </div>
 
 ## 🦀 Rust Implementation (Recommended)
@@ -30,8 +30,8 @@ This project has been **completely rewritten in Rust** for superior performance,
 ### Quick Start
 
 ```bash
-git clone https://github.com/avrabe/mcp-loxone-gen1.git
-cd mcp-loxone-gen1/loxone-mcp-rust
+git clone https://github.com/avrabe/mcp-loxone.git
+cd mcp-loxone/loxone-mcp-rust
 cargo build --release
 ./target/release/loxone-mcp-rust --help
 ```
@@ -41,7 +41,7 @@ cargo build --release
 ## Prerequisites
 
 - Rust 1.75+ ([install via rustup](https://rustup.rs/))
-- Loxone Miniserver Generation 1
+- Loxone Miniserver
 - Optional: Docker for containerized deployment
 
 ## Deployment Options

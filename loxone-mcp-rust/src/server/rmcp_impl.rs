@@ -389,6 +389,15 @@ impl ServerHandler for LoxoneMcpServer {
                     "required": []
                 }),
             },
+            Tool {
+                name: "get_all_blinds_status".into(),
+                description: "Get current positions and states of all blinds/rolladen in the system".into(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }),
+            },
         ];
 
         Ok(ListToolsResult {
@@ -768,6 +777,11 @@ impl ServerHandler for LoxoneMcpServer {
                 .get_workflow_examples()
                 .await
                 .map_err(|_| Error::invalid_params("Failed to get workflow examples")),
+
+            "get_all_blinds_status" => self
+                .get_all_blinds_status()
+                .await
+                .map_err(|_| Error::invalid_params("Failed to get all blinds status")),
 
             _ => Err(Error::invalid_params("Unknown tool")),
         };
@@ -1969,6 +1983,8 @@ fn is_read_only_tool(tool_name: &str) -> bool {
             // Documentation tools (could be resources in future)
             | "list_predefined_workflows"
             | "get_workflow_examples"
+            // Status retrieval tools (read-only)
+            | "get_all_blinds_status"
     )
 }
 
@@ -1989,6 +2005,10 @@ fn get_cache_ttl(tool_name: &str) -> std::time::Duration {
         // Documentation and static content - long cache
         "list_predefined_workflows" | "get_workflow_examples" => {
             std::time::Duration::from_secs(3600) // 1 hour
+        }
+        // Status retrieval tools - short cache for real-time data
+        "get_all_blinds_status" => {
+            std::time::Duration::from_secs(30) // 30 seconds for blind positions
         }
         // Default cache duration for remaining tools
         _ => std::time::Duration::from_secs(120), // 2 minutes

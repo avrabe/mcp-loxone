@@ -1,0 +1,1498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Loxone - High-Performance Rust Server for Home Automation</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="Control your Loxone home automation with AI. High-performance Rust MCP server with 30+ tools, WASM support, and enterprise security.">
+    <meta name="keywords" content="Loxone, MCP, Model Context Protocol, Rust, Home Automation, Smart Home, Claude AI, WebAssembly">
+    <meta name="author" content="Ralf Anton Beier">
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://avrabe.github.io/mcp-loxone/">
+    <meta property="og:title" content="MCP Loxone - Rust Server for Home Automation">
+    <meta property="og:description" content="Control your Loxone home automation with AI. High-performance Rust implementation.">
+    <meta property="og:image" content="https://avrabe.github.io/mcp-loxone/images/og-image.png">
+    
+    <!-- Twitter Card -->
+    <meta property="twitter:card" content="summary_large_image">
+    <meta property="twitter:url" content="https://avrabe.github.io/mcp-loxone/">
+    <meta property="twitter:title" content="MCP Loxone - Rust Server">
+    <meta property="twitter:description" content="Control your Loxone home automation with AI.">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    
+    <!-- Styles -->
+    <style>
+        :root {
+            --rust-orange: #ce422b;
+            --rust-dark: #a73924;
+            --loxone-green: #059669;
+            --loxone-blue: #0891b2;
+            --accent-yellow: #f59e0b;
+            --bg-dark: #0c1821;
+            --bg-secondary: #1a2332;
+            --bg-card: #243447;
+            --bg-code: #1e293b;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: #334155;
+            --gradient-hero: linear-gradient(135deg, #0c1821 0%, #1a2332 50%, #243447 100%);
+            --gradient-rust: linear-gradient(135deg, #ce422b 0%, #f59e0b 100%);
+            --gradient-loxone: linear-gradient(135deg, #059669 0%, #0891b2 100%);
+            --shadow-glow: 0 0 40px rgba(206, 66, 43, 0.3);
+            --shadow-card: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-dark);
+            color: var(--text-primary);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+
+        /* Loading Screen */
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            transition: opacity 0.5s ease;
+        }
+
+        .loader.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loader-content {
+            text-align: center;
+        }
+
+        .loader-logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 1rem;
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 0;
+            width: 100%;
+            background: rgba(12, 24, 33, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 1rem 0;
+            transition: all 0.3s ease;
+        }
+
+        nav.scrolled {
+            background: rgba(12, 24, 33, 0.98);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .nav-logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            text-decoration: none;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1.25rem;
+        }
+
+        .nav-logo img {
+            width: 32px;
+            height: 32px;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            align-items: center;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .nav-cta {
+            background: var(--gradient-rust);
+            color: white;
+            padding: 0.5rem 1.25rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .nav-cta:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(206, 66, 43, 0.3);
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        /* Hero Section */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 4rem 2rem;
+            background: var(--gradient-hero);
+            overflow: hidden;
+        }
+
+        .hero-bg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        .hero-particles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+        }
+
+        .particle {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            background: var(--rust-orange);
+            border-radius: 50%;
+            opacity: 0.5;
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            from {
+                transform: translateY(100vh) translateX(0);
+            }
+            to {
+                transform: translateY(-100vh) translateX(100px);
+            }
+        }
+
+        .hero-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(206, 66, 43, 0.1);
+            border: 1px solid rgba(206, 66, 43, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            margin-bottom: 2rem;
+            font-size: 0.9rem;
+            color: var(--rust-orange);
+        }
+
+        .hero-badge .dot {
+            width: 8px;
+            height: 8px;
+            background: var(--rust-orange);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            margin-bottom: 1.5rem;
+            background: var(--gradient-rust);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .hero-subtitle {
+            font-size: clamp(1.1rem, 2vw, 1.5rem);
+            color: var(--text-secondary);
+            margin-bottom: 3rem;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 2rem;
+            max-width: 600px;
+            margin: 0 auto 3rem;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--rust-orange);
+            display: block;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .hero-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary {
+            background: var(--gradient-rust);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-primary);
+            border: 2px solid var(--border-color);
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--rust-orange);
+            color: var(--rust-orange);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 5rem 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .section-badge {
+            display: inline-block;
+            background: rgba(5, 150, 105, 0.1);
+            color: var(--loxone-green);
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            margin-bottom: 1rem;
+        }
+
+        .section-title {
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .section-subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 2rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--gradient-rust);
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-card);
+            border-color: var(--rust-orange);
+        }
+
+        .feature-card:hover::before {
+            transform: translateX(0);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: rgba(206, 66, 43, 0.1);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-card h3 {
+            font-size: 1.25rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .feature-list {
+            list-style: none;
+        }
+
+        .feature-list li {
+            color: var(--text-secondary);
+            padding-left: 1.5rem;
+            position: relative;
+            margin-bottom: 0.5rem;
+        }
+
+        .feature-list li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--loxone-green);
+        }
+
+        /* Code Examples Section */
+        .code-examples {
+            padding: 5rem 2rem;
+            background: var(--bg-dark);
+        }
+
+        .code-tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            border-bottom: 1px solid var(--border-color);
+            overflow-x: auto;
+        }
+
+        .code-tab {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            white-space: nowrap;
+            position: relative;
+        }
+
+        .code-tab.active {
+            color: var(--text-primary);
+        }
+
+        .code-tab.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--rust-orange);
+        }
+
+        .code-content {
+            background: var(--bg-code);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .code-header {
+            background: var(--bg-secondary);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .code-language {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .copy-btn {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: var(--bg-card);
+            color: var(--text-primary);
+        }
+
+        .copy-btn.copied {
+            color: var(--loxone-green);
+        }
+
+        pre {
+            margin: 0;
+            padding: 1.5rem;
+            overflow-x: auto;
+        }
+
+        code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+        }
+
+        /* Syntax Highlighting */
+        .token.comment { color: #6b7280; }
+        .token.keyword { color: #f59e0b; }
+        .token.string { color: #059669; }
+        .token.function { color: #0891b2; }
+        .token.number { color: #dc2626; }
+
+        /* Architecture Section */
+        .architecture {
+            padding: 5rem 2rem;
+            background: var(--bg-secondary);
+        }
+
+        .architecture-diagram {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-top: 3rem;
+            overflow-x: auto;
+        }
+
+        .architecture-svg {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Integrations Section */
+        .integrations {
+            padding: 5rem 2rem;
+            background: var(--bg-dark);
+        }
+
+        .integrations-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            margin-top: 3rem;
+        }
+
+        .integration-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .integration-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--shadow-card);
+            border-color: var(--loxone-green);
+        }
+
+        .integration-logo {
+            width: 64px;
+            height: 64px;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+        }
+
+        .integration-card h3 {
+            margin-bottom: 0.5rem;
+        }
+
+        .integration-card p {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* CTA Section */
+        .cta {
+            padding: 5rem 2rem;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            text-align: center;
+        }
+
+        .cta-content {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .cta h2 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 1.5rem;
+            background: var(--gradient-rust);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .cta p {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            margin-bottom: 2rem;
+        }
+
+        /* Footer */
+        footer {
+            background: var(--bg-dark);
+            border-top: 1px solid var(--border-color);
+            padding: 3rem 2rem 2rem;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 3rem;
+            margin-bottom: 2rem;
+        }
+
+        .footer-section h4 {
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .footer-links {
+            list-style: none;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--text-primary);
+        }
+
+        .footer-bottom {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary);
+        }
+
+        /* Animations */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.6s ease forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in-left {
+            opacity: 0;
+            transform: translateX(-50px);
+            animation: slideInLeft 0.6s ease forwards;
+        }
+
+        @keyframes slideInLeft {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        .slide-in-right {
+            opacity: 0;
+            transform: translateX(50px);
+            animation: slideInRight 0.6s ease forwards;
+        }
+
+        @keyframes slideInRight {
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+            }
+
+            .mobile-menu-btn {
+                display: block;
+            }
+
+            .hero-actions {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .features-grid,
+            .integrations-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .code-tabs {
+                gap: 0.5rem;
+            }
+
+            .code-tab {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+
+        /* Mobile Menu */
+        .mobile-menu {
+            position: fixed;
+            top: 0;
+            right: -100%;
+            width: 80%;
+            max-width: 400px;
+            height: 100vh;
+            background: var(--bg-secondary);
+            transition: right 0.3s ease;
+            z-index: 1001;
+            padding: 2rem;
+        }
+
+        .mobile-menu.active {
+            right: 0;
+        }
+
+        .mobile-menu-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+            z-index: 1000;
+        }
+
+        .mobile-menu-overlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .mobile-menu-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+
+        .mobile-menu-close {
+            background: none;
+            border: none;
+            color: var(--text-primary);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .mobile-menu-links {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .mobile-menu-links a {
+            color: var(--text-primary);
+            text-decoration: none;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loader" id="loader">
+        <div class="loader-content">
+            <div class="loader-logo">
+                <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="#ce422b" stroke-width="4"/>
+                    <path d="M30 50 L45 65 L70 35" fill="none" stroke="#ce422b" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+            <p style="color: var(--text-secondary);">Loading MCP Loxone...</p>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav id="navbar">
+        <div class="nav-container">
+            <a href="#home" class="nav-logo">
+                <img src="logo.svg" alt="MCP Loxone">
+                <span>MCP Loxone</span>
+            </a>
+            
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#examples">Examples</a>
+                <a href="#architecture">Architecture</a>
+                <a href="#docs">Documentation</a>
+                <a href="https://github.com/avrabe/mcp-loxone" class="nav-cta">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.012 8.012 0 0 0 16 8c0-4.42-3.58-8-8-8z"/>
+                    </svg>
+                    GitHub
+                </a>
+            </div>
+
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="3" y1="6" x2="21" y2="6"></line>
+                    <line x1="3" y1="12" x2="21" y2="12"></line>
+                    <line x1="3" y1="18" x2="21" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+    </nav>
+
+    <!-- Mobile Menu -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay"></div>
+    <div class="mobile-menu" id="mobileMenu">
+        <div class="mobile-menu-header">
+            <span style="font-weight: 600;">Menu</span>
+            <button class="mobile-menu-close" id="mobileMenuClose">✕</button>
+        </div>
+        <div class="mobile-menu-links">
+            <a href="#features">Features</a>
+            <a href="#examples">Examples</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#docs">Documentation</a>
+            <a href="https://github.com/avrabe/mcp-loxone">GitHub</a>
+        </div>
+    </div>
+
+    <!-- Hero Section -->
+    <section class="hero" id="home">
+        <div class="hero-bg">
+            <div class="hero-particles" id="particles"></div>
+        </div>
+        
+        <div class="hero-content">
+            <div class="hero-badge fade-in">
+                <span class="dot"></span>
+                <span>v2.0 - Complete Rust Rewrite</span>
+            </div>
+            
+            <h1 class="fade-in" style="animation-delay: 0.1s;">
+                Control Your Loxone<br>Home with AI
+            </h1>
+            
+            <p class="hero-subtitle fade-in" style="animation-delay: 0.2s;">
+                High-performance Model Context Protocol server written in Rust.<br>
+                Connect Claude, n8n, or any MCP client to your smart home.
+            </p>
+            
+            <div class="hero-stats fade-in" style="animation-delay: 0.3s;">
+                <div class="stat">
+                    <span class="stat-value">30+</span>
+                    <span class="stat-label">MCP Tools</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">10-100x</span>
+                    <span class="stat-label">Faster than Python</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">2MB</span>
+                    <span class="stat-label">WASM Binary</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">183</span>
+                    <span class="stat-label">Rust Files</span>
+                </div>
+            </div>
+            
+            <div class="hero-actions fade-in" style="animation-delay: 0.4s;">
+                <a href="#get-started" class="btn btn-primary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 0l1.669 5.134H15l-4.331 3.147L12.338 13.415 8 10.268 3.662 13.415l1.669-5.134L1 5.134h5.331z"/>
+                    </svg>
+                    Get Started
+                </a>
+                <a href="docs.html" class="btn btn-secondary">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M8 4.754a3.246 3.246 0 1 0 0 6.492 3.246 3.246 0 0 0 0-6.492zM5.754 8a2.246 2.246 0 1 1 4.492 0 2.246 2.246 0 0 1-4.492 0z"/>
+                        <path d="M9.796 1.343c-.527-1.79-3.065-1.79-3.592 0l-.094.319a.873.873 0 0 1-1.255.52l-.292-.16c-1.64-.892-3.433.902-2.54 2.541l.159.292a.873.873 0 0 1-.52 1.255l-.319.094c-1.79.527-1.79 3.065 0 3.592l.319.094a.873.873 0 0 1 .52 1.255l-.16.292c-.892 1.64.901 3.434 2.541 2.54l.292-.159a.873.873 0 0 1 1.255.52l.094.319c.527 1.79 3.065 1.79 3.592 0l.094-.319a.873.873 0 0 1 1.255-.52l.292.16c1.64.893 3.434-.902 2.54-2.541l-.159-.292a.873.873 0 0 1 .52-1.255l.319-.094c1.79-.527 1.79-3.065 0-3.592l-.319-.094a.873.873 0 0 1-.52-1.255l.16-.292c.893-1.64-.902-3.433-2.541-2.54l-.292.159a.873.873 0 0 1-1.255-.52l-.094-.319zm-2.633.283c.246-.835 1.428-.835 1.674 0l.094.319a1.873 1.873 0 0 0 2.693 1.115l.291-.16c.764-.415 1.6.42 1.184 1.185l-.159.292a1.873 1.873 0 0 0 1.116 2.692l.318.094c.835.246.835 1.428 0 1.674l-.319.094a1.873 1.873 0 0 0-1.115 2.693l.16.291c.415.764-.42 1.6-1.185 1.184l-.291-.159a1.873 1.873 0 0 0-2.693 1.116l-.094.318c-.246.835-1.428.835-1.674 0l-.094-.319a1.873 1.873 0 0 0-2.692-1.115l-.292.16c-.764.415-1.6-.42-1.184-1.185l.159-.291A1.873 1.873 0 0 0 1.945 8.93l-.319-.094c-.835-.246-.835-1.428 0-1.674l.319-.094A1.873 1.873 0 0 0 3.06 4.377l-.16-.292c-.415-.764.42-1.6 1.185-1.184l.292.159a1.873 1.873 0 0 0 2.692-1.115l.094-.319z"/>
+                    </svg>
+                    Documentation
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features" id="features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Features</span>
+                <h2 class="section-title">Everything You Need</h2>
+                <p class="section-subtitle">
+                    Comprehensive tools for complete home automation control
+                </p>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card slide-in-left">
+                    <div class="feature-icon">🎛️</div>
+                    <h3>30+ MCP Tools</h3>
+                    <p>Complete device control with specialized tools for every system in your home.</p>
+                    <ul class="feature-list">
+                        <li>Lights, switches, dimmers</li>
+                        <li>Climate and HVAC control</li>
+                        <li>Audio zones and sources</li>
+                        <li>Security and sensors</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card slide-in-left" style="animation-delay: 0.1s;">
+                    <div class="feature-icon">⚡</div>
+                    <h3>Blazing Fast</h3>
+                    <p>Rust's zero-cost abstractions deliver unmatched performance.</p>
+                    <ul class="feature-list">
+                        <li>10-100x faster than Python</li>
+                        <li>Sub-10ms response times</li>
+                        <li>Async I/O with Tokio</li>
+                        <li>Connection pooling</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card slide-in-left" style="animation-delay: 0.2s;">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Enterprise Security</h3>
+                    <p>Production-grade security features built-in from day one.</p>
+                    <ul class="feature-list">
+                        <li>Rate limiting & CORS</li>
+                        <li>Input validation</li>
+                        <li>Audit logging</li>
+                        <li>Consent management</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card slide-in-right">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Deploy Anywhere</h3>
+                    <p>Multiple deployment options for any infrastructure.</p>
+                    <ul class="feature-list">
+                        <li>Native binaries</li>
+                        <li>Docker containers</li>
+                        <li>WebAssembly (2MB)</li>
+                        <li>Kubernetes ready</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card slide-in-right" style="animation-delay: 0.1s;">
+                    <div class="feature-icon">🔄</div>
+                    <h3>Workflow Engine</h3>
+                    <p>Build complex automations with visual workflow tools.</p>
+                    <ul class="feature-list">
+                        <li>n8n integration</li>
+                        <li>Batch operations</li>
+                        <li>Event streaming</li>
+                        <li>Conditional logic</li>
+                    </ul>
+                </div>
+
+                <div class="feature-card slide-in-right" style="animation-delay: 0.2s;">
+                    <div class="feature-icon">📊</div>
+                    <h3>Real-time Monitoring</h3>
+                    <p>Comprehensive monitoring and analytics built-in.</p>
+                    <ul class="feature-list">
+                        <li>Live dashboard</li>
+                        <li>Performance metrics</li>
+                        <li>Historical data</li>
+                        <li>Alert system</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Code Examples Section -->
+    <section class="code-examples" id="examples">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Examples</span>
+                <h2 class="section-title">See It In Action</h2>
+                <p class="section-subtitle">
+                    Real examples of controlling your home with natural language
+                </p>
+            </div>
+
+            <div class="code-tabs">
+                <button class="code-tab active" onclick="showExample('claude')">Claude Desktop</button>
+                <button class="code-tab" onclick="showExample('curl')">cURL / API</button>
+                <button class="code-tab" onclick="showExample('n8n')">n8n Workflow</button>
+                <button class="code-tab" onclick="showExample('rust')">Rust SDK</button>
+            </div>
+
+            <div class="code-content">
+                <div class="code-header">
+                    <span class="code-language" id="codeLanguage">Natural Language</span>
+                    <button class="copy-btn" onclick="copyCode()" title="Copy code">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    </button>
+                </div>
+                <pre><code id="codeExample"><span class="token comment"># Example conversation with Claude</span>
+
+<span class="token keyword">Human:</span> Turn on all lights in the living room and set them to 70% brightness
+
+<span class="token keyword">Assistant:</span> I'll turn on all lights in the living room and set them to 70% brightness.
+
+[Calling control_room_devices tool...]
+✓ Successfully controlled 4 lights in Living Room:
+  • Ceiling Light: ON at 70%
+  • Reading Lamp: ON at 70%
+  • TV Backlight: ON at 70%
+  • Window Light: ON at 70%
+
+All living room lights are now on and set to 70% brightness.</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="architecture" id="architecture">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Architecture</span>
+                <h2 class="section-title">Built for Performance</h2>
+                <p class="section-subtitle">
+                    Modern, modular architecture designed for reliability and scale
+                </p>
+            </div>
+
+            <div class="architecture-diagram">
+                <svg viewBox="0 0 800 600" class="architecture-svg">
+                    <!-- MCP Clients -->
+                    <g>
+                        <rect x="50" y="50" width="200" height="120" rx="8" fill="#243447" stroke="#334155"/>
+                        <text x="150" y="90" text-anchor="middle" fill="#f8fafc" font-weight="600">MCP Clients</text>
+                        <text x="150" y="115" text-anchor="middle" fill="#94a3b8" font-size="14">Claude Desktop</text>
+                        <text x="150" y="135" text-anchor="middle" fill="#94a3b8" font-size="14">n8n Workflows</text>
+                        <text x="150" y="155" text-anchor="middle" fill="#94a3b8" font-size="14">Web Apps</text>
+                    </g>
+
+                    <!-- Rust MCP Server -->
+                    <g>
+                        <rect x="300" y="250" width="200" height="200" rx="8" fill="#1a2332" stroke="#ce422b" stroke-width="2"/>
+                        <text x="400" y="285" text-anchor="middle" fill="#ce422b" font-weight="600">Rust MCP Server</text>
+                        
+                        <rect x="320" y="310" width="160" height="30" rx="4" fill="#243447"/>
+                        <text x="400" y="330" text-anchor="middle" fill="#f8fafc" font-size="14">30+ Tools</text>
+                        
+                        <rect x="320" y="350" width="160" height="30" rx="4" fill="#243447"/>
+                        <text x="400" y="370" text-anchor="middle" fill="#f8fafc" font-size="14">Async Runtime</text>
+                        
+                        <rect x="320" y="390" width="160" height="30" rx="4" fill="#243447"/>
+                        <text x="400" y="410" text-anchor="middle" fill="#f8fafc" font-size="14">Security Layer</text>
+                    </g>
+
+                    <!-- Loxone System -->
+                    <g>
+                        <rect x="550" y="50" width="200" height="120" rx="8" fill="#243447" stroke="#059669"/>
+                        <text x="650" y="90" text-anchor="middle" fill="#059669" font-weight="600">Loxone System</text>
+                        <text x="650" y="115" text-anchor="middle" fill="#94a3b8" font-size="14">Miniserver</text>
+                        <text x="650" y="135" text-anchor="middle" fill="#94a3b8" font-size="14">HTTP/WebSocket</text>
+                        <text x="650" y="155" text-anchor="middle" fill="#94a3b8" font-size="14">All Devices</text>
+                    </g>
+
+                    <!-- Connections -->
+                    <path d="M 250 110 L 300 350" stroke="#334155" stroke-width="2" fill="none"/>
+                    <path d="M 500 350 L 550 110" stroke="#334155" stroke-width="2" fill="none"/>
+                    
+                    <!-- Features -->
+                    <g transform="translate(50, 500)">
+                        <rect x="0" y="0" width="120" height="60" rx="4" fill="#243447" stroke="#334155"/>
+                        <text x="60" y="25" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="500">WASM</text>
+                        <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="12">2MB Binary</text>
+                    </g>
+
+                    <g transform="translate(190, 500)">
+                        <rect x="0" y="0" width="120" height="60" rx="4" fill="#243447" stroke="#334155"/>
+                        <text x="60" y="25" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="500">Docker</text>
+                        <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="12">Container</text>
+                    </g>
+
+                    <g transform="translate(330, 500)">
+                        <rect x="0" y="0" width="120" height="60" rx="4" fill="#243447" stroke="#334155"/>
+                        <text x="60" y="25" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="500">Native</text>
+                        <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="12">Binary</text>
+                    </g>
+
+                    <g transform="translate(470, 500)">
+                        <rect x="0" y="0" width="120" height="60" rx="4" fill="#243447" stroke="#334155"/>
+                        <text x="60" y="25" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="500">Monitoring</text>
+                        <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="12">Dashboard</text>
+                    </g>
+
+                    <g transform="translate(610, 500)">
+                        <rect x="0" y="0" width="120" height="60" rx="4" fill="#243447" stroke="#334155"/>
+                        <text x="60" y="25" text-anchor="middle" fill="#f8fafc" font-size="14" font-weight="500">History</text>
+                        <text x="60" y="45" text-anchor="middle" fill="#94a3b8" font-size="12">Time-series</text>
+                    </g>
+                </svg>
+            </div>
+        </div>
+    </section>
+
+    <!-- Integrations Section -->
+    <section class="integrations" id="integrations">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">Integrations</span>
+                <h2 class="section-title">Works With Your Tools</h2>
+                <p class="section-subtitle">
+                    Seamless integration with popular platforms and services
+                </p>
+            </div>
+
+            <div class="integrations-grid">
+                <div class="integration-card">
+                    <div class="integration-logo">🤖</div>
+                    <h3>Claude Desktop</h3>
+                    <p>Native MCP integration for AI-powered home control</p>
+                </div>
+
+                <div class="integration-card">
+                    <div class="integration-logo">🔄</div>
+                    <h3>n8n</h3>
+                    <p>Visual workflow automation with drag-and-drop simplicity</p>
+                </div>
+
+                <div class="integration-card">
+                    <div class="integration-logo">🐳</div>
+                    <h3>Docker</h3>
+                    <p>Container deployment for easy scaling and management</p>
+                </div>
+
+                <div class="integration-card">
+                    <div class="integration-logo">☸️</div>
+                    <h3>Kubernetes</h3>
+                    <p>Enterprise-grade orchestration and scaling</p>
+                </div>
+
+                <div class="integration-card">
+                    <div class="integration-logo">🌐</div>
+                    <h3>WebAssembly</h3>
+                    <p>Run anywhere with our 2MB WASM binary</p>
+                </div>
+
+                <div class="integration-card">
+                    <div class="integration-logo">📊</div>
+                    <h3>Grafana</h3>
+                    <p>Beautiful dashboards for monitoring and analytics</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Get Started Section -->
+    <section class="cta" id="get-started">
+        <div class="cta-content">
+            <h2>Ready to Transform Your Smart Home?</h2>
+            <p>Get started in minutes with our comprehensive documentation and tools.</p>
+            
+            <div class="hero-actions">
+                <a href="docs.html" class="btn btn-primary">
+                    Get Started
+                </a>
+                <a href="https://github.com/avrabe/mcp-loxone" class="btn btn-secondary">
+                    View on GitHub
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>MCP Loxone</h4>
+                <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+                    High-performance Rust server for Loxone home automation.
+                </p>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Documentation</h4>
+                <ul class="footer-links">
+                    <li><a href="docs.html">Documentation</a></li>
+                    <li><a href="#examples">Examples</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#architecture">Architecture</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Resources</h4>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/avrabe/mcp-loxone">GitHub</a></li>
+                    <li><a href="https://github.com/avrabe/mcp-loxone/issues">Issues</a></li>
+                    <li><a href="https://github.com/avrabe/mcp-loxone/releases">Releases</a></li>
+                    <li><a href="docs.html">FAQ</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Community</h4>
+                <ul class="footer-links">
+                    <li><a href="https://github.com/avrabe/mcp-loxone/discussions">Discussions</a></li>
+                    <li><a href="https://github.com/avrabe/mcp-loxone/blob/main/CONTRIBUTING.md">Contributing</a></li>
+                    <li><a href="https://github.com/avrabe/mcp-loxone/blob/main/CODE_OF_CONDUCT.md">Code of Conduct</a></li>
+                    <li><a href="https://github.com/avrabe/mcp-loxone/blob/main/LICENSE">License (MIT)</a></li>
+                </ul>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2025 Ralf Anton Beier. Built with ❤️ in Rust.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script>
+        // Remove loader after page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                document.getElementById('loader').classList.add('fade-out');
+            }, 500);
+        });
+
+        // Navbar scroll effect
+        window.addEventListener('scroll', () => {
+            const navbar = document.getElementById('navbar');
+            if (window.scrollY > 50) {
+                navbar.classList.add('scrolled');
+            } else {
+                navbar.classList.remove('scrolled');
+            }
+        });
+
+        // Mobile menu
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const mobileMenuOverlay = document.getElementById('mobileMenuOverlay');
+        const mobileMenuClose = document.getElementById('mobileMenuClose');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            mobileMenu.classList.add('active');
+            mobileMenuOverlay.classList.add('active');
+        });
+
+        function closeMobileMenu() {
+            mobileMenu.classList.remove('active');
+            mobileMenuOverlay.classList.remove('active');
+        }
+
+        mobileMenuClose.addEventListener('click', closeMobileMenu);
+        mobileMenuOverlay.addEventListener('click', closeMobileMenu);
+
+        // Close mobile menu on link click
+        document.querySelectorAll('.mobile-menu-links a').forEach(link => {
+            link.addEventListener('click', closeMobileMenu);
+        });
+
+        // Particles animation
+        function createParticles() {
+            const particlesContainer = document.getElementById('particles');
+            const particleCount = 50;
+
+            for (let i = 0; i < particleCount; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'particle';
+                particle.style.left = Math.random() * 100 + '%';
+                particle.style.animationDelay = Math.random() * 20 + 's';
+                particle.style.animationDuration = 20 + Math.random() * 20 + 's';
+                particlesContainer.appendChild(particle);
+            }
+        }
+
+        createParticles();
+
+        // Code examples
+        const codeExamples = {
+            claude: {
+                language: 'Natural Language',
+                code: `<span class="token comment"># Example conversation with Claude</span>
+
+<span class="token keyword">Human:</span> Turn on all lights in the living room and set them to 70% brightness
+
+<span class="token keyword">Assistant:</span> I'll turn on all lights in the living room and set them to 70% brightness.
+
+[Calling control_room_devices tool...]
+✓ Successfully controlled 4 lights in Living Room:
+  • Ceiling Light: ON at 70%
+  • Reading Lamp: ON at 70%
+  • TV Backlight: ON at 70%
+  • Window Light: ON at 70%
+
+All living room lights are now on and set to 70% brightness.`
+            },
+            curl: {
+                language: 'bash',
+                code: `<span class="token comment"># Control devices via REST API</span>
+curl -X POST http://localhost:3001/tools/call \\
+  -H <span class="token string">"Content-Type: application/json"</span> \\
+  -H <span class="token string">"Authorization: Bearer sk-your-api-key"</span> \\
+  -d <span class="token string">'{
+    "tool": "control_room_devices",
+    "arguments": {
+      "room": "Living Room",
+      "device_type": "lights",
+      "action": "on",
+      "value": 70
+    }
+  }'</span>
+
+<span class="token comment"># Response</span>
+{
+  <span class="token string">"success"</span>: <span class="token keyword">true</span>,
+  <span class="token string">"devices_controlled"</span>: <span class="token number">4</span>,
+  <span class="token string">"message"</span>: <span class="token string">"Successfully controlled 4 lights in Living Room"</span>
+}`
+            },
+            n8n: {
+                language: 'json',
+                code: `<span class="token comment">// n8n HTTP Request node configuration</span>
+{
+  <span class="token string">"method"</span>: <span class="token string">"POST"</span>,
+  <span class="token string">"url"</span>: <span class="token string">"http://loxone-mcp:3001/tools/call"</span>,
+  <span class="token string">"authentication"</span>: <span class="token string">"genericCredentialType"</span>,
+  <span class="token string">"genericAuthType"</span>: <span class="token string">"httpHeaderAuth"</span>,
+  <span class="token string">"sendBody"</span>: <span class="token keyword">true</span>,
+  <span class="token string">"bodyParameters"</span>: {
+    <span class="token string">"parameters"</span>: [
+      {
+        <span class="token string">"name"</span>: <span class="token string">"tool"</span>,
+        <span class="token string">"value"</span>: <span class="token string">"get_temperature_sensors"</span>
+      },
+      {
+        <span class="token string">"name"</span>: <span class="token string">"arguments"</span>,
+        <span class="token string">"value"</span>: {}
+      }
+    ]
+  }
+}`
+            },
+            rust: {
+                language: 'rust',
+                code: `<span class="token comment">// Using the Rust client library</span>
+<span class="token keyword">use</span> loxone_mcp_rust::{LoxoneMcpClient, ControlRequest};
+
+<span class="token keyword">async fn</span> <span class="token function">control_lights</span>() -> Result<(), Box<dyn std::error::Error>> {
+    <span class="token comment">// Connect to MCP server</span>
+    <span class="token keyword">let</span> client = LoxoneMcpClient::connect(<span class="token string">"http://localhost:3001"</span>)
+        .api_key(<span class="token string">"sk-your-api-key"</span>)
+        .<span class="token keyword">await</span>?;
+
+    <span class="token comment">// Control room devices</span>
+    <span class="token keyword">let</span> response = client.control_room_devices()
+        .room(<span class="token string">"Living Room"</span>)
+        .device_type(<span class="token string">"lights"</span>)
+        .action(<span class="token string">"on"</span>)
+        .value(<span class="token number">70</span>)
+        .<span class="token keyword">await</span>?;
+
+    println!(<span class="token string">"Controlled {} devices"</span>, response.devices_controlled);
+    Ok(())
+}`
+            }
+        };
+
+        function showExample(type) {
+            const example = codeExamples[type];
+            document.getElementById('codeLanguage').textContent = example.language;
+            document.getElementById('codeExample').innerHTML = example.code;
+            
+            // Update active tab
+            document.querySelectorAll('.code-tab').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            event.target.classList.add('active');
+        }
+
+        function copyCode() {
+            const code = document.getElementById('codeExample').textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                const btn = document.querySelector('.copy-btn');
+                btn.classList.add('copied');
+                btn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                        <path d="M12.736 3.97a.733.733 0 0 1 1.047 0c.286.289.29.756.01 1.05L7.88 12.01a.733.733 0 0 1-1.065.02L3.217 8.384a.757.757 0 0 1 0-1.06.733.733 0 0 1 1.047 0l3.052 3.093 5.4-6.425a.247.247 0 0 1 .02-.022Z"/>
+                    </svg>
+                `;
+                setTimeout(() => {
+                    btn.classList.remove('copied');
+                    btn.innerHTML = `
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                            <path d="M4 2a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/>
+                        </svg>
+                    `;
+                }, 2000);
+            });
+        }
+
+        // Intersection Observer for animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.style.animationPlayState = 'running';
+                }
+            });
+        }, observerOptions);
+
+        // Observe all animated elements
+        document.querySelectorAll('.fade-in, .slide-in-left, .slide-in-right').forEach(el => {
+            el.style.animationPlayState = 'paused';
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>

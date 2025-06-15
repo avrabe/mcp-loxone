@@ -671,6 +671,31 @@ impl LoxoneMcpServer {
         }
     }
 
+    /// Get current status/positions of all blinds/rolladen
+    pub async fn get_all_blinds_status(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
+        use crate::tools::{devices::get_all_blinds_status, ToolContext};
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = get_all_blinds_status(tool_context).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
     /// Get available system capabilities
     pub async fn get_available_capabilities(
         &self,

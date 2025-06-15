@@ -24,11 +24,11 @@ copy-fonts = true
 google-analytics = "G-XXXXXXXXXX"
 additional-css = ["custom.css"]
 additional-js = ["custom.js"]
-git-repository-url = "https://github.com/your-repo/loxone-mcp-rust"
+git-repository-url = "https://github.com/avrabe/mcp-loxone"
 git-repository-icon = "fa-github"
-edit-url-template = "https://github.com/your-repo/loxone-mcp-rust/edit/main/{path}"
-site-url = "https://your-domain.github.io/loxone-mcp-rust/"
-cname = "loxone-mcp.your-domain.com"
+edit-url-template = "https://github.com/avrabe/mcp-loxone/edit/main/{path}"
+site-url = "https://avrabe.github.io/mcp-loxone/"
+# cname = "loxone-mcp.avrabe.github.io"  # Optional: uncomment if using custom domain
 input-404 = "404.md"
 
 [output.html.print]
