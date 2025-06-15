@@ -14,7 +14,7 @@ use crate::security::key_store::{KeyStore, KeyStoreBackend, KeyStoreConfig};
 use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
 pub use authentication::AuthConfig;
-use authentication::{auth_middleware, AuthManager};
+use authentication::AuthManager;
 use mcp_foundation::{Content, ServerHandler};
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
 
@@ -618,7 +618,20 @@ impl HttpTransportServer {
             crate::monitoring::key_management_ui::create_key_management_router(
                 shared_state.key_store.clone(),
             );
-        let app = app.nest("/admin", key_management_router);
+
+        // Add main navigation hub
+        let nav_router = Router::new()
+            .route("/", get(navigation_hub))
+            .merge(key_management_router);
+
+        // Add admin routes
+        let app = app
+            .nest("/admin", nav_router)
+            .route("/admin", get(admin_redirect)); // Redirect /admin to /admin/
+        info!(
+            "🏠 Navigation Hub: http://localhost:{}/admin (with API key)",
+            self.port
+        );
         info!(
             "🔑 API key management UI: http://localhost:{}/admin/keys",
             self.port
@@ -642,6 +655,359 @@ struct AppState {
     sse_manager: Arc<SseConnectionManager>,
     #[allow(dead_code)]
     key_store: Arc<KeyStore>,
+}
+
+/// Redirect from /admin to /admin/
+async fn admin_redirect() -> impl IntoResponse {
+    axum::response::Redirect::permanent("/admin/")
+}
+
+/// Main navigation hub handler
+async fn navigation_hub() -> impl IntoResponse {
+    Html(generate_navigation_html())
+}
+
+/// Generate the main navigation hub HTML
+fn generate_navigation_html() -> String {
+    r##"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loxone MCP Server - Navigation Hub</title>
+    <style>
+        :root {
+            --loxone-green: #7aba00;
+            --loxone-dark: #1a1a1a;
+            --bg-primary: #0f0f0f;
+            --bg-secondary: #1a1a1a;
+            --bg-card: #252525;
+            --text-primary: #e0e0e0;
+            --text-secondary: #a0a0a0;
+            --border-color: #333;
+            --rust-orange: #ce422b;
+            --success: #28a745;
+            --info: #17a2b8;
+            --warning: #ffc107;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+            padding-bottom: 2rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        h1 {
+            color: var(--loxone-green);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-top: 2rem;
+        }
+
+        .category {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .category:hover {
+            border-color: var(--loxone-green);
+            box-shadow: 0 4px 12px rgba(122, 186, 0, 0.1);
+        }
+
+        .category-title {
+            font-size: 1.3rem;
+            color: var(--loxone-green);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .link-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .nav-link:hover {
+            background: var(--bg-primary);
+            border-color: var(--loxone-green);
+            color: var(--loxone-green);
+            transform: translateY(-2px);
+        }
+
+        .link-icon {
+            font-size: 1.2rem;
+            width: 24px;
+            text-align: center;
+        }
+
+        .link-details {
+            flex: 1;
+        }
+
+        .link-title {
+            font-weight: 500;
+            margin-bottom: 0.25rem;
+        }
+
+        .link-description {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+        }
+
+        .footer {
+            margin-top: 3rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--border-color);
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .api-key-display {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            margin: 1rem 0;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            word-break: break-all;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏠 Loxone MCP Server</h1>
+            <div class="subtitle">Navigation Hub - Access all interfaces and tools</div>
+            <div id="apiKeyDisplay" class="api-key-display" style="display: none;">
+                Using API Key: <span id="apiKeyValue"></span>
+            </div>
+        </div>
+
+        <div class="grid">
+            <!-- Administration -->
+            <div class="category">
+                <div class="category-title">
+                    🔧 Administration
+                </div>
+                <div class="link-grid">
+                    <a href="#" class="nav-link" onclick="navigateTo('/admin/keys')">
+                        <span class="link-icon">🔑</span>
+                        <div class="link-details">
+                            <div class="link-title">API Key Management</div>
+                            <div class="link-description">Generate, edit, and manage API keys</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/admin/status')">
+                        <span class="link-icon">📊</span>
+                        <div class="link-details">
+                            <div class="link-title">Server Status</div>
+                            <div class="link-description">View server health and statistics</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/admin/rate-limits')">
+                        <span class="link-icon">⚡</span>
+                        <div class="link-details">
+                            <div class="link-title">Rate Limits</div>
+                            <div class="link-description">Monitor API rate limiting status</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Monitoring & Dashboards -->
+            <div class="category">
+                <div class="category-title">
+                    📈 Monitoring & Dashboards
+                </div>
+                <div class="link-grid">
+                    <a href="#" class="nav-link" onclick="navigateTo('/dashboard/')">
+                        <span class="link-icon">🎛️</span>
+                        <div class="link-details">
+                            <div class="link-title">Unified Dashboard</div>
+                            <div class="link-description">Real-time Loxone system overview</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/history/')">
+                        <span class="link-icon">📜</span>
+                        <div class="link-details">
+                            <div class="link-title">History Dashboard</div>
+                            <div class="link-description">Historical data and trends</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/metrics')">
+                        <span class="link-icon">📊</span>
+                        <div class="link-details">
+                            <div class="link-title">Prometheus Metrics</div>
+                            <div class="link-description">Raw metrics for monitoring tools</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- System Health -->
+            <div class="category">
+                <div class="category-title">
+                    💚 System Health
+                </div>
+                <div class="link-grid">
+                    <a href="#" class="nav-link" onclick="navigateTo('/health')">
+                        <span class="link-icon">❤️</span>
+                        <div class="link-details">
+                            <div class="link-title">Health Check</div>
+                            <div class="link-description">Basic system health status</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/')">
+                        <span class="link-icon">📋</span>
+                        <div class="link-details">
+                            <div class="link-title">Server Info</div>
+                            <div class="link-description">API endpoints and server information</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                </div>
+            </div>
+
+            <!-- MCP Tools -->
+            <div class="category">
+                <div class="category-title">
+                    🔌 MCP Integration
+                </div>
+                <div class="link-grid">
+                    <a href="#" class="nav-link" onclick="navigateTo('/mcp/sse')">
+                        <span class="link-icon">🔄</span>
+                        <div class="link-details">
+                            <div class="link-title">MCP SSE Endpoint</div>
+                            <div class="link-description">Server-Sent Events for MCP clients</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/mcp/info')">
+                        <span class="link-icon">ℹ️</span>
+                        <div class="link-details">
+                            <div class="link-title">MCP Information</div>
+                            <div class="link-description">Available tools and capabilities</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                    <a href="#" class="nav-link" onclick="navigateTo('/mcp/tools')">
+                        <span class="link-icon">🛠️</span>
+                        <div class="link-details">
+                            <div class="link-title">MCP Tools</div>
+                            <div class="link-description">List of available MCP tools</div>
+                        </div>
+                        <div class="status-indicator"></div>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>🦀 Loxone MCP Server - Built with Rust</p>
+            <p>Navigation Hub v1.0 - Browser-friendly interface</p>
+        </div>
+    </div>
+
+    <script>
+        // Get API key from URL parameters
+        function getApiKey() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('api_key');
+        }
+
+        // Build URL with API key parameter
+        function buildUrl(path) {
+            const apiKey = getApiKey();
+            if (apiKey) {
+                const separator = path.includes('?') ? '&' : '?';
+                return path + separator + 'api_key=' + encodeURIComponent(apiKey);
+            }
+            return path;
+        }
+
+        // Navigate to a page with API key
+        function navigateTo(path) {
+            window.location.href = buildUrl(path);
+        }
+
+        // Show API key if present
+        window.onload = function() {
+            const apiKey = getApiKey();
+            if (apiKey) {
+                document.getElementById('apiKeyDisplay').style.display = 'block';
+                document.getElementById('apiKeyValue').textContent = apiKey;
+            }
+        };
+    </script>
+</body>
+</html>"##
+        .to_string()
 }
 
 /// Root handler

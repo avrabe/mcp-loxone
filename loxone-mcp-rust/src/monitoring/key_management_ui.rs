@@ -707,11 +707,18 @@ impl KeyManagementUI {
                 return;
             }
 
+            // Count active admin keys for protection logic
+            const activeAdminKeys = keys.filter(k => k.role.toLowerCase() === 'admin' && k.active);
+            const isLastAdmin = (key) => key.role.toLowerCase() === 'admin' && key.active && activeAdminKeys.length === 1;
+
             container.innerHTML = keys.map(key => `
                 <div class="key-card">
                     <div class="key-header">
                         <div>
-                            <div class="key-name">${escapeHtml(key.name)}</div>
+                            <div class="key-name">
+                                ${escapeHtml(key.name)}
+                                ${isLastAdmin(key) ? '<span style="color: var(--loxone-green); margin-left: 0.5rem;" title="Protected - last admin key">🔒</span>' : ''}
+                            </div>
                             <div class="key-id">${key.id}</div>
                         </div>
                         <div style="display: flex; align-items: center; gap: 1rem;">
@@ -751,8 +758,13 @@ impl KeyManagementUI {
 
                     <div class="key-actions">
                         <button class="copy-btn" onclick="copyKey('${key.id}')">📋 Copy Key</button>
-                        <button class="btn btn-secondary btn-small" onclick="editKey('${key.id}')">✏️ Edit</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteKey('${key.id}')" ${key.role.toLowerCase() === 'admin' ? 'title="Admin key - check protection applies"' : ''}>🗑️ Delete</button>
+                        <button class="btn btn-secondary btn-small" onclick="editKey('${key.id}')" ${isLastAdmin(key) ? 'title="Edit (activation protected)"' : ''}>
+                            ${isLastAdmin(key) ? '✏️🔒 Edit' : '✏️ Edit'}
+                        </button>
+                        ${isLastAdmin(key) 
+                            ? '<button class="btn btn-secondary btn-small" disabled title="Cannot delete the last admin key">🗑️🔒 Protected</button>'
+                            : `<button class="btn btn-danger btn-small" onclick="deleteKey('${key.id}')">🗑️ Delete</button>`
+                        }
                     </div>
                 </div>
             `).join('');
@@ -848,9 +860,26 @@ impl KeyManagementUI {
             const key = keys.find(k => k.id === keyId);
             if (!key) return;
 
+            // Check if this is the last admin key (protection logic)
+            const activeAdminKeys = keys.filter(k => k.role.toLowerCase() === 'admin' && k.active);
+            const isLastAdminKey = key.role.toLowerCase() === 'admin' && key.active && activeAdminKeys.length === 1;
+
             document.getElementById('editKeyId').value = key.id;
             document.getElementById('editName').value = key.name;
             document.getElementById('editActive').checked = key.active;
+            
+            // Disable the Active checkbox if this is the last admin key
+            const activeCheckbox = document.getElementById('editActive');
+            if (isLastAdminKey) {
+                activeCheckbox.disabled = true;
+                activeCheckbox.parentElement.title = 'Cannot deactivate the last admin key';
+                activeCheckbox.parentElement.style.opacity = '0.6';
+            } else {
+                activeCheckbox.disabled = false;
+                activeCheckbox.parentElement.title = '';
+                activeCheckbox.parentElement.style.opacity = '1';
+            }
+            
             document.getElementById('editModal').style.display = 'block';
         }
 
@@ -863,9 +892,20 @@ impl KeyManagementUI {
             event.preventDefault();
             
             const keyId = document.getElementById('editKeyId').value;
+            const keyToEdit = keys.find(k => k.id === keyId);
+            const newActiveState = document.getElementById('editActive').checked;
+            
+            // Check if this would deactivate the last admin key
+            const activeAdminKeys = keys.filter(k => k.role.toLowerCase() === 'admin' && k.active);
+            if (keyToEdit && keyToEdit.role.toLowerCase() === 'admin' && 
+                keyToEdit.active && !newActiveState && activeAdminKeys.length === 1) {
+                showError('Cannot deactivate the last active admin key. This would lock you out of the system.');
+                return;
+            }
+            
             const data = {
                 name: document.getElementById('editName').value,
-                active: document.getElementById('editActive').checked
+                active: newActiveState
             };
 
             const expires = parseInt(document.getElementById('editExpires').value || 0);
