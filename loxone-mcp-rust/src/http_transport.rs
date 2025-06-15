@@ -614,8 +614,11 @@ impl HttpTransportServer {
         };
 
         // Add key management UI routes
-        // let key_management_router = create_key_management_router(shared_state.key_store.clone());
-        // let app = app.nest("/admin", key_management_router);
+        let key_management_router =
+            crate::monitoring::key_management_ui::create_key_management_router(
+                shared_state.key_store.clone(),
+            );
+        let app = app.nest("/admin", key_management_router);
         info!(
             "🔑 API key management UI: http://localhost:{}/admin/keys",
             self.port
@@ -2382,7 +2385,76 @@ async fn auth_middleware_wrapper(
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
-    auth_middleware(State(Arc::new(state.auth_manager.clone())), request, next).await
+    // Use KeyStore-based authentication instead of AuthManager
+    key_store_auth_middleware(State(state.key_store.clone()), request, next).await
+}
+
+/// Simple authentication middleware using KeyStore
+async fn key_store_auth_middleware(
+    State(key_store): State<Arc<KeyStore>>,
+    request: Request,
+    next: Next,
+) -> std::result::Result<Response, StatusCode> {
+    let headers = request.headers();
+    let query_string = request.uri().query();
+
+    // Extract API key from headers or query parameters
+    let api_key = extract_api_key_from_request(headers, query_string);
+
+    if let Some(key) = api_key {
+        // Validate the key using KeyStore
+        match key_store.validate_key(&key, None).await {
+            Ok(_validated_key) => {
+                // Key is valid, record usage
+                let _ = key_store.record_usage(&key).await;
+                // Continue to the next handler
+                Ok(next.run(request).await)
+            }
+            Err(_) => {
+                // Key validation failed
+                Err(StatusCode::UNAUTHORIZED)
+            }
+        }
+    } else {
+        // No API key provided
+        Err(StatusCode::UNAUTHORIZED)
+    }
+}
+
+/// Extract API key from headers or query parameters
+fn extract_api_key_from_request(headers: &HeaderMap, query_string: Option<&str>) -> Option<String> {
+    // Try X-API-Key header first
+    if let Some(key) = headers.get("x-api-key") {
+        if let Ok(key_str) = key.to_str() {
+            return Some(key_str.to_string());
+        }
+    }
+
+    // Try Authorization header with Bearer token
+    if let Some(auth) = headers.get("authorization") {
+        if let Ok(auth_str) = auth.to_str() {
+            if let Some(token) = auth_str.strip_prefix("Bearer ") {
+                return Some(token.to_string());
+            }
+        }
+    }
+
+    // Try query parameter for browser-friendly access
+    if let Some(query) = query_string {
+        for param in query.split('&') {
+            if let Some((key, value)) = param.split_once('=') {
+                if key == "api_key" {
+                    // URL decode the value
+                    if let Ok(decoded) = urlencoding::decode(value) {
+                        return Some(decoded.to_string());
+                    }
+                    return Some(value.to_string());
+                }
+            }
+        }
+    }
+
+    None
 }
 
 /// Prometheus metrics endpoint

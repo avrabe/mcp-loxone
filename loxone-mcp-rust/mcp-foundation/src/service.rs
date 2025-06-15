@@ -10,7 +10,7 @@ use futures_util::{sink::SinkExt, stream::StreamExt};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{
-    io::{AsyncRead, AsyncWrite, AsyncBufReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt, BufReader},
     sync::mpsc,
 };
 use tokio_util::codec::{FramedRead, FramedWrite, LinesCodec};
@@ -85,144 +85,106 @@ impl<H: ServerHandler> McpService<H> {
         debug!("Handling MCP request: {}", request.method);
 
         let result = match request.method.as_str() {
-            "ping" => {
-                match self.handler.ping(context).await {
-                    Ok(()) => Ok(Value::Object(serde_json::Map::new())),
-                    Err(e) => Err(e),
-                }
-            }
-            "initialize" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<InitializeRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.initialize(params, context).await {
-                                    Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for initialize")),
-                }
-            }
+            "ping" => match self.handler.ping(context).await {
+                Ok(()) => Ok(Value::Object(serde_json::Map::new())),
+                Err(e) => Err(e),
+            },
+            "initialize" => match request.params {
+                Some(params) => match serde_json::from_value::<InitializeRequestParam>(params) {
+                    Ok(params) => match self.handler.initialize(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params("Missing parameters for initialize")),
+            },
             "tools/list" => {
                 let params = request.params.unwrap_or(Value::Null);
                 match serde_json::from_value::<PaginatedRequestParam>(params) {
-                    Ok(params) => {
-                        match self.handler.list_tools(params, context).await {
-                            Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                            Err(e) => Err(e),
-                        }
-                    }
+                    Ok(params) => match self.handler.list_tools(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
                     Err(e) => Err(Error::invalid_params(e.to_string())),
                 }
             }
-            "tools/call" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<CallToolRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.call_tool(params, context).await {
-                                    Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for tools/call")),
-                }
-            }
+            "tools/call" => match request.params {
+                Some(params) => match serde_json::from_value::<CallToolRequestParam>(params) {
+                    Ok(params) => match self.handler.call_tool(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params("Missing parameters for tools/call")),
+            },
             "resources/list" => {
                 let params = request.params.unwrap_or(Value::Null);
                 match serde_json::from_value::<PaginatedRequestParam>(params) {
-                    Ok(params) => {
-                        match self.handler.list_resources(params, context).await {
-                            Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                            Err(e) => Err(e),
-                        }
-                    }
+                    Ok(params) => match self.handler.list_resources(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
                     Err(e) => Err(Error::invalid_params(e.to_string())),
                 }
             }
-            "resources/read" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<ReadResourceRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.read_resource(params, context).await {
-                                    Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for resources/read")),
-                }
-            }
+            "resources/read" => match request.params {
+                Some(params) => match serde_json::from_value::<ReadResourceRequestParam>(params) {
+                    Ok(params) => match self.handler.read_resource(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params(
+                    "Missing parameters for resources/read",
+                )),
+            },
             "prompts/list" => {
                 let params = request.params.unwrap_or(Value::Null);
                 match serde_json::from_value::<PaginatedRequestParam>(params) {
-                    Ok(params) => {
-                        match self.handler.list_prompts(params, context).await {
-                            Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                            Err(e) => Err(e),
-                        }
-                    }
+                    Ok(params) => match self.handler.list_prompts(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
                     Err(e) => Err(Error::invalid_params(e.to_string())),
                 }
             }
-            "prompts/get" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<GetPromptRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.get_prompt(params, context).await {
-                                    Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for prompts/get")),
-                }
-            }
-            "completion/complete" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<CompleteRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.complete(params, context).await {
-                                    Ok(result) => serde_json::to_value(result).map_err(Error::from),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for completion/complete")),
-                }
-            }
-            "logging/setLevel" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<SetLevelRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.set_level(params, context).await {
-                                    Ok(()) => Ok(Value::Object(serde_json::Map::new())),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for logging/setLevel")),
-                }
-            }
+            "prompts/get" => match request.params {
+                Some(params) => match serde_json::from_value::<GetPromptRequestParam>(params) {
+                    Ok(params) => match self.handler.get_prompt(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params("Missing parameters for prompts/get")),
+            },
+            "completion/complete" => match request.params {
+                Some(params) => match serde_json::from_value::<CompleteRequestParam>(params) {
+                    Ok(params) => match self.handler.complete(params, context).await {
+                        Ok(result) => serde_json::to_value(result).map_err(Error::from),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params(
+                    "Missing parameters for completion/complete",
+                )),
+            },
+            "logging/setLevel" => match request.params {
+                Some(params) => match serde_json::from_value::<SetLevelRequestParam>(params) {
+                    Ok(params) => match self.handler.set_level(params, context).await {
+                        Ok(()) => Ok(Value::Object(serde_json::Map::new())),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params(
+                    "Missing parameters for logging/setLevel",
+                )),
+            },
             "resources/templates/list" => {
                 let params = request.params.unwrap_or(Value::Null);
                 match serde_json::from_value::<PaginatedRequestParam>(params) {
@@ -235,38 +197,30 @@ impl<H: ServerHandler> McpService<H> {
                     Err(e) => Err(Error::invalid_params(e.to_string())),
                 }
             }
-            "resources/subscribe" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<SubscribeRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.subscribe(params, context).await {
-                                    Ok(()) => Ok(Value::Object(serde_json::Map::new())),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for resources/subscribe")),
-                }
-            }
-            "resources/unsubscribe" => {
-                match request.params {
-                    Some(params) => {
-                        match serde_json::from_value::<UnsubscribeRequestParam>(params) {
-                            Ok(params) => {
-                                match self.handler.unsubscribe(params, context).await {
-                                    Ok(()) => Ok(Value::Object(serde_json::Map::new())),
-                                    Err(e) => Err(e),
-                                }
-                            }
-                            Err(e) => Err(Error::invalid_params(e.to_string())),
-                        }
-                    }
-                    None => Err(Error::invalid_params("Missing parameters for resources/unsubscribe")),
-                }
-            }
+            "resources/subscribe" => match request.params {
+                Some(params) => match serde_json::from_value::<SubscribeRequestParam>(params) {
+                    Ok(params) => match self.handler.subscribe(params, context).await {
+                        Ok(()) => Ok(Value::Object(serde_json::Map::new())),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params(
+                    "Missing parameters for resources/subscribe",
+                )),
+            },
+            "resources/unsubscribe" => match request.params {
+                Some(params) => match serde_json::from_value::<UnsubscribeRequestParam>(params) {
+                    Ok(params) => match self.handler.unsubscribe(params, context).await {
+                        Ok(()) => Ok(Value::Object(serde_json::Map::new())),
+                        Err(e) => Err(e),
+                    },
+                    Err(e) => Err(Error::invalid_params(e.to_string())),
+                },
+                None => Err(Error::invalid_params(
+                    "Missing parameters for resources/unsubscribe",
+                )),
+            },
             _ => Err(Error::method_not_found(request.method)),
         };
 
@@ -300,7 +254,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
         IO: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {
         let (service, quit_tx) = McpService::new(self.clone());
-        
+
         // Split the I/O stream
         let (reader, writer) = tokio::io::split(io);
         let mut lines_read = FramedRead::new(reader, LinesCodec::new());
@@ -309,26 +263,26 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
         // Handle the protocol in a background task
         let handler = self.clone();
         let quit_tx_clone = quit_tx.clone();
-        
+
         tokio::spawn(async move {
             info!("MCP service started on stdio transport");
-            
+
             while let Some(line_result) = lines_read.next().await {
                 match line_result {
                     Ok(line) => {
                         if line.trim().is_empty() {
                             continue;
                         }
-                        
+
                         debug!("Received request: {}", line);
-                        
+
                         // Parse JSON-RPC request
                         match serde_json::from_str::<JsonRpcRequest>(&line) {
                             Ok(request) => {
                                 // Handle the request
                                 let temp_service = McpService::new(handler.clone()).0;
                                 let response = temp_service.handle_request(request).await;
-                                
+
                                 // Send response
                                 match serde_json::to_string(&response) {
                                     Ok(response_line) => {
@@ -336,7 +290,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                                         if let Err(e) = lines_write.send(response_line).await {
                                             error!("Failed to send response: {}", e);
                                             let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                                Error::connection_error(e.to_string())
+                                                Error::connection_error(e.to_string()),
                                             ));
                                             break;
                                         }
@@ -344,7 +298,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                                     Err(e) => {
                                         error!("Failed to serialize response: {}", e);
                                         let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                            Error::parse_error(e.to_string())
+                                            Error::parse_error(e.to_string()),
                                         ));
                                         break;
                                     }
@@ -363,12 +317,12 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                                         data: None,
                                     }),
                                 };
-                                
+
                                 if let Ok(response_line) = serde_json::to_string(&error_response) {
                                     if let Err(e) = lines_write.send(response_line).await {
                                         error!("Failed to send error response: {}", e);
                                         let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                            Error::connection_error(e.to_string())
+                                            Error::connection_error(e.to_string()),
                                         ));
                                         break;
                                     }
@@ -383,7 +337,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                     }
                 }
             }
-            
+
             info!("MCP service protocol handler finished");
             let _ = quit_tx_clone.send(QuitReason::ClientDisconnected);
         });
@@ -394,21 +348,21 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
     /// Serve MCP protocol over stdio (convenience method)
     async fn serve_stdio(self) -> Result<McpService<Self>> {
         let (service, quit_tx) = McpService::new(self.clone());
-        
+
         // Handle the protocol in a background task using stdio
         let handler = self.clone();
         let quit_tx_clone = quit_tx.clone();
-        
+
         tokio::spawn(async move {
             info!("MCP service started on stdio transport");
-            
+
             let stdin = tokio::io::stdin();
             let stdout = tokio::io::stdout();
             let mut stdin = BufReader::new(stdin);
             let mut stdout = stdout;
-            
+
             let mut line = String::new();
-            
+
             loop {
                 line.clear();
                 match stdin.read_line(&mut line).await {
@@ -422,31 +376,34 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                         if line.is_empty() {
                             continue;
                         }
-                        
+
                         debug!("Received request: {}", line);
-                        
+
                         // Parse JSON-RPC request
                         match serde_json::from_str::<JsonRpcRequest>(line) {
                             Ok(request) => {
                                 // Handle the request
                                 let temp_service = McpService::new(handler.clone()).0;
                                 let response = temp_service.handle_request(request).await;
-                                
+
                                 // Send response
                                 match serde_json::to_string(&response) {
                                     Ok(response_line) => {
                                         debug!("Sending response: {}", response_line);
-                                        if let Err(e) = stdout.write_all((response_line + "\n").as_bytes()).await {
+                                        if let Err(e) = stdout
+                                            .write_all((response_line + "\n").as_bytes())
+                                            .await
+                                        {
                                             error!("Failed to send response: {}", e);
                                             let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                                Error::connection_error(e.to_string())
+                                                Error::connection_error(e.to_string()),
                                             ));
                                             break;
                                         }
                                         if let Err(e) = stdout.flush().await {
                                             error!("Failed to flush stdout: {}", e);
                                             let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                                Error::connection_error(e.to_string())
+                                                Error::connection_error(e.to_string()),
                                             ));
                                             break;
                                         }
@@ -454,7 +411,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                                     Err(e) => {
                                         error!("Failed to serialize response: {}", e);
                                         let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                            Error::parse_error(e.to_string())
+                                            Error::parse_error(e.to_string()),
                                         ));
                                         break;
                                     }
@@ -473,19 +430,21 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                                         data: None,
                                     }),
                                 };
-                                
+
                                 if let Ok(response_line) = serde_json::to_string(&error_response) {
-                                    if let Err(e) = stdout.write_all((response_line + "\n").as_bytes()).await {
+                                    if let Err(e) =
+                                        stdout.write_all((response_line + "\n").as_bytes()).await
+                                    {
                                         error!("Failed to send error response: {}", e);
                                         let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                            Error::connection_error(e.to_string())
+                                            Error::connection_error(e.to_string()),
                                         ));
                                         break;
                                     }
                                     if let Err(e) = stdout.flush().await {
                                         error!("Failed to flush stdout: {}", e);
                                         let _ = quit_tx_clone.send(QuitReason::ServerError(
-                                            Error::connection_error(e.to_string())
+                                            Error::connection_error(e.to_string()),
                                         ));
                                         break;
                                     }
@@ -500,7 +459,7 @@ pub trait ServiceExt: ServerHandler + Sized + 'static {
                     }
                 }
             }
-            
+
             info!("MCP service stdio handler finished");
             let _ = quit_tx_clone.send(QuitReason::ClientDisconnected);
         });

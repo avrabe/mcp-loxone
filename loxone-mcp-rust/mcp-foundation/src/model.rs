@@ -165,7 +165,10 @@ pub enum Content {
     #[serde(rename = "image")]
     Image { data: String, mime_type: String },
     #[serde(rename = "resource")]
-    Resource { resource: String, text: Option<String> },
+    Resource {
+        resource: String,
+        text: Option<String>,
+    },
 }
 
 impl Content {
@@ -319,7 +322,11 @@ impl PromptMessage {
     }
 
     /// Create a new image message
-    pub fn new_image(role: PromptMessageRole, data: impl Into<String>, mime_type: impl Into<String>) -> Self {
+    pub fn new_image(
+        role: PromptMessageRole,
+        data: impl Into<String>,
+        mime_type: impl Into<String>,
+    ) -> Self {
         Self {
             role,
             content: PromptMessageContent::Image {

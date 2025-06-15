@@ -113,9 +113,7 @@ impl Error {
 
     /// Create a tool not found error
     pub fn tool_not_found(tool: impl Into<String>) -> Self {
-        Self::ToolNotFound {
-            tool: tool.into(),
-        }
+        Self::ToolNotFound { tool: tool.into() }
     }
 
     /// Create an authorization error

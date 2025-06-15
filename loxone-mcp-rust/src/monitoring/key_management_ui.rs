@@ -664,6 +664,22 @@ impl KeyManagementUI {
         let keys = [];
         let ipWhitelist = [];
 
+        // Get API key from URL parameters
+        function getApiKey() {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('api_key');
+        }
+
+        // Build URL with API key parameter
+        function buildApiUrl(path) {
+            const apiKey = getApiKey();
+            if (apiKey) {
+                const separator = path.includes('?') ? '&' : '?';
+                return path + separator + 'api_key=' + encodeURIComponent(apiKey);
+            }
+            return path;
+        }
+
         // Load keys on page load
         window.onload = function() {
             loadKeys();
@@ -671,7 +687,7 @@ impl KeyManagementUI {
 
         async function loadKeys() {
             try {
-                const response = await fetch('/api/keys');
+                const response = await fetch(buildApiUrl('/admin/api/keys'));
                 if (!response.ok) throw new Error('Failed to load keys');
                 
                 keys = await response.json();
@@ -734,9 +750,9 @@ impl KeyManagementUI {
                     </div>
 
                     <div class="key-actions">
-                        <button class="copy-btn" onclick="copyKey('${key.id}')">Copy Key</button>
-                        <button class="btn btn-secondary btn-small" onclick="editKey('${key.id}')">Edit</button>
-                        <button class="btn btn-danger btn-small" onclick="deleteKey('${key.id}')">Delete</button>
+                        <button class="copy-btn" onclick="copyKey('${key.id}')">📋 Copy Key</button>
+                        <button class="btn btn-secondary btn-small" onclick="editKey('${key.id}')">✏️ Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="deleteKey('${key.id}')" ${key.role.toLowerCase() === 'admin' ? 'title="Admin key - check protection applies"' : ''}>🗑️ Delete</button>
                     </div>
                 </div>
             `).join('');
@@ -808,7 +824,7 @@ impl KeyManagementUI {
             }
 
             try {
-                const response = await fetch('/api/keys', {
+                const response = await fetch(buildApiUrl('/admin/api/keys'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -858,7 +874,7 @@ impl KeyManagementUI {
             }
 
             try {
-                const response = await fetch(`/api/keys/${keyId}`, {
+                const response = await fetch(buildApiUrl(`/admin/api/keys/${keyId}`), {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
@@ -875,12 +891,21 @@ impl KeyManagementUI {
         }
 
         async function deleteKey(keyId) {
+            // Check if this is the last admin key
+            const adminKeys = keys.filter(k => k.role.toLowerCase() === 'admin' && k.active);
+            const keyToDelete = keys.find(k => k.id === keyId);
+            
+            if (keyToDelete && keyToDelete.role.toLowerCase() === 'admin' && adminKeys.length === 1) {
+                showError('Cannot delete the last active admin key. This would lock you out of the system.');
+                return;
+            }
+
             if (!confirm('Are you sure you want to delete this key? This action cannot be undone.')) {
                 return;
             }
 
             try {
-                const response = await fetch(`/api/keys/${keyId}`, {
+                const response = await fetch(buildApiUrl(`/admin/api/keys/${keyId}`), {
                     method: 'DELETE'
                 });
 
@@ -895,17 +920,21 @@ impl KeyManagementUI {
 
         function copyKey(keyId) {
             navigator.clipboard.writeText(keyId).then(() => {
+                // Find the specific button that was clicked
                 const buttons = document.querySelectorAll('.copy-btn');
                 buttons.forEach(btn => {
                     if (btn.onclick.toString().includes(keyId)) {
                         btn.classList.add('copied');
-                        btn.textContent = 'Copied!';
+                        btn.innerHTML = '✓ Copied!';
                         setTimeout(() => {
                             btn.classList.remove('copied');
-                            btn.textContent = 'Copy Key';
+                            btn.innerHTML = '📋 Copy Key';
                         }, 2000);
                     }
                 });
+                showSuccess(`API key ${keyId} copied to clipboard!`);
+            }).catch(err => {
+                showError('Failed to copy to clipboard: ' + err.message);
             });
         }
 
