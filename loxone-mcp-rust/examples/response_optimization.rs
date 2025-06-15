@@ -7,10 +7,10 @@ use loxone_mcp_rust::server::response_optimization::OptimizedResponses;
 use loxone_mcp_rust::tools::ToolResponse;
 use tracing::{info, Level};
 
-fn extract_content_text(result: &rmcp::model::CallToolResult) -> String {
+fn extract_content_text(result: &mcp_foundation::model::CallToolResult) -> String {
     if let Some(content) = result.content.first() {
         match &content.raw {
-            rmcp::model::RawContent::Text(text) => text.text.clone(),
+            mcp_foundation::model::RawContent::Text(text) => text.text.clone(),
             _ => "No text content".to_string(),
         }
     } else {

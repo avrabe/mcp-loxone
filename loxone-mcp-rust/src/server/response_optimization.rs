@@ -3,7 +3,7 @@
 //! This module provides utilities to optimize response text according to MCP best practices,
 //! returning empty results instead of "not found" error messages for better user experience.
 
-use rmcp::model::{CallToolResult, Content};
+use mcp_foundation::{CallToolResult, Content};
 use serde_json::json;
 
 /// Standard empty response patterns for different scenarios
@@ -185,7 +185,7 @@ pub trait ResponseOptimizer {
     fn optimize_not_found(self, identifier: &str, suggestion: Option<&str>) -> CallToolResult;
 }
 
-impl ResponseOptimizer for Result<CallToolResult, rmcp::Error> {
+impl ResponseOptimizer for Result<CallToolResult, mcp_foundation::Error> {
     fn optimize_empty_result(self) -> CallToolResult {
         match self {
             Ok(result) => result,

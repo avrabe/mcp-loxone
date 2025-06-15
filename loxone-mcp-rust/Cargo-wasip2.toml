@@ -7,8 +7,8 @@ version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
 license = "MIT"
-description = "Loxone Generation 1 MCP Server for WASM Component Model (WASIP2)"
-repository = "https://github.com/rbeier/mcp-loxone-gen1"
+description = "Loxone MCP Server for WASM Component Model (WASIP2)"
+repository = "https://github.com/avrabe/mcp-loxone"
 keywords = ["loxone", "mcp", "home-automation", "wasm", "wasip2"]
 categories = ["api-bindings", "web-programming", "wasm"]
 

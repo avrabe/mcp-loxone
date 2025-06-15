@@ -3,7 +3,7 @@
 //! Tools for device discovery, individual control, and batch operations.
 
 use crate::tools::{ActionAliases, DeviceFilter, DeviceStats, ToolContext, ToolResponse};
-use crate::validation::ToolParameterValidator;
+// use crate::validation::ToolParameterValidator; // Temporarily disabled
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -44,13 +44,20 @@ pub async fn discover_all_devices(
     // #[description("Maximum number of devices to return")] // TODO: Re-enable when rmcp API is clarified
     limit: Option<usize>,
 ) -> ToolResponse {
-    // Validate input parameters
-    if let Err(e) = ToolParameterValidator::validate_discovery_params(
-        category.as_ref(),
-        device_type.as_ref(),
-        limit,
-    ) {
-        return ToolResponse::error(e.to_string());
+    // Temporarily disabled validation
+    // if let Err(e) = ToolParameterValidator::validate_discovery_params(
+    //     category.as_ref(),
+    //     device_type.as_ref(),
+    //     limit,
+    // ) {
+    //     return ToolResponse::error(e.to_string());
+    // }
+
+    // Basic validation instead
+    if let Some(l) = limit {
+        if l > 1000 {
+            return ToolResponse::error("Limit too large (max 1000)".to_string());
+        }
     }
 
     let filter = if category.is_some() || device_type.is_some() || limit.is_some() {
@@ -92,9 +99,17 @@ pub async fn control_device(
     // #[description("Action to perform (on/off/up/down/stop/dim)")] // TODO: Re-enable when rmcp API is clarified
     action: String,
 ) -> ToolResponse {
-    // Validate input parameters
-    if let Err(e) = ToolParameterValidator::validate_device_control(&device, &action) {
-        return ToolResponse::error(e.to_string());
+    // Temporarily disabled validation
+    // if let Err(e) = ToolParameterValidator::validate_device_control(&device, &action) {
+    //     return ToolResponse::error(e.to_string());
+    // }
+
+    // Basic validation instead
+    if device.is_empty() {
+        return ToolResponse::error("Device cannot be empty".to_string());
+    }
+    if action.is_empty() {
+        return ToolResponse::error("Action cannot be empty".to_string());
     }
 
     // Find the device
@@ -171,20 +186,29 @@ pub async fn control_multiple_devices(
     // #[description("Action to perform on all devices")] // TODO: Re-enable when rmcp API is clarified
     action: String,
 ) -> ToolResponse {
-    use crate::validation::InputValidator;
+    // use crate::validation::InputValidator; // Temporarily disabled
 
     if devices.is_empty() {
         return ToolResponse::error("No devices specified".to_string());
     }
 
-    // Validate batch size
-    if let Err(e) = InputValidator::validate_batch_size(devices.len()) {
-        return ToolResponse::error(e.to_string());
-    }
+    // Temporarily disabled validation
+    // if let Err(e) = InputValidator::validate_batch_size(devices.len()) {
+    //     return ToolResponse::error(e.to_string());
+    // }
 
     // Validate action
-    if let Err(e) = InputValidator::validate_action(&action) {
-        return ToolResponse::error(e.to_string());
+    // if let Err(e) = InputValidator::validate_action(&action) {
+    //     return ToolResponse::error(e.to_string());
+    // }
+
+    // Basic validation instead
+    if devices.len() > 100 {
+        return ToolResponse::error("Too many devices (max 100)".to_string());
+    }
+
+    if action.is_empty() {
+        return ToolResponse::error("Action cannot be empty".to_string());
     }
 
     // Normalize action

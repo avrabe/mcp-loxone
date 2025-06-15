@@ -11,12 +11,14 @@ use super::{
     response_optimization::OptimizedResponses,
     LoxoneMcpServer,
 };
-use rmcp::model::{CallToolResult, Content};
+use crate::tools::sensors::SensorStateLogger;
+use mcp_foundation::{CallToolResult, Content};
+use std::sync::Arc;
 use tracing::warn;
 
 impl LoxoneMcpServer {
     /// List all rooms in the Loxone system with device counts
-    pub async fn list_rooms(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn list_rooms(&self) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let rooms = self.context.rooms.read().await;
 
         let mut rooms_with_info = Vec::new();
@@ -42,7 +44,7 @@ impl LoxoneMcpServer {
     pub async fn get_room_devices(
         &self,
         room_name: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let room_devices: Vec<String> = devices
             .values()
@@ -60,7 +62,7 @@ impl LoxoneMcpServer {
         &self,
         device_id: String,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         match self.client.send_command(&device_id, &action).await {
             Ok(_) => Ok(CallToolResult::success(vec![Content::text(format!(
                 "Successfully executed {} on device {}",
@@ -74,7 +76,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get overall system status
-    pub async fn get_system_status(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_system_status(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         match self.client.health_check().await {
             Ok(true) => {
                 let capabilities = self.context.capabilities.read().await;
@@ -118,7 +122,7 @@ impl LoxoneMcpServer {
         &self,
         room_name: String,
         device_type_filter: Option<String>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -176,7 +180,7 @@ impl LoxoneMcpServer {
         device: String,
         action: String,
         room_hint: Option<String>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
 
         // Try to find device by UUID first, then by name
@@ -235,7 +239,7 @@ impl LoxoneMcpServer {
         &self,
         devices: Vec<String>,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::control_multiple_devices, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -261,7 +265,7 @@ impl LoxoneMcpServer {
     pub async fn control_all_rolladen(
         &self,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rolladen_devices: Vec<_> = devices
             .values()
@@ -305,7 +309,7 @@ impl LoxoneMcpServer {
         &self,
         room_name: String,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -363,7 +367,7 @@ impl LoxoneMcpServer {
     pub async fn control_all_lights(
         &self,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let light_devices: Vec<_> = devices
             .values()
@@ -411,7 +415,7 @@ impl LoxoneMcpServer {
         &self,
         room_name: String,
         action: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -468,8 +472,73 @@ impl LoxoneMcpServer {
         Ok(CallToolResult::success(vec![Content::text(summary)]))
     }
 
+    /// Get state history for a specific sensor
+    pub async fn get_sensor_state_history(
+        &self,
+        uuid: String,
+        _limit: Option<usize>,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
+        use crate::tools::{sensors, ToolContext};
+
+        // Create a sensor state logger (normally this would be persistent)
+        let logger = Arc::new(SensorStateLogger::new(std::path::PathBuf::from(
+            "sensor_history.json",
+        )));
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = sensors::get_sensor_state_history(tool_context, uuid, Some(logger)).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
+    /// Get recent sensor changes across all sensors
+    pub async fn get_recent_sensor_changes(
+        &self,
+        limit: Option<usize>,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
+        use crate::tools::{sensors, ToolContext};
+
+        // Create a sensor state logger (normally this would be persistent)
+        let logger = Arc::new(SensorStateLogger::new(std::path::PathBuf::from(
+            "sensor_history.json",
+        )));
+
+        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+
+        let response = sensors::get_recent_sensor_changes(tool_context, limit, Some(logger)).await;
+
+        let content =
+            serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
+
+        if response.status == "success" {
+            Ok(CallToolResult::success(vec![Content::text(content)]))
+        } else {
+            Ok(CallToolResult::error(vec![Content::text(format!(
+                "Error: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            ))]))
+        }
+    }
+
     /// Discover all devices in the system
-    pub async fn discover_all_devices(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn discover_all_devices(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
         let capabilities = self.context.capabilities.read().await;
@@ -513,7 +582,7 @@ impl LoxoneMcpServer {
     pub async fn get_devices_by_type(
         &self,
         device_type_filter: Option<String>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -580,7 +649,7 @@ impl LoxoneMcpServer {
         category: String,
         limit: Option<usize>,
         _include_state: bool,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_devices_by_category, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -605,7 +674,7 @@ impl LoxoneMcpServer {
     /// Get available system capabilities
     pub async fn get_available_capabilities(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_available_capabilities, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -630,7 +699,7 @@ impl LoxoneMcpServer {
     /// Get all categories overview
     pub async fn get_all_categories_overview(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_all_categories_overview, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -653,7 +722,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get audio zones and their status
-    pub async fn get_audio_zones(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_audio_zones(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let result = crate::tools::audio::get_audio_zones(context).await;
@@ -667,7 +738,7 @@ impl LoxoneMcpServer {
         zone_name: String,
         action: String,
         value: Option<f64>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let result =
@@ -677,7 +748,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get available audio sources
-    pub async fn get_audio_sources(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_audio_sources(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let result = crate::tools::audio::get_audio_sources(context).await;
@@ -690,36 +763,10 @@ impl LoxoneMcpServer {
         &self,
         zone_name: String,
         volume: f64,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let result = crate::tools::audio::set_audio_volume(context, zone_name, volume).await;
-        let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
-    }
-
-    /// Get sensor state history
-    pub async fn get_sensor_state_history(
-        &self,
-        uuid: String,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
-
-        let logger = self.context.get_sensor_logger().await;
-        let result = crate::tools::sensors::get_sensor_state_history(context, uuid, logger).await;
-        let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
-    }
-
-    /// Get recent sensor changes
-    pub async fn get_recent_sensor_changes(
-        &self,
-        limit: Option<usize>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
-
-        let logger = self.context.get_sensor_logger().await;
-        let result = crate::tools::sensors::get_recent_sensor_changes(context, limit, logger).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
         Ok(CallToolResult::success(vec![Content::text(content)]))
     }
@@ -728,7 +775,7 @@ impl LoxoneMcpServer {
     pub async fn get_door_window_activity(
         &self,
         hours: Option<u32>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let logger = self.context.get_sensor_logger().await;
@@ -740,7 +787,7 @@ impl LoxoneMcpServer {
     /// Get logging statistics
     pub async fn get_logging_statistics_tool(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
 
         let logger = self.context.get_sensor_logger().await;
@@ -750,7 +797,9 @@ impl LoxoneMcpServer {
     }
 
     /// Perform comprehensive health check
-    pub async fn get_health_check(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_health_check(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         match self.health_checker.check_health().await {
             Ok(report) => {
                 // Add resource health information
@@ -794,7 +843,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get basic health status (lightweight)
-    pub async fn get_health_status(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_health_status(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         // Quick health check using basic connectivity
         match self.client.health_check().await {
             Ok(is_healthy) => {
@@ -859,7 +910,7 @@ impl LoxoneMcpServer {
     /// Get all door/window sensors status
     pub async fn get_all_door_window_sensors(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -877,7 +928,7 @@ impl LoxoneMcpServer {
     /// Get all temperature sensors and readings
     pub async fn get_temperature_sensors(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -896,7 +947,7 @@ impl LoxoneMcpServer {
     pub async fn discover_new_sensors(
         &self,
         duration_seconds: Option<u64>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -916,7 +967,7 @@ impl LoxoneMcpServer {
         &self,
         sensor_type: Option<String>,
         room: Option<String>,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -973,27 +1024,9 @@ impl LoxoneMcpServer {
         RequestTracker::log_request_start(&req_ctx, &arguments);
 
         let result = match tool_name {
-            "list_rooms" => match self.list_rooms().await {
-                Ok(result) => self.convert_tool_result(result),
-                Err(e) => Err(format!("Failed to list rooms: {}", e)),
-            },
-            "get_room_devices" => {
-                let room_name = arguments
-                    .get("room_name")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing room_name parameter")?;
-                let device_type = arguments
-                    .get("device_type")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                match self
-                    .get_room_devices_enhanced(room_name.to_string(), device_type)
-                    .await
-                {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to get room devices: {}", e)),
-                }
-            }
+            // Read-only tools migrated to resources:
+            // "list_rooms" → loxone://rooms (use resources/read instead)
+            // "get_room_devices" → loxone://rooms/{roomName}/devices (use resources/read instead)
             "control_device" => {
                 let device = arguments
                     .get("device")
@@ -1069,28 +1102,10 @@ impl LoxoneMcpServer {
                     Err(e) => Err(format!("Failed to control room lights: {}", e)),
                 }
             }
-            "discover_all_devices" => match self.discover_all_devices().await {
-                Ok(result) => self.convert_tool_result(result),
-                Err(e) => Err(format!("Failed to discover devices: {}", e)),
-            },
-            "get_devices_by_type" => {
-                let device_type = arguments
-                    .get("device_type")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string());
-                match self.get_devices_by_type(device_type).await {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to get devices by type: {}", e)),
-                }
-            }
-            "get_system_status" => match self.get_system_status().await {
-                Ok(result) => self.convert_tool_result(result),
-                Err(e) => Err(format!("Failed to get system status: {}", e)),
-            },
-            "get_audio_zones" => match self.get_audio_zones().await {
-                Ok(result) => self.convert_tool_result(result),
-                Err(e) => Err(format!("Failed to get audio zones: {}", e)),
-            },
+            // "discover_all_devices" → loxone://devices/all
+            // "get_devices_by_type" → loxone://devices/type/{type}
+            // "get_system_status" → loxone://system/status
+            // "get_audio_zones" → loxone://audio/zones
             "control_audio_zone" => {
                 let zone_name = arguments
                     .get("zone_name")
@@ -1109,10 +1124,7 @@ impl LoxoneMcpServer {
                     Err(e) => Err(format!("Failed to control audio zone: {}", e)),
                 }
             }
-            "get_audio_sources" => match self.get_audio_sources().await {
-                Ok(result) => self.convert_tool_result(result),
-                Err(e) => Err(format!("Failed to get audio sources: {}", e)),
-            },
+            // "get_audio_sources" → loxone://audio/sources
             "set_audio_volume" => {
                 let zone_name = arguments
                     .get("zone_name")
@@ -1132,7 +1144,7 @@ impl LoxoneMcpServer {
                     .get("uuid")
                     .and_then(|v| v.as_str())
                     .ok_or("Missing uuid parameter")?;
-                match self.get_sensor_state_history(uuid.to_string()).await {
+                match self.get_sensor_state_history(uuid.to_string(), None).await {
                     Ok(result) => self.convert_tool_result(result),
                     Err(e) => Err(format!("Failed to get sensor state history: {}", e)),
                 }
@@ -1210,13 +1222,15 @@ impl LoxoneMcpServer {
     pub async fn create_workflow(
         &self,
         arguments: serde_json::Value,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
 
-        let params: workflows::CreateWorkflowParams = serde_json::from_value(arguments)
-            .map_err(|e| rmcp::Error::invalid_params(format!("Invalid parameters: {}", e), None))?;
+        let params: workflows::CreateWorkflowParams =
+            serde_json::from_value(arguments).map_err(|e| {
+                mcp_foundation::Error::invalid_params(format!("Invalid parameters: {}", e))
+            })?;
 
         let response = workflows::create_workflow(tool_context, params).await;
 
@@ -1239,13 +1253,15 @@ impl LoxoneMcpServer {
     pub async fn execute_workflow_demo(
         &self,
         arguments: serde_json::Value,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
 
-        let params: workflows::ExecuteWorkflowParams = serde_json::from_value(arguments)
-            .map_err(|e| rmcp::Error::invalid_params(format!("Invalid parameters: {}", e), None))?;
+        let params: workflows::ExecuteWorkflowParams =
+            serde_json::from_value(arguments).map_err(|e| {
+                mcp_foundation::Error::invalid_params(format!("Invalid parameters: {}", e))
+            })?;
 
         let response = workflows::execute_workflow_demo(tool_context, params).await;
 
@@ -1267,7 +1283,7 @@ impl LoxoneMcpServer {
     /// List predefined workflows
     pub async fn list_predefined_workflows(
         &self,
-    ) -> std::result::Result<CallToolResult, rmcp::Error> {
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
@@ -1291,7 +1307,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get workflow examples
-    pub async fn get_workflow_examples(&self) -> std::result::Result<CallToolResult, rmcp::Error> {
+    pub async fn get_workflow_examples(
+        &self,
+    ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::new(self.client.clone(), self.context.clone());

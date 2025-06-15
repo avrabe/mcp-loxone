@@ -6,9 +6,8 @@ use crate::client::{create_client, ClientContext, LoxoneClient};
 use crate::config::{LoxoneConfig, ServerConfig};
 use crate::error::{LoxoneError, Result};
 
-use rmcp::ServiceExt;
+use mcp_foundation::ServiceExt;
 use std::sync::Arc;
-use tokio::io::{stdin, stdout};
 use tracing::{error, info, warn};
 
 use health_check::{HealthCheckConfig, HealthChecker};
@@ -18,6 +17,7 @@ use request_coalescing::{CoalescingConfig, RequestCoalescer};
 use response_cache::ToolResponseCache;
 use schema_validation::SchemaValidator;
 
+pub mod context_builders;
 pub mod handlers;
 pub mod health_check;
 pub mod loxone_batch_executor;
@@ -31,6 +31,12 @@ pub mod response_optimization;
 pub mod rmcp_impl;
 pub mod schema_validation;
 pub mod workflow_engine;
+
+/// MCP Resources implementation for read-only data access
+pub mod resources;
+
+/// Real-time resource subscription system for MCP
+pub mod subscription;
 
 pub use models::*;
 pub use request_context::*;
@@ -65,6 +71,21 @@ pub struct LoxoneMcpServer {
 
     /// Response cache for MCP tools
     pub(crate) response_cache: Arc<ToolResponseCache>,
+
+    /// Sampling protocol integration for MCP (optional)
+    pub(crate) sampling_integration:
+        Option<Arc<crate::sampling::protocol::SamplingProtocolIntegration>>,
+
+    /// Resource subscription coordinator for real-time notifications
+    pub(crate) subscription_coordinator: Arc<subscription::SubscriptionCoordinator>,
+
+    /// Unified history store for dashboard data
+    pub(crate) history_store: Option<Arc<crate::history::core::UnifiedHistoryStore>>,
+
+    /// Loxone statistics collector (optional)
+    #[cfg(feature = "influxdb")]
+    #[allow(dead_code)]
+    pub(crate) stats_collector: Option<Arc<crate::monitoring::loxone_stats::LoxoneStatsCollector>>,
 }
 
 impl LoxoneMcpServer {
@@ -117,40 +138,46 @@ impl LoxoneMcpServer {
 
         // Create the appropriate client
         let loxone_config = config.loxone.clone();
-        let client = create_client(&loxone_config, &credentials).await?;
+        let mut client = create_client(&loxone_config, &credentials).await?;
 
-        // Test connection and load structure
-        match client.health_check().await {
-            Ok(true) => info!("✅ Connected to Loxone successfully"),
-            Ok(false) => {
-                warn!("⚠️ Loxone connection established but health check shows issues");
-                info!("🔄 Attempting to continue with degraded health status...");
-                // Don't fail here - let's try to continue and see if we can get structure
+        // Connect to the Loxone system
+        info!("🔌 Connecting to Loxone system...");
+        match client.connect().await {
+            Ok(()) => {
+                info!("✅ Successfully connected to Loxone system");
+                // Now test connection health
+                match client.health_check().await {
+                    Ok(true) => info!("✅ Health check passed"),
+                    Ok(false) => {
+                        warn!("⚠️ Loxone connection established but health check shows issues");
+                        info!("🔄 Attempting to continue with degraded health status...");
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Health check failed after connection: {}", e);
+                    }
+                }
             }
             Err(e) => {
-                warn!("⚠️ Health check failed: {}", e);
+                warn!("⚠️ Connection failed: {}", e);
 
                 // If we're using token auth and it's failing, try to fall back to basic auth
                 if loxone_config.auth_method == crate::config::AuthMethod::Token {
-                    warn!("🔄 Token authentication health check failed, attempting fallback to basic authentication");
+                    warn!("🔄 Token authentication connection failed, attempting fallback to basic authentication");
                     let mut basic_config = loxone_config.clone();
                     basic_config.auth_method = crate::config::AuthMethod::Basic;
 
                     match create_client(&basic_config, &credentials).await {
-                        Ok(basic_client) => {
-                            info!("✅ Successfully fell back to basic authentication");
-                            // Test the basic client
-                            match basic_client.health_check().await {
-                                Ok(true) => {
-                                    info!("✅ Basic authentication health check passed");
+                        Ok(mut basic_client) => {
+                            info!("✅ Successfully created basic authentication client");
+                            // Connect with the basic client
+                            match basic_client.connect().await {
+                                Ok(()) => {
+                                    info!("✅ Basic authentication connection successful");
                                     // Replace the client with the basic auth client
                                     return Self::new_with_client(basic_client, basic_config).await;
                                 }
-                                Ok(false) => {
-                                    warn!("⚠️ Basic authentication health check shows issues, continuing anyway");
-                                }
                                 Err(e) => {
-                                    error!("❌ Basic authentication also failed: {}", e);
+                                    error!("❌ Basic authentication connection also failed: {}", e);
                                     return Err(e);
                                 }
                             }
@@ -171,66 +198,73 @@ impl LoxoneMcpServer {
             }
         }
 
-        // Load structure
-        info!("📊 Loading Loxone structure...");
-        let structure = match client.get_structure().await {
-            Ok(structure) => {
-                info!("✅ Structure loaded successfully");
-                structure
-            }
-            Err(e) => {
-                warn!("⚠️ Structure loading failed: {}", e);
+        // Create context for the client
+        let context = if let Some(http_client) = client
+            .as_any()
+            .downcast_ref::<crate::client::http_client::LoxoneHttpClient>(
+        ) {
+            // If using HTTP client, get its context which already has the structure loaded from connect()
+            Arc::new(http_client.context().clone())
+        } else if let Some(token_client) = client
+            .as_any()
+            .downcast_ref::<crate::client::token_http_client::TokenHttpClient>(
+        ) {
+            // If using token HTTP client, get its context
+            Arc::new(token_client.context().clone())
+        } else {
+            // For other client types, load structure manually
+            info!("📊 Loading Loxone structure...");
+            let structure = match client.get_structure().await {
+                Ok(structure) => {
+                    info!("✅ Structure loaded successfully");
+                    structure
+                }
+                Err(e) => {
+                    warn!("⚠️ Structure loading failed: {}", e);
 
-                // If we're using token auth and structure loading fails, try basic auth fallback
-                if loxone_config.auth_method == crate::config::AuthMethod::Token {
-                    warn!("🔄 Token authentication structure loading failed, attempting fallback to basic authentication");
-                    let mut basic_config = loxone_config.clone();
-                    basic_config.auth_method = crate::config::AuthMethod::Basic;
+                    // If we're using token auth and structure loading fails, try basic auth fallback
+                    if loxone_config.auth_method == crate::config::AuthMethod::Token {
+                        warn!("🔄 Token authentication structure loading failed, attempting fallback to basic authentication");
+                        let mut basic_config = loxone_config.clone();
+                        basic_config.auth_method = crate::config::AuthMethod::Basic;
 
-                    match create_client(&basic_config, &credentials).await {
-                        Ok(basic_client) => {
-                            info!("✅ Successfully created basic authentication client");
-                            // Try to load structure with basic client
-                            match basic_client.get_structure().await {
-                                Ok(structure) => {
-                                    info!("✅ Structure loaded successfully with basic authentication");
-                                    // Create context
-                                    let context = Arc::new(ClientContext::new());
-                                    context.update_structure(structure).await?;
-                                    return Self::new_with_context(
-                                        basic_client,
-                                        basic_config,
-                                        context,
-                                    )
-                                    .await;
-                                }
-                                Err(basic_err) => {
-                                    error!(
-                                        "❌ Basic authentication structure loading also failed: {}",
-                                        basic_err
-                                    );
-                                    return Err(e);
+                        match create_client(&basic_config, &credentials).await {
+                            Ok(mut basic_client) => {
+                                info!("✅ Successfully created basic authentication client");
+                                // Connect the basic client
+                                match basic_client.connect().await {
+                                    Ok(()) => {
+                                        info!("✅ Basic authentication connection successful");
+                                        // Return with the connected basic client
+                                        return Self::new_with_client(basic_client, basic_config)
+                                            .await;
+                                    }
+                                    Err(e) => {
+                                        error!("❌ Basic authentication connection failed: {}", e);
+                                        return Err(e);
+                                    }
                                 }
                             }
+                            Err(fallback_err) => {
+                                error!(
+                                    "❌ Failed to create basic auth fallback client: {}",
+                                    fallback_err
+                                );
+                                return Err(e);
+                            }
                         }
-                        Err(fallback_err) => {
-                            error!(
-                                "❌ Failed to create basic auth fallback client: {}",
-                                fallback_err
-                            );
-                            return Err(e);
-                        }
+                    } else {
+                        error!("❌ Failed to load structure: {}", e);
+                        return Err(e);
                     }
-                } else {
-                    error!("❌ Failed to load structure: {}", e);
-                    return Err(e);
                 }
-            }
-        };
+            };
 
-        // Create context
-        let context = Arc::new(ClientContext::new());
-        context.update_structure(structure).await?;
+            // Create new context and update with structure
+            let new_context = Arc::new(ClientContext::new());
+            new_context.update_structure(structure).await?;
+            new_context
+        };
 
         {
             let capabilities = context.capabilities.read().await;
@@ -281,6 +315,143 @@ impl LoxoneMcpServer {
         let response_cache = Arc::new(ToolResponseCache::new());
         info!("✅ Response cache initialized with TTL-based eviction");
 
+        // Initialize Loxone statistics collector (if InfluxDB is enabled)
+        #[cfg(feature = "influxdb")]
+        let stats_collector = {
+            if std::env::var("ENABLE_LOXONE_STATS").is_ok()
+                || std::env::var("INFLUXDB_TOKEN").is_ok()
+            {
+                info!("📈 Initializing Loxone statistics collector...");
+
+                // Create metrics collector and initialize default metrics
+                let metrics_collector =
+                    Arc::new(crate::monitoring::metrics::MetricsCollector::new());
+                metrics_collector.init_default_metrics().await;
+
+                // Optionally create InfluxDB manager
+                let influx_manager = if let Ok(token) = std::env::var("INFLUXDB_TOKEN") {
+                    let influx_config = crate::monitoring::influxdb::InfluxConfig {
+                        token,
+                        url: std::env::var("INFLUXDB_URL")
+                            .unwrap_or_else(|_| "http://localhost:8086".to_string()),
+                        org: std::env::var("INFLUXDB_ORG")
+                            .unwrap_or_else(|_| "loxone-mcp".to_string()),
+                        bucket: std::env::var("INFLUXDB_BUCKET")
+                            .unwrap_or_else(|_| "loxone_metrics".to_string()),
+                        ..Default::default()
+                    };
+
+                    match crate::monitoring::influxdb::InfluxManager::new(influx_config).await {
+                        Ok(manager) => {
+                            info!("✅ InfluxDB integration enabled for Loxone stats");
+                            Some(Arc::new(manager))
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Failed to initialize InfluxDB for stats: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                let collector =
+                    Arc::new(crate::monitoring::loxone_stats::LoxoneStatsCollector::new(
+                        client_arc.clone(),
+                        context.clone(),
+                        metrics_collector,
+                        influx_manager,
+                    ));
+
+                // Start the collector
+                if let Err(e) = collector.start().await {
+                    warn!("⚠️ Failed to start Loxone statistics collector: {}", e);
+                    None
+                } else {
+                    info!("✅ Loxone statistics collector started");
+                    Some(collector)
+                }
+            } else {
+                info!("📈 Loxone statistics collection disabled (set ENABLE_LOXONE_STATS=1 to enable)");
+                None
+            }
+        };
+
+        // Initialize MCP sampling protocol integration with environment-based provider configuration
+        info!("🔄 Initializing MCP sampling protocol...");
+        let sampling_integration = {
+            // Load provider configuration from environment variables
+            let provider_config = crate::sampling::config::ProviderFactoryConfig::from_env();
+
+            // Log configuration summary
+            info!("🧠 LLM Provider Configuration:");
+            info!("  {}", provider_config.get_selection_summary());
+
+            if provider_config.is_ollama_primary() {
+                info!(
+                    "  🦙 Ollama (PRIMARY): {} with model '{}'",
+                    provider_config.ollama.base_url, provider_config.ollama.default_model
+                );
+            }
+
+            if provider_config.openai.enabled {
+                info!(
+                    "  🤖 OpenAI (FALLBACK): enabled with model '{}'",
+                    provider_config.openai.default_model
+                );
+            }
+
+            if provider_config.anthropic.enabled {
+                info!(
+                    "  🏛️ Anthropic (FALLBACK): enabled with model '{}'",
+                    provider_config.anthropic.default_model
+                );
+            }
+
+            if !provider_config.has_fallback_providers() {
+                info!("  ⚠️ No fallback providers configured - only Ollama will be available");
+            }
+
+            // Validate configuration
+            match provider_config.validate() {
+                Ok(()) => {
+                    info!("✅ Provider configuration validated successfully");
+
+                    // For now, use mock implementation with enhanced configuration awareness
+                    // TODO: Implement real provider factory when provider module is available
+                    info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    Some(Arc::new(integration))
+                }
+                Err(e) => {
+                    warn!("⚠️ Provider configuration validation failed: {}", e);
+                    warn!("🔄 Falling back to basic mock implementation");
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    Some(Arc::new(integration))
+                }
+            }
+        };
+
+        // Initialize subscription coordinator for real-time resource notifications
+        info!("🔔 Initializing subscription coordinator...");
+        let subscription_coordinator = Arc::new(
+            subscription::SubscriptionCoordinator::new()
+                .await
+                .map_err(|e| {
+                    error!("❌ Failed to initialize subscription coordinator: {}", e);
+                    e
+                })?,
+        );
+
+        // Start subscription system background tasks
+        subscription_coordinator.start().await.map_err(|e| {
+            error!("❌ Failed to start subscription system: {}", e);
+            e
+        })?;
+        info!("✅ Subscription coordinator initialized and started");
+
         Ok(Self {
             config,
             client: client_arc,
@@ -291,12 +462,26 @@ impl LoxoneMcpServer {
             schema_validator,
             resource_monitor,
             response_cache,
+            sampling_integration,
+            subscription_coordinator,
+            history_store: None, // Initialize history store as None for now
+            #[cfg(feature = "influxdb")]
+            stats_collector,
         })
     }
 
     /// Helper method to create server with specific client and config
-    async fn new_with_client(client: Box<dyn LoxoneClient>, config: LoxoneConfig) -> Result<Self> {
+    async fn new_with_client(
+        mut client: Box<dyn LoxoneClient>,
+        config: LoxoneConfig,
+    ) -> Result<Self> {
         info!("🚀 Initializing Loxone MCP server with fallback client...");
+
+        // Ensure client is connected
+        if !client.is_connected().await.unwrap_or(false) {
+            info!("🔌 Connecting fallback client...");
+            client.connect().await?;
+        }
 
         // Load structure with the new client
         info!("📊 Loading Loxone structure...");
@@ -365,6 +550,144 @@ impl LoxoneMcpServer {
         let response_cache = Arc::new(ToolResponseCache::new());
         info!("✅ Response cache initialized with TTL-based eviction");
 
+        // Initialize Loxone statistics collector (if InfluxDB is enabled)
+        #[cfg(feature = "influxdb")]
+        let stats_collector = {
+            if std::env::var("ENABLE_LOXONE_STATS").is_ok()
+                || std::env::var("INFLUXDB_TOKEN").is_ok()
+            {
+                info!("📈 Initializing Loxone statistics collector...");
+
+                // Create metrics collector and initialize default metrics
+                let metrics_collector =
+                    Arc::new(crate::monitoring::metrics::MetricsCollector::new());
+                metrics_collector.init_default_metrics().await;
+
+                // Optionally create InfluxDB manager
+                let influx_manager = if let Ok(token) = std::env::var("INFLUXDB_TOKEN") {
+                    let influx_config = crate::monitoring::influxdb::InfluxConfig {
+                        token,
+                        url: std::env::var("INFLUXDB_URL")
+                            .unwrap_or_else(|_| "http://localhost:8086".to_string()),
+                        org: std::env::var("INFLUXDB_ORG")
+                            .unwrap_or_else(|_| "loxone-mcp".to_string()),
+                        bucket: std::env::var("INFLUXDB_BUCKET")
+                            .unwrap_or_else(|_| "loxone_metrics".to_string()),
+                        ..Default::default()
+                    };
+
+                    match crate::monitoring::influxdb::InfluxManager::new(influx_config).await {
+                        Ok(manager) => {
+                            info!("✅ InfluxDB integration enabled for Loxone stats");
+                            Some(Arc::new(manager))
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Failed to initialize InfluxDB for stats: {}", e);
+                            None
+                        }
+                    }
+                } else {
+                    None
+                };
+
+                let collector =
+                    Arc::new(crate::monitoring::loxone_stats::LoxoneStatsCollector::new(
+                        client_arc.clone(),
+                        context.clone(),
+                        metrics_collector,
+                        influx_manager,
+                    ));
+
+                // Start the collector
+                if let Err(e) = collector.start().await {
+                    warn!("⚠️ Failed to start Loxone statistics collector: {}", e);
+                    None
+                } else {
+                    info!("✅ Loxone statistics collector started");
+                    Some(collector)
+                }
+            } else {
+                info!("📈 Loxone statistics collection disabled (set ENABLE_LOXONE_STATS=1 to enable)");
+                None
+            }
+        };
+
+        // Initialize MCP sampling protocol integration with environment-based provider configuration
+        let sampling_integration = {
+            info!("🔄 Initializing MCP sampling protocol...");
+
+            // Load provider configuration from environment variables
+            let provider_config = crate::sampling::config::ProviderFactoryConfig::from_env();
+
+            // Log configuration summary
+            info!("🧠 LLM Provider Configuration:");
+            info!("  {}", provider_config.get_selection_summary());
+
+            if provider_config.is_ollama_primary() {
+                info!(
+                    "  🦙 Ollama (PRIMARY): {} with model '{}'",
+                    provider_config.ollama.base_url, provider_config.ollama.default_model
+                );
+            }
+
+            if provider_config.openai.enabled {
+                info!(
+                    "  🤖 OpenAI (FALLBACK): enabled with model '{}'",
+                    provider_config.openai.default_model
+                );
+            }
+
+            if provider_config.anthropic.enabled {
+                info!(
+                    "  🏛️ Anthropic (FALLBACK): enabled with model '{}'",
+                    provider_config.anthropic.default_model
+                );
+            }
+
+            if !provider_config.has_fallback_providers() {
+                info!("  ⚠️ No fallback providers configured - only Ollama will be available");
+            }
+
+            // Validate configuration
+            match provider_config.validate() {
+                Ok(()) => {
+                    info!("✅ Provider configuration validated successfully");
+
+                    // For now, use mock implementation with enhanced configuration awareness
+                    // TODO: Implement real provider factory when provider module is available
+                    info!("ℹ️ Using enhanced mock implementation with environment-based configuration");
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    Some(Arc::new(integration))
+                }
+                Err(e) => {
+                    warn!("⚠️ Provider configuration validation failed: {}", e);
+                    warn!("🔄 Falling back to basic mock implementation");
+                    let integration =
+                        crate::sampling::protocol::SamplingProtocolIntegration::new_with_mock(true);
+                    Some(Arc::new(integration))
+                }
+            }
+        };
+
+        // Initialize subscription coordinator for real-time resource notifications
+        info!("🔔 Initializing subscription coordinator...");
+        let subscription_coordinator = Arc::new(
+            subscription::SubscriptionCoordinator::new()
+                .await
+                .map_err(|e| {
+                    error!("❌ Failed to initialize subscription coordinator: {}", e);
+                    e
+                })?,
+        );
+
+        // Start subscription system background tasks
+        subscription_coordinator.start().await.map_err(|e| {
+            error!("❌ Failed to start subscription system: {}", e);
+            e
+        })?;
+        info!("✅ Subscription coordinator initialized and started");
+
         Ok(Self {
             config: ServerConfig {
                 loxone: config,
@@ -378,6 +701,11 @@ impl LoxoneMcpServer {
             schema_validator,
             resource_monitor,
             response_cache,
+            sampling_integration,
+            subscription_coordinator,
+            history_store: None, // Initialize history store as None for now
+            #[cfg(feature = "influxdb")]
+            stats_collector,
         })
     }
 
@@ -392,7 +720,7 @@ impl LoxoneMcpServer {
 
         let service = self
             .clone()
-            .serve((stdin(), stdout()))
+            .serve_stdio()
             .await
             .map_err(|e| LoxoneError::connection(format!("Failed to start server: {}", e)))?;
 

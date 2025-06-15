@@ -1,7 +1,7 @@
-//! Loxone Generation 1 MCP Server implementation in Rust with WASM support
+//! Loxone MCP Server implementation in Rust with WASM support
 //!
 //! This crate provides a Model Context Protocol (MCP) server for controlling
-//! Loxone Generation 1 home automation systems. It supports compilation to
+//! Loxone home automation systems. It supports compilation to
 //! WASM32-WASIP2 for portable deployment.
 //!
 //! # Features
@@ -32,12 +32,19 @@ pub mod audit_log;
 pub mod client;
 pub mod config;
 pub mod error;
+pub mod history;
 pub mod http_transport;
 pub mod logging;
 pub mod mcp_consent;
+pub mod monitoring;
+pub mod performance;
+pub mod sampling;
+pub mod security;
 pub mod server;
 pub mod tools;
 pub mod validation;
+
+pub mod mock;
 
 #[cfg(feature = "crypto")]
 pub mod crypto;
@@ -59,3 +66,7 @@ mod wasm;
 
 #[cfg(target_arch = "wasm32")]
 pub use wasm::*;
+
+// Test module for subscription integration
+#[cfg(test)]
+mod test_subscription_integration;

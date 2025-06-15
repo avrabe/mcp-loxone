@@ -360,7 +360,7 @@ mod tests {
                 if let Some(temp) = temp_value.as_f64() {
                     // Validate temperature range (reasonable for indoor/outdoor)
                     assert!(
-                        temp >= -50.0 && temp <= 50.0,
+                        (-50.0..=50.0).contains(&temp),
                         "Temperature {} out of reasonable range",
                         temp
                     );
@@ -696,7 +696,7 @@ mod caching_tests {
         assert_eq!(temp_result.1, SensorType::Temperature);
 
         // Test cache miss
-        assert!(pattern_cache.get("unknown-pattern").is_none());
+        assert!(!pattern_cache.contains_key("unknown-pattern"));
 
         // Test cache update
         pattern_cache.insert("door-pattern".to_string(), (0.95, SensorType::DoorWindow));
@@ -947,7 +947,7 @@ mod caching_tests {
 
         // Test cache miss
         let missing_key = "discover_new_sensors:120s".to_string();
-        assert!(response_cache.get(&missing_key).is_none());
+        assert!(!response_cache.contains_key(&missing_key));
 
         // Test cache expiration
         let old_response = json!({"old": "data"});

@@ -1,6 +1,6 @@
 //! HTTP client implementation for Loxone Miniserver communication
 //!
-//! This module provides HTTP-based communication with Loxone Generation 1
+//! This module provides HTTP-based communication with Loxone
 //! Miniservers using basic authentication and REST API calls.
 
 use crate::client::{

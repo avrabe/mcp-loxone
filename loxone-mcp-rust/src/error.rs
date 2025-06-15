@@ -1,5 +1,10 @@
 //! Error types for the Loxone MCP server
+//!
+//! This module provides comprehensive error handling with structured error codes,
+//! recovery suggestions, and production-safe logging integration.
 
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use thiserror::Error;
 
 /// Result type alias for Loxone operations
@@ -98,10 +103,298 @@ pub enum LoxoneError {
     /// Consent denied errors
     #[error("Consent denied: {0}")]
     ConsentDenied(String),
+
+    /// Rate limit exceeded
+    #[error("Rate limit exceeded: {0}")]
+    RateLimit(String),
+
+    /// Network errors
+    #[error("Network error: {0}")]
+    Network(String),
+
+    /// External service errors
+    #[error("External service error: {0}")]
+    ExternalService(String),
+
+    /// Parsing errors
+    #[error("Parsing error: {0}")]
+    Parsing(String),
 }
 
-/// Sanitized error representation for production logging
-#[derive(Debug, Clone, serde::Serialize)]
+/// Structured error code for machine-readable error handling
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum ErrorCode {
+    // Connection errors (1000-1099)
+    ConnectionTimeout,
+    ConnectionRefused,
+    ConnectionLost,
+    NetworkUnreachable,
+
+    // Authentication errors (1100-1199)
+    InvalidCredentials,
+    AuthenticationExpired,
+    PermissionDenied,
+    ConsentRequired,
+
+    // Configuration errors (1200-1299)
+    ConfigurationMissing,
+    ConfigurationInvalid,
+    ConfigurationCorrupted,
+
+    // Device errors (1300-1399)
+    DeviceNotFound,
+    DeviceOffline,
+    DeviceControlFailed,
+    DeviceTypeUnsupported,
+
+    // Data errors (1400-1499)
+    ParsingFailed,
+    InvalidInput,
+    ValidationFailed,
+    DataCorrupted,
+
+    // Resource errors (1500-1599)
+    ResourceExhausted,
+    RateLimitExceeded,
+    QuotaExceeded,
+    StorageFull,
+
+    // Service errors (1600-1699)
+    ServiceUnavailable,
+    ServiceTimeout,
+    ExternalServiceError,
+    DependencyFailure,
+
+    // Protocol errors (1700-1799)
+    ProtocolViolation,
+    UnsupportedOperation,
+    MessageMalformed,
+    VersionMismatch,
+
+    // Security errors (1800-1899)
+    CryptographicError,
+    IntegrityViolation,
+    SecurityPolicyViolation,
+
+    // Internal errors (1900-1999)
+    InternalError,
+    NotImplemented,
+    UnexpectedState,
+}
+
+impl ErrorCode {
+    /// Get numeric error code
+    pub fn as_number(&self) -> u32 {
+        match self {
+            // Connection errors (1000-1099)
+            ErrorCode::ConnectionTimeout => 1001,
+            ErrorCode::ConnectionRefused => 1002,
+            ErrorCode::ConnectionLost => 1003,
+            ErrorCode::NetworkUnreachable => 1004,
+
+            // Authentication errors (1100-1199)
+            ErrorCode::InvalidCredentials => 1101,
+            ErrorCode::AuthenticationExpired => 1102,
+            ErrorCode::PermissionDenied => 1103,
+            ErrorCode::ConsentRequired => 1104,
+
+            // Configuration errors (1200-1299)
+            ErrorCode::ConfigurationMissing => 1201,
+            ErrorCode::ConfigurationInvalid => 1202,
+            ErrorCode::ConfigurationCorrupted => 1203,
+
+            // Device errors (1300-1399)
+            ErrorCode::DeviceNotFound => 1301,
+            ErrorCode::DeviceOffline => 1302,
+            ErrorCode::DeviceControlFailed => 1303,
+            ErrorCode::DeviceTypeUnsupported => 1304,
+
+            // Data errors (1400-1499)
+            ErrorCode::ParsingFailed => 1401,
+            ErrorCode::InvalidInput => 1402,
+            ErrorCode::ValidationFailed => 1403,
+            ErrorCode::DataCorrupted => 1404,
+
+            // Resource errors (1500-1599)
+            ErrorCode::ResourceExhausted => 1501,
+            ErrorCode::RateLimitExceeded => 1502,
+            ErrorCode::QuotaExceeded => 1503,
+            ErrorCode::StorageFull => 1504,
+
+            // Service errors (1600-1699)
+            ErrorCode::ServiceUnavailable => 1601,
+            ErrorCode::ServiceTimeout => 1602,
+            ErrorCode::ExternalServiceError => 1603,
+            ErrorCode::DependencyFailure => 1604,
+
+            // Protocol errors (1700-1799)
+            ErrorCode::ProtocolViolation => 1701,
+            ErrorCode::UnsupportedOperation => 1702,
+            ErrorCode::MessageMalformed => 1703,
+            ErrorCode::VersionMismatch => 1704,
+
+            // Security errors (1800-1899)
+            ErrorCode::CryptographicError => 1801,
+            ErrorCode::IntegrityViolation => 1802,
+            ErrorCode::SecurityPolicyViolation => 1803,
+
+            // Internal errors (1900-1999)
+            ErrorCode::InternalError => 1901,
+            ErrorCode::NotImplemented => 1902,
+            ErrorCode::UnexpectedState => 1903,
+        }
+    }
+
+    /// Get error category
+    pub fn category(&self) -> &'static str {
+        match self.as_number() {
+            1000..=1099 => "connection",
+            1100..=1199 => "authentication",
+            1200..=1299 => "configuration",
+            1300..=1399 => "device",
+            1400..=1499 => "data",
+            1500..=1599 => "resource",
+            1600..=1699 => "service",
+            1700..=1799 => "protocol",
+            1800..=1899 => "security",
+            1900..=1999 => "internal",
+            _ => "unknown",
+        }
+    }
+}
+
+/// Recovery suggestion for error handling
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RecoverySuggestion {
+    /// Human-readable description of the suggested action
+    pub description: String,
+    /// Whether this action can be automated
+    pub automated: bool,
+    /// Code snippet or command to execute recovery
+    pub action_code: Option<String>,
+    /// Estimated recovery time in seconds
+    pub estimated_time_seconds: Option<u32>,
+    /// Prerequisites for this recovery action
+    pub prerequisites: Vec<String>,
+}
+
+/// Structured error context with additional metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ErrorContext {
+    /// Error code for machine processing
+    pub code: ErrorCode,
+    /// Component that generated the error
+    pub component: String,
+    /// Operation that was being performed
+    pub operation: String,
+    /// Additional metadata about the error
+    pub metadata: HashMap<String, serde_json::Value>,
+    /// Recovery suggestions
+    pub recovery_suggestions: Vec<RecoverySuggestion>,
+    /// Timestamp when error occurred
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Request/session ID for correlation
+    pub correlation_id: Option<String>,
+    /// Stack trace (only in debug builds)
+    #[cfg(debug_assertions)]
+    pub stack_trace: Option<String>,
+}
+
+impl ErrorContext {
+    /// Create new error context
+    pub fn new(code: ErrorCode, component: &str, operation: &str) -> Self {
+        Self {
+            code,
+            component: component.to_string(),
+            operation: operation.to_string(),
+            metadata: HashMap::new(),
+            recovery_suggestions: Vec::new(),
+            timestamp: chrono::Utc::now(),
+            correlation_id: None,
+            #[cfg(debug_assertions)]
+            stack_trace: None,
+        }
+    }
+
+    /// Add metadata to error context
+    pub fn with_metadata<K, V>(mut self, key: K, value: V) -> Self
+    where
+        K: Into<String>,
+        V: Into<serde_json::Value>,
+    {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
+    /// Add recovery suggestion
+    pub fn with_recovery(mut self, suggestion: RecoverySuggestion) -> Self {
+        self.recovery_suggestions.push(suggestion);
+        self
+    }
+
+    /// Set correlation ID for request tracking
+    pub fn with_correlation_id<S: Into<String>>(mut self, id: S) -> Self {
+        self.correlation_id = Some(id.into());
+        self
+    }
+
+    /// Add stack trace in debug builds
+    #[cfg(debug_assertions)]
+    pub fn with_stack_trace(mut self) -> Self {
+        self.stack_trace = Some(format!("{:?}", backtrace::Backtrace::new()));
+        self
+    }
+}
+
+/// Enhanced error representation for production logging and monitoring
+#[derive(Debug, Clone, Serialize)]
+pub struct StructuredError {
+    /// Error code for machine processing
+    pub code: ErrorCode,
+    /// Numeric error code
+    pub code_number: u32,
+    /// Error category
+    pub category: &'static str,
+    /// Production-safe error message
+    pub message: String,
+    /// Original error message (only in debug builds)
+    #[cfg(debug_assertions)]
+    pub debug_message: String,
+    /// Whether this error is retryable
+    pub is_retryable: bool,
+    /// Whether this is an authentication error
+    pub is_auth_error: bool,
+    /// Component that generated the error
+    pub component: String,
+    /// Operation that was being performed
+    pub operation: String,
+    /// Additional context metadata
+    pub metadata: HashMap<String, serde_json::Value>,
+    /// Recovery suggestions
+    pub recovery_suggestions: Vec<RecoverySuggestion>,
+    /// Error severity level
+    pub severity: ErrorSeverity,
+    /// Timestamp when error occurred
+    pub timestamp: chrono::DateTime<chrono::Utc>,
+    /// Request/session ID for correlation
+    pub correlation_id: Option<String>,
+}
+
+/// Error severity levels for monitoring and alerting
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ErrorSeverity {
+    /// Low severity - information only
+    Info,
+    /// Medium severity - warning condition
+    Warning,
+    /// High severity - error condition
+    Error,
+    /// Critical severity - immediate attention required
+    Critical,
+}
+
+/// Sanitized error representation for production logging (legacy compatibility)
+#[derive(Debug, Clone, Serialize)]
 pub struct SanitizedError {
     pub error_type: String,
     pub message: String,
@@ -170,6 +463,201 @@ impl LoxoneError {
         Self::ConsentDenied(msg.into())
     }
 
+    /// Create a rate limit error
+    pub fn rate_limit_error<S: Into<String>>(msg: S) -> Self {
+        Self::RateLimit(msg.into())
+    }
+
+    /// Create a network error
+    pub fn network_error<S: Into<String>>(msg: S) -> Self {
+        Self::Network(msg.into())
+    }
+
+    /// Create an external service error
+    pub fn external_service_error<S: Into<String>>(msg: S) -> Self {
+        Self::ExternalService(msg.into())
+    }
+
+    /// Create a parsing error
+    pub fn parsing_error<S: Into<String>>(msg: S) -> Self {
+        Self::Parsing(msg.into())
+    }
+
+    /// Create a configuration error (alias for backwards compatibility)
+    pub fn configuration_error<S: Into<String>>(msg: S) -> Self {
+        Self::Config(msg.into())
+    }
+
+    /// Map LoxoneError to structured error code
+    pub fn to_error_code(&self) -> ErrorCode {
+        match self {
+            LoxoneError::Connection(_) => ErrorCode::ConnectionLost,
+            LoxoneError::Authentication(_) => ErrorCode::InvalidCredentials,
+            LoxoneError::Config(_) => ErrorCode::ConfigurationInvalid,
+            LoxoneError::Credentials(_) => ErrorCode::InvalidCredentials,
+            LoxoneError::DeviceControl(_) => ErrorCode::DeviceControlFailed,
+            LoxoneError::SensorDiscovery(_) => ErrorCode::DeviceNotFound,
+            LoxoneError::Discovery(_) => ErrorCode::NetworkUnreachable,
+            LoxoneError::Timeout(_) => ErrorCode::ConnectionTimeout,
+            LoxoneError::InvalidInput(_) => ErrorCode::InvalidInput,
+            LoxoneError::NotFound(_) => ErrorCode::DeviceNotFound,
+            LoxoneError::PermissionDenied(_) => ErrorCode::PermissionDenied,
+            LoxoneError::ServiceUnavailable(_) => ErrorCode::ServiceUnavailable,
+            LoxoneError::ResourceExhausted(_) => ErrorCode::ResourceExhausted,
+            LoxoneError::ConsentDenied(_) => ErrorCode::ConsentRequired,
+            LoxoneError::RateLimit(_) => ErrorCode::RateLimitExceeded,
+            LoxoneError::Network(_) => ErrorCode::NetworkUnreachable,
+            LoxoneError::ExternalService(_) => ErrorCode::ExternalServiceError,
+            LoxoneError::Parsing(_) => ErrorCode::ParsingFailed,
+            LoxoneError::Mcp(_) => ErrorCode::ProtocolViolation,
+            LoxoneError::Json(_) => ErrorCode::ParsingFailed,
+            LoxoneError::Http(_) => ErrorCode::ExternalServiceError,
+            LoxoneError::Io(_) => ErrorCode::InternalError,
+            LoxoneError::Generic(_) => ErrorCode::InternalError,
+            #[cfg(feature = "websocket")]
+            LoxoneError::WebSocket(_) => ErrorCode::ConnectionLost,
+            #[cfg(feature = "crypto")]
+            LoxoneError::Crypto(_) => ErrorCode::CryptographicError,
+            #[cfg(target_arch = "wasm32")]
+            LoxoneError::Wasm(_) => ErrorCode::InternalError,
+        }
+    }
+
+    /// Get error severity level
+    pub fn severity(&self) -> ErrorSeverity {
+        match self {
+            LoxoneError::Authentication(_) | LoxoneError::Credentials(_) => ErrorSeverity::Critical,
+            LoxoneError::Config(_) | LoxoneError::PermissionDenied(_) => ErrorSeverity::Error,
+            LoxoneError::Connection(_) | LoxoneError::ServiceUnavailable(_) => {
+                ErrorSeverity::Warning
+            }
+            LoxoneError::Timeout(_) | LoxoneError::Network(_) => ErrorSeverity::Warning,
+            LoxoneError::DeviceControl(_) | LoxoneError::NotFound(_) => ErrorSeverity::Error,
+            LoxoneError::InvalidInput(_) | LoxoneError::Parsing(_) => ErrorSeverity::Warning,
+            LoxoneError::ResourceExhausted(_) | LoxoneError::RateLimit(_) => ErrorSeverity::Error,
+            _ => ErrorSeverity::Error,
+        }
+    }
+
+    /// Generate recovery suggestions for the error
+    pub fn generate_recovery_suggestions(&self) -> Vec<RecoverySuggestion> {
+        match self {
+            LoxoneError::Connection(_) => vec![
+                RecoverySuggestion {
+                    description: "Check network connectivity and Loxone Miniserver availability"
+                        .to_string(),
+                    automated: true,
+                    action_code: Some("ping miniserver_ip".to_string()),
+                    estimated_time_seconds: Some(5),
+                    prerequisites: vec![],
+                },
+                RecoverySuggestion {
+                    description: "Retry connection with exponential backoff".to_string(),
+                    automated: true,
+                    action_code: None,
+                    estimated_time_seconds: Some(30),
+                    prerequisites: vec![],
+                },
+            ],
+            LoxoneError::Authentication(_) => vec![
+                RecoverySuggestion {
+                    description: "Verify credentials are correct and not expired".to_string(),
+                    automated: false,
+                    action_code: Some("loxone-mcp verify".to_string()),
+                    estimated_time_seconds: Some(10),
+                    prerequisites: vec!["Valid credentials".to_string()],
+                },
+                RecoverySuggestion {
+                    description: "Re-run credential setup".to_string(),
+                    automated: false,
+                    action_code: Some("loxone-mcp setup".to_string()),
+                    estimated_time_seconds: Some(60),
+                    prerequisites: vec!["Access to Loxone Config".to_string()],
+                },
+            ],
+            LoxoneError::Config(_) => vec![
+                RecoverySuggestion {
+                    description: "Check configuration file syntax and completeness".to_string(),
+                    automated: true,
+                    action_code: None,
+                    estimated_time_seconds: Some(5),
+                    prerequisites: vec![],
+                },
+                RecoverySuggestion {
+                    description: "Reset to default configuration".to_string(),
+                    automated: true,
+                    action_code: Some("rm config.toml && loxone-mcp setup".to_string()),
+                    estimated_time_seconds: Some(30),
+                    prerequisites: vec![],
+                },
+            ],
+            LoxoneError::DeviceControl(_) => vec![
+                RecoverySuggestion {
+                    description: "Check if device is online and accessible".to_string(),
+                    automated: true,
+                    action_code: None,
+                    estimated_time_seconds: Some(10),
+                    prerequisites: vec![],
+                },
+                RecoverySuggestion {
+                    description: "Verify device UUID and permissions".to_string(),
+                    automated: false,
+                    action_code: None,
+                    estimated_time_seconds: Some(15),
+                    prerequisites: vec!["Loxone Config access".to_string()],
+                },
+            ],
+            LoxoneError::Timeout(_) => vec![
+                RecoverySuggestion {
+                    description: "Increase timeout values in configuration".to_string(),
+                    automated: false,
+                    action_code: None,
+                    estimated_time_seconds: Some(5),
+                    prerequisites: vec![],
+                },
+                RecoverySuggestion {
+                    description: "Check network latency to Miniserver".to_string(),
+                    automated: true,
+                    action_code: Some("ping -c 4 miniserver_ip".to_string()),
+                    estimated_time_seconds: Some(10),
+                    prerequisites: vec![],
+                },
+            ],
+            _ => vec![RecoverySuggestion {
+                description: "Check logs for more detailed error information".to_string(),
+                automated: false,
+                action_code: Some("journalctl -u loxone-mcp".to_string()),
+                estimated_time_seconds: Some(10),
+                prerequisites: vec![],
+            }],
+        }
+    }
+
+    /// Create a structured error from this LoxoneError
+    pub fn to_structured_error(&self, context: Option<ErrorContext>) -> StructuredError {
+        let error_code = self.to_error_code();
+        let base_context =
+            context.unwrap_or_else(|| ErrorContext::new(error_code.clone(), "unknown", "unknown"));
+
+        StructuredError {
+            code: error_code.clone(),
+            code_number: error_code.as_number(),
+            category: error_code.category(),
+            message: self.sanitized_message(),
+            #[cfg(debug_assertions)]
+            debug_message: self.to_string(),
+            is_retryable: self.is_retryable(),
+            is_auth_error: self.is_auth_error(),
+            component: base_context.component,
+            operation: base_context.operation,
+            metadata: base_context.metadata,
+            recovery_suggestions: self.generate_recovery_suggestions(),
+            severity: self.severity(),
+            timestamp: base_context.timestamp,
+            correlation_id: base_context.correlation_id,
+        }
+    }
+
     /// Check if error is retryable
     pub fn is_retryable(&self) -> bool {
         matches!(
@@ -218,6 +706,10 @@ impl LoxoneError {
                 LoxoneError::ServiceUnavailable(_) => "Service temporarily unavailable".to_string(),
                 LoxoneError::ResourceExhausted(_) => "Resource limits exceeded".to_string(),
                 LoxoneError::ConsentDenied(_) => "Operation requires user consent".to_string(),
+                LoxoneError::RateLimit(_) => "Rate limit exceeded".to_string(),
+                LoxoneError::Network(_) => "Network operation failed".to_string(),
+                LoxoneError::ExternalService(_) => "External service error".to_string(),
+                LoxoneError::Parsing(_) => "Data parsing error".to_string(),
                 LoxoneError::Io(_) => "I/O operation failed".to_string(),
                 LoxoneError::Json(_) => "Data parsing error".to_string(),
                 LoxoneError::Generic(_) => "Internal error occurred".to_string(),
@@ -242,6 +734,168 @@ impl LoxoneError {
     }
 }
 
+/// Error logging and reporting utilities
+pub struct ErrorReporter;
+
+impl ErrorReporter {
+    /// Log a structured error with appropriate severity
+    pub fn log_error(error: &LoxoneError, context: Option<ErrorContext>) {
+        let structured = error.to_structured_error(context);
+
+        match structured.severity {
+            ErrorSeverity::Critical => {
+                tracing::error!(
+                    error_code = structured.code_number,
+                    category = structured.category,
+                    component = structured.component,
+                    operation = structured.operation,
+                    correlation_id = structured.correlation_id,
+                    recovery_suggestions = ?structured.recovery_suggestions,
+                    "Critical error occurred: {}",
+                    structured.message
+                );
+            }
+            ErrorSeverity::Error => {
+                tracing::error!(
+                    error_code = structured.code_number,
+                    category = structured.category,
+                    component = structured.component,
+                    operation = structured.operation,
+                    correlation_id = structured.correlation_id,
+                    "Error occurred: {}",
+                    structured.message
+                );
+            }
+            ErrorSeverity::Warning => {
+                tracing::warn!(
+                    error_code = structured.code_number,
+                    category = structured.category,
+                    component = structured.component,
+                    operation = structured.operation,
+                    correlation_id = structured.correlation_id,
+                    "Warning: {}",
+                    structured.message
+                );
+            }
+            ErrorSeverity::Info => {
+                tracing::info!(
+                    error_code = structured.code_number,
+                    category = structured.category,
+                    component = structured.component,
+                    operation = structured.operation,
+                    correlation_id = structured.correlation_id,
+                    "Info: {}",
+                    structured.message
+                );
+            }
+        }
+    }
+
+    /// Create an error context with stack trace (debug builds only)
+    pub fn create_context(code: ErrorCode, component: &str, operation: &str) -> ErrorContext {
+        let mut context = ErrorContext::new(code, component, operation);
+
+        #[cfg(debug_assertions)]
+        {
+            context = context.with_stack_trace();
+        }
+
+        context
+    }
+
+    /// Format error for API responses
+    pub fn format_api_error(error: &LoxoneError, include_details: bool) -> serde_json::Value {
+        let structured = error.to_structured_error(None);
+
+        let mut response = serde_json::json!({
+            "error": {
+                "code": structured.code_number,
+                "category": structured.category,
+                "message": structured.message,
+                "retryable": structured.is_retryable,
+                "timestamp": structured.timestamp
+            }
+        });
+
+        if include_details {
+            response["error"]["recovery_suggestions"] =
+                serde_json::to_value(structured.recovery_suggestions).unwrap_or_default();
+            response["error"]["component"] = serde_json::Value::String(structured.component);
+            response["error"]["operation"] = serde_json::Value::String(structured.operation);
+
+            if let Some(correlation_id) = structured.correlation_id {
+                response["error"]["correlation_id"] = serde_json::Value::String(correlation_id);
+            }
+        }
+
+        response
+    }
+
+    /// Generate error metrics for monitoring
+    pub fn generate_metrics(error: &LoxoneError) -> HashMap<String, serde_json::Value> {
+        let structured = error.to_structured_error(None);
+
+        HashMap::from([
+            (
+                "error_code".to_string(),
+                serde_json::Value::Number(structured.code_number.into()),
+            ),
+            (
+                "category".to_string(),
+                serde_json::Value::String(structured.category.to_string()),
+            ),
+            (
+                "severity".to_string(),
+                serde_json::Value::String(format!("{:?}", structured.severity)),
+            ),
+            (
+                "retryable".to_string(),
+                serde_json::Value::Bool(structured.is_retryable),
+            ),
+            (
+                "auth_error".to_string(),
+                serde_json::Value::Bool(structured.is_auth_error),
+            ),
+            (
+                "component".to_string(),
+                serde_json::Value::String(structured.component),
+            ),
+            (
+                "timestamp".to_string(),
+                serde_json::Value::String(structured.timestamp.to_rfc3339()),
+            ),
+        ])
+    }
+}
+
+/// Macro for easy structured error logging
+#[macro_export]
+macro_rules! log_structured_error {
+    ($error:expr, $component:expr, $operation:expr) => {
+        $crate::error::ErrorReporter::log_error(
+            &$error,
+            Some($crate::error::ErrorReporter::create_context(
+                $error.to_error_code(),
+                $component,
+                $operation,
+            )),
+        )
+    };
+    ($error:expr, $component:expr, $operation:expr, $correlation_id:expr) => {
+        $crate::error::ErrorReporter::log_error(
+            &$error,
+            Some(
+                $crate::error::ErrorReporter::create_context(
+                    $error.to_error_code(),
+                    $component,
+                    $operation,
+                )
+                .with_correlation_id($correlation_id),
+            ),
+        )
+    };
+}
+
 #[cfg(feature = "websocket")]
 impl From<tokio_tungstenite::tungstenite::Error> for LoxoneError {
     fn from(err: tokio_tungstenite::tungstenite::Error) -> Self {
@@ -260,5 +914,11 @@ impl From<rsa::Error> for LoxoneError {
 impl From<keyring::Error> for LoxoneError {
     fn from(err: keyring::Error) -> Self {
         LoxoneError::Credentials(format!("Keyring error: {}", err))
+    }
+}
+
+impl From<regex::Error> for LoxoneError {
+    fn from(err: regex::Error) -> Self {
+        LoxoneError::InvalidInput(format!("Regex pattern error: {}", err))
     }
 }

@@ -6,7 +6,7 @@
 use crate::error::{LoxoneError, Result};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
-use sysinfo::System;
+use sysinfo::{Pid, System};
 use tokio::sync::Mutex;
 use tracing::{debug, info, warn};
 
@@ -85,7 +85,7 @@ pub struct ResourceMonitor {
     system: Arc<Mutex<System>>,
 
     /// Process ID
-    pid: sysinfo::Pid,
+    pid: Pid,
 
     /// Active request tracking
     active_requests: Arc<Mutex<Vec<ActiveRequest>>>,
@@ -111,7 +111,7 @@ impl ResourceMonitor {
         let mut system = System::new_all();
         system.refresh_all();
 
-        let pid = sysinfo::Pid::from(std::process::id() as usize);
+        let pid = Pid::from_u32(std::process::id());
 
         info!("Resource monitor initialized with limits: {:?}", limits);
 

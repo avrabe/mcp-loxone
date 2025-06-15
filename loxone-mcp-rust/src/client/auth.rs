@@ -140,7 +140,7 @@ impl LoxoneAuth {
         Ok(())
     }
 
-    /// Set RSA public key from PEM certificate (for Generation 1 systems)
+    /// Set RSA public key from PEM certificate
     pub fn set_public_key_from_pem(&mut self, pem_cert: &str) -> Result<()> {
         tracing::debug!("Parsing PEM certificate of length: {}", pem_cert.len());
 

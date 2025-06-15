@@ -1,6 +1,6 @@
 //! Token-based HTTP client implementation for Loxone Miniserver
 //!
-//! This module provides HTTP-based communication with Loxone Generation 1+
+//! This module provides HTTP-based communication with Loxone
 //! Miniservers using token-based authentication (recommended for V9+).
 
 use crate::client::{

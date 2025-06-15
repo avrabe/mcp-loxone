@@ -568,7 +568,7 @@ impl Default for ComponentMetadata {
         Self {
             name: "loxone-mcp-wasip2".to_string(),
             version: env!("CARGO_PKG_VERSION").to_string(),
-            description: "Loxone Generation 1 MCP Server for WASM Component Model".to_string(),
+            description: "Loxone MCP Server for WASM Component Model".to_string(),
             author: "Ralf Anton Beier".to_string(),
             license: "MIT".to_string(),
             interfaces: vec![

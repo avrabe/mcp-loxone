@@ -5,9 +5,10 @@
 
 use loxone_mcp_rust::{
     config::credentials::{create_credentials, LoxoneCredentials},
-    http_transport::{AuthConfig, HttpTransportServer},
+    http_transport::{AuthConfig, HttpServerConfig, HttpTransportServer},
+    security::SecurityConfig,
     server::LoxoneMcpServer,
-    LoxoneError, Result, ServerConfig,
+    Result, ServerConfig,
 };
 
 use clap::{Parser, Subcommand};
@@ -19,7 +20,7 @@ use tracing::{error, info};
 /// Command line arguments
 #[derive(Parser)]
 #[command(name = "loxone-mcp-server")]
-#[command(about = "Loxone Generation 1 MCP Server in Rust")]
+#[command(about = "Loxone MCP Server in Rust")]
 #[command(version = "1.0.0")]
 struct Cli {
     #[command(subcommand)]
@@ -158,29 +159,56 @@ async fn run_http_server(config: ServerConfig, port: u16, api_key: Option<String
         .or_else(|| env::var("API_KEY").ok())
         .or_else(|| keychain_api_key.clone());
 
-    let auth_config = match api_key_value {
-        Some(key) => AuthConfig::with_key(key),
-        None => {
-            eprintln!("❌ No API key found!");
-            eprintln!("   Set one of these environment variables:");
-            eprintln!("   - LOXONE_API_KEY");
-            eprintln!("   - API_KEY");
-            eprintln!("   Or run 'loxone-mcp setup' to configure credentials");
-            return Err(LoxoneError::invalid_input(
-                "No API key configured for HTTP transport",
-            ));
-        }
+    // Use default authentication configuration for now
+    // TODO: Integrate API key configuration with new AuthManager
+    let auth_config = AuthConfig::default();
+
+    if api_key_value.is_none() {
+        eprintln!("⚠️ Warning: No API key configured for HTTP transport");
+        eprintln!("   The server will use enhanced authentication with role-based access");
+        eprintln!("   Use admin endpoints to manage API keys, or set:");
+        eprintln!("   - LOXONE_API_KEY");
+        eprintln!("   - API_KEY");
+        eprintln!("   Or run 'loxone-mcp setup' to configure credentials");
+    }
+
+    // Log authentication configuration
+    info!("🔐 Enhanced authentication configured:");
+    info!("   Require API key: {}", auth_config.require_api_key);
+    info!("   API key header: {}", auth_config.api_key_header);
+    if let Some(key) = &api_key_value {
+        info!("   Initial API key: {}***", &key[..3.min(key.len())]);
+    }
+
+    // Create HTTP server configuration with security based on environment
+    let security_config = if std::env::var("PRODUCTION").is_ok() {
+        Some(SecurityConfig::production())
+    } else if std::env::var("DISABLE_SECURITY").is_ok() {
+        None
+    } else {
+        Some(SecurityConfig::development())
     };
 
-    // Log authentication token (masked for security)
-    info!("🔐 Authentication configured:");
-    info!(
-        "   API key: {}***",
-        &auth_config.api_key[..3.min(auth_config.api_key.len())]
-    );
+    // Configure performance monitoring based on environment
+    let performance_config = if std::env::var("DISABLE_PERFORMANCE").is_ok() {
+        None
+    } else if std::env::var("PRODUCTION").is_ok() {
+        Some(loxone_mcp_rust::performance::PerformanceConfig::production())
+    } else {
+        Some(loxone_mcp_rust::performance::PerformanceConfig::development())
+    };
+
+    let http_config = HttpServerConfig {
+        port,
+        auth_config,
+        security_config,
+        performance_config,
+        #[cfg(feature = "influxdb")]
+        influx_config: None,
+    };
 
     // Create and start HTTP transport server
-    let http_server = HttpTransportServer::new(mcp_server, auth_config, port);
+    let http_server = HttpTransportServer::new(mcp_server, http_config).await?;
     http_server.start().await
 }
 

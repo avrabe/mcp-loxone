@@ -336,7 +336,7 @@ mod tests {
         assert!(empty_devices.is_empty());
 
         // Test valid device list
-        let valid_devices = vec![
+        let valid_devices = [
             "Living Room Light".to_string(),
             "Kitchen Light".to_string(),
             "Bedroom Light".to_string(),
@@ -388,7 +388,7 @@ mod tests {
     #[test]
     fn test_multiple_device_control_batch_response() {
         // Test batch control response structure
-        let devices = vec!["Light 1", "Light 2", "Light 3"];
+        let devices = ["Light 1", "Light 2", "Light 3"];
         let action = "on";
 
         // Simulate batch response
@@ -505,7 +505,7 @@ mod tests {
         for device in &devices {
             devices_by_type
                 .entry(device.device_type.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(device);
         }
 
