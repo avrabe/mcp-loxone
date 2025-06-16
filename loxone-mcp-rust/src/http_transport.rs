@@ -830,6 +830,111 @@ fn generate_navigation_html() -> String {
             font-size: 0.9rem;
             word-break: break-all;
         }
+
+        /* Retro Terminal Styles */
+        .terminal-container {
+            margin-top: 3rem;
+            background: #0a0a0a;
+            border: 2px solid #00ff00;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            font-family: 'Courier New', 'Consolas', monospace;
+        }
+
+        .terminal-header {
+            background: #00ff00;
+            color: #0a0a0a;
+            padding: 0.5rem 1rem;
+            font-weight: bold;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .terminal-screen {
+            background: #0a0a0a;
+            color: #00ff00;
+            padding: 1rem;
+            min-height: 400px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            position: relative;
+        }
+
+        .terminal-screen::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .terminal-screen::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+
+        .terminal-screen::-webkit-scrollbar-thumb {
+            background: #00ff00;
+        }
+
+        .terminal-line {
+            margin-bottom: 0.5rem;
+            font-family: inherit;
+            white-space: pre-wrap;
+        }
+
+        .terminal-prompt {
+            color: #00ff00;
+            display: inline;
+        }
+
+        .terminal-input {
+            background: transparent;
+            border: none;
+            color: #00ff00;
+            font-family: inherit;
+            font-size: inherit;
+            outline: none;
+            width: calc(100% - 100px);
+            display: inline;
+        }
+
+        .terminal-cursor {
+            display: inline-block;
+            width: 10px;
+            height: 16px;
+            background: #00ff00;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 49% { opacity: 1; }
+            50%, 100% { opacity: 0; }
+        }
+
+        .terminal-ascii-art {
+            color: #00ff00;
+            text-align: center;
+            margin: 1rem 0;
+            font-size: 12px;
+            line-height: 1.2;
+        }
+
+        .terminal-game {
+            text-align: center;
+            padding: 1rem;
+        }
+
+        .terminal-error {
+            color: #ff0000;
+        }
+
+        .terminal-success {
+            color: #00ff00;
+        }
+
+        .terminal-warning {
+            color: #ffff00;
+        }
     </style>
 </head>
 <body>
@@ -968,6 +1073,43 @@ fn generate_navigation_html() -> String {
             </div>
         </div>
 
+        <!-- Retro Terminal -->
+        <div class="terminal-container">
+            <div class="terminal-header">
+                <span>WOPR TERMINAL v2.0 - LOXONE CONTROL SYSTEM</span>
+                <span>[ CONNECTED ]</span>
+            </div>
+            <div class="terminal-screen" id="terminal">
+                <div class="terminal-ascii-art">
+ __      __  ___   ___   ___  
+/  \    /  \/   \ |   \ |   \ 
+\   \/\/   /     ||    \|    \
+ \        /|  O  ||  D  |  D  |
+  \  /\  / |     ||     |     |
+   \/  \/  \___/ |____/|____/ 
+                              
+      WAR OPERATION PLAN RESPONSE
+                </div>
+                <div class="terminal-line">GREETINGS PROFESSOR FALKEN.</div>
+                <div class="terminal-line">SHALL WE PLAY A GAME?</div>
+                <div class="terminal-line"></div>
+                <div class="terminal-line">AVAILABLE GAMES:</div>
+                <div class="terminal-line">1. GLOBAL THERMONUCLEAR WAR</div>
+                <div class="terminal-line">2. TIC-TAC-TOE</div>
+                <div class="terminal-line">3. LUIGI'S MANSION (KEY COLLECTOR)</div>
+                <div class="terminal-line">4. SNAKE</div>
+                <div class="terminal-line">5. DOOR DEFENDER</div>
+                <div class="terminal-line">6. LIGHT CYCLES</div>
+                <div class="terminal-line"></div>
+                <div id="output"></div>
+                <div class="terminal-line" id="inputLine">
+                    <span class="terminal-prompt">&gt; </span>
+                    <input type="text" id="terminalInput" class="terminal-input" autofocus>
+                    <span class="terminal-cursor"></span>
+                </div>
+            </div>
+        </div>
+
         <div class="footer">
             <p>🦀 Loxone MCP Server - Built with Rust</p>
             <p>Navigation Hub v1.0 - Browser-friendly interface</p>
@@ -1003,7 +1145,322 @@ fn generate_navigation_html() -> String {
                 document.getElementById('apiKeyDisplay').style.display = 'block';
                 document.getElementById('apiKeyValue').textContent = apiKey;
             }
+            initTerminal();
         };
+
+        // Terminal functionality
+        let terminalHistory = [];
+        let historyIndex = -1;
+        let currentGame = null;
+
+        function initTerminal() {
+            const input = document.getElementById('terminalInput');
+            const terminal = document.getElementById('terminal');
+            
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    processCommand(input.value);
+                    terminalHistory.push(input.value);
+                    historyIndex = terminalHistory.length;
+                    input.value = '';
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (historyIndex > 0) {
+                        historyIndex--;
+                        input.value = terminalHistory[historyIndex];
+                    }
+                } else if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    if (historyIndex < terminalHistory.length - 1) {
+                        historyIndex++;
+                        input.value = terminalHistory[historyIndex];
+                    } else {
+                        historyIndex = terminalHistory.length;
+                        input.value = '';
+                    }
+                }
+            });
+
+            // Keep focus on input
+            terminal.addEventListener('click', () => input.focus());
+        }
+
+        function addLine(text, className = '') {
+            const output = document.getElementById('output');
+            const line = document.createElement('div');
+            line.className = 'terminal-line ' + className;
+            line.textContent = text;
+            output.appendChild(line);
+            
+            // Auto scroll to bottom
+            const terminal = document.getElementById('terminal');
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function processCommand(cmd) {
+            const command = cmd.trim().toUpperCase();
+            addLine('> ' + cmd, 'terminal-prompt');
+
+            if (currentGame) {
+                processGameCommand(command);
+                return;
+            }
+
+            switch(command) {
+                case '1':
+                case 'GLOBAL THERMONUCLEAR WAR':
+                    startGlobalThermonuclearWar();
+                    break;
+                case '2':
+                case 'TIC-TAC-TOE':
+                    startTicTacToe();
+                    break;
+                case '3':
+                case "LUIGI'S MANSION":
+                case 'KEY COLLECTOR':
+                    startLuigisMansion();
+                    break;
+                case '4':
+                case 'SNAKE':
+                    startSnake();
+                    break;
+                case '5':
+                case 'DOOR DEFENDER':
+                    startDoorDefender();
+                    break;
+                case '6':
+                case 'LIGHT CYCLES':
+                    startLightCycles();
+                    break;
+                case 'HELP':
+                    showHelp();
+                    break;
+                case 'HELLO JOSHUA':
+                    addLine('HELLO PROFESSOR FALKEN.');
+                    break;
+                case 'LIST GAMES':
+                    listGames();
+                    break;
+                case 'CLEAR':
+                case 'CLS':
+                    document.getElementById('output').innerHTML = '';
+                    break;
+                case 'EXIT':
+                case 'QUIT':
+                    if (currentGame) {
+                        currentGame = null;
+                        addLine('GAME TERMINATED.');
+                        addLine('');
+                        addLine('SHALL WE PLAY A GAME?');
+                    }
+                    break;
+                default:
+                    if (command) {
+                        addLine('COMMAND NOT RECOGNIZED: ' + command, 'terminal-error');
+                        addLine('TYPE "HELP" FOR AVAILABLE COMMANDS');
+                    }
+            }
+        }
+
+        function showHelp() {
+            addLine('AVAILABLE COMMANDS:');
+            addLine('1-6 - SELECT A GAME');
+            addLine('HELP - SHOW THIS MESSAGE');
+            addLine('LIST GAMES - SHOW AVAILABLE GAMES');
+            addLine('CLEAR - CLEAR SCREEN');
+            addLine('EXIT - EXIT CURRENT GAME');
+        }
+
+        function listGames() {
+            addLine('AVAILABLE GAMES:');
+            addLine('1. GLOBAL THERMONUCLEAR WAR - SYSTEM STATUS MONITORING');
+            addLine('2. TIC-TAC-TOE - CLASSIC GAME');
+            addLine('3. LUIGI\'S MANSION - COLLECT API KEYS');
+            addLine('4. SNAKE - NAVIGATE THE GRID');
+            addLine('5. DOOR DEFENDER - MONITOR DOOR SENSORS');
+            addLine('6. LIGHT CYCLES - CONTROL LIGHTING GRID');
+        }
+
+        // Game: Global Thermonuclear War
+        function startGlobalThermonuclearWar() {
+            currentGame = 'war';
+            addLine('');
+            addLine('INITIATING GLOBAL THERMONUCLEAR WAR SIMULATION...');
+            addLine('');
+            setTimeout(() => {
+                addLine('STRANGE GAME.');
+                setTimeout(() => {
+                    addLine('THE ONLY WINNING MOVE IS NOT TO PLAY.');
+                    setTimeout(() => {
+                        addLine('');
+                        addLine('HOW ABOUT A NICE GAME OF CHESS?');
+                        setTimeout(() => {
+                            addLine('');
+                            addLine('REDIRECTING TO SYSTEM STATUS MONITOR...');
+                            setTimeout(() => {
+                                window.location.href = buildUrl('/admin/status');
+                            }, 2000);
+                        }, 1500);
+                    }, 1500);
+                }, 1500);
+            }, 2000);
+        }
+
+        // Game: Luigi's Mansion (Key Collector)
+        function startLuigisMansion() {
+            currentGame = 'luigi';
+            addLine('');
+            addLine('WELCOME TO LUIGI\'S MANSION - KEY COLLECTOR EDITION');
+            addLine('');
+            addLine('YOU ARE IN A DARK MANSION. YOUR MISSION:');
+            addLine('COLLECT ALL THE API KEYS SCATTERED THROUGHOUT.');
+            addLine('');
+            addLine('YOU SEE A GLOWING DOOR AHEAD.');
+            addLine('TYPE "ENTER" TO GO THROUGH THE DOOR.');
+            addLine('TYPE "EXIT" TO LEAVE THE GAME.');
+        }
+
+        function processGameCommand(command) {
+            if (currentGame === 'luigi') {
+                if (command === 'ENTER' || command === 'GO' || command === 'OPEN DOOR') {
+                    addLine('');
+                    addLine('YOU ENTER THE GLOWING DOOR...');
+                    addLine('A MYSTERIOUS PORTAL OPENS!');
+                    addLine('');
+                    addLine('[ TELEPORTING TO KEY MANAGEMENT CHAMBER ]');
+                    setTimeout(() => {
+                        window.location.href = buildUrl('/admin/keys');
+                    }, 2000);
+                } else if (command === 'EXIT' || command === 'QUIT') {
+                    currentGame = null;
+                    addLine('YOU LEAVE THE MANSION... FOR NOW.');
+                    addLine('');
+                    addLine('SHALL WE PLAY A GAME?');
+                } else {
+                    addLine('YOU CANNOT DO THAT HERE.', 'terminal-warning');
+                }
+            } else if (currentGame === 'tictactoe') {
+                processTicTacToeCommand(command);
+            }
+        }
+
+        // Game: Tic-Tac-Toe
+        let tttBoard = [];
+        function startTicTacToe() {
+            currentGame = 'tictactoe';
+            tttBoard = [' ', ' ', ' ', ' ', ' ', ' ', ' ', ' ', ' '];
+            addLine('');
+            addLine('TIC-TAC-TOE - YOU ARE X, I AM O');
+            addLine('ENTER POSITION (1-9):');
+            addLine('');
+            addLine(' 1 | 2 | 3 ');
+            addLine('-----------');
+            addLine(' 4 | 5 | 6 ');
+            addLine('-----------');
+            addLine(' 7 | 8 | 9 ');
+            addLine('');
+        }
+
+        function processTicTacToeCommand(command) {
+            const pos = parseInt(command) - 1;
+            if (isNaN(pos) || pos < 0 || pos > 8) {
+                addLine('INVALID POSITION. ENTER 1-9.', 'terminal-error');
+                return;
+            }
+            
+            if (tttBoard[pos] !== ' ') {
+                addLine('POSITION ALREADY TAKEN.', 'terminal-error');
+                return;
+            }
+            
+            // Player move
+            tttBoard[pos] = 'X';
+            
+            // Check win
+            if (checkTTTWin('X')) {
+                displayTTTBoard();
+                addLine('');
+                addLine('YOU WIN! IMPRESSIVE.', 'terminal-success');
+                currentGame = null;
+                return;
+            }
+            
+            // Check draw
+            if (!tttBoard.includes(' ')) {
+                displayTTTBoard();
+                addLine('');
+                addLine('DRAW. A STRANGE GAME.', 'terminal-warning');
+                currentGame = null;
+                return;
+            }
+            
+            // Computer move (simple AI)
+            const available = [];
+            for (let i = 0; i < 9; i++) {
+                if (tttBoard[i] === ' ') available.push(i);
+            }
+            const compMove = available[Math.floor(Math.random() * available.length)];
+            tttBoard[compMove] = 'O';
+            
+            displayTTTBoard();
+            
+            // Check computer win
+            if (checkTTTWin('O')) {
+                addLine('');
+                addLine('I WIN. BETTER LUCK NEXT TIME.', 'terminal-error');
+                currentGame = null;
+                return;
+            }
+        }
+
+        function displayTTTBoard() {
+            addLine('');
+            addLine(' ' + tttBoard[0] + ' | ' + tttBoard[1] + ' | ' + tttBoard[2] + ' ');
+            addLine('-----------');
+            addLine(' ' + tttBoard[3] + ' | ' + tttBoard[4] + ' | ' + tttBoard[5] + ' ');
+            addLine('-----------');
+            addLine(' ' + tttBoard[6] + ' | ' + tttBoard[7] + ' | ' + tttBoard[8] + ' ');
+            addLine('');
+        }
+
+        function checkTTTWin(player) {
+            const wins = [
+                [0,1,2], [3,4,5], [6,7,8], // rows
+                [0,3,6], [1,4,7], [2,5,8], // cols
+                [0,4,8], [2,4,6] // diagonals
+            ];
+            return wins.some(combo => 
+                combo.every(pos => tttBoard[pos] === player)
+            );
+        }
+
+        // Other games redirect to appropriate interfaces
+        function startSnake() {
+            addLine('');
+            addLine('LOADING SNAKE...');
+            addLine('REDIRECTING TO DASHBOARD GRID SYSTEM...');
+            setTimeout(() => {
+                window.location.href = buildUrl('/dashboard/');
+            }, 2000);
+        }
+
+        function startDoorDefender() {
+            addLine('');
+            addLine('DOOR DEFENDER - SECURITY MONITORING SYSTEM');
+            addLine('ACCESSING DOOR AND WINDOW SENSORS...');
+            setTimeout(() => {
+                window.location.href = buildUrl('/dashboard/');
+            }, 2000);
+        }
+
+        function startLightCycles() {
+            addLine('');
+            addLine('LIGHT CYCLES - ILLUMINATION CONTROL GRID');
+            addLine('INITIALIZING LIGHT CONTROL MATRIX...');
+            setTimeout(() => {
+                window.location.href = buildUrl('/dashboard/');
+            }, 2000);
+        }
     </script>
 </body>
 </html>"##

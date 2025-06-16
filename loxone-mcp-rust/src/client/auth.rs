@@ -3,23 +3,23 @@
 //! This module provides RSA and AES encryption capabilities for secure
 //! communication with Loxone Miniservers using the token-based authentication.
 
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use crate::error::{LoxoneError, Result};
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use base64::{engine::general_purpose, Engine as _};
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use rand::rngs::OsRng;
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use rsa::{sha2::Sha256, Oaep, RsaPublicKey};
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use std::collections::HashMap;
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 use x509_parser::{parse_x509_certificate, pem::parse_x509_pem};
 
 /// Find the start of RSA public key data in DER-encoded certificate
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 fn find_rsa_public_key_in_der(der_data: &[u8]) -> Option<usize> {
     // RSA OID: 06 09 2a 86 48 86 f7 0d 01 01 01 (just the OID part)
     let rsa_oid = [
@@ -63,7 +63,7 @@ fn find_rsa_public_key_in_der(der_data: &[u8]) -> Option<usize> {
 }
 
 /// Authentication token response from Loxone
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthToken {
     /// JWT token for authentication
@@ -80,7 +80,7 @@ pub struct AuthToken {
 }
 
 /// RSA public key information from Loxone
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoxonePublicKey {
     /// RSA public key in PEM format
@@ -94,7 +94,7 @@ pub struct LoxonePublicKey {
 }
 
 /// Authentication manager for Loxone crypto operations
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 pub struct LoxoneAuth {
     /// RSA public key from server
     public_key: Option<RsaPublicKey>,
@@ -106,7 +106,7 @@ pub struct LoxoneAuth {
     session_key: Option<Vec<u8>>,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 impl LoxoneAuth {
     /// Create new authentication manager
     pub fn new() -> Self {
@@ -430,7 +430,7 @@ impl LoxoneAuth {
     }
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 impl Default for LoxoneAuth {
     fn default() -> Self {
         Self::new()
@@ -438,7 +438,7 @@ impl Default for LoxoneAuth {
 }
 
 /// Token-based authentication client
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 pub struct TokenAuthClient {
     /// Base URL for Loxone Miniserver
     base_url: url::Url,
@@ -450,7 +450,7 @@ pub struct TokenAuthClient {
     auth: LoxoneAuth,
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 impl TokenAuthClient {
     /// Create new token authentication client
     pub fn new(base_url: url::Url, client: reqwest::Client) -> Self {
@@ -668,23 +668,46 @@ impl TokenAuthClient {
     }
 }
 
-// Placeholder implementations when crypto feature is disabled
-#[cfg(not(feature = "crypto"))]
+// Placeholder implementations when rsa feature is disabled
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+use crate::error::{LoxoneError, Result};
+
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
 pub struct LoxoneAuth;
 
-#[cfg(not(feature = "crypto"))]
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
 impl LoxoneAuth {
     pub fn new() -> Self {
         Self
     }
 }
 
-#[cfg(not(feature = "crypto"))]
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
 pub struct TokenAuthClient;
 
-#[cfg(not(feature = "crypto"))]
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
 impl TokenAuthClient {
     pub fn new(_base_url: url::Url, _client: reqwest::Client) -> Self {
         Self
+    }
+    
+    pub fn is_authenticated(&self) -> bool {
+        false
+    }
+    
+    pub async fn authenticate(&mut self, _username: &str, _password: &str) -> Result<()> {
+        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+    }
+    
+    pub async fn refresh_token(&mut self) -> Result<()> {
+        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+    }
+    
+    pub fn get_auth_header(&self) -> Result<String> {
+        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+    }
+    
+    pub fn clear(&mut self) {
+        // No-op
     }
 }

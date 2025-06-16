@@ -43,7 +43,7 @@ impl NetworkDiscovery {
         info!("🔍 Discovering Loxone Miniservers on your network...");
 
         // Method 1: mDNS/Zeroconf Discovery (most accurate)
-        #[cfg(feature = "discovery")]
+        #[cfg(all(feature = "discovery", feature = "mdns"))]
         {
             info!("   • Trying mDNS/zeroconf discovery...");
             match self.mdns_discovery().await {
@@ -66,7 +66,7 @@ impl NetworkDiscovery {
                 info!("✅ Found {} server(s)", udp_servers.len());
                 // Merge results, avoiding duplicates
                 for server in udp_servers {
-                    if !servers.iter().any(|s| s.ip == server.ip) {
+                    if !servers.iter().any(|s: &DiscoveredServer| s.ip == server.ip) {
                         servers.push(server);
                     }
                 }
@@ -114,13 +114,13 @@ impl NetworkDiscovery {
     }
 
     /// Discover Loxone servers using mDNS/Zeroconf
-    #[cfg(feature = "discovery")]
+    #[cfg(all(feature = "discovery", feature = "mdns"))]
     async fn mdns_discovery(&self) -> Result<Vec<DiscoveredServer>> {
         super::mdns::discover_via_mdns(self.timeout).await
     }
 
     /// Fallback when mDNS feature is not available
-    #[cfg(not(feature = "discovery"))]
+    #[cfg(not(all(feature = "discovery", feature = "mdns")))]
     async fn mdns_discovery(&self) -> Result<Vec<DiscoveredServer>> {
         debug!("mDNS discovery not available (feature disabled)");
         Ok(vec![])

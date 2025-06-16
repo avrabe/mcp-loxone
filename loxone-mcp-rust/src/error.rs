@@ -903,7 +903,7 @@ impl From<tokio_tungstenite::tungstenite::Error> for LoxoneError {
     }
 }
 
-#[cfg(feature = "crypto")]
+#[cfg(all(feature = "crypto", feature = "rsa"))]
 impl From<rsa::Error> for LoxoneError {
     fn from(err: rsa::Error) -> Self {
         LoxoneError::Crypto(format!("RSA error: {}", err))

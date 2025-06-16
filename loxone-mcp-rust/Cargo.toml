@@ -111,7 +111,7 @@ influxdb2-derive = { version = "0.1", optional = true }
 config = "0.14"
 
 # Crypto dependencies (conditional compilation for WASM)
-rsa = { version = "0.9", optional = true, features = ["sha2"] }
+# rsa = { version = "0.9", optional = true, features = ["sha2"] } # SECURITY: RUSTSEC-2023-0071 - Marvin Attack vulnerability
 aes = { version = "0.8", optional = true }
 rand = { version = "0.8" }  # Used by crypto feature and setup tool
 sha2 = { version = "0.10", optional = true }
@@ -167,7 +167,7 @@ clap = { version = "4.0", features = ["derive"] }
 rpassword = "7.0"
 
 # Network discovery
-mdns = { version = "3.0", optional = true }
+# mdns = { version = "3.0", optional = true } # Uses unmaintained net2 and proc-macro-error
 
 # Compression for cold storage
 flate2 = "1.0"
@@ -185,7 +185,7 @@ uuid = { version = "1.0", features = ["v4", "serde", "js"] }
 
 # Native-specific dependencies
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-keyring = { version = "2.0", optional = true }
+# keyring = { version = "2.0", optional = true } # Uses unmaintained dependencies (derivative, instant)
 tokio = { version = "1.0", features = ["rt-multi-thread", "rt", "io-util", "sync", "macros", "time", "fs"] }
 socket2 = { version = "0.5", optional = true }
 hostname = "0.4"
@@ -202,12 +202,14 @@ default = ["native", "crypto", "websocket", "infisical", "discovery", "audit", "
 
 # Platform-specific features
 native = ["tokio"]
-crypto = ["rsa", "aes", "x509-parser"]
+crypto = ["aes", "x509-parser"] # Removed rsa due to RUSTSEC-2023-0071
+rsa = [] # Feature gate for RSA functionality (disabled due to vulnerability)
 audit = ["dep:sha2"]
 websocket = ["tokio-tungstenite"]
-keyring-storage = ["keyring"]
+keyring-storage = [] # Temporarily disabled due to unmaintained dependencies
 infisical = []
-discovery = ["mdns", "socket2"]
+discovery = ["socket2"] # mdns disabled due to unmaintained dependencies
+mdns = [] # Feature gate for mDNS functionality (disabled due to unmaintained dependencies)
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
 
