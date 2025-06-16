@@ -626,8 +626,7 @@ impl HttpTransportServer {
 
         // Add admin routes
         let app = app
-            .nest("/admin", nav_router)
-            .route("/admin", get(admin_redirect)); // Redirect /admin to /admin/
+            .nest("/admin", nav_router);
         info!(
             "🏠 Navigation Hub: http://localhost:{}/admin (with API key)",
             self.port
@@ -655,11 +654,6 @@ struct AppState {
     sse_manager: Arc<SseConnectionManager>,
     #[allow(dead_code)]
     key_store: Arc<KeyStore>,
-}
-
-/// Redirect from /admin to /admin/
-async fn admin_redirect() -> impl IntoResponse {
-    axum::response::Redirect::permanent("/admin/")
 }
 
 /// Main navigation hub handler
