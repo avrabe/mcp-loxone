@@ -121,6 +121,7 @@ impl NetworkDiscovery {
 
     /// Fallback when mDNS feature is not available
     #[cfg(not(all(feature = "discovery", feature = "mdns")))]
+    #[allow(dead_code)]
     async fn mdns_discovery(&self) -> Result<Vec<DiscoveredServer>> {
         debug!("mDNS discovery not available (feature disabled)");
         Ok(vec![])

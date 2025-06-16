@@ -625,8 +625,7 @@ impl HttpTransportServer {
             .merge(key_management_router);
 
         // Add admin routes
-        let app = app
-            .nest("/admin", nav_router);
+        let app = app.nest("/admin", nav_router);
         info!(
             "🏠 Navigation Hub: http://localhost:{}/admin (with API key)",
             self.port
@@ -876,9 +875,16 @@ fn generate_navigation_html() -> String {
             white-space: pre-wrap;
         }
 
+        #inputLine {
+            display: flex;
+            align-items: center;
+        }
+
         .terminal-prompt {
             color: #00ff00;
-            display: inline;
+            display: inline-block;
+            margin-right: 0.5rem;
+            flex-shrink: 0;
         }
 
         .terminal-input {
@@ -888,8 +894,9 @@ fn generate_navigation_html() -> String {
             font-family: inherit;
             font-size: inherit;
             outline: none;
-            width: calc(100% - 100px);
-            display: inline;
+            flex: 1;
+            margin: 0;
+            padding: 0;
         }
 
         .terminal-cursor {
@@ -898,6 +905,9 @@ fn generate_navigation_html() -> String {
             height: 16px;
             background: #00ff00;
             animation: blink 1s infinite;
+            margin-left: 2px;
+            vertical-align: text-bottom;
+            flex-shrink: 0;
         }
 
         @keyframes blink {
@@ -3936,6 +3946,12 @@ async fn get_dashboard_data(state: &Arc<AppState>) -> serde_json::Value {
         }
     }
 
+    // Ensure device_matrix is an array as expected by frontend
+    let device_matrix = match group_devices_by_room(&devices_data) {
+        serde_json::Value::Array(arr) => arr,
+        _ => vec![],
+    };
+
     let dashboard_data = serde_json::json!({
         "realtime": {
             "system_health": {
@@ -3949,7 +3965,7 @@ async fn get_dashboard_data(state: &Arc<AppState>) -> serde_json::Value {
         },
         "devices": {
             "rooms": enhance_rooms_with_devices(&rooms_data, &devices_data),
-            "device_matrix": group_devices_by_room(&devices_data),
+            "device_matrix": device_matrix,
             "quick_controls": devices_data.iter().take(10).cloned().collect::<Vec<_>>()
         },
         "operational": get_operational_metrics(state).await,

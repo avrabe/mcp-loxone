@@ -793,14 +793,15 @@ impl ErrorReporter {
 
     /// Create an error context with stack trace (debug builds only)
     pub fn create_context(code: ErrorCode, component: &str, operation: &str) -> ErrorContext {
-        let mut context = ErrorContext::new(code, component, operation);
-
         #[cfg(debug_assertions)]
         {
-            context = context.with_stack_trace();
+            ErrorContext::new(code, component, operation).with_stack_trace()
         }
 
-        context
+        #[cfg(not(debug_assertions))]
+        {
+            ErrorContext::new(code, component, operation)
+        }
     }
 
     /// Format error for API responses

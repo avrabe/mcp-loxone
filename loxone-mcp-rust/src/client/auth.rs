@@ -683,6 +683,13 @@ impl LoxoneAuth {
 }
 
 #[cfg(not(all(feature = "crypto", feature = "rsa")))]
+impl Default for LoxoneAuth {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(not(all(feature = "crypto", feature = "rsa")))]
 pub struct TokenAuthClient;
 
 #[cfg(not(all(feature = "crypto", feature = "rsa")))]
@@ -690,23 +697,29 @@ impl TokenAuthClient {
     pub fn new(_base_url: url::Url, _client: reqwest::Client) -> Self {
         Self
     }
-    
+
     pub fn is_authenticated(&self) -> bool {
         false
     }
-    
+
     pub async fn authenticate(&mut self, _username: &str, _password: &str) -> Result<()> {
-        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+        Err(LoxoneError::Crypto(
+            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+        ))
     }
-    
+
     pub async fn refresh_token(&mut self) -> Result<()> {
-        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+        Err(LoxoneError::Crypto(
+            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+        ))
     }
-    
+
     pub fn get_auth_header(&self) -> Result<String> {
-        Err(LoxoneError::Crypto("RSA functionality is disabled due to security vulnerabilities".to_string()))
+        Err(LoxoneError::Crypto(
+            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+        ))
     }
-    
+
     pub fn clear(&mut self) {
         // No-op
     }

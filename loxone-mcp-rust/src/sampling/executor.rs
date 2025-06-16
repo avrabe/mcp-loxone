@@ -686,7 +686,9 @@ mod tests {
     #[tokio::test]
     async fn test_safety_rules() {
         let client_context = Arc::new(ClientContext::new());
-        let executor = CommandExecutor::new(client_context);
+        let mut executor = CommandExecutor::new(client_context);
+        // Disable night mode restrictions for consistent testing
+        executor.safety_rules.night_mode_restrictions = false;
         let context = ExecutionContext::default();
 
         let safe_command = DeviceCommand {

@@ -8,10 +8,10 @@
 
 #[cfg(all(feature = "crypto", feature = "rsa"))]
 mod rsa_crypto {
+    use anyhow::Result;
     use rand::rngs::OsRng;
     use rsa::sha2::{Digest, Sha256};
     use rsa::{Pkcs1v15Encrypt, RsaPrivateKey, RsaPublicKey};
-    use anyhow::Result;
 
     pub struct CryptoManager {
         rsa_private_key: Option<RsaPrivateKey>,
@@ -91,15 +91,21 @@ mod stub_crypto {
         }
 
         pub fn generate_keypair(&mut self, _bits: usize) -> Result<()> {
-            Err(anyhow::anyhow!("RSA functionality is disabled due to security vulnerabilities"))
+            Err(anyhow::anyhow!(
+                "RSA functionality is disabled due to security vulnerabilities"
+            ))
         }
 
         pub fn encrypt(&self, _data: &[u8]) -> Result<Vec<u8>> {
-            Err(anyhow::anyhow!("RSA functionality is disabled due to security vulnerabilities"))
+            Err(anyhow::anyhow!(
+                "RSA functionality is disabled due to security vulnerabilities"
+            ))
         }
 
         pub fn decrypt(&self, _encrypted_data: &[u8]) -> Result<Vec<u8>> {
-            Err(anyhow::anyhow!("RSA functionality is disabled due to security vulnerabilities"))
+            Err(anyhow::anyhow!(
+                "RSA functionality is disabled due to security vulnerabilities"
+            ))
         }
 
         pub fn hash_sha256(_data: &[u8]) -> Vec<u8> {
