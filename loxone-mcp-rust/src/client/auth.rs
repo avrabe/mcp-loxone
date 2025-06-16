@@ -10,7 +10,7 @@ use base64::{engine::general_purpose, Engine as _};
 #[cfg(all(feature = "crypto", feature = "rsa"))]
 use rand::rngs::OsRng;
 #[cfg(all(feature = "crypto", feature = "rsa"))]
-use rsa::{sha2::Sha256, Oaep, RsaPublicKey};
+use rsa::{sha2::Sha256, BigUint, Oaep, RsaPublicKey};
 #[cfg(all(feature = "crypto", feature = "rsa"))]
 use serde::{Deserialize, Serialize};
 #[cfg(all(feature = "crypto", feature = "rsa"))]
