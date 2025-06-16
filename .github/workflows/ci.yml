@@ -190,7 +190,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: ${{ env.RUST_VERSION }}
+          toolchain: "1.78"
           targets: wasm32-wasip2
 
       - name: Cache Rust dependencies

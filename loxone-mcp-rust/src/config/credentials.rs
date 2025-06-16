@@ -258,75 +258,53 @@ impl CredentialManager {
         })
     }
 
-    #[cfg(feature = "keyring-storage")]
     async fn get_keyring_with_host(&self) -> Result<(LoxoneCredentials, Option<String>)> {
-        // Try security command-line tool first (often avoids prompts on macOS)
-        #[cfg(target_os = "macos")]
+        #[cfg(feature = "keyring-storage")]
         {
-            use crate::config::security_keychain::SecurityKeychain;
+            // Try security command-line tool first (often avoids prompts on macOS)
+            #[cfg(target_os = "macos")]
+            {
+                use crate::config::security_keychain::SecurityKeychain;
 
-            if SecurityKeychain::is_available() {
-                tracing::debug!("Trying macOS security command for keychain access...");
-                match SecurityKeychain::get_all_credentials() {
-                    Ok((username, password, host_url, api_key)) => {
-                        tracing::info!("✅ Credentials loaded via security command (no prompts)");
-                        let credentials = LoxoneCredentials {
-                            username,
-                            password,
-                            api_key,
-                            #[cfg(feature = "crypto")]
-                            public_key: None,
-                        };
-                        return Ok((credentials, host_url));
-                    }
-                    Err(e) => {
-                        tracing::debug!(
-                            "Security command failed, falling back to keyring crate: {}",
-                            e
-                        );
-                        // Fall through to keyring crate
+                if SecurityKeychain::is_available() {
+                    tracing::debug!("Trying macOS security command for keychain access...");
+                    match SecurityKeychain::get_all_credentials() {
+                        Ok((username, password, host_url, api_key)) => {
+                            tracing::info!(
+                                "✅ Credentials loaded via security command (no prompts)"
+                            );
+                            let credentials = LoxoneCredentials {
+                                username,
+                                password,
+                                api_key,
+                                #[cfg(feature = "crypto")]
+                                public_key: None,
+                            };
+                            return Ok((credentials, host_url));
+                        }
+                        Err(e) => {
+                            tracing::debug!(
+                                "Security command failed, falling back to keyring crate: {}",
+                                e
+                            );
+                            // Fall through to keyring crate
+                        }
                     }
                 }
             }
+
+            // Keyring feature is disabled, return error
+            Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            ))
         }
 
-        // Fallback to keyring crate (may prompt)
-        use keyring::Entry;
-
-        tracing::debug!("Using keyring crate for keychain access (may prompt)...");
-
-        // Try to unlock keychain once to reduce prompts
-        let service_name = Self::SERVICE_NAME;
-
-        // First, try to get one entry to trigger any required authentication
-        let test_entry = Entry::new(service_name, Self::USERNAME_KEY)?;
-
-        // If this succeeds, subsequent calls might not prompt
-        let username = test_entry
-            .get_password()
-            .map_err(|e| LoxoneError::credentials(format!("Failed to get username: {}", e)))?;
-
-        // Now get the rest - these should hopefully not prompt since we're authenticated
-        let password_entry = Entry::new(service_name, Self::PASSWORD_KEY)?;
-        let password = password_entry
-            .get_password()
-            .map_err(|e| LoxoneError::credentials(format!("Failed to get password: {}", e)))?;
-
-        let host_entry = Entry::new(service_name, Self::HOST_KEY)?;
-        let host_url = host_entry.get_password().ok();
-
-        let api_key_entry = Entry::new(service_name, Self::API_KEY_KEY)?;
-        let api_key = api_key_entry.get_password().ok();
-
-        let credentials = LoxoneCredentials {
-            username,
-            password,
-            api_key,
-            #[cfg(feature = "crypto")]
-            public_key: None,
-        };
-
-        Ok((credentials, host_url))
+        #[cfg(not(feature = "keyring-storage"))]
+        {
+            Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            ))
+        }
     }
 
     /// Get host URL from keychain (for Python compatibility)
@@ -365,21 +343,31 @@ impl CredentialManager {
     }
 
     async fn clear_keyring(&self) -> Result<()> {
-        use keyring::Entry;
+        #[cfg(feature = "keyring-storage")]
+        {
+            use keyring::Entry;
 
-        // Clear username
-        let username_entry = Entry::new(Self::SERVICE_NAME, Self::USERNAME_KEY)?;
-        username_entry.delete_password().ok();
+            // Clear username
+            let username_entry = Entry::new(Self::SERVICE_NAME, Self::USERNAME_KEY)?;
+            username_entry.delete_password().ok();
 
-        // Clear password
-        let password_entry = Entry::new(Self::SERVICE_NAME, Self::PASSWORD_KEY)?;
-        password_entry.delete_password().ok();
+            // Clear password
+            let password_entry = Entry::new(Self::SERVICE_NAME, Self::PASSWORD_KEY)?;
+            password_entry.delete_password().ok();
 
-        // Clear API key
-        let api_key_entry = Entry::new(Self::SERVICE_NAME, Self::API_KEY_KEY)?;
-        api_key_entry.delete_password().ok();
+            // Clear API key
+            let api_key_entry = Entry::new(Self::SERVICE_NAME, Self::API_KEY_KEY)?;
+            api_key_entry.delete_password().ok();
 
-        Ok(())
+            Ok(())
+        }
+
+        #[cfg(not(feature = "keyring-storage"))]
+        {
+            Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            ))
+        }
     }
 }
 
