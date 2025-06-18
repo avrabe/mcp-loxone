@@ -6,7 +6,6 @@
 pub mod authentication;
 pub mod cache_api;
 pub mod dashboard_api;
-pub mod dashboard_data;
 pub mod dashboard_data_unified;
 pub mod navigation_new;
 pub mod rate_limiting;
@@ -621,16 +620,9 @@ impl HttpTransportServer {
             app
         };
 
-        // Add key management UI routes
-        let key_management_router =
-            crate::monitoring::key_management_ui::create_key_management_router(
-                shared_state.key_store.clone(),
-            );
-
         // Add main navigation hub
         let nav_router = Router::new()
-            .route("/", get(navigation_hub))
-            .merge(key_management_router);
+            .route("/", get(navigation_hub));
 
         // Add admin routes
         let app = app.nest("/admin", nav_router);

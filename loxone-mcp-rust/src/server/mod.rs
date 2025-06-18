@@ -475,14 +475,35 @@ impl LoxoneMcpServer {
         })?;
         info!("✅ Subscription coordinator initialized and started");
 
-        // Initialize unified value resolver
-        info!("🔍 Initializing unified value resolver...");
+        // Initialize unified value resolver with enhanced caching
+        info!("🔍 Initializing unified value resolver with enhanced caching...");
         let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
-        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
+        
+        // Configure enhanced cache for better performance
+        let cache_config = crate::services::cache_manager::CacheConfig {
+            device_state_ttl: chrono::Duration::seconds(30), // 30-second TTL for real-time data
+            sensor_ttl: chrono::Duration::seconds(60),       // 1-minute TTL for sensors
+            structure_ttl: chrono::Duration::seconds(3600),  // 1 hour for structure data
+            room_ttl: chrono::Duration::seconds(3600),       // 1 hour for room data
+            max_cache_size: 10000,                           // Support large device counts
+            enable_prefetch: true,                           // Enable intelligent prefetching
+        };
+        
+        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::with_cache_config(
             client_arc.clone(),
             sensor_registry,
+            cache_config,
         ));
-        info!("✅ Unified value resolver initialized");
+        info!("✅ Unified value resolver initialized with enhanced caching");
+
+        // Initialize centralized state manager
+        info!("🔄 Initializing centralized state manager...");
+        let mut state_manager = crate::services::StateManager::new(value_resolver.clone()).await?;
+        
+        // Start state manager background tasks
+        state_manager.start().await?;
+        let state_manager = Arc::new(state_manager);
+        info!("✅ Centralized state manager initialized and started");
 
         // Initialize server metrics collector
         info!("📊 Initializing server metrics collector...");
@@ -506,7 +527,7 @@ impl LoxoneMcpServer {
             #[cfg(feature = "influxdb")]
             stats_collector,
             value_resolver,
-            state_manager: None,
+            state_manager: Some(state_manager),
             metrics_collector,
         })
     }
@@ -742,14 +763,35 @@ impl LoxoneMcpServer {
         })?;
         info!("✅ Subscription coordinator initialized and started");
 
-        // Initialize unified value resolver
-        info!("🔍 Initializing unified value resolver...");
+        // Initialize unified value resolver with enhanced caching
+        info!("🔍 Initializing unified value resolver with enhanced caching...");
         let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
-        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
+        
+        // Configure enhanced cache for better performance
+        let cache_config = crate::services::cache_manager::CacheConfig {
+            device_state_ttl: chrono::Duration::seconds(30), // 30-second TTL for real-time data
+            sensor_ttl: chrono::Duration::seconds(60),       // 1-minute TTL for sensors
+            structure_ttl: chrono::Duration::seconds(3600),  // 1 hour for structure data
+            room_ttl: chrono::Duration::seconds(3600),       // 1 hour for room data
+            max_cache_size: 10000,                           // Support large device counts
+            enable_prefetch: true,                           // Enable intelligent prefetching
+        };
+        
+        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::with_cache_config(
             client_arc.clone(),
             sensor_registry,
+            cache_config,
         ));
-        info!("✅ Unified value resolver initialized");
+        info!("✅ Unified value resolver initialized with enhanced caching");
+
+        // Initialize centralized state manager
+        info!("🔄 Initializing centralized state manager...");
+        let mut state_manager = crate::services::StateManager::new(value_resolver.clone()).await?;
+        
+        // Start state manager background tasks
+        state_manager.start().await?;
+        let state_manager = Arc::new(state_manager);
+        info!("✅ Centralized state manager initialized and started");
 
         // Initialize server metrics collector
         info!("📊 Initializing server metrics collector...");
@@ -776,7 +818,7 @@ impl LoxoneMcpServer {
             #[cfg(feature = "influxdb")]
             stats_collector,
             value_resolver,
-            state_manager: None,
+            state_manager: Some(state_manager),
             metrics_collector,
         })
     }

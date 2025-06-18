@@ -12,13 +12,11 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::sync::RwLock;
 
 /// Unified value resolution service - single source of truth for all device values
 #[derive(Clone)]
 pub struct UnifiedValueResolver {
     client: Arc<dyn LoxoneClient>,
-    cache: Arc<ValueCache>,
     enhanced_cache: Arc<EnhancedCacheManager>,
     sensor_registry: Arc<SensorTypeRegistry>,
     parsers: Arc<ValueParserRegistry>,
@@ -64,7 +62,6 @@ impl UnifiedValueResolver {
         let cache_config = CacheConfig::default();
         Self {
             client,
-            cache: Arc::new(ValueCache::new()),
             enhanced_cache: Arc::new(EnhancedCacheManager::new(cache_config)),
             sensor_registry,
             parsers: Arc::new(ValueParserRegistry::new()),
@@ -79,7 +76,6 @@ impl UnifiedValueResolver {
     ) -> Self {
         Self {
             client,
-            cache: Arc::new(ValueCache::new()),
             enhanced_cache: Arc::new(EnhancedCacheManager::new(cache_config)),
             sensor_registry,
             parsers: Arc::new(ValueParserRegistry::new()),
@@ -88,49 +84,13 @@ impl UnifiedValueResolver {
 
     /// Resolve value for a single device
     pub async fn resolve_device_value(&self, uuid: &str) -> Result<ResolvedValue> {
-        // Try cache first
-        if let Some(cached) = self.cache.get(uuid).await {
-            if !cached.is_stale() {
-                return Ok(cached);
-            }
-        }
-
-        // Get device info from client context
-        let context = self
-            .client
-            .as_any()
-            .downcast_ref::<crate::client::LoxoneHttpClient>()
-            .map(|c| c.context())
-            .or_else(|| {
-                self.client
-                    .as_any()
-                    .downcast_ref::<crate::client::TokenHttpClient>()
-                    .map(|c| c.context())
-            })
-            .ok_or_else(|| LoxoneError::config("Unable to access client context"))?;
-
-        let devices = context.devices.read().await;
-        let device = devices
-            .get(uuid)
-            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", uuid)))?;
-
-        // Fetch real-time state
-        let device_states = self
-            .client
-            .get_device_states(&[uuid.to_string()])
-            .await
-            .unwrap_or_default();
-        let raw_state = device_states.get(uuid);
-
-        // Resolve the value using multiple strategies
-        let resolved = self
-            .resolve_value_with_strategies(device, raw_state)
-            .await?;
-
-        // Cache the result
-        self.cache.set(uuid.to_string(), resolved.clone()).await;
-
-        Ok(resolved)
+        // Use enhanced cache for single device resolution via batch method
+        let results = self.resolve_batch_values(&[uuid.to_string()]).await?;
+        
+        results.into_iter()
+            .next()
+            .map(|(_, value)| value)
+            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", uuid)))
     }
 
     /// Resolve values for multiple devices efficiently with enhanced caching
@@ -199,8 +159,7 @@ impl UnifiedValueResolver {
                 let raw_state = device_states.get(uuid);
                 match self.resolve_value_with_strategies(device, raw_state).await {
                     Ok(resolved) => {
-                        // Cache in both old and new cache systems
-                        self.cache.set(uuid.clone(), resolved.clone()).await;
+                        // Note: Caching is handled automatically by enhanced_cache in get_batch_device_values
                         results.insert(uuid.clone(), resolved);
                     }
                     Err(e) => {
@@ -631,51 +590,10 @@ impl UnifiedValueResolver {
 
     /// Clear all caches (for maintenance or testing)
     pub async fn clear_caches(&self) {
-        self.cache.clear().await;
         self.enhanced_cache.clear_all().await;
     }
 }
 
-/// Value cache with TTL
-pub struct ValueCache {
-    cache: RwLock<HashMap<String, (ResolvedValue, DateTime<Utc>)>>,
-    ttl: chrono::Duration,
-}
-
-impl ValueCache {
-    pub fn new() -> Self {
-        Self {
-            cache: RwLock::new(HashMap::new()),
-            ttl: chrono::Duration::seconds(30), // 30 second TTL
-        }
-    }
-
-    pub async fn get(&self, uuid: &str) -> Option<ResolvedValue> {
-        let cache = self.cache.read().await;
-        if let Some((value, timestamp)) = cache.get(uuid) {
-            if Utc::now() - *timestamp < self.ttl {
-                return Some(value.clone());
-            }
-        }
-        None
-    }
-
-    pub async fn set(&self, uuid: String, value: ResolvedValue) {
-        let mut cache = self.cache.write().await;
-        cache.insert(uuid, (value, Utc::now()));
-    }
-
-    pub async fn clear(&self) {
-        let mut cache = self.cache.write().await;
-        cache.clear();
-    }
-}
-
-impl Default for ValueCache {
-    fn default() -> Self {
-        Self::new()
-    }
-}
 
 impl ResolvedValue {
     pub fn is_stale(&self) -> bool {

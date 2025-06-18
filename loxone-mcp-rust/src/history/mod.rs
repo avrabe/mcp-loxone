@@ -8,7 +8,6 @@ pub mod cold_storage;
 pub mod compat;
 pub mod config;
 pub mod core;
-pub mod dashboard;
 pub mod dashboard_api;
 pub mod dynamic_dashboard;
 pub mod events;
@@ -18,7 +17,6 @@ pub mod tiering;
 
 pub use config::HistoryConfig;
 pub use core::UnifiedHistoryStore;
-pub use dashboard::DashboardHistoryProvider;
 pub use dashboard_api::create_dashboard_router;
 pub use dynamic_dashboard::{DynamicDashboard, DynamicDashboardConfig, DynamicDashboardLayout};
 pub use events::{EventCategory, EventData, EventSource, HistoricalEvent};
