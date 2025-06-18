@@ -98,3 +98,4 @@ node_modules/
 package-lock.json
 loxone-mcp-rust/target/
 loxone-mcp-rust/loxone-mcp/
+loxone-mcp-rust/dont-commit.env

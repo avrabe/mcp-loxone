@@ -41,12 +41,14 @@ pub mod performance;
 pub mod sampling;
 pub mod security;
 pub mod server;
+pub mod services;
+pub mod shared_styles;
 pub mod tools;
 pub mod validation;
 
 pub mod mock;
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "crypto-openssl")]
 pub mod crypto;
 
 pub mod discovery;

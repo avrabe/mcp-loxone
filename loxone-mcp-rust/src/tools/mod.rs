@@ -11,6 +11,8 @@ pub mod energy;
 pub mod rooms;
 pub mod security;
 pub mod sensors;
+pub mod sensors_unified;
+pub mod value_helpers;
 pub mod weather;
 pub mod workflows;
 
@@ -127,12 +129,32 @@ pub struct ToolContext {
 
     /// Client context for cached data
     pub context: Arc<ClientContext>,
+
+    /// Unified value resolver for consistent value parsing
+    pub value_resolver: Option<Arc<crate::services::UnifiedValueResolver>>,
 }
 
 impl ToolContext {
     /// Create new tool context
     pub fn new(client: Arc<dyn LoxoneClient>, context: Arc<ClientContext>) -> Self {
-        Self { client, context }
+        Self {
+            client,
+            context,
+            value_resolver: None,
+        }
+    }
+
+    /// Create tool context with value resolver
+    pub fn with_resolver(
+        client: Arc<dyn LoxoneClient>,
+        context: Arc<ClientContext>,
+        value_resolver: Arc<crate::services::UnifiedValueResolver>,
+    ) -> Self {
+        Self {
+            client,
+            context,
+            value_resolver: Some(value_resolver),
+        }
     }
 
     /// Ensure client is connected

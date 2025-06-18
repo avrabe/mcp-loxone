@@ -110,8 +110,8 @@ influxdb2-derive = { version = "0.1", optional = true }
 # Configuration
 config = "0.14"
 
-# Crypto dependencies (conditional compilation for WASM)
-# rsa = { version = "0.9", optional = true, features = ["sha2"] } # SECURITY: RUSTSEC-2023-0071 - Marvin Attack vulnerability
+# Crypto dependencies (OpenSSL only)
+openssl = { version = "0.10", features = ["vendored"], optional = true } # Modern RSA implementation (recommended)
 aes = { version = "0.8", optional = true }
 rand = { version = "0.8" }  # Used by crypto feature and setup tool
 sha2 = { version = "0.10", optional = true }
@@ -168,6 +168,7 @@ rpassword = "7.0"
 
 # Network discovery
 # mdns = { version = "3.0", optional = true } # Uses unmaintained net2 and proc-macro-error
+mdns-sd = { version = "0.13", optional = true } # Modern mDNS implementation with maintained dependencies
 
 # Compression for cold storage
 flate2 = "1.0"
@@ -198,18 +199,19 @@ features = ["sync", "macros", "rt", "time"]
 default-features = false
 
 [features]
-default = ["native", "crypto", "websocket", "infisical", "discovery", "audit", "http-server", "influxdb"]
+default = ["native", "crypto-openssl", "websocket", "infisical", "discovery", "audit", "http-server", "influxdb"]
 
 # Platform-specific features
 native = ["tokio"]
-crypto = ["aes", "x509-parser"] # Removed rsa due to RUSTSEC-2023-0071
-rsa = [] # Feature gate for RSA functionality (disabled due to vulnerability)
+
+# Crypto features
+crypto-openssl = ["openssl", "aes", "x509-parser"] # Modern crypto with OpenSSL (recommended)
 audit = ["dep:sha2"]
 websocket = ["tokio-tungstenite"]
 keyring-storage = [] # Temporarily disabled due to unmaintained dependencies
 infisical = []
-discovery = ["socket2"] # mdns disabled due to unmaintained dependencies
-mdns = [] # Feature gate for mDNS functionality (disabled due to unmaintained dependencies)
+discovery = ["socket2", "mdns-sd"] # Network discovery with modern mDNS implementation
+mdns = ["mdns-sd"] # Feature gate for mDNS functionality (restored with mdns-sd crate)
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
 

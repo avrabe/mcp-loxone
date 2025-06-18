@@ -10,9 +10,13 @@
 #[cfg(feature = "influxdb")]
 pub mod influxdb;
 
+pub mod clean_dashboard;
 pub mod dashboard;
 pub mod key_management_ui;
+pub mod key_management_ui_new;
 pub mod loxone_stats;
 pub mod metrics;
+pub mod server_metrics;
 pub mod unified_collector;
 pub mod unified_dashboard;
+pub mod unified_dashboard_new;

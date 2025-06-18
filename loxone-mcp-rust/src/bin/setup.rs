@@ -372,7 +372,7 @@ async fn main() -> Result<()> {
         username: username.to_string(),
         password: password.to_string(),
         api_key,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 

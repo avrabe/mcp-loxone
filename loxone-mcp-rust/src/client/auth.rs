@@ -3,101 +3,70 @@
 //! This module provides RSA and AES encryption capabilities for secure
 //! communication with Loxone Miniservers using the token-based authentication.
 
-#[cfg(all(feature = "crypto", feature = "rsa"))]
 use crate::error::{LoxoneError, Result};
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-use base64::{engine::general_purpose, Engine as _};
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-use rand::rngs::OsRng;
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-use rsa::{sha2::Sha256, BigUint, Oaep, RsaPublicKey};
-#[cfg(all(feature = "crypto", feature = "rsa"))]
 use serde::{Deserialize, Serialize};
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-use std::collections::HashMap;
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-use x509_parser::{parse_x509_certificate, pem::parse_x509_pem};
+use tracing::{debug, warn};
 
-/// Find the start of RSA public key data in DER-encoded certificate
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-fn find_rsa_public_key_in_der(der_data: &[u8]) -> Option<usize> {
-    // RSA OID: 06 09 2a 86 48 86 f7 0d 01 01 01 (just the OID part)
-    let rsa_oid = [
-        0x06, 0x09, 0x2a, 0x86, 0x48, 0x86, 0xf7, 0x0d, 0x01, 0x01, 0x01,
-    ];
-
-    // Look for the RSA OID in the DER data
-    for i in 0..der_data.len().saturating_sub(rsa_oid.len()) {
-        if der_data[i..i + rsa_oid.len()] == rsa_oid {
-            // Found RSA OID, now look for the BIT STRING containing the public key
-            // From the hex dump, after the OID we have: 05 00 03 81 8d 00 30 81 89
-            // We need to find the BIT STRING (0x03) and skip to the actual RSA key data
-            let search_start = i + rsa_oid.len();
-
-            // Look for the pattern: 05 00 03 (NULL + BIT STRING)
-            for j in search_start..der_data.len().saturating_sub(6) {
-                if der_data[j] == 0x05 && der_data[j + 1] == 0x00 && der_data[j + 2] == 0x03 {
-                    // Found the pattern, now skip the BIT STRING header
-                    // Structure: 03 [length] [unused_bits] [RSA_SEQUENCE]
-                    let bit_string_length_pos = j + 3;
-                    if bit_string_length_pos < der_data.len() {
-                        // Skip BIT STRING tag (1) + length (1 or more) + unused bits (1)
-                        let mut skip = 4; // 05 00 03 [length]
-
-                        // Handle multi-byte length encoding if needed
-                        if der_data[bit_string_length_pos] & 0x80 != 0 {
-                            let length_bytes = (der_data[bit_string_length_pos] & 0x7f) as usize;
-                            skip += length_bytes;
-                        }
-
-                        // Return position after: 05 00 03 [length] [unused_bits]
-                        // This should point to the RSA SEQUENCE (0x30)
-                        return Some(j + skip);
-                    }
-                }
-            }
-        }
-    }
-
-    None
-}
-
-/// Authentication token response from Loxone
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthToken {
-    /// JWT token for authentication
-    pub token: String,
-
-    /// Token expiration timestamp
-    pub expires: u64,
-
-    /// Refresh token for renewing authentication
-    pub refresh_token: Option<String>,
-
-    /// Session key for AES encryption
-    pub session_key: Option<String>,
-}
-
-/// RSA public key information from Loxone
-#[cfg(all(feature = "crypto", feature = "rsa"))]
+/// Loxone public key structure from server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoxonePublicKey {
-    /// RSA public key in PEM format
-    pub key: String,
-
-    /// Key modulus (n)
+    /// Modulus (n) in base64
     pub n: String,
-
-    /// Public exponent (e)
+    /// Public exponent (e) in base64
     pub e: String,
 }
 
-/// Authentication manager for Loxone crypto operations
-#[cfg(all(feature = "crypto", feature = "rsa"))]
+/// Authentication token from Loxone server
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AuthToken {
+    /// JWT token string
+    pub token: String,
+    /// Key for AES encryption
+    pub key: String,
+    /// Salt for key derivation
+    pub salt: String,
+    /// Expiration timestamp
+    #[serde(rename = "validUntil")]
+    pub valid_until: i64,
+    /// Token rights/permissions
+    #[serde(rename = "tokenRights")]
+    pub token_rights: i32,
+    /// Unsecure connection flag
+    #[serde(rename = "unsecurePass")]
+    pub unsecure_pass: bool,
+}
+
+// OpenSSL implementation (modern, battle-tested, Send + Sync)
+#[cfg(feature = "crypto-openssl")]
+use base64::{engine::general_purpose, Engine as _};
+#[cfg(feature = "crypto-openssl")]
+use openssl::pkey::PKey;
+#[cfg(feature = "crypto-openssl")]
+use openssl::rsa::{Padding, Rsa};
+#[cfg(feature = "crypto-openssl")]
+use x509_parser::{parse_x509_certificate, pem::parse_x509_pem};
+
+/// Get RSA public key from PEM certificate (stub for non-crypto builds)
+#[cfg(not(feature = "crypto-openssl"))]
+pub fn get_public_key_from_certificate(_certificate_pem: &str) -> Result<LoxonePublicKey> {
+    Err(LoxoneError::crypto(
+        "Crypto features not enabled - cannot parse certificates".to_string(),
+    ))
+}
+
+/// Encrypt credentials using RSA (stub for non-crypto builds)
+#[cfg(not(feature = "crypto-openssl"))]
+pub fn encrypt_credentials(_public_key: &LoxonePublicKey, _credentials: &str) -> Result<String> {
+    Err(LoxoneError::crypto(
+        "Crypto features not enabled - cannot encrypt credentials".to_string(),
+    ))
+}
+
+/// Authentication manager for Loxone crypto operations (OpenSSL implementation)
+#[cfg(feature = "crypto-openssl")]
 pub struct LoxoneAuth {
     /// RSA public key from server
-    public_key: Option<RsaPublicKey>,
+    public_key: Option<PKey<openssl::pkey::Public>>,
 
     /// Current authentication token
     token: Option<AuthToken>,
@@ -106,9 +75,9 @@ pub struct LoxoneAuth {
     session_key: Option<Vec<u8>>,
 }
 
-#[cfg(all(feature = "crypto", feature = "rsa"))]
+#[cfg(feature = "crypto-openssl")]
 impl LoxoneAuth {
-    /// Create new authentication manager
+    /// Create a new authentication manager
     pub fn new() -> Self {
         Self {
             public_key: None,
@@ -117,239 +86,82 @@ impl LoxoneAuth {
         }
     }
 
-    /// Set RSA public key from server (supports both structured and PEM format)
-    pub fn set_public_key(&mut self, key_data: &LoxonePublicKey) -> Result<()> {
-        // Parse RSA public key from modulus and exponent
-        let n_bytes = general_purpose::STANDARD
-            .decode(&key_data.n)
-            .map_err(|e| LoxoneError::Crypto(format!("Invalid key modulus: {e}")))?;
+    /// Set the RSA public key from server certificate or raw public key
+    pub fn set_public_key(&mut self, certificate_pem: &str) -> Result<()> {
+        // Try parsing as X.509 certificate first
+        if let Ok((_, pem)) = parse_x509_pem(certificate_pem.as_bytes()) {
+            if let Ok((_, cert)) = parse_x509_certificate(&pem.contents) {
+                // Extract public key from certificate
+                let public_key_info = cert.public_key();
+                let public_key_der = &public_key_info.subject_public_key.data;
 
-        let e_bytes = general_purpose::STANDARD
-            .decode(&key_data.e)
-            .map_err(|e| LoxoneError::Crypto(format!("Invalid key exponent: {e}")))?;
+                // Parse DER-encoded public key
+                let rsa_key = Rsa::public_key_from_der(public_key_der).map_err(|e| {
+                    LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {}", e))
+                })?;
 
-        // Convert bytes to big integers
-        let n = rsa::BigUint::from_bytes_be(&n_bytes);
-        let e = rsa::BigUint::from_bytes_be(&e_bytes);
+                self.public_key =
+                    Some(PKey::from_rsa(rsa_key).map_err(|e| {
+                        LoxoneError::crypto(format!("Failed to create PKey: {}", e))
+                    })?);
 
-        // Create RSA public key
-        let public_key = RsaPublicKey::new(n, e)
-            .map_err(|e| LoxoneError::Crypto(format!("Invalid RSA key: {e}")))?;
+                return Ok(());
+            }
+        }
 
-        self.public_key = Some(public_key);
+        // If certificate parsing fails, try parsing as raw RSA public key
+        // Remove PEM markers and decode base64
+        let pem_data = certificate_pem
+            .replace("-----BEGIN CERTIFICATE-----", "")
+            .replace("-----END CERTIFICATE-----", "")
+            .replace("-----BEGIN PUBLIC KEY-----", "")
+            .replace("-----END PUBLIC KEY-----", "")
+            .replace("-----BEGIN RSA PUBLIC KEY-----", "")
+            .replace("-----END RSA PUBLIC KEY-----", "")
+            .replace(['\n', '\r', ' '], "");
+
+        let key_bytes = general_purpose::STANDARD
+            .decode(&pem_data)
+            .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {}", e)))?;
+
+        // Try different RSA key formats
+        let rsa_key = if let Ok(key) = Rsa::public_key_from_der(&key_bytes) {
+            key
+        } else if let Ok(key) = Rsa::public_key_from_pem(certificate_pem.as_bytes()) {
+            key
+        } else {
+            // Last resort: try as raw RSA public key in PKCS#1 format
+            Rsa::public_key_from_der_pkcs1(&key_bytes).map_err(|e| {
+                LoxoneError::crypto(format!("Failed to parse raw RSA public key: {}", e))
+            })?
+        };
+
+        self.public_key = Some(
+            PKey::from_rsa(rsa_key)
+                .map_err(|e| LoxoneError::crypto(format!("Failed to create PKey: {}", e)))?,
+        );
+
         Ok(())
     }
 
-    /// Set RSA public key from PEM certificate
-    pub fn set_public_key_from_pem(&mut self, pem_cert: &str) -> Result<()> {
-        tracing::debug!("Parsing PEM certificate of length: {}", pem_cert.len());
-
-        // Ensure the PEM certificate has proper line endings and formatting
-        let normalized_pem = if pem_cert.contains('\n') {
-            // Already has line breaks, just normalize
-            pem_cert
-                .replace('\r', "")
-                .lines()
-                .map(|line| line.trim())
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            // Single line PEM - need to add proper line breaks
-            // Split by the markers first to handle the content properly
-            if let Some(start_pos) = pem_cert.find("-----BEGIN CERTIFICATE-----") {
-                if let Some(end_pos) = pem_cert.find("-----END CERTIFICATE-----") {
-                    let header = "-----BEGIN CERTIFICATE-----";
-                    let footer = "-----END CERTIFICATE-----";
-
-                    // Extract the base64 content between markers
-                    let content_start = start_pos + header.len();
-                    let base64_content = &pem_cert[content_start..end_pos];
-
-                    // Format the base64 content with proper line breaks (64 chars per line)
-                    let mut formatted_content = String::new();
-                    for chunk in base64_content.as_bytes().chunks(64) {
-                        if let Ok(chunk_str) = std::str::from_utf8(chunk) {
-                            formatted_content.push_str(chunk_str);
-                            formatted_content.push('\n');
-                        }
-                    }
-
-                    // Construct the final PEM
-                    format!("{}\n{}{}", header, formatted_content, footer)
-                } else {
-                    pem_cert.to_string()
-                }
-            } else {
-                pem_cert.to_string()
-            }
-        };
-
-        tracing::debug!("Normalized PEM certificate:\n{}", normalized_pem);
-
-        // Parse PEM certificate
-        let (_, pem) = parse_x509_pem(normalized_pem.as_bytes()).map_err(|e| {
-            tracing::error!("PEM parsing failed: {}", e);
-            tracing::debug!("PEM content: {}", normalized_pem);
-            LoxoneError::Crypto(format!("Invalid PEM format: {e}"))
-        })?;
-
-        // Try to parse as X509 certificate first
-        let cert_result = parse_x509_certificate(&pem.contents);
-        let public_key_der_vec = match cert_result {
-            Ok((_, cert)) => {
-                tracing::debug!("Successfully parsed X509 certificate");
-                cert.public_key().subject_public_key.as_ref().to_vec()
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "X509 certificate parsing failed: {}, trying to extract public key manually",
-                    e
-                );
-
-                // For certificates with invalid serial numbers, we can try to parse manually
-                // Look for the RSA public key structure in the certificate
-                // X509 certificates have this structure, and we need to find the SubjectPublicKeyInfo
-
-                // Try to find the RSA public key sequence in the DER data
-                // This is a simplified approach that looks for the RSA OID and public key data
-                if let Some(rsa_key_start) = find_rsa_public_key_in_der(&pem.contents) {
-                    tracing::debug!("Found RSA public key at offset {}", rsa_key_start);
-                    let end_idx = (rsa_key_start + 10).min(pem.contents.len());
-                    if rsa_key_start < pem.contents.len() {
-                        tracing::debug!(
-                            "First {} bytes at offset {}: {:02x?}",
-                            end_idx - rsa_key_start,
-                            rsa_key_start,
-                            &pem.contents[rsa_key_start..end_idx]
-                        );
-                    } else {
-                        tracing::error!(
-                            "RSA key offset {} is beyond certificate length {}",
-                            rsa_key_start,
-                            pem.contents.len()
-                        );
-                    }
-                    // Skip the unused bits byte (0x00) to get to the RSA SEQUENCE
-                    if rsa_key_start < pem.contents.len() && pem.contents[rsa_key_start] == 0x00 {
-                        pem.contents[rsa_key_start + 1..].to_vec()
-                    } else {
-                        pem.contents[rsa_key_start..].to_vec()
-                    }
-                } else {
-                    tracing::error!("Could not find RSA public key in certificate");
-                    return Err(LoxoneError::Crypto(
-                        "Could not extract RSA public key from certificate".to_string(),
-                    ));
-                }
-            }
-        };
-        let public_key_der = &public_key_der_vec;
-
-        // For RSA public keys, we need to parse the DER structure to extract n and e
-        // This is a simplified parser for RSA public key DER format:
-        // SEQUENCE {
-        //   modulus INTEGER,
-        //   publicExponent INTEGER
-        // }
-
-        if public_key_der.len() < 10 {
-            return Err(LoxoneError::Crypto("Public key too short".to_string()));
-        }
-
-        // Skip the initial SEQUENCE tag and length
-        let mut offset = 0;
-        if public_key_der[offset] != 0x30 {
-            return Err(LoxoneError::Crypto("Invalid DER sequence tag".to_string()));
-        }
-        offset += 1;
-
-        // Skip length encoding (simplified - assumes short form)
-        if public_key_der[offset] & 0x80 == 0 {
-            offset += 1; // Short form
-        } else {
-            let length_octets = (public_key_der[offset] & 0x7f) as usize;
-            offset += 1 + length_octets; // Long form
-        }
-
-        // Parse modulus (n)
-        if offset >= public_key_der.len() || public_key_der[offset] != 0x02 {
-            return Err(LoxoneError::Crypto(
-                "Invalid modulus INTEGER tag".to_string(),
-            ));
-        }
-        offset += 1;
-
-        let n_length = public_key_der[offset] as usize;
-        offset += 1;
-
-        if offset + n_length > public_key_der.len() {
-            return Err(LoxoneError::Crypto(
-                "Modulus length exceeds data".to_string(),
-            ));
-        }
-
-        let mut n_bytes = &public_key_der[offset..offset + n_length];
-        // Skip leading zero if present
-        if !n_bytes.is_empty() && n_bytes[0] == 0 {
-            n_bytes = &n_bytes[1..];
-        }
-        offset += n_length;
-
-        // Parse exponent (e)
-        if offset >= public_key_der.len() || public_key_der[offset] != 0x02 {
-            return Err(LoxoneError::Crypto(
-                "Invalid exponent INTEGER tag".to_string(),
-            ));
-        }
-        offset += 1;
-
-        let e_length = public_key_der[offset] as usize;
-        offset += 1;
-
-        if offset + e_length > public_key_der.len() {
-            return Err(LoxoneError::Crypto(
-                "Exponent length exceeds data".to_string(),
-            ));
-        }
-
-        let mut e_bytes = &public_key_der[offset..offset + e_length];
-        // Skip leading zero if present
-        if !e_bytes.is_empty() && e_bytes[0] == 0 {
-            e_bytes = &e_bytes[1..];
-        }
-
-        // Convert bytes to big integers
-        let n = rsa::BigUint::from_bytes_be(n_bytes);
-        let e = rsa::BigUint::from_bytes_be(e_bytes);
-
-        // Create RSA public key
-        let public_key = RsaPublicKey::new(n, e)
-            .map_err(|e| LoxoneError::Crypto(format!("Invalid RSA key: {e}")))?;
-
-        self.public_key = Some(public_key);
-        Ok(())
-    }
-
-    /// Encrypt credentials using RSA public key
-    pub fn encrypt_credentials(&self, username: &str, password: &str) -> Result<String> {
+    /// Encrypt credentials using RSA-OAEP
+    pub fn encrypt_credentials(&self, credentials: &str) -> Result<String> {
         let public_key = self
             .public_key
             .as_ref()
-            .ok_or_else(|| LoxoneError::Crypto("No public key available".to_string()))?;
+            .ok_or_else(|| LoxoneError::crypto("No public key set".to_string()))?;
 
-        // Combine username and password
-        let credentials = format!("{username}:{password}");
+        let rsa_key = public_key
+            .rsa()
+            .map_err(|e| LoxoneError::crypto(format!("Failed to get RSA key: {}", e)))?;
 
-        // Encrypt with RSA-OAEP
-        let mut rng = OsRng;
-        let padding = Oaep::new::<Sha256>();
+        let mut encrypted = vec![0u8; rsa_key.size() as usize];
+        let encrypted_len = rsa_key
+            .public_encrypt(credentials.as_bytes(), &mut encrypted, Padding::PKCS1)
+            .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {}", e)))?;
 
-        let encrypted = public_key
-            .encrypt(&mut rng, padding, credentials.as_bytes())
-            .map_err(|e| LoxoneError::Crypto(format!("RSA encryption failed: {e}")))?;
-
-        // Encode as base64
-        Ok(general_purpose::STANDARD.encode(encrypted))
+        encrypted.truncate(encrypted_len);
+        Ok(general_purpose::STANDARD.encode(&encrypted))
     }
 
     /// Set authentication token
@@ -362,67 +174,33 @@ impl LoxoneAuth {
         self.token.as_ref()
     }
 
-    /// Check if token is expired
+    /// Check if current token is expired
     pub fn is_token_expired(&self) -> bool {
         match &self.token {
             Some(token) => {
-                let now = chrono::Utc::now().timestamp() as u64;
-                now >= token.expires
+                let now = chrono::Utc::now().timestamp();
+                now >= token.valid_until
             }
             None => true,
         }
     }
 
-    /// Generate AES session key
-    pub fn generate_session_key(&mut self) -> Result<Vec<u8>> {
-        use rand::RngCore;
-
-        let mut key = vec![0u8; 32]; // 256-bit key
-        OsRng.fill_bytes(&mut key);
-
-        self.session_key = Some(key.clone());
-        Ok(key)
+    /// Get current token string
+    pub fn get_token_string(&self) -> Option<String> {
+        self.token.as_ref().map(|t| t.token.clone())
     }
 
-    /// Encrypt data with AES session key
-    pub fn encrypt_data(&self, data: &[u8]) -> Result<Vec<u8>> {
-        let _session_key = self
-            .session_key
-            .as_ref()
-            .ok_or_else(|| LoxoneError::Crypto("No session key available".to_string()))?;
-
-        // AES encryption implementation would go here
-        // For now, return placeholder
-        Ok(data.to_vec())
+    /// Set session key for AES encryption
+    pub fn set_session_key(&mut self, key: Vec<u8>) {
+        self.session_key = Some(key);
     }
 
-    /// Decrypt data with AES session key
-    pub fn decrypt_data(&self, encrypted_data: &[u8]) -> Result<Vec<u8>> {
-        let _session_key = self
-            .session_key
-            .as_ref()
-            .ok_or_else(|| LoxoneError::Crypto("No session key available".to_string()))?;
-
-        // AES decryption implementation would go here
-        // For now, return placeholder
-        Ok(encrypted_data.to_vec())
+    /// Get session key
+    pub fn get_session_key(&self) -> Option<&[u8]> {
+        self.session_key.as_deref()
     }
 
-    /// Create authorization header for HTTP requests
-    pub fn create_auth_header(&self) -> Result<String> {
-        let token = self
-            .token
-            .as_ref()
-            .ok_or_else(|| LoxoneError::authentication("No token available"))?;
-
-        if self.is_token_expired() {
-            return Err(LoxoneError::authentication("Token has expired"));
-        }
-
-        Ok(format!("Bearer {}", token.token))
-    }
-
-    /// Clear authentication data
+    /// Clear all authentication data
     pub fn clear(&mut self) {
         self.public_key = None;
         self.token = None;
@@ -430,196 +208,320 @@ impl LoxoneAuth {
     }
 }
 
-#[cfg(all(feature = "crypto", feature = "rsa"))]
+#[cfg(feature = "crypto-openssl")]
 impl Default for LoxoneAuth {
     fn default() -> Self {
         Self::new()
     }
 }
 
-/// Token-based authentication client
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-pub struct TokenAuthClient {
-    /// Base URL for Loxone Miniserver
-    base_url: url::Url,
+/// Get RSA public key from PEM certificate (OpenSSL implementation)
+#[cfg(feature = "crypto-openssl")]
+pub fn get_public_key_from_certificate(certificate_pem: &str) -> Result<LoxonePublicKey> {
+    // Try parsing as X.509 certificate first
+    if let Ok((_, pem)) = parse_x509_pem(certificate_pem.as_bytes()) {
+        if let Ok((_, cert)) = parse_x509_certificate(&pem.contents) {
+            // Extract public key from certificate
+            let public_key_info = cert.public_key();
+            let public_key_der = &public_key_info.subject_public_key.data;
 
-    /// HTTP client for API calls
-    client: reqwest::Client,
+            // Parse DER-encoded RSA public key
+            let rsa_key = Rsa::public_key_from_der(public_key_der).map_err(|e| {
+                LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {}", e))
+            })?;
 
-    /// Authentication manager
-    auth: LoxoneAuth,
+            // Extract n and e components
+            let n = rsa_key.n();
+            let e = rsa_key.e();
+
+            // Convert to base64
+            let n_base64 = general_purpose::STANDARD.encode(n.to_vec());
+            let e_base64 = general_purpose::STANDARD.encode(e.to_vec());
+
+            return Ok(LoxonePublicKey {
+                n: n_base64,
+                e: e_base64,
+            });
+        }
+    }
+
+    // If certificate parsing fails, try parsing as raw RSA public key
+    // Remove PEM markers and decode base64
+    let pem_data = certificate_pem
+        .replace("-----BEGIN CERTIFICATE-----", "")
+        .replace("-----END CERTIFICATE-----", "")
+        .replace("-----BEGIN PUBLIC KEY-----", "")
+        .replace("-----END PUBLIC KEY-----", "")
+        .replace("-----BEGIN RSA PUBLIC KEY-----", "")
+        .replace("-----END RSA PUBLIC KEY-----", "")
+        .replace(['\n', '\r', ' '], "");
+
+    let key_bytes = general_purpose::STANDARD
+        .decode(&pem_data)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {}", e)))?;
+
+    // Try different RSA key formats
+    let rsa_key = if let Ok(key) = Rsa::public_key_from_der(&key_bytes) {
+        key
+    } else if let Ok(key) = Rsa::public_key_from_pem(certificate_pem.as_bytes()) {
+        key
+    } else {
+        // Last resort: try as raw RSA public key in PKCS#1 format
+        Rsa::public_key_from_der_pkcs1(&key_bytes).map_err(|e| {
+            LoxoneError::crypto(format!("Failed to parse raw RSA public key: {}", e))
+        })?
+    };
+
+    // Extract n and e components
+    let n = rsa_key.n();
+    let e = rsa_key.e();
+
+    // Convert to base64
+    let n_base64 = general_purpose::STANDARD.encode(n.to_vec());
+    let e_base64 = general_purpose::STANDARD.encode(e.to_vec());
+
+    Ok(LoxonePublicKey {
+        n: n_base64,
+        e: e_base64,
+    })
 }
 
-#[cfg(all(feature = "crypto", feature = "rsa"))]
+/// Encrypt credentials using RSA-OAEP (OpenSSL implementation)
+#[cfg(feature = "crypto-openssl")]
+pub fn encrypt_credentials(public_key: &LoxonePublicKey, credentials: &str) -> Result<String> {
+    // Decode n and e from base64
+    let n_bytes = general_purpose::STANDARD
+        .decode(&public_key.n)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode n: {}", e)))?;
+    let e_bytes = general_purpose::STANDARD
+        .decode(&public_key.e)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode e: {}", e)))?;
+
+    // Create RSA public key from components
+    let n = openssl::bn::BigNum::from_slice(&n_bytes)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for n: {}", e)))?;
+    let e = openssl::bn::BigNum::from_slice(&e_bytes)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for e: {}", e)))?;
+
+    let rsa_key = Rsa::from_public_components(n, e)
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create RSA key: {}", e)))?;
+
+    // Encrypt using OAEP padding
+    let mut encrypted = vec![0u8; rsa_key.size() as usize];
+    let encrypted_len = rsa_key
+        .public_encrypt(credentials.as_bytes(), &mut encrypted, Padding::PKCS1)
+        .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {}", e)))?;
+
+    encrypted.truncate(encrypted_len);
+    Ok(general_purpose::STANDARD.encode(&encrypted))
+}
+
+/// Token-based HTTP client for authenticated Loxone communication
+#[cfg(feature = "crypto-openssl")]
+pub struct TokenAuthClient {
+    /// Base URL of the Loxone server
+    base_url: String,
+    /// HTTP client
+    client: reqwest::Client,
+    /// Authentication manager
+    auth: LoxoneAuth,
+    /// Username for authentication
+    username: String,
+}
+
+#[cfg(feature = "crypto-openssl")]
 impl TokenAuthClient {
-    /// Create new token authentication client
-    pub fn new(base_url: url::Url, client: reqwest::Client) -> Self {
+    /// Create a new token authentication client
+    pub fn new(base_url: String, client: reqwest::Client) -> Self {
         Self {
             base_url,
             client,
             auth: LoxoneAuth::new(),
+            username: String::new(),
         }
     }
 
-    /// Get RSA public key from server
-    pub async fn get_public_key(&mut self) -> Result<()> {
-        let url = self
-            .base_url
-            .join("jdev/sys/getPublicKey")
-            .map_err(|e| LoxoneError::connection(format!("Invalid URL: {e}")))?;
+    /// Authenticate with username and password using proper Loxone token flow
+    pub async fn authenticate(&mut self, username: &str, password: &str) -> Result<()> {
+        // Store username for later use
+        self.username = username.to_string();
+        use openssl::hash::{hash, MessageDigest};
+        use openssl::pkey::PKey;
+        use openssl::sign::Signer;
 
-        let response = self.client.get(url).send().await?;
+        // Step 1: Get server public key
+        let cert_url = format!("{}/jdev/sys/getPublicKey", self.base_url);
+        let cert_response = self.client.get(&cert_url).send().await?;
+        let cert_text = cert_response.text().await?;
 
-        if !response.status().is_success() {
-            return Err(LoxoneError::authentication(format!(
-                "Failed to get public key: {}",
-                response.status()
-            )));
+        // Log the public key response for debugging
+        debug!("Public key response: {}", cert_text);
+
+        let cert_data: serde_json::Value = serde_json::from_str(&cert_text).map_err(|e| {
+            warn!("Failed to parse public key response as JSON: {}", e);
+            warn!("Response was: {}", cert_text);
+            LoxoneError::Json(e)
+        })?;
+        let certificate = cert_data["LL"]["value"]
+            .as_str()
+            .ok_or_else(|| LoxoneError::authentication("No certificate in response".to_string()))?;
+
+        self.auth.set_public_key(certificate)?;
+
+        // Step 2: Get salt from server
+        let salt_url = format!("{}/jdev/sys/getkey2/{}", self.base_url, username);
+        let salt_response = self.client.get(&salt_url).send().await?;
+        let salt_text = salt_response.text().await?;
+
+        let salt_data: serde_json::Value = serde_json::from_str(&salt_text)?;
+        let salt_obj = salt_data["LL"]["value"].as_object().ok_or_else(|| {
+            LoxoneError::authentication("No value object in salt response".to_string())
+        })?;
+
+        let salt = salt_obj["salt"]
+            .as_str()
+            .ok_or_else(|| LoxoneError::authentication("No salt in response".to_string()))?;
+        let key = salt_obj["key"]
+            .as_str()
+            .ok_or_else(|| LoxoneError::authentication("No key in response".to_string()))?;
+        let hash_alg = salt_obj["hashAlg"].as_str().unwrap_or("SHA1");
+
+        // Step 3: Create password hash (using the algorithm specified by server)
+        let pwd_salt = format!("{}:{}", password, salt);
+        let pwd_hash = if hash_alg == "SHA256" {
+            hash(MessageDigest::sha256(), pwd_salt.as_bytes())
+        } else {
+            hash(MessageDigest::sha1(), pwd_salt.as_bytes())
         }
+        .map_err(|e| LoxoneError::crypto(format!("Failed to hash password: {}", e)))?;
+        let pwd_hash_hex = hex::encode(pwd_hash).to_uppercase();
 
-        let text = response.text().await?;
+        // Note: Unlike the original documentation, the Python implementation
+        // shows that we don't need to generate and encrypt a session key for JWT.
+        // The HMAC is sufficient for authentication.
 
-        // Parse Loxone response format
-        let json: serde_json::Value = serde_json::from_str(&text)?;
+        // Step 6: Create HMAC hash using server-specified algorithm
 
-        // Debug: log the actual response to understand the format
-        tracing::info!("Public key response received, parsing...");
-        tracing::debug!(
-            "Public key response: {}",
-            serde_json::to_string_pretty(&json).unwrap_or_default()
+        // HMAC: key from server is the key, username:password_hash is the data
+        let hmac_key_bytes = hex::decode(key)
+            .map_err(|e| LoxoneError::crypto(format!("Failed to decode key: {}", e)))?;
+        let hmac_data = format!("{}:{}", username, pwd_hash_hex);
+
+        let pkey = PKey::hmac(&hmac_key_bytes)
+            .map_err(|e| LoxoneError::crypto(format!("Failed to create HMAC key: {}", e)))?;
+        let digest = if hash_alg == "SHA256" {
+            MessageDigest::sha256()
+        } else {
+            MessageDigest::sha1()
+        };
+        let mut signer = Signer::new(digest, &pkey)
+            .map_err(|e| LoxoneError::crypto(format!("Failed to create signer: {}", e)))?;
+        signer
+            .update(hmac_data.as_bytes())
+            .map_err(|e| LoxoneError::crypto(format!("Failed to update signer: {}", e)))?;
+        let hmac_result = signer
+            .sign_to_vec()
+            .map_err(|e| LoxoneError::crypto(format!("Failed to sign: {}", e)))?;
+        let hmac_hex = hex::encode(hmac_result).to_uppercase();
+
+        // Step 7: Request JWT token (not gettoken!)
+        let uuid = "loxone-mcp-rust"; // Client identifier
+        let permission = "4"; // Standard permission level
+        let client_info = "loxone-mcp"; // Client info string
+
+        // Use getjwt endpoint, not gettoken
+        let token_url = format!(
+            "{}/jdev/sys/getjwt/{}/{}/{}/{}/{}",
+            self.base_url,
+            hmac_hex,
+            urlencoding::encode(username),
+            permission,
+            uuid,
+            urlencoding::encode(client_info)
         );
 
-        // Loxone responses are wrapped in "LL" object
-        if let Some(ll) = json.get("LL") {
-            if let Some(value) = ll.get("value") {
-                // Check if the value is a PEM certificate string (Gen 1 format)
-                if let Some(cert_pem) = value.as_str() {
-                    if cert_pem.starts_with("-----BEGIN CERTIFICATE-----") {
-                        tracing::info!("Received PEM certificate format - parsing RSA public key");
-                        tracing::info!("PEM certificate content length: {} bytes", cert_pem.len());
-                        tracing::info!("PEM certificate full content: {}", cert_pem);
-                        self.auth.set_public_key_from_pem(cert_pem)?;
-                    } else {
-                        // Loxone Gen 1 might return the certificate without PEM headers
-                        // Try to add PEM headers and parse
-                        tracing::info!("Trying to parse certificate without PEM headers");
-                        tracing::info!(
-                            "Raw certificate string (first 200 chars): {}",
-                            &cert_pem[..cert_pem.len().min(200)]
-                        );
+        let token_response = self.client.get(&token_url).send().await?;
+        let token_text = token_response.text().await?;
 
-                        // Check if it's base64 encoded certificate data
-                        let pem_formatted = if cert_pem.contains('\n') || cert_pem.contains(' ') {
-                            // Already has some formatting, try as-is first
-                            format!(
-                                "-----BEGIN CERTIFICATE-----\n{}\n-----END CERTIFICATE-----",
-                                cert_pem.trim()
-                            )
-                        } else {
-                            // Single line base64, add proper formatting
-                            let mut formatted = String::from("-----BEGIN CERTIFICATE-----\n");
-                            for chunk in cert_pem.as_bytes().chunks(64) {
-                                formatted.push_str(std::str::from_utf8(chunk).unwrap_or(""));
-                                formatted.push('\n');
-                            }
-                            formatted.push_str("-----END CERTIFICATE-----");
-                            formatted
-                        };
+        // Log the response for debugging
+        debug!("Token response: {}", token_text);
 
-                        tracing::debug!(
-                            "Formatted PEM certificate length: {} bytes",
-                            pem_formatted.len()
-                        );
-                        match self.auth.set_public_key_from_pem(&pem_formatted) {
-                            Ok(()) => {
-                                tracing::info!("Successfully parsed certificate with formatting");
-                            }
-                            Err(e) => {
-                                tracing::warn!(
-                                    "Failed to parse as certificate: {}, received string: {}",
-                                    e,
-                                    cert_pem
-                                );
-                                return Err(LoxoneError::authentication(
-                                    "Invalid public key format",
-                                ));
-                            }
-                        }
-                    }
-                } else {
-                    // Try to parse as structured key data (Gen 2+ format)
-                    let key_data: LoxonePublicKey = serde_json::from_value(value.clone())?;
-                    self.auth.set_public_key(&key_data)?;
-                }
-            } else {
-                tracing::error!(
-                    "Missing 'value' field in LL response. Full response: {}",
-                    text
-                );
-                return Err(LoxoneError::authentication("Invalid public key response"));
-            }
-        } else {
-            tracing::error!(
-                "Missing 'LL' field in public key response. Full response: {}",
-                text
-            );
-            return Err(LoxoneError::authentication("Invalid public key response"));
-        }
+        // Parse token response
+        let token_data: serde_json::Value = serde_json::from_str(&token_text).map_err(|e| {
+            warn!("Failed to parse token response as JSON: {}", e);
+            warn!("Response was: {}", token_text);
+            LoxoneError::Json(e)
+        })?;
 
+        // JWT response has the token info in an object
+        let token_obj = token_data["LL"]["value"]
+            .as_object()
+            .ok_or_else(|| LoxoneError::authentication("Invalid token response format"))?;
+
+        let auth_token = AuthToken {
+            token: token_obj["token"]
+                .as_str()
+                .ok_or_else(|| LoxoneError::authentication("No token in response"))?
+                .to_string(),
+            key: token_obj
+                .get("key")
+                .and_then(|k| k.as_str())
+                .unwrap_or("")
+                .to_string(),
+            salt: token_obj
+                .get("salt")
+                .and_then(|s| s.as_str())
+                .unwrap_or("")
+                .to_string(),
+            valid_until: token_obj["validUntil"]
+                .as_i64()
+                .ok_or_else(|| LoxoneError::authentication("No validUntil in response"))?,
+            token_rights: token_obj["tokenRights"]
+                .as_i64()
+                .ok_or_else(|| LoxoneError::authentication("No tokenRights in response"))?
+                as i32,
+            unsecure_pass: token_obj
+                .get("unsecurePass")
+                .and_then(|u| u.as_bool())
+                .unwrap_or(false),
+        };
+
+        self.auth.set_token(auth_token);
         Ok(())
     }
 
-    /// Authenticate with username and password
-    pub async fn authenticate(&mut self, username: &str, password: &str) -> Result<()> {
-        // Get public key if not already available
-        if self.auth.public_key.is_none() {
-            self.get_public_key().await?;
-        }
+    /// Make authenticated request to Loxone server
+    pub async fn request(&self, endpoint: &str) -> Result<serde_json::Value> {
+        let token = self
+            .auth
+            .get_token_string()
+            .ok_or_else(|| LoxoneError::authentication("No token available".to_string()))?;
 
-        // Encrypt credentials
-        let encrypted_credentials = self.auth.encrypt_credentials(username, password)?;
+        // Token is sent as query parameters, not in the URL path
+        let separator = if endpoint.contains('?') { "&" } else { "?" };
+        let url = format!(
+            "{}/jdev/{}{}autht={}&user={}",
+            self.base_url,
+            endpoint,
+            separator,
+            token,
+            urlencoding::encode(&self.username)
+        );
 
-        // Request authentication token
-        let url = self
-            .base_url
-            .join("jdev/sys/getjwt")
-            .map_err(|e| LoxoneError::connection(format!("Invalid URL: {e}")))?;
-
-        let mut params = HashMap::new();
-        params.insert("user", encrypted_credentials);
-
-        let response = self.client.post(url).form(&params).send().await?;
-
-        if !response.status().is_success() {
-            return Err(LoxoneError::authentication(format!(
-                "Authentication failed: {}",
-                response.status()
-            )));
-        }
-
+        let response = self.client.get(&url).send().await?;
         let text = response.text().await?;
-        let json: serde_json::Value = serde_json::from_str(&text)?;
 
-        if let Some(value) = json.get("value") {
-            let token: AuthToken = serde_json::from_value(value.clone())?;
-            self.auth.set_token(token);
-        } else {
-            return Err(LoxoneError::authentication(
-                "Invalid authentication response",
-            ));
-        }
-
-        Ok(())
+        Ok(serde_json::from_str(&text)?)
     }
 
-    /// Get current authentication header
-    pub fn get_auth_header(&self) -> Result<String> {
-        self.auth.create_auth_header()
+    /// Check if current token is expired
+    pub fn is_token_expired(&self) -> bool {
+        self.auth.is_token_expired()
     }
 
-    /// Check if authentication is valid
-    pub fn is_authenticated(&self) -> bool {
-        self.auth.get_token().is_some() && !self.auth.is_token_expired()
+    /// Get current token
+    pub fn get_token(&self) -> Option<&AuthToken> {
+        self.auth.get_token()
     }
 
     /// Clear authentication data
@@ -627,100 +529,145 @@ impl TokenAuthClient {
         self.auth.clear();
     }
 
-    /// Refresh authentication token
-    pub async fn refresh_token(&mut self) -> Result<()> {
-        let refresh_token = self
+    /// Check if client is authenticated (has valid token)
+    pub fn is_authenticated(&self) -> bool {
+        !self.auth.is_token_expired()
+    }
+
+    /// Get authentication query parameters for requests
+    pub fn get_auth_params(&self) -> Result<String> {
+        let token = self
             .auth
-            .get_token()
-            .and_then(|t| t.refresh_token.as_ref())
-            .ok_or_else(|| LoxoneError::authentication("No refresh token available"))?;
+            .get_token_string()
+            .ok_or_else(|| LoxoneError::authentication("No token available".to_string()))?;
+        Ok(format!(
+            "autht={}&user={}",
+            token,
+            urlencoding::encode(&self.username)
+        ))
+    }
 
-        let url = self
-            .base_url
-            .join("jdev/sys/refreshjwt")
-            .map_err(|e| LoxoneError::connection(format!("Invalid URL: {e}")))?;
+    /// Refresh the authentication token
+    pub async fn refresh_token(&mut self) -> Result<()> {
+        let token = self
+            .auth
+            .get_token_string()
+            .ok_or_else(|| LoxoneError::authentication("No token to refresh"))?;
 
-        let mut params = HashMap::new();
-        params.insert("refreshToken", refresh_token.clone());
+        // Call refresh endpoint
+        let refresh_url = format!(
+            "{}/jdev/sys/refreshjwt/{}/{}",
+            self.base_url,
+            token,
+            urlencoding::encode(&self.username)
+        );
 
-        let response = self.client.post(url).form(&params).send().await?;
-
-        if !response.status().is_success() {
-            return Err(LoxoneError::authentication(format!(
-                "Token refresh failed: {}",
-                response.status()
-            )));
-        }
-
+        let response = self.client.get(&refresh_url).send().await?;
         let text = response.text().await?;
-        let json: serde_json::Value = serde_json::from_str(&text)?;
 
-        if let Some(value) = json.get("value") {
-            let token: AuthToken = serde_json::from_value(value.clone())?;
-            self.auth.set_token(token);
+        // Parse refresh response
+        let data: serde_json::Value = serde_json::from_str(&text)?;
+
+        // Check if refresh was successful
+        if let Some(value) = data["LL"]["value"].as_object() {
+            // Update token info
+            let auth_token = AuthToken {
+                token: self.auth.get_token().unwrap().token.clone(), // Keep same token
+                key: value
+                    .get("key")
+                    .and_then(|k| k.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                salt: value
+                    .get("salt")
+                    .and_then(|s| s.as_str())
+                    .unwrap_or("")
+                    .to_string(),
+                valid_until: value["validUntil"].as_i64().ok_or_else(|| {
+                    LoxoneError::authentication("No validUntil in refresh response")
+                })?,
+                token_rights: value
+                    .get("tokenRights")
+                    .and_then(|t| t.as_i64())
+                    .unwrap_or(self.auth.get_token().unwrap().token_rights as i64)
+                    as i32,
+                unsecure_pass: value
+                    .get("unsecurePass")
+                    .and_then(|u| u.as_bool())
+                    .unwrap_or(false),
+            };
+
+            self.auth.set_token(auth_token);
+            Ok(())
         } else {
-            return Err(LoxoneError::authentication(
-                "Invalid token refresh response",
-            ));
+            Err(LoxoneError::authentication("Failed to refresh token"))
         }
-
-        Ok(())
     }
 }
 
-// Placeholder implementations when rsa feature is disabled
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
-use crate::error::{LoxoneError, Result};
-
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+/// Fallback authentication manager for non-crypto builds
+#[cfg(not(feature = "crypto-openssl"))]
 pub struct LoxoneAuth;
 
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+#[cfg(not(feature = "crypto-openssl"))]
 impl LoxoneAuth {
     pub fn new() -> Self {
         Self
     }
+
+    pub fn clear(&mut self) {
+        // No-op for fallback
+    }
 }
 
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+#[cfg(not(feature = "crypto-openssl"))]
 impl Default for LoxoneAuth {
     fn default() -> Self {
         Self::new()
     }
 }
 
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+/// Fallback token client for non-crypto builds
+#[cfg(not(feature = "crypto-openssl"))]
 pub struct TokenAuthClient;
 
-#[cfg(not(all(feature = "crypto", feature = "rsa")))]
+#[cfg(not(feature = "crypto-openssl"))]
 impl TokenAuthClient {
-    pub fn new(_base_url: url::Url, _client: reqwest::Client) -> Self {
+    pub fn new(_base_url: String, _client: reqwest::Client) -> Self {
         Self
+    }
+
+    pub fn clear(&mut self) {
+        // No-op for fallback
     }
 
     pub fn is_authenticated(&self) -> bool {
         false
     }
 
-    pub async fn authenticate(&mut self, _username: &str, _password: &str) -> Result<()> {
-        Err(LoxoneError::Crypto(
-            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+    pub fn get_auth_header(&self) -> Result<String> {
+        Err(LoxoneError::crypto(
+            "Crypto features not enabled - cannot get auth header".to_string(),
         ))
     }
 
     pub async fn refresh_token(&mut self) -> Result<()> {
-        Err(LoxoneError::Crypto(
-            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+        Err(LoxoneError::crypto(
+            "Crypto features not enabled - cannot refresh token".to_string(),
         ))
     }
 
-    pub fn get_auth_header(&self) -> Result<String> {
-        Err(LoxoneError::Crypto(
-            "RSA functionality is disabled due to security vulnerabilities".to_string(),
+    pub async fn authenticate(&mut self, _username: &str, _password: &str) -> Result<()> {
+        Err(LoxoneError::crypto(
+            "Crypto features not enabled - cannot authenticate".to_string(),
         ))
     }
 
-    pub fn clear(&mut self) {
-        // No-op
+    pub fn get_token(&self) -> Option<&()> {
+        None
+    }
+
+    pub fn is_token_expired(&self) -> bool {
+        true
     }
 }

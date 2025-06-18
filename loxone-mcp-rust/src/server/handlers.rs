@@ -242,7 +242,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::control_multiple_devices, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = control_multiple_devices(tool_context, devices, action).await;
 
@@ -485,7 +489,11 @@ impl LoxoneMcpServer {
             "sensor_history.json",
         )));
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::get_sensor_state_history(tool_context, uuid, Some(logger)).await;
 
@@ -516,7 +524,11 @@ impl LoxoneMcpServer {
             "sensor_history.json",
         )));
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::get_recent_sensor_changes(tool_context, limit, Some(logger)).await;
 
@@ -652,7 +664,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_devices_by_category, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = get_devices_by_category(tool_context, category, limit).await;
 
@@ -677,7 +693,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_available_capabilities, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = get_available_capabilities(tool_context).await;
 
@@ -702,7 +722,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_all_categories_overview, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = get_all_categories_overview(tool_context).await;
 
@@ -913,7 +937,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::get_all_door_window_sensors(tool_context).await;
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
@@ -931,7 +959,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::get_temperature_sensors(tool_context).await;
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
@@ -950,7 +982,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::discover_new_sensors(tool_context, duration_seconds).await;
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
@@ -970,7 +1006,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = sensors::list_discovered_sensors(tool_context, sensor_type, room).await;
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
@@ -1225,7 +1265,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let params: workflows::CreateWorkflowParams =
             serde_json::from_value(arguments).map_err(|e| {
@@ -1256,7 +1300,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let params: workflows::ExecuteWorkflowParams =
             serde_json::from_value(arguments).map_err(|e| {
@@ -1286,7 +1334,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let params = workflows::ListPredefinedWorkflowsParams {};
 
         let response = workflows::list_predefined_workflows(tool_context, params).await;
@@ -1312,7 +1364,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
 
         let response = workflows::get_workflow_examples(tool_context).await;
 

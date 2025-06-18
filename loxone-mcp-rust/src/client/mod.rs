@@ -1,15 +1,21 @@
 //! Loxone client implementations for HTTP and WebSocket communication
 
-#[cfg(feature = "crypto")]
+#[cfg(feature = "crypto-openssl")]
 pub mod auth;
 pub mod command_queue;
 pub mod connection_pool;
 pub mod http_client;
 pub mod streaming_parser;
-#[cfg(feature = "crypto")]
+#[cfg(feature = "crypto-openssl")]
 pub mod token_http_client;
 #[cfg(feature = "websocket")]
 pub mod websocket_client;
+
+pub use http_client::LoxoneHttpClient;
+#[cfg(feature = "crypto-openssl")]
+pub use token_http_client::TokenHttpClient;
+#[cfg(feature = "websocket")]
+pub use websocket_client::LoxoneWebSocketClient;
 
 use crate::config::{credentials::LoxoneCredentials, LoxoneConfig};
 use crate::error::Result;
@@ -447,7 +453,7 @@ pub async fn create_client(
 
     match config.auth_method {
         AuthMethod::Token => {
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             {
                 use crate::client::token_http_client::TokenHttpClient;
                 match TokenHttpClient::new(config.clone(), credentials.clone()).await {
@@ -465,7 +471,7 @@ pub async fn create_client(
                     }
                 }
             }
-            #[cfg(not(feature = "crypto"))]
+            #[cfg(not(feature = "crypto-openssl"))]
             {
                 tracing::warn!("Token authentication requested but crypto feature is disabled, falling back to basic auth");
                 let client =
@@ -493,12 +499,12 @@ pub async fn create_hybrid_client(
     // We need to create the concrete HTTP client directly to avoid Box<dyn> issues
     let http_client: Arc<dyn LoxoneClient> = match config.auth_method {
         crate::config::AuthMethod::Token => {
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             {
                 use crate::client::token_http_client::TokenHttpClient;
                 Arc::new(TokenHttpClient::new(config.clone(), credentials.clone()).await?)
             }
-            #[cfg(not(feature = "crypto"))]
+            #[cfg(not(feature = "crypto-openssl"))]
             {
                 tracing::warn!("Token authentication requested but crypto feature is disabled, falling back to basic auth");
                 Arc::new(

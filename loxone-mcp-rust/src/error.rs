@@ -37,6 +37,10 @@ pub enum LoxoneError {
     #[error("Credential error: {0}")]
     Credentials(String),
 
+    /// Cryptographic errors
+    #[error("Crypto error: {0}")]
+    Crypto(String),
+
     /// Device control errors
     #[error("Device control error: {0}")]
     DeviceControl(String),
@@ -53,11 +57,6 @@ pub enum LoxoneError {
     #[cfg(feature = "websocket")]
     #[error("WebSocket error: {0}")]
     WebSocket(String),
-
-    /// Encryption/decryption errors
-    #[cfg(feature = "crypto")]
-    #[error("Crypto error: {0}")]
-    Crypto(String),
 
     /// MCP protocol errors
     #[error("MCP protocol error: {0}")]
@@ -448,6 +447,11 @@ impl LoxoneError {
         Self::InvalidInput(msg.into())
     }
 
+    /// Create a crypto error
+    pub fn crypto<S: Into<String>>(msg: S) -> Self {
+        Self::Crypto(msg.into())
+    }
+
     /// Create a not found error
     pub fn not_found<S: Into<String>>(msg: S) -> Self {
         Self::NotFound(msg.into())
@@ -516,8 +520,7 @@ impl LoxoneError {
             LoxoneError::Generic(_) => ErrorCode::InternalError,
             #[cfg(feature = "websocket")]
             LoxoneError::WebSocket(_) => ErrorCode::ConnectionLost,
-            #[cfg(feature = "crypto")]
-            LoxoneError::Crypto(_) => ErrorCode::CryptographicError,
+            LoxoneError::Crypto(_) => ErrorCode::InternalError,
             #[cfg(target_arch = "wasm32")]
             LoxoneError::Wasm(_) => ErrorCode::InternalError,
         }
@@ -715,7 +718,7 @@ impl LoxoneError {
                 LoxoneError::Generic(_) => "Internal error occurred".to_string(),
                 #[cfg(feature = "websocket")]
                 LoxoneError::WebSocket(_) => "WebSocket connection error".to_string(),
-                #[cfg(feature = "crypto")]
+                #[cfg(feature = "crypto-openssl")]
                 LoxoneError::Crypto(_) => "Cryptographic operation failed".to_string(),
                 #[cfg(target_arch = "wasm32")]
                 LoxoneError::Wasm(_) => "WASM runtime error".to_string(),
@@ -904,19 +907,9 @@ impl From<tokio_tungstenite::tungstenite::Error> for LoxoneError {
     }
 }
 
-#[cfg(all(feature = "crypto", feature = "rsa"))]
-impl From<rsa::Error> for LoxoneError {
-    fn from(err: rsa::Error) -> Self {
-        LoxoneError::Crypto(format!("RSA error: {}", err))
-    }
-}
-
-#[cfg(feature = "keyring-storage")]
-impl From<keyring::Error> for LoxoneError {
-    fn from(err: keyring::Error) -> Self {
-        LoxoneError::Credentials(format!("Keyring error: {}", err))
-    }
-}
+// Legacy error handling removed:
+// - rsa::Error: RSA crate disabled due to RUSTSEC-2023-0071 vulnerability
+// - keyring::Error: Keyring crate disabled due to unmaintained dependencies
 
 impl From<regex::Error> for LoxoneError {
     fn from(err: regex::Error) -> Self {

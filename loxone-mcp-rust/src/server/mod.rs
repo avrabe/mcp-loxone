@@ -87,6 +87,15 @@ pub struct LoxoneMcpServer {
     #[cfg(feature = "influxdb")]
     #[allow(dead_code)]
     pub(crate) stats_collector: Option<Arc<crate::monitoring::loxone_stats::LoxoneStatsCollector>>,
+
+    /// Unified value resolution service
+    pub(crate) value_resolver: Arc<crate::services::UnifiedValueResolver>,
+
+    /// Centralized state manager with change detection
+    pub(crate) state_manager: Option<Arc<crate::services::StateManager>>,
+    
+    /// Server metrics collector for dashboard monitoring
+    pub(crate) metrics_collector: Arc<crate::monitoring::server_metrics::ServerMetricsCollector>,
 }
 
 impl LoxoneMcpServer {
@@ -466,6 +475,20 @@ impl LoxoneMcpServer {
         })?;
         info!("✅ Subscription coordinator initialized and started");
 
+        // Initialize unified value resolver
+        info!("🔍 Initializing unified value resolver...");
+        let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
+        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
+            client_arc.clone(),
+            sensor_registry,
+        ));
+        info!("✅ Unified value resolver initialized");
+
+        // Initialize server metrics collector
+        info!("📊 Initializing server metrics collector...");
+        let metrics_collector = Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
+        info!("✅ Server metrics collector initialized");
+
         Ok(Self {
             config,
             client: client_arc,
@@ -481,6 +504,9 @@ impl LoxoneMcpServer {
             history_store: None, // Initialize history store as None for now
             #[cfg(feature = "influxdb")]
             stats_collector,
+            value_resolver,
+            state_manager: None,
+            metrics_collector,
         })
     }
 
@@ -715,6 +741,20 @@ impl LoxoneMcpServer {
         })?;
         info!("✅ Subscription coordinator initialized and started");
 
+        // Initialize unified value resolver
+        info!("🔍 Initializing unified value resolver...");
+        let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
+        let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
+            client_arc.clone(),
+            sensor_registry,
+        ));
+        info!("✅ Unified value resolver initialized");
+
+        // Initialize server metrics collector
+        info!("📊 Initializing server metrics collector...");
+        let metrics_collector = Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
+        info!("✅ Server metrics collector initialized");
+
         Ok(Self {
             config: ServerConfig {
                 loxone: config,
@@ -733,7 +773,45 @@ impl LoxoneMcpServer {
             history_store: None, // Initialize history store as None for now
             #[cfg(feature = "influxdb")]
             stats_collector,
+            value_resolver,
+            state_manager: None,
+            metrics_collector,
         })
+    }
+
+    /// Get the unified value resolver
+    pub fn get_value_resolver(&self) -> &Arc<crate::services::UnifiedValueResolver> {
+        &self.value_resolver
+    }
+
+    /// Get the state manager (if initialized)
+    pub fn get_state_manager(&self) -> Option<&Arc<crate::services::StateManager>> {
+        self.state_manager.as_ref()
+    }
+
+    /// Get the server metrics collector
+    pub fn get_metrics_collector(&self) -> &Arc<crate::monitoring::server_metrics::ServerMetricsCollector> {
+        &self.metrics_collector
+    }
+
+    /// Initialize the state manager with change detection
+    pub async fn enable_state_management(&mut self) -> Result<()> {
+        if self.state_manager.is_some() {
+            info!("🔄 State manager already initialized");
+            return Ok(());
+        }
+
+        info!("🎯 Initializing centralized state manager...");
+        let mut state_manager =
+            crate::services::StateManager::new(self.value_resolver.clone()).await?;
+
+        // Start background tasks
+        state_manager.start().await?;
+
+        self.state_manager = Some(Arc::new(state_manager));
+        info!("✅ State manager initialized and running");
+
+        Ok(())
     }
 
     /// Run the MCP server

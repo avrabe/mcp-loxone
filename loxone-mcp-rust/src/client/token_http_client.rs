@@ -78,7 +78,7 @@ impl TokenHttpClient {
 
         // Create token auth client
         let auth_client = Arc::new(RwLock::new(TokenAuthClient::new(
-            config.url.clone(),
+            config.url.to_string(),
             client.clone(),
         )));
 
@@ -158,10 +158,10 @@ impl TokenHttpClient {
         // Ensure we have valid authentication
         self.ensure_authenticated().await?;
 
-        // Get auth header
-        let auth_header = {
+        // Get auth params
+        let auth_params = {
             let auth = self.auth_client.read().await;
-            auth.get_auth_header()?
+            auth.get_auth_params()?
         };
 
         // Acquire connection permit from pool
@@ -172,10 +172,14 @@ impl TokenHttpClient {
         for attempt in 1..=self.config.max_retries {
             debug!("HTTP request attempt {attempt} to {url}");
 
-            let request = self
-                .client
-                .get(url.clone())
-                .header("Authorization", &auth_header);
+            // Add auth params to URL
+            let auth_url = if url.as_str().contains('?') {
+                format!("{}&{}", url, auth_params)
+            } else {
+                format!("{}?{}", url, auth_params)
+            };
+
+            let request = self.client.get(&auth_url);
 
             match request.send().await {
                 Ok(response) => {
@@ -975,7 +979,7 @@ mod tests {
             username: "test".to_string(),
             password: "test".to_string(),
             api_key: None,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key: None,
         };
 

@@ -444,7 +444,7 @@ impl Default for LoggingConfig {
 impl Default for FeatureConfig {
     fn default() -> Self {
         Self {
-            enable_crypto: cfg!(feature = "crypto"),
+            enable_crypto: cfg!(feature = "crypto-openssl"),
             enable_websocket: cfg!(feature = "websocket"),
             enable_caching: true,
             cache_ttl: Duration::from_secs(30),

@@ -216,7 +216,7 @@ pub mod exports {
                     username,
                     password,
                     api_key: None,
-                    #[cfg(feature = "crypto")]
+                    #[cfg(feature = "crypto-openssl")]
                     public_key: None,
                 };
 

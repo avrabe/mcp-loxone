@@ -27,7 +27,7 @@ pub struct LoxoneCredentials {
     pub api_key: Option<String>,
 
     /// Optional RSA public key for encryption
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "crypto-openssl")]
     pub public_key: Option<String>,
 }
 
@@ -253,7 +253,7 @@ impl CredentialManager {
             username,
             password,
             api_key,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key: None,
         })
     }
@@ -277,7 +277,7 @@ impl CredentialManager {
                                 username,
                                 password,
                                 api_key,
-                                #[cfg(feature = "crypto")]
+                                #[cfg(feature = "crypto-openssl")]
                                 public_key: None,
                             };
                             return Ok((credentials, host_url));
@@ -403,7 +403,7 @@ impl CredentialManager {
             username,
             password,
             api_key,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key: env::var("LOXONE_PUBLIC_KEY").ok(),
         })
     }
@@ -540,7 +540,7 @@ impl CredentialManager {
             client.set_secret(Self::API_KEY_KEY, api_key).await?;
         }
 
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         if let Some(public_key) = &credentials.public_key {
             client.set_secret("LOXONE_PUBLIC_KEY", public_key).await?;
         }
@@ -568,14 +568,14 @@ impl CredentialManager {
         // Get API key (optional)
         let api_key = client.get_secret(Self::API_KEY_KEY).await.ok();
 
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         let public_key = client.get_secret("LOXONE_PUBLIC_KEY").await.ok();
 
         Ok(LoxoneCredentials {
             username,
             password,
             api_key,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key,
         })
     }
@@ -591,7 +591,7 @@ impl CredentialManager {
         let _ = client.delete_secret(Self::PASSWORD_KEY).await;
         let _ = client.delete_secret(Self::API_KEY_KEY).await;
 
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         {
             let _ = client.delete_secret("LOXONE_PUBLIC_KEY").await;
         }
@@ -625,7 +625,7 @@ impl CredentialManager {
             manager.set_credential(Self::API_KEY_KEY, api_key).await?;
         }
 
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         if let Some(public_key) = &credentials.public_key {
             manager
                 .set_credential("LOXONE_PUBLIC_KEY", public_key)
@@ -657,14 +657,14 @@ impl CredentialManager {
         // Get API key (optional)
         let api_key = manager.get_credential(Self::API_KEY_KEY).await?;
 
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         let public_key = manager.get_credential("LOXONE_PUBLIC_KEY").await?;
 
         Ok(LoxoneCredentials {
             username,
             password,
             api_key,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key,
         })
     }
@@ -689,7 +689,7 @@ pub fn create_credentials(username: String, password: String) -> LoxoneCredentia
         username,
         password,
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     }
 }

@@ -2,6 +2,11 @@
 //!
 //! Tools for sensor discovery, state monitoring, and sensor configuration.
 
+// Re-export unified sensor functions
+pub use crate::tools::sensors_unified::{
+    get_door_window_sensors_unified, get_temperature_sensors_unified,
+};
+
 use crate::tools::{ToolContext, ToolResponse};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};

@@ -1267,7 +1267,11 @@ impl LoxoneMcpServer {
         // Use existing get_available_capabilities logic
         use crate::tools::{devices::get_available_capabilities, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_available_capabilities(tool_context).await;
 
         if response.status == "success" {
@@ -1286,7 +1290,11 @@ impl LoxoneMcpServer {
         // Use existing get_all_categories_overview logic
         use crate::tools::{devices::get_all_categories_overview, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_all_categories_overview(tool_context).await;
 
         if response.status == "success" {
@@ -1304,7 +1312,11 @@ impl LoxoneMcpServer {
     async fn read_audio_zones_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{audio::get_audio_zones, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_audio_zones(tool_context).await;
 
         Ok(response.data)
@@ -1313,17 +1325,25 @@ impl LoxoneMcpServer {
     async fn read_audio_sources_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{audio::get_audio_sources, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_audio_sources(tool_context).await;
 
         Ok(response.data)
     }
 
     async fn read_door_window_sensors_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{sensors::get_all_door_window_sensors, ToolContext};
+        use crate::tools::{sensors::get_door_window_sensors_unified, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
-        let response = get_all_door_window_sensors(tool_context).await;
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
+        let response = get_door_window_sensors_unified(tool_context).await;
 
         if response.status == "success" {
             Ok(response.data)
@@ -1338,10 +1358,14 @@ impl LoxoneMcpServer {
     }
 
     async fn read_temperature_sensors_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{sensors::get_temperature_sensors, ToolContext};
+        use crate::tools::{sensors::get_temperature_sensors_unified, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
-        let response = get_temperature_sensors(tool_context).await;
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
+        let response = get_temperature_sensors_unified(tool_context).await;
 
         if response.status == "success" {
             Ok(response.data)
@@ -1358,7 +1382,11 @@ impl LoxoneMcpServer {
     async fn read_discovered_sensors_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{sensors::list_discovered_sensors, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = list_discovered_sensors(tool_context, None, None).await;
 
         if response.status == "success" {
@@ -1377,7 +1405,11 @@ impl LoxoneMcpServer {
     async fn read_weather_current_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{weather::get_weather_data, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_weather_data(tool_context).await;
 
         if response.status == "success" {
@@ -1395,7 +1427,11 @@ impl LoxoneMcpServer {
     async fn read_weather_outdoor_conditions_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{weather::get_outdoor_conditions, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_outdoor_conditions(tool_context).await;
 
         if response.status == "success" {
@@ -1413,7 +1449,11 @@ impl LoxoneMcpServer {
     async fn read_weather_forecast_daily_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{weather::get_weather_forecast_daily, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_weather_forecast_daily(tool_context, None).await;
 
         if response.status == "success" {
@@ -1431,7 +1471,11 @@ impl LoxoneMcpServer {
     async fn read_weather_forecast_hourly_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{weather::get_weather_forecast_hourly, ToolContext};
 
-        let tool_context = ToolContext::new(self.client.clone(), self.context.clone());
+        let tool_context = ToolContext::with_resolver(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+        );
         let response = get_weather_forecast_hourly(tool_context, None).await;
 
         if response.status == "success" {
