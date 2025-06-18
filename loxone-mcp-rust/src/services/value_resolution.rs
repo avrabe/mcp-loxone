@@ -401,11 +401,11 @@ impl UnifiedValueResolver {
             let unit = extract_unit(value_str);
 
             // Format based on the unit or value type
-            let formatted = if unit.as_ref().map_or(false, |u| u.contains('%')) {
+            let formatted = if unit.as_ref().is_some_and(|u| u.contains('%')) {
                 format!("{}%", numeric.round() as i32)
-            } else if unit.as_ref().map_or(false, |u| u.contains('°')) {
+            } else if unit.as_ref().is_some_and(|u| u.contains('°')) {
                 format!("{:.1}°C", numeric)
-            } else if numeric >= 0.0 && numeric <= 1.0 && !value_str.contains('.') {
+            } else if (0.0..=1.0).contains(&numeric) && !value_str.contains('.') {
                 // Likely a binary state encoded as 0/1
                 if numeric > 0.0 {
                     "On".to_string()

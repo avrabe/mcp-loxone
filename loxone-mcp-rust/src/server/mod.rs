@@ -93,7 +93,7 @@ pub struct LoxoneMcpServer {
 
     /// Centralized state manager with change detection
     pub(crate) state_manager: Option<Arc<crate::services::StateManager>>,
-    
+
     /// Server metrics collector for dashboard monitoring
     pub(crate) metrics_collector: Arc<crate::monitoring::server_metrics::ServerMetricsCollector>,
 }
@@ -486,7 +486,8 @@ impl LoxoneMcpServer {
 
         // Initialize server metrics collector
         info!("📊 Initializing server metrics collector...");
-        let metrics_collector = Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
+        let metrics_collector =
+            Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
         info!("✅ Server metrics collector initialized");
 
         Ok(Self {
@@ -752,7 +753,8 @@ impl LoxoneMcpServer {
 
         // Initialize server metrics collector
         info!("📊 Initializing server metrics collector...");
-        let metrics_collector = Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
+        let metrics_collector =
+            Arc::new(crate::monitoring::server_metrics::ServerMetricsCollector::new());
         info!("✅ Server metrics collector initialized");
 
         Ok(Self {
@@ -790,7 +792,9 @@ impl LoxoneMcpServer {
     }
 
     /// Get the server metrics collector
-    pub fn get_metrics_collector(&self) -> &Arc<crate::monitoring::server_metrics::ServerMetricsCollector> {
+    pub fn get_metrics_collector(
+        &self,
+    ) -> &Arc<crate::monitoring::server_metrics::ServerMetricsCollector> {
         &self.metrics_collector
     }
 

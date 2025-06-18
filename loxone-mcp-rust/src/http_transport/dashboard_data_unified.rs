@@ -571,7 +571,7 @@ fn build_device_json(
                             if let Some(numeric) = resolved.numeric_value {
                                 if numeric > 0.0 {
                                     // Check if it's a percentage value
-                                    if resolved.unit.as_ref().map_or(false, |u| u.contains('%')) {
+                                    if resolved.unit.as_ref().is_some_and(|u| u.contains('%')) {
                                         (
                                             "Active".to_string(),
                                             "blue".to_string(),

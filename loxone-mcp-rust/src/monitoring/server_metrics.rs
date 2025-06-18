@@ -9,8 +9,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use sysinfo::{Pid, System};
 use tokio::sync::RwLock;
-use sysinfo::{System, Pid};
 
 /// Comprehensive server metrics for dashboard display
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -127,29 +127,29 @@ pub struct ErrorInfo {
 pub struct ServerMetricsCollector {
     start_time: Instant,
     start_timestamp: DateTime<Utc>,
-    
+
     // Request tracking
     total_requests: Arc<AtomicU64>,
     request_times: Arc<RwLock<Vec<(Instant, Duration)>>>,
     active_connections: Arc<AtomicUsize>,
     bytes_sent: Arc<AtomicU64>,
     bytes_received: Arc<AtomicU64>,
-    
+
     // MCP tracking
     tools_executed: Arc<AtomicU64>,
     resources_accessed: Arc<AtomicU64>,
     prompts_processed: Arc<AtomicU64>,
     tool_times: Arc<RwLock<Vec<(String, Duration)>>>,
     tool_counts: Arc<RwLock<HashMap<String, u64>>>,
-    
+
     // Error tracking
     total_errors: Arc<AtomicU64>,
     errors: Arc<RwLock<Vec<ErrorInfo>>>,
-    
+
     // Cache tracking (will be connected to actual cache systems)
     cache_hits: Arc<AtomicU64>,
     cache_misses: Arc<AtomicU64>,
-    
+
     // System information
     system: Arc<RwLock<System>>,
 }
@@ -159,7 +159,7 @@ impl ServerMetricsCollector {
     pub fn new() -> Self {
         let mut system = System::new_all();
         system.refresh_all();
-        
+
         Self {
             start_time: Instant::now(),
             start_timestamp: Utc::now(),
@@ -182,14 +182,20 @@ impl ServerMetricsCollector {
     }
 
     /// Record a request
-    pub async fn record_request(&self, response_time: Duration, bytes_sent: u64, bytes_received: u64) {
+    pub async fn record_request(
+        &self,
+        response_time: Duration,
+        bytes_sent: u64,
+        bytes_received: u64,
+    ) {
         self.total_requests.fetch_add(1, Ordering::Relaxed);
         self.bytes_sent.fetch_add(bytes_sent, Ordering::Relaxed);
-        self.bytes_received.fetch_add(bytes_received, Ordering::Relaxed);
-        
+        self.bytes_received
+            .fetch_add(bytes_received, Ordering::Relaxed);
+
         let mut times = self.request_times.write().await;
         times.push((Instant::now(), response_time));
-        
+
         // Keep only last 1000 request times for performance
         if times.len() > 1000 {
             times.drain(0..500);
@@ -199,14 +205,14 @@ impl ServerMetricsCollector {
     /// Record MCP tool execution
     pub async fn record_tool_execution(&self, tool_name: &str, execution_time: Duration) {
         self.tools_executed.fetch_add(1, Ordering::Relaxed);
-        
+
         let mut times = self.tool_times.write().await;
         times.push((tool_name.to_string(), execution_time));
-        
+
         if times.len() > 1000 {
             times.drain(0..500);
         }
-        
+
         let mut counts = self.tool_counts.write().await;
         *counts.entry(tool_name.to_string()).or_insert(0) += 1;
     }
@@ -234,10 +240,10 @@ impl ServerMetricsCollector {
     /// Record error
     pub async fn record_error(&self, error: ErrorInfo) {
         self.total_errors.fetch_add(1, Ordering::Relaxed);
-        
+
         let mut errors = self.errors.write().await;
         errors.push(error);
-        
+
         // Keep only last 100 errors
         if errors.len() > 100 {
             errors.drain(0..50);
@@ -263,20 +269,28 @@ impl ServerMetricsCollector {
         // Calculate request metrics
         let total_requests = self.total_requests.load(Ordering::Relaxed);
         let request_times = self.request_times.read().await;
-        
-        let (requests_per_minute, requests_per_second, avg_response_time, peak_response_time) = 
+
+        let (requests_per_minute, requests_per_second, avg_response_time, peak_response_time) =
             self.calculate_request_metrics(&request_times, uptime_duration);
-        
+
         // Ensure baseline metrics for dashboard display (at least show some activity)
-        let requests_per_minute_display = if requests_per_minute > 0.0 { requests_per_minute } else { 2.0 };
-        let avg_response_time_display = if avg_response_time > 0.0 { avg_response_time } else { 15.0 };
+        let requests_per_minute_display = if requests_per_minute > 0.0 {
+            requests_per_minute
+        } else {
+            2.0
+        };
+        let avg_response_time_display = if avg_response_time > 0.0 {
+            avg_response_time
+        } else {
+            15.0
+        };
 
         // Calculate MCP metrics
         let tools_executed = self.tools_executed.load(Ordering::Relaxed);
         let tool_times = self.tool_times.read().await;
         let tool_counts = self.tool_counts.read().await;
-        
-        let (avg_tool_time, peak_tool_time, most_used_tool) = 
+
+        let (avg_tool_time, peak_tool_time, most_used_tool) =
             self.calculate_mcp_metrics(&tool_times, &tool_counts);
 
         // Calculate cache metrics
@@ -305,11 +319,19 @@ impl ServerMetricsCollector {
         ServerMetrics {
             performance,
             network: NetworkMetrics {
-                total_requests: if total_requests > 0 { total_requests } else { 5 }, // Show at least 5 requests
+                total_requests: if total_requests > 0 {
+                    total_requests
+                } else {
+                    5
+                }, // Show at least 5 requests
                 requests_per_minute: requests_per_minute_display,
                 requests_per_second,
                 average_response_time_ms: avg_response_time_display,
-                peak_response_time_ms: if peak_response_time > 0 { peak_response_time } else { 25 },
+                peak_response_time_ms: if peak_response_time > 0 {
+                    peak_response_time
+                } else {
+                    25
+                },
                 active_connections: self.active_connections.load(Ordering::Relaxed),
                 bytes_sent: self.bytes_sent.load(Ordering::Relaxed),
                 bytes_received: self.bytes_received.load(Ordering::Relaxed),
@@ -335,13 +357,13 @@ impl ServerMetricsCollector {
             system,
             uptime: UptimeMetrics {
                 uptime_seconds,
-                uptime_formatted: if uptime_seconds > 0 { 
-                    format_duration(uptime_duration) 
-                } else { 
-                    "Starting...".to_string() 
+                uptime_formatted: if uptime_seconds > 0 {
+                    format_duration(uptime_duration)
+                } else {
+                    "Starting...".to_string()
                 },
                 start_time: self.start_timestamp,
-                restart_count: 0, // Would be tracked persistently
+                restart_count: 0,           // Would be tracked persistently
                 availability_percent: 99.9, // Would be calculated based on downtime
             },
             errors: ErrorMetrics {
@@ -361,18 +383,23 @@ impl ServerMetricsCollector {
     }
 
     /// Calculate request-related metrics
-    fn calculate_request_metrics(&self, request_times: &[(Instant, Duration)], uptime: Duration) -> (f64, f64, f64, u64) {
+    fn calculate_request_metrics(
+        &self,
+        request_times: &[(Instant, Duration)],
+        uptime: Duration,
+    ) -> (f64, f64, f64, u64) {
         if request_times.is_empty() {
             return (0.0, 0.0, 0.0, 0);
         }
 
         let now = Instant::now();
-        
+
         // Requests in last minute
-        let recent_requests = request_times.iter()
+        let recent_requests = request_times
+            .iter()
             .filter(|(time, _)| now.duration_since(*time) < Duration::from_secs(60))
             .count();
-        
+
         let requests_per_minute = recent_requests as f64;
         let requests_per_second = if uptime.as_secs() > 0 {
             request_times.len() as f64 / uptime.as_secs() as f64
@@ -380,34 +407,50 @@ impl ServerMetricsCollector {
             0.0
         };
 
-        let avg_response_time = request_times.iter()
+        let avg_response_time = request_times
+            .iter()
             .map(|(_, duration)| duration.as_millis() as f64)
-            .sum::<f64>() / request_times.len() as f64;
+            .sum::<f64>()
+            / request_times.len() as f64;
 
-        let peak_response_time = request_times.iter()
+        let peak_response_time = request_times
+            .iter()
             .map(|(_, duration)| duration.as_millis() as u64)
             .max()
             .unwrap_or(0);
 
-        (requests_per_minute, requests_per_second, avg_response_time, peak_response_time)
+        (
+            requests_per_minute,
+            requests_per_second,
+            avg_response_time,
+            peak_response_time,
+        )
     }
 
     /// Calculate MCP-related metrics
-    fn calculate_mcp_metrics(&self, tool_times: &[(String, Duration)], tool_counts: &HashMap<String, u64>) -> (f64, u64, Option<String>) {
+    fn calculate_mcp_metrics(
+        &self,
+        tool_times: &[(String, Duration)],
+        tool_counts: &HashMap<String, u64>,
+    ) -> (f64, u64, Option<String>) {
         let avg_tool_time = if !tool_times.is_empty() {
-            tool_times.iter()
+            tool_times
+                .iter()
                 .map(|(_, duration)| duration.as_millis() as f64)
-                .sum::<f64>() / tool_times.len() as f64
+                .sum::<f64>()
+                / tool_times.len() as f64
         } else {
             0.0
         };
 
-        let peak_tool_time = tool_times.iter()
+        let peak_tool_time = tool_times
+            .iter()
             .map(|(_, duration)| duration.as_millis() as u64)
             .max()
             .unwrap_or(0);
 
-        let most_used_tool = tool_counts.iter()
+        let most_used_tool = tool_counts
+            .iter()
             .max_by_key(|(_, count)| *count)
             .map(|(name, _)| name.clone());
 
@@ -418,14 +461,14 @@ impl ServerMetricsCollector {
     async fn get_performance_metrics(&self) -> PerformanceMetrics {
         let mut system = self.system.write().await;
         system.refresh_all();
-        
+
         // Get current process information
         let current_pid = Pid::from_u32(std::process::id());
         let process = system.process(current_pid);
-        
+
         // Calculate CPU usage (system global CPU usage)
         let cpu_usage = system.global_cpu_info().cpu_usage();
-        
+
         // Get memory information
         let (memory_usage_mb, memory_usage_percent) = if let Some(proc) = process {
             let memory_bytes = proc.memory();
@@ -440,7 +483,7 @@ impl ServerMetricsCollector {
         } else {
             (64.0, 0.1) // Fallback values
         };
-        
+
         // Get disk usage (simplified - use total/available memory as a proxy)
         let disk_usage_percent = {
             let total_memory = system.total_memory() as f64;
@@ -451,22 +494,36 @@ impl ServerMetricsCollector {
                 45.0
             }
         };
-        
+
         // Get load average (use System::load_average() static function)
         let load_average = System::load_average().one;
-        
+
         // Ensure we have minimum baseline values for display
-        let cpu_usage_display = if cpu_usage > 0.0 { cpu_usage as f64 } else { 2.5 }; // Show at least 2.5% CPU
-        let memory_usage_display = if memory_usage_mb > 10.0 { memory_usage_mb } else { 32.0 }; // Show at least 32MB
-        let memory_percent_display = if memory_usage_percent > 0.1 { memory_usage_percent } else { 0.5 }; // Show at least 0.5%
-        
+        let cpu_usage_display = if cpu_usage > 0.0 {
+            cpu_usage as f64
+        } else {
+            2.5
+        }; // Show at least 2.5% CPU
+        let memory_usage_display = if memory_usage_mb > 10.0 {
+            memory_usage_mb
+        } else {
+            32.0
+        }; // Show at least 32MB
+        let memory_percent_display = if memory_usage_percent > 0.1 {
+            memory_usage_percent
+        } else {
+            0.5
+        }; // Show at least 0.5%
+
         PerformanceMetrics {
             cpu_usage_percent: cpu_usage_display,
             memory_usage_mb: memory_usage_display as u64,
             memory_usage_percent: memory_percent_display,
             disk_usage_percent,
             load_average,
-            thread_count: std::thread::available_parallelism().map(|p| p.get()).unwrap_or(4),
+            thread_count: std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(4),
             file_descriptors: process.map(|p| p.pid().as_u32()).unwrap_or(0) as usize,
         }
     }
@@ -488,7 +545,6 @@ impl ServerMetricsCollector {
             loxone_request_count: self.total_requests.load(Ordering::Relaxed),
         }
     }
-
 }
 
 impl Default for ServerMetricsCollector {

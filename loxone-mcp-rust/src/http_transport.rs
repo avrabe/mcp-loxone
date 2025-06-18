@@ -2268,21 +2268,36 @@ async fn handle_mcp_message(
     {
         let duration = request_start.elapsed();
         let is_tool_call = method == "tools/call";
-        
+
         // Record basic request
-        state.mcp_server.get_metrics_collector()
-            .record_request(duration, 0, 0).await; // bytes not tracked yet
-        
+        state
+            .mcp_server
+            .get_metrics_collector()
+            .record_request(duration, 0, 0)
+            .await; // bytes not tracked yet
+
         // Record tool execution if this was a tool call
         if is_tool_call {
-            state.mcp_server.get_metrics_collector()
-                .record_tool_execution(method, duration).await;
+            state
+                .mcp_server
+                .get_metrics_collector()
+                .record_tool_execution(method, duration)
+                .await;
         }
-        
+
         // Record MCP-specific metrics
         match method {
-            "tools/call" => state.mcp_server.get_metrics_collector().record_tool_execution(method, duration).await,
-            "resources/read" => state.mcp_server.get_metrics_collector().record_resource_access(),
+            "tools/call" => {
+                state
+                    .mcp_server
+                    .get_metrics_collector()
+                    .record_tool_execution(method, duration)
+                    .await
+            }
+            "resources/read" => state
+                .mcp_server
+                .get_metrics_collector()
+                .record_resource_access(),
             "prompts/get" => state.mcp_server.get_metrics_collector().record_prompt(),
             _ => {}
         }
@@ -2730,31 +2745,37 @@ async fn unified_dashboard_api_status(State(_state): State<Arc<AppState>>) -> im
 /// Get dashboard data (shared between API and WebSocket)
 async fn get_dashboard_data(state: &Arc<AppState>) -> serde_json::Value {
     let start_time = std::time::Instant::now();
-    
+
     // Use the unified dashboard data helper for clean, consistent sensor values
     use crate::http_transport::dashboard_data_unified::get_unified_dashboard_data;
 
     let result = get_unified_dashboard_data(&state.mcp_server).await;
-    
+
     // Record metrics for all dashboard data requests
     let duration = start_time.elapsed();
-    state.mcp_server.get_metrics_collector()
-        .record_request(duration, 0, 0).await;
-    
+    state
+        .mcp_server
+        .get_metrics_collector()
+        .record_request(duration, 0, 0)
+        .await;
+
     result
 }
 
 /// Unified dashboard API data
 async fn unified_dashboard_api_data(State(state): State<Arc<AppState>>) -> impl IntoResponse {
     let start_time = std::time::Instant::now();
-    
+
     let dashboard_data = get_dashboard_data(&state).await;
-    
+
     // Record metrics for dashboard API requests
     let duration = start_time.elapsed();
-    state.mcp_server.get_metrics_collector()
-        .record_request(duration, 0, 0).await;
-    
+    state
+        .mcp_server
+        .get_metrics_collector()
+        .record_request(duration, 0, 0)
+        .await;
+
     Json(dashboard_data)
 }
 
@@ -2867,7 +2888,7 @@ async fn handle_unified_dashboard_websocket(
 
     // Track connection closing
     state.mcp_server.get_metrics_collector().connection_closed();
-    
+
     info!("Unified dashboard WebSocket connection closed");
 }
 
