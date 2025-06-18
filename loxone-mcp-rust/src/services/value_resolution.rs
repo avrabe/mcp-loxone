@@ -141,12 +141,38 @@ impl UnifiedValueResolver {
         let client_clone = self.client.clone();
 
         // Use enhanced cache manager for intelligent batch fetching
-        let device_states =
+        // Try to use batch API if available for better performance
+        let device_states = if uuids.len() > 5 {
+            // For many devices, try batch endpoint first
+            self.enhanced_cache
+                .get_batch_device_values(uuids, async move {
+                    // Try batch endpoint first, fallback to individual
+                    match client_clone.get_all_device_states_batch().await {
+                        Ok(all_states) => {
+                            // Filter to only requested UUIDs
+                            let mut filtered = HashMap::new();
+                            for uuid in uuids {
+                                if let Some(state) = all_states.get(uuid) {
+                                    filtered.insert(uuid.clone(), state.clone());
+                                }
+                            }
+                            Ok(filtered)
+                        }
+                        Err(_) => {
+                            // Fallback to individual requests
+                            client_clone.get_device_states(uuids).await
+                        }
+                    }
+                })
+                .await?
+        } else {
+            // For few devices, use individual requests
             self.enhanced_cache
                 .get_batch_device_values(uuids, async move {
                     client_clone.get_device_states(uuids).await
                 })
-                .await?;
+                .await?
+        };
 
         // Convert raw device states to resolved values
         let mut results = HashMap::new();

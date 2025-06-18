@@ -29,6 +29,7 @@ pub async fn get_unified_dashboard_data(server: &LoxoneMcpServer) -> Value {
     let all_device_uuids: Vec<String> = devices.keys().cloned().collect();
 
     // Resolve all values efficiently in batch
+    // The resolver will automatically use the batch API endpoint for better performance
     let resolved_values = match resolver.resolve_batch_values(&all_device_uuids).await {
         Ok(values) => values,
         Err(e) => {

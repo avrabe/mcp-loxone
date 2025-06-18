@@ -331,6 +331,44 @@ impl LoxoneClient for LoxoneHttpClient {
         self.get_state_values_impl(state_uuids).await
     }
 
+    async fn get_all_device_states_batch(&self) -> Result<HashMap<String, serde_json::Value>> {
+        debug!("Fetching all device states in batch");
+
+        // Try the batch endpoint first: /jdev/sps/io/all
+        let batch_url = self.build_url("jdev/sps/io/all")?;
+        
+        match self.execute_request(batch_url).await {
+            Ok(response) => {
+                let text = response
+                    .text()
+                    .await
+                    .map_err(|e| LoxoneError::connection(format!("Failed to read batch response: {e}")))?;
+                
+                let loxone_response = Self::parse_loxone_response(&text);
+                
+                if loxone_response.code == 200 {
+                    // Parse the batch response
+                    if let Some(states_obj) = loxone_response.value.as_object() {
+                        let mut states = HashMap::new();
+                        for (uuid, value) in states_obj {
+                            states.insert(uuid.clone(), value.clone());
+                        }
+                        debug!("Batch request successful, got {} device states", states.len());
+                        return Ok(states);
+                    }
+                }
+            }
+            Err(e) => {
+                debug!("Batch endpoint not available or failed: {}, falling back to individual requests", e);
+            }
+        }
+
+        // Fallback to default implementation (individual requests)
+        let devices = self.context.devices.read().await;
+        let uuids: Vec<String> = devices.keys().cloned().collect();
+        self.get_device_states(&uuids).await
+    }
+
     async fn get_system_info(&self) -> Result<serde_json::Value> {
         debug!("Fetching system information");
 

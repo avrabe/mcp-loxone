@@ -131,6 +131,16 @@ pub trait LoxoneClient: Send + Sync {
         state_uuids: &[String],
     ) -> Result<HashMap<String, serde_json::Value>>;
 
+    /// Get all device states in a single batch request (if supported)
+    /// Falls back to individual requests if batch endpoint is not available
+    async fn get_all_device_states_batch(&self) -> Result<HashMap<String, serde_json::Value>> {
+        // Default implementation calls get_device_states with all known UUIDs
+        // Implementations can override this for true batch support
+        let devices = self.get_structure().await?.controls;
+        let uuids: Vec<String> = devices.keys().cloned().collect();
+        self.get_device_states(&uuids).await
+    }
+
     /// Get system information
     async fn get_system_info(&self) -> Result<serde_json::Value>;
 
