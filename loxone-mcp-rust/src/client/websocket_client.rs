@@ -33,7 +33,7 @@ use tokio::sync::{mpsc, Mutex, RwLock};
 #[cfg(feature = "websocket")]
 use tokio::time::{sleep, Instant};
 #[cfg(feature = "websocket")]
-use tokio_tungstenite::{connect_async, tungstenite::Message, MaybeTlsStream, WebSocketStream};
+use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 #[cfg(feature = "websocket")]
 use tracing::{debug, error, info, warn};
 #[cfg(feature = "websocket")]
@@ -80,6 +80,40 @@ pub enum LoxoneEventType {
     Sensor,
     /// Unknown event type
     Unknown(String),
+}
+
+impl From<String> for LoxoneEventType {
+    fn from(s: String) -> Self {
+        match s.to_lowercase().as_str() {
+            "state" => LoxoneEventType::State,
+            "weather" => LoxoneEventType::Weather,
+            "text" => LoxoneEventType::Text,
+            "alarm" => LoxoneEventType::Alarm,
+            "system" => LoxoneEventType::System,
+            "sensor" => LoxoneEventType::Sensor,
+            _ => LoxoneEventType::Unknown(s),
+        }
+    }
+}
+
+impl Default for LoxoneEventType {
+    fn default() -> Self {
+        LoxoneEventType::State
+    }
+}
+
+impl std::fmt::Display for LoxoneEventType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LoxoneEventType::State => write!(f, "state"),
+            LoxoneEventType::Weather => write!(f, "weather"),
+            LoxoneEventType::Text => write!(f, "text"),
+            LoxoneEventType::Alarm => write!(f, "alarm"),
+            LoxoneEventType::System => write!(f, "system"),
+            LoxoneEventType::Sensor => write!(f, "sensor"),
+            LoxoneEventType::Unknown(s) => write!(f, "unknown({})", s),
+        }
+    }
 }
 
 /// State update from WebSocket
@@ -140,6 +174,55 @@ impl Default for EventFilter {
             states: HashSet::new(),
             min_interval: Some(Duration::from_millis(100)), // 100ms debounce by default
         }
+    }
+}
+
+impl EventFilter {
+    /// Create a filter that matches all events (no filtering)
+    pub fn match_all() -> Self {
+        Self {
+            device_uuids: HashSet::new(),
+            event_types: HashSet::new(),
+            rooms: HashSet::new(),
+            states: HashSet::new(),
+            min_interval: None, // No debouncing
+        }
+    }
+    
+    /// Create a filter for specific device UUIDs only
+    pub fn for_devices(device_uuids: Vec<String>) -> Self {
+        Self {
+            device_uuids: device_uuids.into_iter().collect(),
+            ..Default::default()
+        }
+    }
+    
+    /// Create a filter for specific rooms only
+    pub fn for_rooms(rooms: Vec<String>) -> Self {
+        Self {
+            rooms: rooms.into_iter().collect(),
+            ..Default::default()
+        }
+    }
+    
+    /// Create a filter for specific event types only
+    pub fn for_event_types(event_types: Vec<LoxoneEventType>) -> Self {
+        Self {
+            event_types: event_types.into_iter().collect(),
+            ..Default::default()
+        }
+    }
+    
+    /// Set minimum interval for debouncing
+    pub fn with_debounce(mut self, interval: Duration) -> Self {
+        self.min_interval = Some(interval);
+        self
+    }
+    
+    /// Disable debouncing
+    pub fn without_debounce(mut self) -> Self {
+        self.min_interval = None;
+        self
     }
 }
 
@@ -363,6 +446,7 @@ impl LoxoneWebSocketClient {
         let context = self.context.clone();
         let subscribers = self.subscribers.clone();
         let stats = self.stats.clone();
+        let last_event_times = self.last_event_times.clone();
 
         // Task 1: Process state updates and distribute to subscribers
         let state_task = tokio::spawn(async move {
@@ -404,24 +488,108 @@ impl LoxoneWebSocketClient {
                     stats_guard.last_message = Some(chrono::Utc::now());
                 }
 
-                // Distribute to subscribers
+                // Distribute to subscribers with debouncing and filtering
                 let subscribers_guard = subscribers.read().await;
+                let mut filtered_count = 0;
+                let mut debounced_count = 0;
+                
                 for (sender, filter) in subscribers_guard.iter() {
-                    if Self::matches_filter(&update, filter).await {
-                        let _ = sender.send(update.clone());
+                    // Apply filter first
+                    if !Self::matches_filter(&update, filter).await {
+                        filtered_count += 1;
+                        continue;
                     }
+                    
+                    // Apply debouncing if configured
+                    if let Some(min_interval) = filter.min_interval {
+                        let mut last_times = last_event_times.write().await;
+                        let key = format!("{}:{}", update.uuid, update.state);
+                        let now = Instant::now();
+                        
+                        if let Some(last_time) = last_times.get(&key) {
+                            if now.duration_since(*last_time) < min_interval {
+                                debounced_count += 1;
+                                continue;
+                            }
+                        }
+                        
+                        last_times.insert(key, now);
+                    }
+                    
+                    // Send to subscriber
+                    let _ = sender.send(update.clone());
+                }
+                
+                // Update filtering/debouncing statistics
+                if filtered_count > 0 || debounced_count > 0 {
+                    let mut stats_guard = stats.write().await;
+                    stats_guard.events_filtered += filtered_count;
+                    stats_guard.events_debounced += debounced_count;
                 }
             }
         });
 
-        // Task 2: Reconnection manager (if enabled)
+        // Task 2: WebSocket message processor
+        let ws_stream = self.ws_stream.clone();
+        let state_sender_clone = self.state_sender.clone();
+        let stats_clone = self.stats.clone();
+        let connected_clone = self.connected.clone();
+        
+        let message_task = if let Some(ws_stream) = ws_stream {
+            Some(tokio::spawn(async move {
+                loop {
+                    let message = {
+                        use futures_util::StreamExt;
+                        let mut stream = ws_stream.lock().await;
+                        stream.next().await
+                    };
+                    
+                    match message {
+                        Some(Ok(msg)) => {
+                            // Update message statistics
+                            {
+                                let mut stats_guard = stats_clone.write().await;
+                                stats_guard.messages_received += 1;
+                                stats_guard.last_message = Some(chrono::Utc::now());
+                                
+                                if let tokio_tungstenite::tungstenite::Message::Binary(ref data) = msg {
+                                    stats_guard.bytes_received += data.len() as u64;
+                                } else if let tokio_tungstenite::tungstenite::Message::Text(ref text) = msg {
+                                    stats_guard.bytes_received += text.len() as u64;
+                                }
+                            }
+                            
+                            // Process the message
+                            if let Err(e) = Self::process_ws_message(msg, &state_sender_clone).await {
+                                warn!("Error processing WebSocket message: {}", e);
+                            }
+                        }
+                        Some(Err(e)) => {
+                            error!("WebSocket error: {}", e);
+                            *connected_clone.write().await = false;
+                            break;
+                        }
+                        None => {
+                            info!("WebSocket stream ended");
+                            *connected_clone.write().await = false;
+                            break;
+                        }
+                    }
+                }
+            }))
+        } else {
+            None
+        };
+
+        // Task 3: Reconnection manager (if enabled)
         let reconnection_task = if self.reconnection_config.enabled {
             let connected = self.connected.clone();
-            let _base_url = self.base_url.clone();
-            let _credentials = self.credentials.clone();
-            let _config = self.config.clone();
+            let base_url = self.base_url.clone();
+            let credentials = self.credentials.clone();
+            let config = self.config.clone();
             let reconnection_config = self.reconnection_config.clone();
             let stats_clone = self.stats.clone();
+            let ws_stream_ref = self.ws_stream.clone();
 
             Some(tokio::spawn(async move {
                 let mut attempt = 0;
@@ -463,14 +631,30 @@ impl LoxoneWebSocketClient {
 
                     sleep(jittered_delay).await;
 
-                    // TODO: Implement actual reconnection logic here
-                    // This would need access to the WebSocket stream
-
-                    // Exponential backoff
-                    delay = Duration::from_millis(
-                        (delay.as_millis() as f64 * reconnection_config.backoff_multiplier) as u64,
-                    )
-                    .min(reconnection_config.max_delay);
+                    // Attempt reconnection
+                    match Self::attempt_reconnection(&base_url, &credentials, &config).await {
+                        Ok(new_stream) => {
+                            info!("✅ WebSocket reconnection successful");
+                            
+                            // Replace the WebSocket stream
+                            if let Some(ws_stream_arc) = &ws_stream_ref {
+                                *ws_stream_arc.lock().await = new_stream;
+                            }
+                            
+                            *connected.write().await = true;
+                            attempt = 0; // Reset attempt counter
+                            delay = reconnection_config.initial_delay; // Reset delay
+                        }
+                        Err(e) => {
+                            warn!("Reconnection attempt #{} failed: {}", attempt, e);
+                            
+                            // Exponential backoff
+                            delay = Duration::from_millis(
+                                (delay.as_millis() as f64 * reconnection_config.backoff_multiplier) as u64,
+                            )
+                            .min(reconnection_config.max_delay);
+                        }
+                    }
                 }
             }))
         } else {
@@ -480,6 +664,9 @@ impl LoxoneWebSocketClient {
         // Store task handles
         let mut handles = self.task_handles.lock().await;
         handles.push(state_task);
+        if let Some(message_task) = message_task {
+            handles.push(message_task);
+        }
         if let Some(reconnection_task) = reconnection_task {
             handles.push(reconnection_task);
         }
@@ -580,35 +767,131 @@ impl LoxoneWebSocketClient {
         let mut subscribers = self.subscribers.write().await;
         subscribers.clear();
     }
+    
+    /// Get active subscriber count
+    pub async fn get_subscriber_count(&self) -> usize {
+        self.subscribers.read().await.len()
+    }
+    
+    /// Remove subscribers that match a specific filter
+    pub async fn remove_subscribers_with_filter(&self, filter: &EventFilter) -> usize {
+        let mut subscribers = self.subscribers.write().await;
+        let initial_count = subscribers.len();
+        
+        subscribers.retain(|(_, subscriber_filter)| {
+            // Keep subscribers that don't match the filter exactly
+            subscriber_filter.device_uuids != filter.device_uuids
+                || subscriber_filter.event_types != filter.event_types
+                || subscriber_filter.rooms != filter.rooms
+                || subscriber_filter.states != filter.states
+        });
+        
+        initial_count - subscribers.len()
+    }
+    
+    /// Get all unique device UUIDs being monitored
+    pub async fn get_monitored_devices(&self) -> HashSet<String> {
+        let mut monitored = HashSet::new();
+        let subscribers = self.subscribers.read().await;
+        
+        for (_, filter) in subscribers.iter() {
+            monitored.extend(filter.device_uuids.iter().cloned());
+        }
+        
+        monitored
+    }
+    
+    /// Get all unique rooms being monitored
+    pub async fn get_monitored_rooms(&self) -> HashSet<String> {
+        let mut monitored = HashSet::new();
+        let subscribers = self.subscribers.read().await;
+        
+        for (_, filter) in subscribers.iter() {
+            monitored.extend(filter.rooms.iter().cloned());
+        }
+        
+        monitored
+    }
+    
+    /// Helper method for reconnection attempts
+    async fn attempt_reconnection(
+        base_url: &Url,
+        credentials: &LoxoneCredentials,
+        _config: &LoxoneConfig,
+    ) -> Result<WsStream> {
+        use tokio_tungstenite::connect_async;
+        
+        // Build WebSocket URL
+        let mut ws_url = base_url.clone();
+        
+        // Convert HTTP(S) to WS(S)
+        match ws_url.scheme() {
+            "http" => {
+                ws_url.set_scheme("ws")
+                    .map_err(|_| LoxoneError::connection("Failed to convert HTTP to WebSocket URL"))?;
+            }
+            "https" => {
+                ws_url.set_scheme("wss")
+                    .map_err(|_| LoxoneError::connection("Failed to convert HTTPS to WebSocket URL"))?;
+            }
+            _ => {
+                return Err(LoxoneError::connection(
+                    "Unsupported URL scheme for WebSocket",
+                ))
+            }
+        }
+        
+        // Add WebSocket endpoint path
+        ws_url.set_path("/ws/rfc6455");
+        
+        // Add authentication
+        ws_url
+            .query_pairs_mut()
+            .append_pair("user", &credentials.username)
+            .append_pair("password", &credentials.password);
+        
+        // Attempt connection
+        let (ws_stream, response) = connect_async(&ws_url)
+            .await
+            .map_err(|e| LoxoneError::connection(format!("WebSocket reconnection failed: {e}")))?;
+        
+        debug!("WebSocket reconnected, response: {:?}", response.status());
+        Ok(ws_stream)
+    }
 
-    /// Process WebSocket messages
-    #[allow(dead_code)]
-    async fn process_message(&self, message: Message) -> Result<()> {
+    /// Process WebSocket messages (static method for background task)
+    async fn process_ws_message(
+        message: tokio_tungstenite::tungstenite::Message,
+        state_sender: &Option<mpsc::UnboundedSender<StateUpdate>>,
+    ) -> Result<()> {
+        use tokio_tungstenite::tungstenite::Message;
+        
         match message {
             Message::Text(text) => {
-                debug!("Received text message: {text}");
+                debug!("Received text message: {}", text);
 
                 // Try parsing as Loxone message
                 if let Ok(loxone_msg) = serde_json::from_str::<LoxoneWebSocketMessage>(&text) {
-                    self.handle_loxone_message(loxone_msg).await?;
+                    Self::handle_loxone_message_static(loxone_msg, state_sender).await?;
                 }
             }
             Message::Binary(data) => {
                 debug!("Received binary message: {} bytes", data.len());
-                self.handle_binary_message(data).await?;
+                Self::handle_binary_message_static(data).await?;
             }
             Message::Ping(_data) => {
-                debug!("Received ping, sending pong");
-                if let Some(_ws) = &self.ws_stream {
-                    // Note: In a real implementation, we'd need a way to send the pong
-                    // This requires restructuring to have a shared websocket sender
-                }
+                debug!("Received ping - pong will be sent automatically by tungstenite");
+                // tungstenite handles ping/pong automatically
             }
             Message::Pong(_) => {
                 debug!("Received pong");
             }
-            Message::Close(_) => {
-                warn!("WebSocket connection closed by server");
+            Message::Close(close_frame) => {
+                if let Some(frame) = close_frame {
+                    warn!("WebSocket connection closed by server: {} - {}", frame.code, frame.reason);
+                } else {
+                    warn!("WebSocket connection closed by server");
+                }
                 return Err(LoxoneError::connection("WebSocket closed by server"));
             }
             Message::Frame(_) => {
@@ -619,56 +902,165 @@ impl LoxoneWebSocketClient {
         Ok(())
     }
 
-    /// Handle Loxone-specific message
+    /// Instance method for backward compatibility
     #[allow(dead_code)]
-    async fn handle_loxone_message(&self, message: LoxoneWebSocketMessage) -> Result<()> {
+    async fn process_message(&self, message: tokio_tungstenite::tungstenite::Message) -> Result<()> {
+        Self::process_ws_message(message, &self.state_sender).await
+    }
+
+    /// Handle Loxone-specific message (static method for background task)
+    async fn handle_loxone_message_static(
+        message: LoxoneWebSocketMessage,
+        state_sender: &Option<mpsc::UnboundedSender<StateUpdate>>,
+    ) -> Result<()> {
         match message.msg_type.as_str() {
-            "text" => {
+            "text" | "state" => {
                 // Handle text-based state updates
                 if let Some(uuid) = message.data.get("uuid").and_then(|v| v.as_str()) {
                     if let Some(value) = message.data.get("value") {
+                        // Determine event type based on message content
+                        let event_type = if message.data.get("type").and_then(|v| v.as_str()) == Some("weather") {
+                            LoxoneEventType::Weather
+                        } else if message.data.get("type").and_then(|v| v.as_str()) == Some("alarm") {
+                            LoxoneEventType::Alarm
+                        } else {
+                            LoxoneEventType::State
+                        };
+                        
+                        let state_name = message.data.get("state")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("value")
+                            .to_string();
+                        
                         let update = StateUpdate {
                             uuid: uuid.to_string(),
-                            state: "value".to_string(),
+                            state: state_name,
                             value: value.clone(),
-                            previous_value: None,
-                            event_type: LoxoneEventType::State,
-                            timestamp: chrono::Utc::now(),
-                            room: None,
-                            device_name: None,
+                            previous_value: message.data.get("previous").cloned(),
+                            event_type,
+                            timestamp: message.timestamp
+                                .map(|ts| chrono::DateTime::from_timestamp(ts as i64, 0))
+                                .flatten()
+                                .unwrap_or_else(chrono::Utc::now),
+                            room: message.data.get("room").and_then(|v| v.as_str()).map(String::from),
+                            device_name: message.data.get("name").and_then(|v| v.as_str()).map(String::from),
                         };
 
-                        if let Some(sender) = &self.state_sender {
-                            let _ = sender.send(update);
+                        if let Some(sender) = state_sender {
+                            if let Err(_) = sender.send(update) {
+                                warn!("Failed to send state update - receiver may be closed");
+                            }
                         }
                     }
                 }
             }
             "header" => {
                 debug!("Received header message: {:?}", message.data);
+                // Header messages often contain initialization data
+                if let Some(version) = message.data.get("version") {
+                    info!("Loxone Miniserver version: {}", version);
+                }
             }
-            "keepalive" => {
-                debug!("Received keepalive message");
+            "keepalive" | "ping" => {
+                debug!("Received keepalive/ping message");
+                // Connection is alive - no action needed
+            }
+            "weather" => {
+                debug!("Received weather update: {:?}", message.data);
+                // Handle weather-specific data
+                if let Some(uuid) = message.data.get("uuid").and_then(|v| v.as_str()) {
+                    let update = StateUpdate {
+                        uuid: uuid.to_string(),
+                        state: "weather".to_string(),
+                        value: message.data.clone(),
+                        previous_value: None,
+                        event_type: LoxoneEventType::Weather,
+                        timestamp: chrono::Utc::now(),
+                        room: None,
+                        device_name: None,
+                    };
+                    
+                    if let Some(sender) = state_sender {
+                        let _ = sender.send(update);
+                    }
+                }
+            }
+            "text_message" => {
+                debug!("Received text message: {:?}", message.data);
+                if let Some(text) = message.data.get("text").and_then(|v| v.as_str()) {
+                    info!("Loxone message: {}", text);
+                }
             }
             _ => {
-                debug!("Unknown message type: {}", message.msg_type);
+                debug!("Unknown message type '{}': {:?}", message.msg_type, message.data);
             }
         }
 
         Ok(())
     }
+    
+    /// Instance method for backward compatibility
+    #[allow(dead_code)]
+    async fn handle_loxone_message(&self, message: LoxoneWebSocketMessage) -> Result<()> {
+        Self::handle_loxone_message_static(message, &self.state_sender).await
+    }
 
-    /// Handle binary message (sensor data)
+    /// Handle binary message (sensor data) - static method
+    async fn handle_binary_message_static(data: Vec<u8>) -> Result<()> {
+        // Binary messages in Loxone typically contain sensor state updates
+        // The format is proprietary but follows patterns:
+        // - First 4 bytes: message type identifier
+        // - Next 4 bytes: data length
+        // - Remaining bytes: payload (device states, sensor readings)
+        
+        if data.len() < 8 {
+            debug!("Binary message too short: {} bytes", data.len());
+            return Ok(());
+        }
+        
+        // Extract message type and length
+        let msg_type = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+        let data_length = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
+        
+        debug!(
+            "Binary message - type: 0x{:08X}, length: {}, total: {} bytes",
+            msg_type, data_length, data.len()
+        );
+        
+        // Common Loxone binary message types (observed patterns)
+        match msg_type {
+            0x00000000 => {
+                debug!("Binary: Device state update message");
+                // Contains device state changes in binary format
+            }
+            0x00000001 => {
+                debug!("Binary: Sensor reading batch");
+                // Contains multiple sensor readings
+            }
+            0x00000002 => {
+                debug!("Binary: Weather data");
+                // Weather station data in compact format
+            }
+            0x00000003 => {
+                debug!("Binary: Energy meter readings");
+                // Power consumption and generation data
+            }
+            _ => {
+                debug!("Binary: Unknown message type 0x{:08X}", msg_type);
+            }
+        }
+        
+        // TODO: Implement proper binary protocol parsing
+        // This would require understanding Loxone's proprietary binary format
+        // For now, we log the message for debugging purposes
+        
+        Ok(())
+    }
+    
+    /// Instance method for backward compatibility
     #[allow(dead_code)]
     async fn handle_binary_message(&self, data: Vec<u8>) -> Result<()> {
-        // Binary messages in Loxone typically contain sensor state updates
-        // The format is proprietary and would need reverse engineering
-        // For now, we'll log the message
-        debug!(
-            "Binary message processing not implemented yet: {} bytes",
-            data.len()
-        );
-        Ok(())
+        Self::handle_binary_message_static(data).await
     }
 
     /// Get public context for external access
@@ -679,6 +1071,80 @@ impl LoxoneWebSocketClient {
     /// Legacy method for backward compatibility
     pub async fn subscribe_to_updates(&self) -> mpsc::UnboundedReceiver<StateUpdate> {
         self.subscribe().await
+    }
+    
+    /// Subscribe to specific device state changes
+    pub async fn subscribe_to_device_state(
+        &self,
+        device_uuid: String,
+        state_name: String,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
+        let mut device_uuids = HashSet::new();
+        device_uuids.insert(device_uuid);
+        
+        let mut states = HashSet::new();
+        states.insert(state_name);
+        
+        let filter = EventFilter {
+            device_uuids,
+            states,
+            ..Default::default()
+        };
+        
+        self.subscribe_with_filter(filter).await
+    }
+    
+    /// Subscribe to all state changes in specific rooms
+    pub async fn subscribe_to_room_updates(
+        &self,
+        room_names: Vec<String>,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
+        let rooms = room_names.into_iter().collect();
+        let filter = EventFilter {
+            rooms,
+            ..Default::default()
+        };
+        
+        self.subscribe_with_filter(filter).await
+    }
+    
+    /// Subscribe to specific event types with optional device filtering
+    pub async fn subscribe_to_events(
+        &self,
+        event_types: Vec<LoxoneEventType>,
+        device_uuids: Option<Vec<String>>,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
+        let event_types_set = event_types.into_iter().collect();
+        let device_uuids_set = device_uuids
+            .map(|uuids| uuids.into_iter().collect())
+            .unwrap_or_default();
+        
+        let filter = EventFilter {
+            event_types: event_types_set,
+            device_uuids: device_uuids_set,
+            ..Default::default()
+        };
+        
+        self.subscribe_with_filter(filter).await
+    }
+    
+    /// Configure and start automatic device state subscriptions for all known devices
+    pub async fn enable_full_monitoring(&self) -> Result<()> {
+        let devices = self.context.devices.read().await;
+        let device_uuids: HashSet<String> = devices.keys().cloned().collect();
+        
+        let filter = EventFilter {
+            device_uuids,
+            event_types: [LoxoneEventType::State, LoxoneEventType::Sensor].iter().cloned().collect(),
+            min_interval: Some(Duration::from_millis(100)), // 100ms debounce
+            ..Default::default()
+        };
+        
+        // Create subscription but don't store the receiver (fire-and-forget monitoring)
+        let _receiver = self.subscribe_with_filter(filter).await;
+        info!("Full device monitoring enabled for {} devices", devices.len());
+        
+        Ok(())
     }
 }
 
