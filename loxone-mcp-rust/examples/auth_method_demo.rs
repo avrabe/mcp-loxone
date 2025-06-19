@@ -19,7 +19,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         username: "demo_user".to_string(),
         password: "demo_password".to_string(),
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 
@@ -40,9 +40,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     match create_client(&config_token, &credentials).await {
         Ok(_client) => {
             println!("   ✅ Token-based HTTP client created successfully");
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             println!("   🔒 Uses RSA encryption + JWT tokens for secure authentication");
-            #[cfg(not(feature = "crypto"))]
+            #[cfg(not(feature = "crypto-openssl"))]
             println!("   ⚠️  Crypto feature disabled - falling back to basic auth");
         }
         Err(e) => println!("   ❌ Error: {}", e),

@@ -3,7 +3,8 @@
 //! This module provides HTTP server capabilities with Server-Sent Events (SSE)
 //! transport for the Model Context Protocol, making it compatible with n8n.
 
-pub mod authentication;
+pub mod admin_api;
+pub mod admin_keys_ui;
 pub mod cache_api;
 pub mod dashboard_api;
 pub mod dashboard_data_unified;
@@ -17,11 +18,9 @@ use crate::error::{LoxoneError, Result};
 use crate::performance::{
     middleware::PerformanceMiddleware, PerformanceConfig, PerformanceMonitor,
 };
-use crate::security::key_store::{KeyStore, KeyStoreBackend, KeyStoreConfig};
 use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
-pub use authentication::AuthConfig;
-use authentication::AuthManager;
+use crate::auth::AuthenticationManager;
 use mcp_foundation::ServerHandler;
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
 
@@ -35,7 +34,7 @@ use crate::monitoring::{
 // Removed history imports - module was unused
 
 use axum::{
-    extract::{Query, Request, State},
+    extract::{Path, Query, Request, State},
     http::{header, HeaderMap, StatusCode},
     middleware::Next,
     response::{
@@ -59,35 +58,6 @@ use tokio::sync::{broadcast, RwLock};
 // use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info, warn};
 
-/// Legacy authentication configuration (deprecated)
-#[derive(Debug, Clone)]
-pub struct LegacyAuthConfig {
-    /// Single API key for all access
-    pub api_key: String,
-}
-
-impl LegacyAuthConfig {
-    /// Create auth config from environment variable
-    pub fn from_env() -> std::result::Result<Self, String> {
-        match std::env::var("HTTP_API_KEY") {
-            Ok(api_key) => {
-                if api_key.trim().is_empty() {
-                    Err("HTTP_API_KEY environment variable is empty".to_string())
-                } else {
-                    Ok(Self { api_key })
-                }
-            }
-            Err(_) => {
-                Err("HTTP_API_KEY environment variable not set. Set a secure API key.".to_string())
-            }
-        }
-    }
-
-    /// Create auth config with explicit key (for testing)
-    pub fn with_key(api_key: String) -> Self {
-        Self { api_key }
-    }
-}
 
 /// Query parameters for SSE endpoint
 #[derive(Debug, Deserialize)]
@@ -193,8 +163,6 @@ struct HealthServices {
 pub struct HttpServerConfig {
     /// Server port
     pub port: u16,
-    /// Authentication configuration
-    pub auth_config: AuthConfig,
     /// Security configuration
     pub security_config: Option<SecurityConfig>,
     /// Performance monitoring configuration
@@ -206,16 +174,6 @@ pub struct HttpServerConfig {
 
 impl Default for HttpServerConfig {
     fn default() -> Self {
-        // Check if we should disable auth for development
-        let auth_config = if std::env::var("DISABLE_AUTH").is_ok() {
-            AuthConfig {
-                require_api_key: false,
-                ..AuthConfig::default()
-            }
-        } else {
-            AuthConfig::default()
-        };
-
         // Determine security config based on environment
         let security_config = if std::env::var("PRODUCTION").is_ok() {
             Some(SecurityConfig::production())
@@ -236,7 +194,6 @@ impl Default for HttpServerConfig {
 
         Self {
             port: 3001,
-            auth_config,
             security_config,
             performance_config,
             #[cfg(feature = "influxdb")]
@@ -250,15 +207,13 @@ pub struct HttpTransportServer {
     /// MCP server instance
     mcp_server: LoxoneMcpServer,
     /// Authentication manager
-    auth_manager: AuthManager,
+    auth_manager: Arc<AuthenticationManager>,
     /// Enhanced rate limiter
     rate_limiter: EnhancedRateLimiter,
     /// Security middleware
     security_middleware: Option<Arc<SecurityMiddleware>>,
     /// Performance middleware
     performance_middleware: Option<Arc<PerformanceMiddleware>>,
-    /// API key store
-    key_store: Arc<KeyStore>,
     /// Metrics collector
     #[cfg(feature = "influxdb")]
     metrics_collector: Arc<MetricsCollector>,
@@ -271,16 +226,7 @@ pub struct HttpTransportServer {
 
 impl HttpTransportServer {
     /// Create new HTTP transport server with configuration
-    pub async fn new(mcp_server: LoxoneMcpServer, mut config: HttpServerConfig) -> Result<Self> {
-        // Backward compatibility: Check for old HTTP_API_KEY env var
-        if let Ok(api_key) = std::env::var("HTTP_API_KEY") {
-            if !api_key.trim().is_empty() {
-                info!("Using legacy HTTP_API_KEY authentication");
-                // Create a simple auth manager that accepts this key
-                config.auth_config.require_api_key = true;
-                // Note: We'll need to handle this in the auth manager
-            }
-        }
+    pub async fn new(mcp_server: LoxoneMcpServer, config: HttpServerConfig) -> Result<Self> {
 
         #[cfg(feature = "influxdb")]
         let (metrics_collector, influx_manager) = if let Some(influx_config) = config.influx_config
@@ -299,15 +245,9 @@ impl HttpTransportServer {
             (metrics_collector, None)
         };
 
-        let auth_manager = AuthManager::new(config.auth_config);
+        // Initialize unified authentication manager
+        let auth_manager = crate::auth::initialize_auth_system().await?;
 
-        // Add default admin key if HTTP_API_KEY is set
-        if let Ok(api_key) = std::env::var("HTTP_API_KEY") {
-            if !api_key.trim().is_empty() {
-                // Store the legacy key for validation
-                auth_manager.add_legacy_key(api_key).await;
-            }
-        }
 
         // Initialize security middleware if configured
         let security_middleware = if let Some(security_config) = config.security_config {
@@ -343,15 +283,6 @@ impl HttpTransportServer {
             None
         };
 
-        // Initialize key store
-        let key_store_config = KeyStoreConfig {
-            backend: KeyStoreBackend::File,
-            file_path: Some(crate::security::key_store::default_key_store_path()),
-            auto_save: true,
-            encrypt_at_rest: false,
-        };
-        let key_store = Arc::new(KeyStore::new(key_store_config).await?);
-        info!("🔑 API key store initialized");
 
         Ok(Self {
             mcp_server,
@@ -359,7 +290,6 @@ impl HttpTransportServer {
             rate_limiter: EnhancedRateLimiter::with_defaults(),
             security_middleware,
             performance_middleware,
-            key_store,
             #[cfg(feature = "influxdb")]
             metrics_collector,
             #[cfg(feature = "influxdb")]
@@ -480,7 +410,6 @@ impl HttpTransportServer {
             #[cfg(feature = "influxdb")]
             influx_manager: self.influx_manager.clone(),
                     sse_manager,
-            key_store: self.key_store.clone(),
         });
 
         // let cors = CorsLayer::new()
@@ -500,6 +429,7 @@ impl HttpTransportServer {
             .route("/dashboard/", get(unified_dashboard_home))
             .route("/dashboard/api/status", get(unified_dashboard_api_status))
             .route("/dashboard/api/data", get(unified_dashboard_api_data))
+            .route("/dashboard/ws", get(unified_dashboard_websocket))
             // Server metrics test endpoint (public for debugging)
             .route("/dashboard/api/metrics", get(server_metrics_test))
             // High-performance dashboard endpoints for <100ms response times (disabled until tower deps are fixed)
@@ -521,6 +451,32 @@ impl HttpTransportServer {
             // Admin endpoints (require admin auth)
             .route("/admin/status", get(admin_status))
             .route("/admin/rate-limits", get(rate_limit_status))
+            // Admin navigation hub and key management UI
+            .route("/admin", get(navigation_hub))
+            .route("/admin/", get(navigation_hub))
+            .route("/admin/keys", get(admin_keys_ui::api_keys_ui))
+            // API key management endpoints
+            .route("/admin/api/keys", get(|State(state): State<Arc<AppState>>| async move {
+                admin_api::list_keys(State(state.auth_manager.clone())).await
+            }))
+            .route("/admin/api/keys", axum::routing::post(|State(state): State<Arc<AppState>>, Json(request): Json<admin_api::CreateKeyRequest>| async move {
+                admin_api::create_key(State(state.auth_manager.clone()), Json(request)).await
+            }))
+            .route("/admin/api/keys/stats", get(|State(state): State<Arc<AppState>>| async move {
+                admin_api::get_auth_stats(State(state.auth_manager.clone())).await
+            }))
+            .route("/admin/api/keys/:id", get(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
+                admin_api::get_key(State(state.auth_manager.clone()), Path(key_id)).await
+            }))
+            .route("/admin/api/keys/:id", axum::routing::put(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>, Json(request): Json<admin_api::UpdateKeyRequest>| async move {
+                admin_api::update_key(State(state.auth_manager.clone()), Path(key_id), Json(request)).await
+            }))
+            .route("/admin/api/keys/:id", axum::routing::delete(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
+                admin_api::delete_key(State(state.auth_manager.clone()), Path(key_id)).await
+            }))
+            .route("/admin/api/audit", get(|State(state): State<Arc<AppState>>| async move {
+                admin_api::get_audit_events(State(state.auth_manager.clone())).await
+            }))
             .layer(axum::middleware::from_fn_with_state(
                 shared_state.clone(),
                 auth_middleware_wrapper,
@@ -593,12 +549,6 @@ impl HttpTransportServer {
             app
         };
 
-        // Add main navigation hub
-        let nav_router = Router::new()
-            .route("/", get(navigation_hub));
-
-        // Add admin routes
-        let app = app.nest("/admin", nav_router);
         info!(
             "🏠 Navigation Hub: http://localhost:{}/admin (with API key)",
             self.port
@@ -606,6 +556,30 @@ impl HttpTransportServer {
         info!(
             "🔑 API key management UI: http://localhost:{}/admin/keys",
             self.port
+        );
+        info!(
+            "🔑 API key management endpoints:",
+        );
+        info!(
+            "   - GET    /admin/api/keys         - List all keys",
+        );
+        info!(
+            "   - POST   /admin/api/keys         - Create new key",
+        );
+        info!(
+            "   - GET    /admin/api/keys/:id     - Get specific key",
+        );
+        info!(
+            "   - PUT    /admin/api/keys/:id     - Update key",
+        );
+        info!(
+            "   - DELETE /admin/api/keys/:id     - Delete key",
+        );
+        info!(
+            "   - GET    /admin/api/keys/stats   - Auth statistics",
+        );
+        info!(
+            "   - GET    /admin/api/audit        - Audit log",
         );
 
         Ok(app)
@@ -616,15 +590,13 @@ impl HttpTransportServer {
 #[derive(Clone)]
 struct AppState {
     mcp_server: LoxoneMcpServer,
-    auth_manager: AuthManager,
+    auth_manager: Arc<AuthenticationManager>,
     rate_limiter: EnhancedRateLimiter,
     #[cfg(feature = "influxdb")]
     metrics_collector: Arc<MetricsCollector>,
     #[cfg(feature = "influxdb")]
     influx_manager: Option<Arc<InfluxManager>>,
     sse_manager: Arc<SseConnectionManager>,
-    #[allow(dead_code)]
-    key_store: Arc<KeyStore>,
 }
 
 /// Main navigation hub handler
@@ -2352,9 +2324,9 @@ async fn admin_status(State(state): State<Arc<AppState>>, _headers: HeaderMap) -
         "authentication": {
             "total_keys": auth_stats.total_keys,
             "active_keys": auth_stats.active_keys,
-            "expiring_keys": auth_stats.expiring_keys,
-            "active_sessions": auth_stats.active_sessions,
-            "recent_failures": auth_stats.recent_auth_failures
+            "expired_keys": auth_stats.expired_keys,
+            "blocked_ips": auth_stats.currently_blocked_ips,
+            "failed_attempts": auth_stats.total_failed_attempts
         }
     });
 
@@ -2409,77 +2381,41 @@ async fn auth_middleware_wrapper(
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
-    // Use KeyStore-based authentication instead of AuthManager
-    key_store_auth_middleware(State(state.key_store.clone()), request, next).await
+    // Use unified authentication system
+    unified_auth_middleware(State(state.auth_manager.clone()), request, next).await
 }
 
-/// Simple authentication middleware using KeyStore
-async fn key_store_auth_middleware(
-    State(key_store): State<Arc<KeyStore>>,
+/// Unified authentication middleware using the new AuthenticationManager
+async fn unified_auth_middleware(
+    State(auth_manager): State<Arc<AuthenticationManager>>,
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
     let headers = request.headers();
     let query_string = request.uri().query();
 
-    // Extract API key from headers or query parameters
-    let api_key = extract_api_key_from_request(headers, query_string);
-
-    if let Some(key) = api_key {
-        // Validate the key using KeyStore
-        match key_store.validate_key(&key, None).await {
-            Ok(_validated_key) => {
-                // Key is valid, record usage
-                let _ = key_store.record_usage(&key).await;
-                // Continue to the next handler
-                Ok(next.run(request).await)
-            }
-            Err(_) => {
-                // Key validation failed
-                Err(StatusCode::UNAUTHORIZED)
-            }
+    // Authenticate the request using the unified system
+    match auth_manager.authenticate_request(headers, query_string).await {
+        crate::auth::models::AuthResult::Success(_) => {
+            // Authentication successful, proceed with the request
+            Ok(next.run(request).await)
         }
-    } else {
-        // No API key provided
-        Err(StatusCode::UNAUTHORIZED)
+        crate::auth::models::AuthResult::Unauthorized { reason } => {
+            warn!("Authentication failed: {}", reason);
+            Err(StatusCode::UNAUTHORIZED)
+        }
+        crate::auth::models::AuthResult::Forbidden { reason } => {
+            warn!("Access forbidden: {}", reason);
+            Err(StatusCode::FORBIDDEN)
+        }
+        crate::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
+            warn!("Rate limited for {} seconds", retry_after_seconds);
+            Err(StatusCode::TOO_MANY_REQUESTS)
+        }
     }
 }
 
-/// Extract API key from headers or query parameters
-fn extract_api_key_from_request(headers: &HeaderMap, query_string: Option<&str>) -> Option<String> {
-    // Try X-API-Key header first
-    if let Some(key) = headers.get("x-api-key") {
-        if let Ok(key_str) = key.to_str() {
-            return Some(key_str.to_string());
-        }
-    }
 
-    // Try Authorization header with Bearer token
-    if let Some(auth) = headers.get("authorization") {
-        if let Ok(auth_str) = auth.to_str() {
-            if let Some(token) = auth_str.strip_prefix("Bearer ") {
-                return Some(token.to_string());
-            }
-        }
-    }
-
-    // Try query parameter for browser-friendly access
-    if let Some(query) = query_string {
-        for param in query.split('&') {
-            if let Some((key, value)) = param.split_once('=') {
-                if key == "api_key" {
-                    // URL decode the value
-                    if let Ok(decoded) = urlencoding::decode(value) {
-                        return Some(decoded.to_string());
-                    }
-                    return Some(value.to_string());
-                }
-            }
-        }
-    }
-
-    None
-}
 
 /// Prometheus metrics endpoint
 async fn prometheus_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -2596,12 +2532,43 @@ fn generate_unified_dashboard_html() -> String {
     crate::monitoring::clean_dashboard::generate_clean_dashboard_html()
 }
 
-/// Unified dashboard WebSocket endpoint (public access)
+/// Unified dashboard WebSocket endpoint with authentication
 async fn unified_dashboard_websocket(
     ws: axum::extract::WebSocketUpgrade,
+    Query(params): Query<HashMap<String, String>>,
     State(state): State<Arc<AppState>>,
-) -> axum::response::Response {
-    ws.on_upgrade(move |socket| handle_unified_dashboard_websocket(socket, state))
+) -> std::result::Result<axum::response::Response, StatusCode> {
+    // Check for API key authentication
+    if let Some(api_key) = params.get("api_key") {
+        debug!("WebSocket authentication attempt with API key: {}", &api_key[..8.min(api_key.len())]);
+        
+        // Use the unified authentication manager
+        let auth_result = state.auth_manager.authenticate(
+            api_key,
+            "websocket_client",
+        ).await;
+        
+        match auth_result {
+            crate::auth::models::AuthResult::Success(auth_success) => {
+                debug!("WebSocket authentication successful for key: {}", auth_success.key.id);
+                return Ok(ws.on_upgrade(move |socket| handle_unified_dashboard_websocket(socket, state)));
+            }
+            crate::auth::models::AuthResult::Unauthorized { reason } => {
+                warn!("WebSocket authentication failed: {}", reason);
+            }
+            crate::auth::models::AuthResult::Forbidden { reason } => {
+                warn!("WebSocket authentication forbidden: {}", reason);
+            }
+            crate::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
+                warn!("WebSocket authentication rate limited for {} seconds", retry_after_seconds);
+            }
+        }
+    } else {
+        warn!("WebSocket connection attempted without API key");
+    }
+    
+    // Authentication failed
+    Err(StatusCode::UNAUTHORIZED)
 }
 
 /// Handle unified dashboard WebSocket connection

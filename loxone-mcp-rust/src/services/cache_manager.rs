@@ -406,7 +406,7 @@ impl EnhancedCacheManager {
                         let device_uuid = device_uuid.to_string();
                         let handler = self.prefetch_handler.clone();
                         let device_cache = self.device_cache.clone();
-                        let config = self.config.clone();
+                        let _config = self.config.clone();
                         
                         // Spawn background prefetch task
                         if let Some(handler) = handler {

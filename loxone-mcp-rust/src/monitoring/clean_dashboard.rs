@@ -613,13 +613,23 @@ pub fn generate_clean_dashboard_html() -> String {
                 console.log('Connecting to WebSocket for real-time updates...');
                 
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${{protocol}}//${{window.location.host}}/dashboard/ws`;
+                
+                // Extract API key from current URL parameters
+                const urlParams = new URLSearchParams(window.location.search);
+                const apiKey = urlParams.get('api_key');
+                
+                // Build WebSocket URL with API key authentication
+                let wsUrl = `${{protocol}}//${{window.location.host}}/dashboard/ws`;
+                if (apiKey) {{
+                    wsUrl += `?api_key=${{encodeURIComponent(apiKey)}}`;
+                }}
                 
                 try {{
+                    console.log('Attempting WebSocket connection to:', wsUrl);
                     this.ws = new WebSocket(wsUrl);
                     
                     this.ws.onopen = () => {{
-                        console.log('WebSocket connected');
+                        console.log('✅ WebSocket connected successfully');
                         this.reconnectAttempts = 0;
                     }};
                     
@@ -644,16 +654,24 @@ pub fn generate_clean_dashboard_html() -> String {
                         }}
                     }};
                     
-                    this.ws.onclose = () => {{
-                        console.log('WebSocket disconnected');
+                    this.ws.onclose = (event) => {{
+                        if (event.code === 1006) {{
+                            console.error('❌ WebSocket connection failed - likely authentication error');
+                            console.log('Check if API key is valid:', apiKey ? 'API key present' : 'No API key');
+                        }} else {{
+                            console.log('WebSocket disconnected with code:', event.code);
+                        }}
                         this.scheduleReconnect();
                     }};
                     
                     this.ws.onerror = (error) => {{
-                        console.error('WebSocket error:', error);
+                        console.error('❌ WebSocket error:', error);
                     }};
                 }} catch (error) {{
-                    console.error('WebSocket connection failed:', error);
+                    console.error('❌ WebSocket connection failed:', error);
+                    if (!apiKey) {{
+                        console.warn('💡 Tip: Make sure you access the dashboard with ?api_key=your_key parameter');
+                    }}
                 }}
             }}
             

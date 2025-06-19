@@ -564,9 +564,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                                 sensor_json["air_quality"] = json!(quality);
                                 
                                 // Update worst quality
-                                if quality == "Very Poor" || (worst_air_quality != "Very Poor" && quality == "Poor") {
-                                    worst_air_quality = quality;
-                                } else if worst_air_quality == "Good" && quality == "Moderate" {
+                                if quality == "Very Poor" || (worst_air_quality != "Very Poor" && quality == "Poor") || (worst_air_quality == "Good" && quality == "Moderate") {
                                     worst_air_quality = quality;
                                 }
                             } else if device.name.to_lowercase().contains("voc") {
@@ -586,9 +584,9 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                                 sensor_json["humidity_percent"] = json!(value);
                                 
                                 // Assess humidity level
-                                let comfort = if value >= 30.0 && value <= 60.0 {
+                                let comfort = if (30.0..=60.0).contains(&value) {
                                     "Comfortable"
-                                } else if value < 20.0 || value > 70.0 {
+                                } else if !(20.0..=70.0).contains(&value) {
                                     "Uncomfortable"
                                 } else {
                                     "Acceptable"
@@ -1272,6 +1270,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     let type_lower = device.device_type.to_lowercase();
     
     let mut characteristics = json!({});
+    #[allow(unused_assignments)]
     let mut confidence = 0.5; // Base confidence
     
     // Temperature sensors
@@ -1319,7 +1318,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // Energy/Power meters
     if name_lower.contains("power") || name_lower.contains("energy") || name_lower.contains("watt") || name_lower.contains("kwh") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 0.0 && value < 100000.0 {
+            if (0.0..100000.0).contains(&value) {
                 confidence = 0.85;
                 characteristics["value_range"] = json!("typical_power_consumption");
                 if let Some(unit) = &resolved.unit {
@@ -1340,7 +1339,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // Humidity sensors
     if name_lower.contains("humid") || name_lower.contains("feucht") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 0.0 && value <= 100.0 {
+            if (0.0..=100.0).contains(&value) {
                 confidence = 0.9;
                 characteristics["value_range"] = json!("percentage");
                 characteristics["likely_unit"] = json!("percent");
@@ -1354,7 +1353,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // CO2 sensors
     if name_lower.contains("co2") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 300.0 && value <= 5000.0 {
+            if (300.0..=5000.0).contains(&value) {
                 confidence = 0.9;
                 characteristics["value_range"] = json!("typical_co2_ppm");
                 characteristics["likely_unit"] = json!("ppm");
@@ -1368,7 +1367,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // Pressure sensors
     if name_lower.contains("pressure") || name_lower.contains("druck") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 900.0 && value <= 1100.0 {
+            if (900.0..=1100.0).contains(&value) {
                 confidence = 0.9;
                 characteristics["value_range"] = json!("atmospheric_pressure_hpa");
                 characteristics["likely_unit"] = json!("hPa");
@@ -1382,7 +1381,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // Wind sensors
     if name_lower.contains("wind") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 0.0 && value <= 50.0 {
+            if (0.0..=50.0).contains(&value) {
                 confidence = 0.85;
                 characteristics["value_range"] = json!("wind_speed_ms");
                 characteristics["likely_unit"] = json!("m/s");
@@ -1396,7 +1395,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
     // Brightness/Light sensors
     if name_lower.contains("brightness") || name_lower.contains("light") || name_lower.contains("lux") {
         if let Some(value) = resolved.numeric_value {
-            if value >= 0.0 && value <= 100000.0 {
+            if (0.0..=100000.0).contains(&value) {
                 confidence = 0.8;
                 characteristics["value_range"] = json!("brightness_lux");
                 characteristics["likely_unit"] = json!("lux");
@@ -1420,7 +1419,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
             }
             
             // Percentage-like values
-            if value >= 0.0 && value <= 100.0 && value.fract() != 0.0 {
+            if (0.0..=100.0).contains(&value) && value.fract() != 0.0 {
                 confidence = 0.5;
                 characteristics["value_pattern"] = json!("percentage_like");
                 return ("analog_sensor".to_string(), confidence, characteristics);
@@ -1457,7 +1456,7 @@ fn classify_sensor_by_metadata(device: &crate::client::LoxoneDevice) -> (String,
     let name_lower = device.name.to_lowercase();
     let type_lower = device.device_type.to_lowercase();
     
-    let mut characteristics = json!({
+    let characteristics = json!({
         "classification_method": "metadata_only",
         "device_type": device.device_type,
         "category": device.category

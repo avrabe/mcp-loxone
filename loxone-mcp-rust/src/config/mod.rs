@@ -410,10 +410,6 @@ impl Default for CredentialStore {
         // WASM environment preferences
         #[cfg(target_arch = "wasm32")]
         {
-            #[cfg(feature = "wasi-keyvalue")]
-            return CredentialStore::WasiKeyValue { store_name: None };
-
-            #[cfg(not(feature = "wasi-keyvalue"))]
             return CredentialStore::LocalStorage;
         }
 

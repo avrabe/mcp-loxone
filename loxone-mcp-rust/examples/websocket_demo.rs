@@ -38,7 +38,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         username: "demo_user".to_string(),
         password: "demo_password".to_string(),
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 

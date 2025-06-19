@@ -48,7 +48,7 @@ pub async fn control_rolladen_unified(
     // Get target rolladen devices based on scope
     let rolladen_devices = match scope.to_lowercase().as_str() {
         "device" => {
-            let device_id = target.as_ref().map(|s| s.as_str()).unwrap_or("");
+            let device_id = target.as_deref().unwrap_or("");
             if device_id.is_empty() {
                 return ToolResponse::error("Device scope requires a target device name or UUID".to_string());
             }
@@ -58,7 +58,7 @@ pub async fn control_rolladen_unified(
             }
         }
         "room" => {
-            let room_name = target.as_ref().map(|s| s.as_str()).unwrap_or("");
+            let room_name = target.as_deref().unwrap_or("");
             if room_name.is_empty() {
                 return ToolResponse::error("Room scope requires a target room name".to_string());
             }
@@ -163,7 +163,7 @@ async fn get_all_rolladen_devices(context: &ToolContext) -> Result<Vec<crate::cl
     
     Ok(all_devices
         .into_iter()
-        .filter(|device| is_rolladen_device(device))
+        .filter(is_rolladen_device)
         .collect())
 }
 

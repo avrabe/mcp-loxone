@@ -59,8 +59,7 @@ impl CredentialManager {
             store,
             #[cfg(feature = "infisical")]
             infisical_client: None,
-            #[cfg(feature = "wasi-keyvalue")]
-            wasi_manager: None,
+            // wasi_manager removed - feature not available
         }
     }
 
@@ -89,11 +88,7 @@ impl CredentialManager {
                 manager.infisical_client = Some(client);
             }
 
-            #[cfg(feature = "wasi-keyvalue")]
-            CredentialStore::WasiKeyValue { store_name } => {
-                let wasi_manager = WasiKeyValueManager::new(store_name.clone())?;
-                manager.wasi_manager = Some(wasi_manager);
-            }
+            // WasiKeyValue support removed - feature not available
 
             _ => {}
         }
@@ -117,8 +112,7 @@ impl CredentialManager {
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.store_infisical(credentials).await,
 
-            #[cfg(feature = "wasi-keyvalue")]
-            CredentialStore::WasiKeyValue { .. } => self.store_wasi_keyvalue(credentials).await,
+            // WasiKeyValue support removed
         }
     }
 
@@ -138,8 +132,7 @@ impl CredentialManager {
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.get_infisical().await,
 
-            #[cfg(feature = "wasi-keyvalue")]
-            CredentialStore::WasiKeyValue { .. } => self.get_wasi_keyvalue().await,
+            // WasiKeyValue support removed
         }
     }
 
@@ -164,8 +157,7 @@ impl CredentialManager {
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.clear_infisical().await,
 
-            #[cfg(feature = "wasi-keyvalue")]
-            CredentialStore::WasiKeyValue { .. } => self.clear_wasi_keyvalue().await,
+            // WasiKeyValue support removed
         }
     }
 
@@ -201,57 +193,18 @@ impl CredentialManager {
 // Native keyring implementation
 #[cfg(feature = "keyring-storage")]
 impl CredentialManager {
-    async fn store_keyring(&self, credentials: &LoxoneCredentials) -> Result<()> {
-        use keyring::Entry;
-
-        // Store username
-        let username_entry = Entry::new(Self::SERVICE_NAME, Self::USERNAME_KEY)?;
-        username_entry.set_password(&credentials.username)?;
-
-        // Store password
-        let password_entry = Entry::new(Self::SERVICE_NAME, Self::PASSWORD_KEY)?;
-        password_entry.set_password(&credentials.password)?;
-
-        // Store API key if present
-        if let Some(api_key) = &credentials.api_key {
-            let api_key_entry = Entry::new(Self::SERVICE_NAME, Self::API_KEY_KEY)?;
-            api_key_entry.set_password(api_key)?;
-        }
-
-        Ok(())
+    async fn store_keyring(&self, _credentials: &LoxoneCredentials) -> Result<()> {
+        // Keyring storage is disabled due to unmaintained dependencies
+        Err(LoxoneError::credentials(
+            "Keyring storage is disabled due to unmaintained dependencies",
+        ))
     }
 
     async fn get_keyring(&self) -> Result<LoxoneCredentials> {
-        use keyring::Entry;
-
-        // Get username
-        let username_entry = Entry::new(Self::SERVICE_NAME, Self::USERNAME_KEY)?;
-        let username = username_entry
-            .get_password()
-            .map_err(|e| LoxoneError::credentials(format!("Failed to get username: {}", e)))?;
-
-        // Get password
-        let password_entry = Entry::new(Self::SERVICE_NAME, Self::PASSWORD_KEY)?;
-        let password = password_entry
-            .get_password()
-            .map_err(|e| LoxoneError::credentials(format!("Failed to get password: {}", e)))?;
-
-        // Get API key (optional)
-        let api_key = {
-            let api_key_entry = Entry::new(Self::SERVICE_NAME, Self::API_KEY_KEY)?;
-            api_key_entry.get_password().ok()
-        };
-
-        // Note: Host URL is stored in keychain but needs to be retrieved separately
-        // and applied to the config. This is handled in get_credentials_with_host()
-
-        Ok(LoxoneCredentials {
-            username,
-            password,
-            api_key,
-            #[cfg(feature = "crypto-openssl")]
-            public_key: None,
-        })
+        // Keyring storage is disabled due to unmaintained dependencies
+        Err(LoxoneError::credentials(
+            "Keyring storage is disabled due to unmaintained dependencies",
+        ))
     }
 
     async fn get_keyring_with_host(&self) -> Result<(LoxoneCredentials, Option<String>)> {
@@ -308,11 +261,9 @@ impl CredentialManager {
         match &self.store {
             #[cfg(feature = "keyring-storage")]
             CredentialStore::Keyring => {
-                use keyring::Entry;
-                let host_entry = Entry::new(Self::SERVICE_NAME, Self::HOST_KEY)?;
-                host_entry
-                    .get_password()
-                    .map_err(|e| LoxoneError::credentials(format!("Failed to get host URL: {}", e)))
+                Err(LoxoneError::credentials(
+                    "Keyring storage is disabled due to unmaintained dependencies",
+                ))
             }
             _ => Err(LoxoneError::credentials(
                 "Host URL only available from keyring",
@@ -322,15 +273,12 @@ impl CredentialManager {
 
     /// Store host URL in keychain (for Python compatibility)
     #[cfg(feature = "keyring-storage")]
-    pub async fn store_host_url(&self, host_url: &str) -> Result<()> {
+    pub async fn store_host_url(&self, _host_url: &str) -> Result<()> {
         match &self.store {
             CredentialStore::Keyring => {
-                use keyring::Entry;
-                let host_entry = Entry::new(Self::SERVICE_NAME, Self::HOST_KEY)?;
-                host_entry.set_password(host_url).map_err(|e| {
-                    LoxoneError::credentials(format!("Failed to store host URL: {}", e))
-                })?;
-                Ok(())
+                Err(LoxoneError::credentials(
+                    "Keyring storage is disabled due to unmaintained dependencies",
+                ))
             }
             _ => Err(LoxoneError::credentials(
                 "Host URL storage only available for keyring",
@@ -341,21 +289,9 @@ impl CredentialManager {
     async fn clear_keyring(&self) -> Result<()> {
         #[cfg(feature = "keyring-storage")]
         {
-            use keyring::Entry;
-
-            // Clear username
-            let username_entry = Entry::new(Self::SERVICE_NAME, Self::USERNAME_KEY)?;
-            username_entry.delete_password().ok();
-
-            // Clear password
-            let password_entry = Entry::new(Self::SERVICE_NAME, Self::PASSWORD_KEY)?;
-            password_entry.delete_password().ok();
-
-            // Clear API key
-            let api_key_entry = Entry::new(Self::SERVICE_NAME, Self::API_KEY_KEY)?;
-            api_key_entry.delete_password().ok();
-
-            Ok(())
+            Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            ))
         }
 
         #[cfg(not(feature = "keyring-storage"))]
@@ -597,87 +533,7 @@ impl CredentialManager {
     }
 }
 
-// WASI keyvalue implementation
-#[cfg(feature = "wasi-keyvalue")]
-impl CredentialManager {
-    async fn store_wasi_keyvalue(&self, credentials: &LoxoneCredentials) -> Result<()> {
-        let manager = self
-            .wasi_manager
-            .as_ref()
-            .ok_or_else(|| LoxoneError::credentials("WASI keyvalue manager not initialized"))?;
-
-        // Store username
-        manager
-            .set_credential(Self::USERNAME_KEY, &credentials.username)
-            .await?;
-
-        // Store password
-        manager
-            .set_credential(Self::PASSWORD_KEY, &credentials.password)
-            .await?;
-
-        // Store API key if present
-        if let Some(api_key) = &credentials.api_key {
-            manager.set_credential(Self::API_KEY_KEY, api_key).await?;
-        }
-
-        #[cfg(feature = "crypto-openssl")]
-        if let Some(public_key) = &credentials.public_key {
-            manager
-                .set_credential("LOXONE_PUBLIC_KEY", public_key)
-                .await?;
-        }
-
-        tracing::info!("Credentials stored successfully in WASI keyvalue store");
-        Ok(())
-    }
-
-    async fn get_wasi_keyvalue(&self) -> Result<LoxoneCredentials> {
-        let manager = self
-            .wasi_manager
-            .as_ref()
-            .ok_or_else(|| LoxoneError::credentials("WASI keyvalue manager not initialized"))?;
-
-        // Get username
-        let username = manager
-            .get_credential(Self::USERNAME_KEY)
-            .await?
-            .ok_or_else(|| LoxoneError::credentials("Username not found in WASI keyvalue store"))?;
-
-        // Get password
-        let password = manager
-            .get_credential(Self::PASSWORD_KEY)
-            .await?
-            .ok_or_else(|| LoxoneError::credentials("Password not found in WASI keyvalue store"))?;
-
-        // Get API key (optional)
-        let api_key = manager.get_credential(Self::API_KEY_KEY).await?;
-
-        #[cfg(feature = "crypto-openssl")]
-        let public_key = manager.get_credential("LOXONE_PUBLIC_KEY").await?;
-
-        Ok(LoxoneCredentials {
-            username,
-            password,
-            api_key,
-            #[cfg(feature = "crypto-openssl")]
-            public_key,
-        })
-    }
-
-    async fn clear_wasi_keyvalue(&self) -> Result<()> {
-        let manager = self
-            .wasi_manager
-            .as_ref()
-            .ok_or_else(|| LoxoneError::credentials("WASI keyvalue manager not initialized"))?;
-
-        // Clear all credentials
-        manager.clear_all_credentials().await?;
-
-        tracing::info!("Credentials cleared from WASI keyvalue store");
-        Ok(())
-    }
-}
+// WASI keyvalue implementation removed - feature not available
 
 /// Convenience function to create credentials from username/password
 pub fn create_credentials(username: String, password: String) -> LoxoneCredentials {
@@ -806,11 +662,7 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
     // Try environment variables second (CI/CD friendly)
     stores.push(CredentialStore::Environment);
 
-    // Try WASI keyvalue in WASM environments
-    #[cfg(all(feature = "wasi-keyvalue", target_arch = "wasm32"))]
-    {
-        stores.push(CredentialStore::WasiKeyValue { store_name: None });
-    }
+    // WASI keyvalue support removed - feature not available
 
     // Try local storage in WASM environments
     #[cfg(target_arch = "wasm32")]

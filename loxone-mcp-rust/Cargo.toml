@@ -41,20 +41,9 @@ name = "loxone-mcp-test-endpoints"
 path = "src/bin/test_endpoints.rs"
 
 [[bin]]
-name = "loxone-mcp-create-api-key"
-path = "src/bin/create_api_key.rs"
+name = "loxone-mcp-auth"
+path = "src/bin/loxone-mcp-auth.rs"
 
-[[bin]]
-name = "loxone-mcp-keys"
-path = "src/bin/loxone-mcp-keys.rs"
-
-[[bin]]
-name = "ollama-demo"
-path = "src/bin/ollama_demo.rs"
-
-[[bin]]
-name = "real-ollama-demo"
-path = "src/bin/real_ollama_demo.rs"
 
 
 [dependencies]
@@ -177,6 +166,7 @@ toml = "0.8.23"
 # Additional native dependencies
 # keyring = { version = "2.0", optional = true } # Uses unmaintained dependencies (derivative, instant)
 socket2 = { version = "0.5", optional = true }
+dirs = "5.0"  # For default storage directory
 
 [features]
 default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb"]

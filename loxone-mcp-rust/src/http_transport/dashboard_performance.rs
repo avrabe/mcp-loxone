@@ -55,6 +55,12 @@ pub struct DashboardMetrics {
     pub background_refreshes: u64,
 }
 
+impl Default for PerformanceDashboard {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PerformanceDashboard {
     /// Create new performance dashboard with aggressive caching
     pub fn new() -> Self {
@@ -181,10 +187,8 @@ impl PerformanceDashboard {
         // Get device UUIDs and resolve values in batch (fastest method)
         let device_uuids: Vec<String> = devices.keys().cloned().collect();
         
-        let resolved_values = match resolver.resolve_batch_values(&device_uuids).await {
-            Ok(values) => values,
-            Err(_) => HashMap::new(), // Fail fast, return empty data
-        };
+        let resolved_values: std::collections::HashMap<String, crate::services::value_resolution::ResolvedValue> = 
+            resolver.resolve_batch_values(&device_uuids).await.unwrap_or_default();
 
         // Pre-categorize devices for faster processing
         let mut categorized = CategorizedDevices::default();

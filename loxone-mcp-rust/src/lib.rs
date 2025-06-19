@@ -29,6 +29,7 @@
 //! ```
 
 // pub mod audit_log; // Removed: unused module
+pub mod auth;  // New unified authentication system
 pub mod client;
 pub mod config;
 pub mod error;

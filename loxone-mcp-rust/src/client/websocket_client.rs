@@ -63,10 +63,11 @@ pub struct LoxoneWebSocketMessage {
 
 /// Event types from Loxone WebSocket
 #[cfg(feature = "websocket")]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LoxoneEventType {
     /// Device state change
+    #[default]
     State,
     /// Weather update
     Weather,
@@ -96,11 +97,6 @@ impl From<String> for LoxoneEventType {
     }
 }
 
-impl Default for LoxoneEventType {
-    fn default() -> Self {
-        LoxoneEventType::State
-    }
-}
 
 impl std::fmt::Display for LoxoneEventType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -535,6 +531,7 @@ impl LoxoneWebSocketClient {
         let stats_clone = self.stats.clone();
         let connected_clone = self.connected.clone();
         
+        #[allow(clippy::manual_map)]
         let message_task = if let Some(ws_stream) = ws_stream {
             Some(tokio::spawn(async move {
                 loop {
@@ -939,15 +936,14 @@ impl LoxoneWebSocketClient {
                             previous_value: message.data.get("previous").cloned(),
                             event_type,
                             timestamp: message.timestamp
-                                .map(|ts| chrono::DateTime::from_timestamp(ts as i64, 0))
-                                .flatten()
+                                .and_then(|ts| chrono::DateTime::from_timestamp(ts as i64, 0))
                                 .unwrap_or_else(chrono::Utc::now),
                             room: message.data.get("room").and_then(|v| v.as_str()).map(String::from),
                             device_name: message.data.get("name").and_then(|v| v.as_str()).map(String::from),
                         };
 
                         if let Some(sender) = state_sender {
-                            if let Err(_) = sender.send(update) {
+                            if sender.send(update).is_err() {
                                 warn!("Failed to send state update - receiver may be closed");
                             }
                         }

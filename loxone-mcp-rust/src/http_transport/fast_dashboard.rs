@@ -5,7 +5,7 @@
 
 use crate::http_transport::dashboard_performance::{get_ultra_fast_dashboard, get_micro_dashboard};
 use crate::server::LoxoneMcpServer;
-use crate::services::connection_pool::{ConnectionPool, PoolConfig};
+// use crate::services::connection_pool::{ConnectionPool, PoolConfig};
 use axum::{
     extract::{Query, State},
     http::{HeaderMap, StatusCode},
@@ -382,14 +382,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_benchmark_statistics() {
-        let times = vec![10.0, 15.0, 20.0, 25.0, 30.0];
+        let times = [10.0, 15.0, 20.0, 25.0, 30.0];
         let avg = times.iter().sum::<f64>() / times.len() as f64;
         assert_eq!(avg, 20.0);
         
         let min = times.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         assert_eq!(min, 10.0);
         
-        let max = times.iter().fold(0.0, |a, &b| a.max(b));
+        let max = times.iter().fold(0.0f64, |a, &b| a.max(b));
         assert_eq!(max, 30.0);
     }
 }

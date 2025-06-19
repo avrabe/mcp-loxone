@@ -26,7 +26,7 @@ fn create_test_config() -> (LoxoneConfig, LoxoneCredentials) {
         username: "test".to_string(),
         password: "test".to_string(),
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 

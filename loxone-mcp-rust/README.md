@@ -22,8 +22,8 @@ export LOXONE_HOST="192.168.1.100"
 export LOXONE_USER="admin"
 export LOXONE_PASS="password"
 
-# Generate API key
-cargo run --bin loxone-mcp-keys -- generate --role admin --name "YourName"
+# Setup unified authentication (NEW!)
+cargo run --bin loxone-mcp-auth create --name "Admin" --role admin --created-by "setup"
 
 # Run server
 cargo run --bin loxone-mcp-server -- stdio  # Claude Desktop integration
@@ -38,7 +38,7 @@ cargo run --bin loxone-mcp-server -- http --port 3001   # HTTP API mode
 |---------|-------------|--------|
 | **🎛️ 17 MCP Tools** | Device control, sensor management, basic system info | ✅ Working |
 | **🌐 WASM Support** | Basic WASM compilation (needs testing) | ⚠️ Experimental |
-| **🛡️ Basic Security** | API key authentication, basic validation | ⚠️ Limited |
+| **🛡️ Unified Auth** | SSH-style API keys, RBAC, audit logging | ✅ Production-ready |
 | **📊 Dashboard** | Static HTML dashboard (no real-time data) | ⚠️ Basic |
 | **🐳 Multi-Platform** | Linux, macOS, Windows builds | ✅ Working |
 | **⚡ Core Performance** | Basic async I/O, single connections | ⚠️ Basic |
@@ -95,9 +95,12 @@ docker build -t loxone-mcp .
 make dev-run  # Hot reload + inspector
 ```
 
-### 🛡️ **Production Security**
-- ✅ **Multi-user API keys** with role-based access control (RBAC)
-- ✅ **Web-based key management** UI at `/admin/keys`
+### 🛡️ **Production Security** (NEW!)
+- ✅ **Unified Authentication System** with SSH-style secure storage
+- ✅ **Role-Based Access Control** (Admin, Operator, Monitor, Device, Custom)
+- ✅ **API Key Management CLI** with audit logging and key rotation
+- ✅ **Rate Limiting** and brute-force protection
+- ✅ **SSH-Style Permissions** (700 dirs, 600 files) for credentials
 - ✅ **Input validation** against injection attacks
 - ✅ **Rate limiting** with token bucket algorithm
 - ✅ **IP whitelisting** for API key restrictions
@@ -185,28 +188,33 @@ src/
 | **✅ Test Coverage** | 226 tests | Comprehensive testing |
 | **🌐 Platforms** | 6 targets | Universal deployment |
 
-## 🔑 API Key Management
+## 🔑 Unified Authentication System (NEW!)
 
-### Generate and Manage Keys
+The server now includes a production-ready unified authentication system with SSH-style security.
+
+**📚 Full Documentation**: See [docs/UNIFIED_AUTH_SETUP.md](docs/UNIFIED_AUTH_SETUP.md)
+
+### Quick Start
 ```bash
-# Generate admin key
-cargo run --bin loxone-mcp-keys -- generate --role admin --name "Admin User"
+# Install auth CLI tool
+cargo install --path . --bin loxone-mcp-auth
 
-# Generate operator key with 30-day expiration
-cargo run --bin loxone-mcp-keys -- generate --role operator --name "Home Assistant" --expires 30
+# Create your first admin key
+loxone-mcp-auth create --name "Admin" --role admin --created-by "setup"
 
 # List all keys
-cargo run --bin loxone-mcp-keys -- list
+loxone-mcp-auth list
 
-# Access web UI for key management
-Open http://localhost:3001/admin/keys in your browser
+# Test authentication
+loxone-mcp-auth test --secret lmk_live_your_key --ip 127.0.0.1
 ```
 
-### Key Roles
-- **Admin**: Full system access including key management
-- **Operator**: Device control and monitoring
-- **Monitor**: Read-only access to all resources
-- **Device**: Limited to specific device control
+### Key Features
+- **SSH-Style Security**: Credentials stored with 600/700 permissions
+- **Role-Based Access**: Admin, Operator, Monitor, Device, Custom roles
+- **Audit Logging**: Complete security event tracking
+- **Rate Limiting**: Protection against brute-force attacks
+- **Key Rotation**: Built-in support for key expiration and renewal
 
 ## 🔗 Integration Examples
 

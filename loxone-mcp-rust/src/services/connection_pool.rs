@@ -9,7 +9,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{mpsc, Mutex, RwLock, Semaphore};
-use tracing::{debug, error, info, warn};
+use tracing::{debug, info, warn};
 
 /// High-performance connection pool with request batching
 pub struct ConnectionPool {
@@ -98,6 +98,7 @@ struct BatchRequest {
     /// Response sender
     pub response_tx: mpsc::UnboundedSender<Result<HashMap<String, serde_json::Value>>>,
     /// Request timestamp
+    #[allow(dead_code)]
     pub created_at: Instant,
 }
 
@@ -256,8 +257,19 @@ impl ConnectionPool {
         let result = Self::execute_batch_request(&all_uuids, connections).await;
         
         // Send results to all waiting requests
-        for tx in response_channels {
-            let _ = tx.send(result.clone());
+        match &result {
+            Ok(data) => {
+                for tx in response_channels {
+                    let _ = tx.send(Ok(data.clone()));
+                }
+            }
+            Err(e) => {
+                // Create a new error for each channel since LoxoneError doesn't implement Clone
+                for tx in response_channels {
+                    let error_msg = e.to_string();
+                    let _ = tx.send(Err(crate::error::LoxoneError::connection(error_msg)));
+                }
+            }
         }
         
         // Update metrics
@@ -396,8 +408,8 @@ pub struct PoolStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::http_client::LoxoneHttpClient;
-    use crate::config::{LoxoneConfig, credentials::LoxoneCredentials};
+    // use crate::client::http_client::LoxoneHttpClient;
+    // use crate::config::{LoxoneConfig, credentials::LoxoneCredentials};
 
     #[tokio::test]
     async fn test_connection_pool_creation() {

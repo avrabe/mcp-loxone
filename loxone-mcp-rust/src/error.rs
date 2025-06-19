@@ -11,7 +11,7 @@ use thiserror::Error;
 pub type Result<T> = std::result::Result<T, LoxoneError>;
 
 /// Comprehensive error types for Loxone MCP operations
-#[derive(Error, Debug, Clone)]
+#[derive(Error, Debug)]
 pub enum LoxoneError {
     /// Connection errors
     #[error("Connection error: {0}")]

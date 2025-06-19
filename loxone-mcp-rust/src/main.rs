@@ -4,17 +4,13 @@
 //! It supports both native and WASM32-WASIP2 compilation targets.
 
 use loxone_mcp_rust::{
-    config::credentials::{create_credentials, LoxoneCredentials},
-    http_transport::{AuthConfig, HttpServerConfig, HttpTransportServer},
+    http_transport::{HttpServerConfig, HttpTransportServer},
     security::SecurityConfig,
     server::LoxoneMcpServer,
     Result, ServerConfig,
 };
 
 use clap::{Parser, Subcommand};
-#[cfg(feature = "keyring-storage")]
-use loxone_mcp_rust::config::{credentials::CredentialManager, CredentialStore};
-use std::env;
 use tracing::{error, info};
 
 /// Command line arguments
@@ -70,19 +66,13 @@ async fn main() -> Result<()> {
             info!("🚀 Starting Loxone MCP Server with stdio transport (Claude Desktop mode)");
             run_stdio_server(config).await?;
         }
-        Commands::Http { port, api_key } => {
+        Commands::Http { port, api_key: _ } => {
             info!(
                 "🌐 Starting Loxone MCP Server with HTTP/SSE transport (n8n mode) on port {}",
                 port
             );
 
-            // Support environment variables as fallback
-            let api_key = api_key
-                .or_else(|| env::var("LOXONE_API_KEY").ok())
-                .or_else(|| env::var("API_KEY").ok())
-                .or_else(|| env::var("LOXONE_SSE_API_KEY").ok()); // Support legacy name
-
-            run_http_server(config, port, api_key).await?;
+            run_http_server(config, port).await?;
         }
     }
 
@@ -96,88 +86,21 @@ async fn run_stdio_server(config: ServerConfig) -> Result<()> {
     server.run().await
 }
 
-/// Get API key from environment first, then from already loaded credentials
-async fn get_api_key_from_credentials(credentials: &Option<LoxoneCredentials>) -> Option<String> {
-    // Try environment variable first to avoid keychain prompts
-    // Try new name first, then fall back to old name
-    if let Ok(api_key) = env::var("LOXONE_API_KEY").or_else(|_| env::var("LOXONE_SSE_API_KEY")) {
-        return Some(api_key);
-    }
-
-    // Use API key from already loaded credentials (if available)
-    if let Some(creds) = credentials {
-        return creds.api_key.clone();
-    }
-
-    None
-}
-
-/// Load credentials once and extract API key (avoids multiple keychain access)
-async fn load_credentials_once() -> Option<LoxoneCredentials> {
-    // Try environment variables first
-    if let (Ok(user), Ok(pass)) = (env::var("LOXONE_USER"), env::var("LOXONE_PASS")) {
-        let mut creds = create_credentials(user, pass);
-        // Also get API key from environment if available
-        creds.api_key = env::var("LOXONE_API_KEY")
-            .or_else(|_| env::var("LOXONE_SSE_API_KEY"))
-            .ok();
-        return Some(creds);
-    }
-
-    // Only try keychain once if environment variables are not set
-    #[cfg(feature = "keyring-storage")]
-    {
-        let credential_manager = CredentialManager::new(CredentialStore::Keyring);
-        match credential_manager.get_credentials().await {
-            Ok(creds) => Some(creds),
-            Err(e) => {
-                tracing::debug!("Failed to get credentials from keychain: {}", e);
-                None
-            }
-        }
-    }
-
-    #[cfg(not(feature = "keyring-storage"))]
-    None
-}
 
 /// Run server with HTTP/SSE transport (for n8n and web clients)
-async fn run_http_server(config: ServerConfig, port: u16, api_key: Option<String>) -> Result<()> {
-    // Load credentials once to avoid multiple keychain prompts
-    let credentials = load_credentials_once().await;
-
+async fn run_http_server(config: ServerConfig, port: u16) -> Result<()> {
     // Create MCP server
     let mcp_server = LoxoneMcpServer::new(config).await?;
     info!("✅ MCP server initialized successfully");
 
-    // Get API key from loaded credentials
-    let keychain_api_key = get_api_key_from_credentials(&credentials).await;
-
-    // Configure authentication with keychain fallback
-    let api_key_value = api_key
-        .or_else(|| env::var("LOXONE_API_KEY").ok())
-        .or_else(|| env::var("API_KEY").ok())
-        .or_else(|| keychain_api_key.clone());
-
-    // Use default authentication configuration for now
-    // TODO: Integrate API key configuration with new AuthManager
-    let auth_config = AuthConfig::default();
-
-    if api_key_value.is_none() {
-        eprintln!("⚠️ Warning: No API key configured for HTTP transport");
-        eprintln!("   The server will use enhanced authentication with role-based access");
-        eprintln!("   Use admin endpoints to manage API keys, or set:");
-        eprintln!("   - LOXONE_API_KEY");
-        eprintln!("   - API_KEY");
-        eprintln!("   Or run 'loxone-mcp setup' to configure credentials");
-    }
-
-    // Log authentication configuration
-    info!("🔐 Enhanced authentication configured:");
-    info!("   Require API key: {}", auth_config.require_api_key);
-    info!("   API key header: {}", auth_config.api_key_header);
-    if let Some(key) = &api_key_value {
-        info!("   Initial API key: {}***", &key[..3.min(key.len())]);
+    // Configure logging for authentication
+    if std::env::var("DISABLE_AUTH").is_ok() {
+        info!("⚠️ Authentication DISABLED (DISABLE_AUTH is set)");
+        info!("   Authentication is disabled via environment variable");
+    } else {
+        info!("🔐 Authentication ENABLED");
+        info!("   Use 'loxone-mcp-auth' CLI to manage API keys");
+        info!("   Or visit http://localhost:{}/admin/keys", port);
     }
 
     // Create HTTP server configuration with security based on environment
@@ -200,7 +123,6 @@ async fn run_http_server(config: ServerConfig, port: u16, api_key: Option<String
 
     let http_config = HttpServerConfig {
         port,
-        auth_config,
         security_config,
         performance_config,
         #[cfg(feature = "influxdb")]

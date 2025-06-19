@@ -29,7 +29,7 @@ mod websocket_integration_tests {
             username: "test".to_string(),
             password: "test".to_string(),
             api_key: None,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key: None,
         };
 
@@ -145,7 +145,7 @@ mod websocket_integration_tests {
             username: "test".to_string(),
             password: "test".to_string(),
             api_key: None,
-            #[cfg(feature = "crypto")]
+            #[cfg(feature = "crypto-openssl")]
             public_key: None,
         };
 

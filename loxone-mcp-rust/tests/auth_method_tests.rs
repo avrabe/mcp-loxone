@@ -24,7 +24,7 @@ async fn test_token_auth_selection() {
         username: "test".to_string(),
         password: "test".to_string(),
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 
@@ -32,7 +32,7 @@ async fn test_token_auth_selection() {
     assert!(client.is_ok(), "Token client creation should succeed");
 
     // Verify it's the right type with crypto feature enabled
-    #[cfg(feature = "crypto")]
+    #[cfg(feature = "crypto-openssl")]
     {
         let client = client.unwrap();
         let is_token_client = client
@@ -63,7 +63,7 @@ async fn test_basic_auth_selection() {
         username: "test".to_string(),
         password: "test".to_string(),
         api_key: None,
-        #[cfg(feature = "crypto")]
+        #[cfg(feature = "crypto-openssl")]
         public_key: None,
     };
 

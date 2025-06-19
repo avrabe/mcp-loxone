@@ -46,7 +46,7 @@ pub async fn control_lights_unified(
     // Get target lighting devices based on scope
     let lighting_devices = match scope.to_lowercase().as_str() {
         "device" => {
-            let device_id = target.as_ref().map(|s| s.as_str()).unwrap_or("");
+            let device_id = target.as_deref().unwrap_or("");
             if device_id.is_empty() {
                 return ToolResponse::error("Device scope requires a target device name or UUID".to_string());
             }
@@ -56,7 +56,7 @@ pub async fn control_lights_unified(
             }
         }
         "room" => {
-            let room_name = target.as_ref().map(|s| s.as_str()).unwrap_or("");
+            let room_name = target.as_deref().unwrap_or("");
             if room_name.is_empty() {
                 return ToolResponse::error("Room scope requires a target room name".to_string());
             }
@@ -161,7 +161,7 @@ async fn get_all_lighting_devices(context: &ToolContext) -> Result<Vec<crate::cl
     
     Ok(all_devices
         .into_iter()
-        .filter(|device| is_lighting_device(device))
+        .filter(is_lighting_device)
         .collect())
 }
 
