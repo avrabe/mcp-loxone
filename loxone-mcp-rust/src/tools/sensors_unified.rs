@@ -1129,3 +1129,410 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
         }
     }))
 }
+
+/// Intelligently discover and classify all sensors using behavioral analysis
+pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse {
+    // Ensure we're connected
+    if let Err(e) = context.ensure_connected().await {
+        return ToolResponse::error(format!("Connection error: {}", e));
+    }
+
+    // Get all devices using context helper
+    let all_devices = match context.get_devices(None).await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+    };
+
+    // Filter for potential sensor devices
+    let potential_sensors: Vec<_> = all_devices
+        .into_iter()
+        .filter(|device| {
+            let name_lower = device.name.to_lowercase();
+            let type_lower = device.device_type.to_lowercase();
+            
+            // Include devices that might be sensors based on type or name patterns
+            type_lower.contains("analog") ||
+            type_lower.contains("digital") ||
+            type_lower.contains("sensor") ||
+            type_lower.contains("temp") ||
+            type_lower.contains("gate") ||
+            type_lower.contains("contact") ||
+            type_lower.contains("motion") ||
+            type_lower.contains("presence") ||
+            type_lower.contains("weather") ||
+            name_lower.contains("sensor") ||
+            name_lower.contains("temp") ||
+            name_lower.contains("humid") ||
+            name_lower.contains("pressure") ||
+            name_lower.contains("wind") ||
+            name_lower.contains("rain") ||
+            name_lower.contains("motion") ||
+            name_lower.contains("door") ||
+            name_lower.contains("window") ||
+            name_lower.contains("presence") ||
+            name_lower.contains("co2") ||
+            name_lower.contains("air") ||
+            name_lower.contains("energy") ||
+            name_lower.contains("power") ||
+            name_lower.contains("meter")
+        })
+        .collect();
+
+    if potential_sensors.is_empty() {
+        return ToolResponse::success(json!({
+            "discovered_sensors": [],
+            "classification_summary": {
+                "total_analyzed": 0,
+                "classified_sensors": 0,
+                "unknown_sensors": 0,
+                "confidence_distribution": {}
+            }
+        }));
+    }
+
+    // Use unified value resolver for consistent value parsing
+    let resolver = &context.value_resolver;
+    let uuids: Vec<String> = potential_sensors.iter().map(|d| d.uuid.clone()).collect();
+    
+    // Batch resolve all sensor values efficiently
+    let resolved_values = match resolver.resolve_batch_values(&uuids).await {
+        Ok(values) => values,
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+    };
+
+    let mut discovered_sensors = Vec::new();
+    let mut classification_counts = std::collections::HashMap::new();
+    let mut confidence_distribution = std::collections::HashMap::new();
+
+    for device in &potential_sensors {
+        let mut sensor_classification = json!({
+            "uuid": device.uuid,
+            "name": device.name,
+            "room": device.room.as_deref().unwrap_or("Unknown"),
+            "device_type": device.device_type,
+            "category": device.category
+        });
+
+        if let Some(resolved) = resolved_values.get(&device.uuid) {
+            // Behavioral analysis based on value patterns and characteristics
+            let (sensor_type, confidence, characteristics) = classify_sensor_behavior(device, resolved);
+            
+            sensor_classification["detected_sensor_type"] = json!(sensor_type);
+            sensor_classification["confidence"] = json!(confidence);
+            sensor_classification["behavioral_characteristics"] = json!(characteristics);
+            sensor_classification["raw_value"] = json!(resolved.numeric_value);
+            sensor_classification["formatted_value"] = json!(resolved.formatted_value);
+            sensor_classification["unit"] = json!(resolved.unit);
+            
+            // Track classification statistics
+            *classification_counts.entry(sensor_type.clone()).or_insert(0) += 1;
+            let confidence_bucket = match confidence {
+                conf if conf >= 0.8 => "high",
+                conf if conf >= 0.6 => "medium", 
+                conf if conf >= 0.4 => "low",
+                _ => "very_low"
+            };
+            *confidence_distribution.entry(confidence_bucket.to_string()).or_insert(0) += 1;
+        } else {
+            // No value available - classify based on name/type only
+            let (sensor_type, confidence, characteristics) = classify_sensor_by_metadata(device);
+            
+            sensor_classification["detected_sensor_type"] = json!(sensor_type);
+            sensor_classification["confidence"] = json!(confidence);
+            sensor_classification["behavioral_characteristics"] = json!(characteristics);
+            sensor_classification["raw_value"] = json!(null);
+            sensor_classification["status"] = json!("No Data Available");
+            
+            *classification_counts.entry(sensor_type.clone()).or_insert(0) += 1;
+            *confidence_distribution.entry("metadata_only".to_string()).or_insert(0) += 1;
+        }
+        
+        discovered_sensors.push(sensor_classification);
+    }
+
+    let classified_sensors = classification_counts.values().sum::<i32>();
+    let unknown_sensors = classification_counts.get("unknown").unwrap_or(&0);
+
+    ToolResponse::success(json!({
+        "discovered_sensors": discovered_sensors,
+        "classification_summary": {
+            "total_analyzed": potential_sensors.len(),
+            "classified_sensors": classified_sensors,
+            "unknown_sensors": unknown_sensors,
+            "sensor_type_counts": classification_counts,
+            "confidence_distribution": confidence_distribution
+        },
+        "recommendations": generate_sensor_recommendations(&classification_counts, &discovered_sensors)
+    }))
+}
+
+/// Classify sensor behavior based on value characteristics and patterns
+fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &crate::services::ResolvedValue) -> (String, f64, serde_json::Value) {
+    let name_lower = device.name.to_lowercase();
+    let type_lower = device.device_type.to_lowercase();
+    
+    let mut characteristics = json!({});
+    let mut confidence = 0.5; // Base confidence
+    
+    // Temperature sensors
+    if name_lower.contains("temp") || name_lower.contains("temperatur") {
+        if let Some(value) = resolved.numeric_value {
+            if value > -40.0 && value < 80.0 {
+                confidence = 0.9;
+                characteristics["value_range"] = json!("typical_temperature");
+                characteristics["likely_unit"] = json!("celsius");
+                return ("temperature".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.7;
+        return ("temperature".to_string(), confidence, characteristics);
+    }
+    
+    // Door/Window sensors (binary)
+    if name_lower.contains("door") || name_lower.contains("window") || name_lower.contains("tür") || name_lower.contains("fenster") || type_lower.contains("gate") {
+        if let Some(value) = resolved.numeric_value {
+            if value == 0.0 || value == 1.0 {
+                confidence = 0.95;
+                characteristics["value_type"] = json!("binary");
+                characteristics["current_state"] = json!(if value > 0.0 { "open" } else { "closed" });
+                return ("door_window_contact".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.8;
+        return ("door_window_contact".to_string(), confidence, characteristics);
+    }
+    
+    // Motion sensors (binary or presence detection)
+    if name_lower.contains("motion") || name_lower.contains("bewegung") || name_lower.contains("pir") {
+        if let Some(value) = resolved.numeric_value {
+            if value == 0.0 || value == 1.0 {
+                confidence = 0.9;
+                characteristics["value_type"] = json!("binary");
+                characteristics["current_state"] = json!(if value > 0.0 { "motion_detected" } else { "no_motion" });
+                return ("motion_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.8;
+        return ("motion_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Energy/Power meters
+    if name_lower.contains("power") || name_lower.contains("energy") || name_lower.contains("watt") || name_lower.contains("kwh") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 0.0 && value < 100000.0 {
+                confidence = 0.85;
+                characteristics["value_range"] = json!("typical_power_consumption");
+                if let Some(unit) = &resolved.unit {
+                    characteristics["unit"] = json!(unit);
+                    if unit.contains("W") || unit.contains("kW") {
+                        characteristics["meter_type"] = json!("power");
+                    } else if unit.contains("Wh") || unit.contains("kWh") {
+                        characteristics["meter_type"] = json!("energy");
+                    }
+                }
+                return ("energy_meter".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.7;
+        return ("energy_meter".to_string(), confidence, characteristics);
+    }
+    
+    // Humidity sensors
+    if name_lower.contains("humid") || name_lower.contains("feucht") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 0.0 && value <= 100.0 {
+                confidence = 0.9;
+                characteristics["value_range"] = json!("percentage");
+                characteristics["likely_unit"] = json!("percent");
+                return ("humidity_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.7;
+        return ("humidity_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // CO2 sensors
+    if name_lower.contains("co2") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 300.0 && value <= 5000.0 {
+                confidence = 0.9;
+                characteristics["value_range"] = json!("typical_co2_ppm");
+                characteristics["likely_unit"] = json!("ppm");
+                return ("co2_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.8;
+        return ("co2_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Pressure sensors
+    if name_lower.contains("pressure") || name_lower.contains("druck") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 900.0 && value <= 1100.0 {
+                confidence = 0.9;
+                characteristics["value_range"] = json!("atmospheric_pressure_hpa");
+                characteristics["likely_unit"] = json!("hPa");
+                return ("pressure_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.7;
+        return ("pressure_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Wind sensors
+    if name_lower.contains("wind") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 0.0 && value <= 50.0 {
+                confidence = 0.85;
+                characteristics["value_range"] = json!("wind_speed_ms");
+                characteristics["likely_unit"] = json!("m/s");
+                return ("wind_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.7;
+        return ("wind_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Brightness/Light sensors
+    if name_lower.contains("brightness") || name_lower.contains("light") || name_lower.contains("lux") {
+        if let Some(value) = resolved.numeric_value {
+            if value >= 0.0 && value <= 100000.0 {
+                confidence = 0.8;
+                characteristics["value_range"] = json!("brightness_lux");
+                characteristics["likely_unit"] = json!("lux");
+                return ("brightness_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        confidence = 0.6;
+        return ("brightness_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Generic analog classification based on value patterns
+    if type_lower.contains("analog") || type_lower.contains("infoonly") {
+        if let Some(value) = resolved.numeric_value {
+            characteristics["numeric_value"] = json!(value);
+            
+            // Binary-like values
+            if value == 0.0 || value == 1.0 {
+                confidence = 0.6;
+                characteristics["value_pattern"] = json!("binary");
+                return ("binary_sensor".to_string(), confidence, characteristics);
+            }
+            
+            // Percentage-like values
+            if value >= 0.0 && value <= 100.0 && value.fract() != 0.0 {
+                confidence = 0.5;
+                characteristics["value_pattern"] = json!("percentage_like");
+                return ("analog_sensor".to_string(), confidence, characteristics);
+            }
+            
+            // Large integer values (could be counters)
+            if value > 1000.0 && value.fract() == 0.0 {
+                confidence = 0.4;
+                characteristics["value_pattern"] = json!("counter_like");
+                return ("counter_sensor".to_string(), confidence, characteristics);
+            }
+        }
+        
+        confidence = 0.3;
+        characteristics["classification"] = json!("generic_analog");
+        return ("analog_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Digital classification
+    if type_lower.contains("digital") {
+        confidence = 0.4;
+        characteristics["classification"] = json!("generic_digital");
+        return ("digital_sensor".to_string(), confidence, characteristics);
+    }
+    
+    // Fallback classification
+    confidence = 0.1;
+    characteristics["classification"] = json!("unclassified");
+    ("unknown".to_string(), confidence, characteristics)
+}
+
+/// Classify sensor based on metadata only (when no value is available)
+fn classify_sensor_by_metadata(device: &crate::client::LoxoneDevice) -> (String, f64, serde_json::Value) {
+    let name_lower = device.name.to_lowercase();
+    let type_lower = device.device_type.to_lowercase();
+    
+    let mut characteristics = json!({
+        "classification_method": "metadata_only",
+        "device_type": device.device_type,
+        "category": device.category
+    });
+    
+    // High confidence name-based classification
+    if name_lower.contains("temp") { return ("temperature".to_string(), 0.7, characteristics); }
+    if name_lower.contains("door") || name_lower.contains("window") { return ("door_window_contact".to_string(), 0.7, characteristics); }
+    if name_lower.contains("motion") || name_lower.contains("bewegung") { return ("motion_sensor".to_string(), 0.7, characteristics); }
+    if name_lower.contains("humid") { return ("humidity_sensor".to_string(), 0.7, characteristics); }
+    if name_lower.contains("co2") { return ("co2_sensor".to_string(), 0.7, characteristics); }
+    if name_lower.contains("pressure") { return ("pressure_sensor".to_string(), 0.6, characteristics); }
+    if name_lower.contains("power") || name_lower.contains("energy") { return ("energy_meter".to_string(), 0.6, characteristics); }
+    if name_lower.contains("wind") { return ("wind_sensor".to_string(), 0.6, characteristics); }
+    if name_lower.contains("rain") { return ("rain_sensor".to_string(), 0.6, characteristics); }
+    
+    // Type-based classification
+    if type_lower.contains("gate") { return ("door_window_contact".to_string(), 0.6, characteristics); }
+    if type_lower.contains("analog") { return ("analog_sensor".to_string(), 0.3, characteristics); }
+    if type_lower.contains("digital") { return ("digital_sensor".to_string(), 0.3, characteristics); }
+    
+    ("unknown".to_string(), 0.1, characteristics)
+}
+
+/// Generate recommendations for improving sensor classification
+fn generate_sensor_recommendations(classification_counts: &std::collections::HashMap<String, i32>, discovered_sensors: &[serde_json::Value]) -> serde_json::Value {
+    let mut recommendations = Vec::new();
+    
+    let unknown_count = classification_counts.get("unknown").unwrap_or(&0);
+    let total_sensors = classification_counts.values().sum::<i32>();
+    
+    if *unknown_count > 0 {
+        recommendations.push(json!({
+            "type": "improve_naming",
+            "message": format!("{} sensors could not be classified. Consider using descriptive names like 'Living Room Temperature' or 'Front Door Contact'.", unknown_count),
+            "priority": "medium"
+        }));
+    }
+    
+    // Check for sensors with low confidence
+    let low_confidence_sensors: Vec<_> = discovered_sensors
+        .iter()
+        .filter(|sensor| {
+            sensor.get("confidence").and_then(|c| c.as_f64()).unwrap_or(0.0) < 0.5
+        })
+        .collect();
+    
+    if !low_confidence_sensors.is_empty() {
+        recommendations.push(json!({
+            "type": "verify_classification",
+            "message": format!("{} sensors have low classification confidence. Manual verification recommended.", low_confidence_sensors.len()),
+            "priority": "low"
+        }));
+    }
+    
+    // Suggest sensor groups for better organization
+    let sensor_types: Vec<String> = classification_counts.keys().cloned().collect();
+    if sensor_types.len() > 5 {
+        recommendations.push(json!({
+            "type": "organize_sensors",
+            "message": format!("Detected {} different sensor types. Consider organizing them into logical groups or rooms for better management.", sensor_types.len()),
+            "priority": "low"
+        }));
+    }
+    
+    json!({
+        "recommendations": recommendations,
+        "classification_accuracy": {
+            "total_sensors": total_sensors,
+            "classified_sensors": total_sensors - unknown_count,
+            "accuracy_percentage": if total_sensors > 0 { 
+                ((total_sensors - unknown_count) as f64 / total_sensors as f64 * 100.0).round() 
+            } else { 
+                0.0 
+            }
+        }
+    })
+}

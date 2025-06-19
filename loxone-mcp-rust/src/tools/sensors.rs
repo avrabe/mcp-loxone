@@ -11,6 +11,7 @@ pub use crate::tools::sensors_unified::{
     get_air_quality_sensors_unified as get_air_quality_sensors,
     get_presence_detectors_unified as get_presence_detectors,
     get_weather_station_sensors_unified as get_weather_station_sensors,
+    discover_sensor_types_unified as discover_sensor_types,
 };
 
 use crate::tools::{ToolContext, ToolResponse};
