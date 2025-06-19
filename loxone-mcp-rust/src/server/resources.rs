@@ -358,6 +358,16 @@ impl ResourceManager {
             ResourceCategory::Sensors,
         );
 
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://sensors/motion".to_string(),
+                name: "Motion Sensors".to_string(),
+                description: "All motion and presence sensors with current state".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Sensors,
+        );
+
         // Weather resources
         self.register_resource(
             LoxoneResource {
@@ -1124,6 +1134,7 @@ impl ResourceHandler for LoxoneMcpServer {
             "loxone://audio/sources" => self.read_audio_sources_resource().await?,
             "loxone://sensors/door-window" => self.read_door_window_sensors_resource().await?,
             "loxone://sensors/temperature" => self.read_temperature_sensors_resource().await?,
+            "loxone://sensors/motion" => self.read_motion_sensors_resource().await?,
             "loxone://sensors/discovered" => self.read_discovered_sensors_resource().await?,
             "loxone://weather/current" => self.read_weather_current_resource().await?,
             "loxone://weather/outdoor-conditions" => {
@@ -1408,6 +1419,29 @@ impl LoxoneMcpServer {
         }
     }
 
+    async fn read_motion_sensors_resource(&self) -> Result<serde_json::Value> {
+        use crate::tools::{sensors_unified::get_motion_sensors_unified, ToolContext};
+
+        let tool_context = ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
+        let response = get_motion_sensors_unified(tool_context).await;
+
+        if response.status == "success" {
+            Ok(response.data)
+        } else {
+            Err(LoxoneError::invalid_input(format!(
+                "Failed to get motion sensors: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            )))
+        }
+    }
+
     /// Weather resource handlers
     async fn read_weather_current_resource(&self) -> Result<serde_json::Value> {
         use crate::tools::{weather::get_weather_data, ToolContext};
@@ -1659,44 +1693,26 @@ impl LoxoneMcpServer {
     }
 
     async fn read_energy_meters_resource(&self) -> Result<serde_json::Value> {
-        // Get all energy meter devices specifically
-        let all_devices = self.context.devices.read().await;
-        let energy_meters: Vec<_> = all_devices
-            .values()
-            .filter(|device| {
-                device.device_type.to_lowercase().contains("meter")
-                    || device.device_type.to_lowercase().contains("energy")
-                    || device.device_type.to_lowercase().contains("power")
-            })
-            .collect();
+        use crate::tools::{sensors_unified::get_energy_meters_unified, ToolContext};
 
-        let mut meters = Vec::new();
-        for device in energy_meters {
-            let reading = device
-                .states
-                .get("value")
-                .or_else(|| device.states.get("power"))
-                .or_else(|| device.states.get("consumption"))
-                .and_then(|v| v.as_f64())
-                .unwrap_or(0.0);
+        let tool_context = ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
+        let response = get_energy_meters_unified(tool_context).await;
 
-            meters.push(serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "type": device.device_type,
-                "room": device.room,
-                "reading": reading,
-                "unit": "kWh", // Default unit
-                "states": device.states
-            }));
+        if response.status == "success" {
+            Ok(response.data)
+        } else {
+            Err(LoxoneError::invalid_input(format!(
+                "Failed to get energy meters: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            )))
         }
-
-        Ok(serde_json::json!({
-            "meters": meters,
-            "meter_count": meters.len(),
-            "timestamp": chrono::Utc::now(),
-            "uri": "loxone://energy/meters"
-        }))
     }
 
     async fn read_energy_usage_history_resource(&self) -> Result<serde_json::Value> {

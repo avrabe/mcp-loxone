@@ -6,6 +6,8 @@
 pub use crate::tools::sensors_unified::{
     get_door_window_sensors_unified as get_all_door_window_sensors,
     get_temperature_sensors_unified as get_temperature_sensors,
+    get_motion_sensors_unified as get_motion_sensors,
+    get_energy_meters_unified as get_energy_meters,
 };
 
 use crate::tools::{ToolContext, ToolResponse};
