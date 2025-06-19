@@ -6,6 +6,7 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use uuid::Uuid;
 
 /// User roles with granular permissions
@@ -189,10 +190,15 @@ impl ApiKey {
         })
     }
     
-    /// Check if IP matches a pattern (supports CIDR and wildcards)
+    /// Check if IP matches a pattern (supports CIDR notation and wildcards)
     fn ip_matches_pattern(&self, ip: &str, pattern: &str) -> bool {
-        // Simple wildcard matching for now
-        // TODO: Implement proper CIDR matching
+        
+        // Handle CIDR notation (e.g., "192.168.1.0/24")
+        if pattern.contains('/') {
+            return self.ip_matches_cidr(ip, pattern);
+        }
+        
+        // Handle wildcard patterns (e.g., "192.168.1.*")
         if pattern.contains('*') {
             let pattern_parts: Vec<&str> = pattern.split('.').collect();
             let ip_parts: Vec<&str> = ip.split('.').collect();
@@ -201,12 +207,85 @@ impl ApiKey {
                 return false;
             }
             
-            pattern_parts.iter().zip(ip_parts.iter()).all(|(p, i)| {
+            return pattern_parts.iter().zip(ip_parts.iter()).all(|(p, i)| {
                 p == &"*" || p == i
-            })
-        } else {
-            ip == pattern
+            });
         }
+        
+        // Exact match
+        ip == pattern
+    }
+    
+    /// Check if IP matches CIDR notation (e.g., "192.168.1.0/24")
+    fn ip_matches_cidr(&self, ip: &str, cidr: &str) -> bool {
+        use std::net::IpAddr;
+        
+        // Parse the IP address
+        let ip_addr = match ip.parse::<IpAddr>() {
+            Ok(addr) => addr,
+            Err(_) => return false,
+        };
+        
+        // Parse CIDR notation
+        let parts: Vec<&str> = cidr.split('/').collect();
+        if parts.len() != 2 {
+            return false;
+        }
+        
+        let network_addr = match parts[0].parse::<IpAddr>() {
+            Ok(addr) => addr,
+            Err(_) => return false,
+        };
+        
+        let prefix_len = match parts[1].parse::<u8>() {
+            Ok(len) => len,
+            Err(_) => return false,
+        };
+        
+        // Check if IP types match (IPv4 vs IPv6)
+        match (ip_addr, network_addr) {
+            (IpAddr::V4(ip_v4), IpAddr::V4(net_v4)) => {
+                self.ipv4_in_cidr(ip_v4, net_v4, prefix_len)
+            }
+            (IpAddr::V6(ip_v6), IpAddr::V6(net_v6)) => {
+                self.ipv6_in_cidr(ip_v6, net_v6, prefix_len)
+            }
+            _ => false, // Mixed IPv4/IPv6 don't match
+        }
+    }
+    
+    /// Check if IPv4 address is in CIDR range
+    fn ipv4_in_cidr(&self, ip: Ipv4Addr, network: Ipv4Addr, prefix_len: u8) -> bool {
+        if prefix_len > 32 {
+            return false;
+        }
+        
+        let ip_bits = u32::from(ip);
+        let network_bits = u32::from(network);
+        
+        if prefix_len == 0 {
+            return true; // 0.0.0.0/0 matches everything
+        }
+        
+        let mask = !((1u32 << (32 - prefix_len)) - 1);
+        (ip_bits & mask) == (network_bits & mask)
+    }
+    
+    /// Check if IPv6 address is in CIDR range  
+    fn ipv6_in_cidr(&self, ip: Ipv6Addr, network: Ipv6Addr, prefix_len: u8) -> bool {
+        if prefix_len > 128 {
+            return false;
+        }
+        
+        let ip_bits = u128::from(ip);
+        let network_bits = u128::from(network);
+        
+        if prefix_len == 0 {
+            return true; // ::/0 matches everything
+        }
+        
+        let mask = !((1u128 << (128 - prefix_len)) - 1);
+        (ip_bits & mask) == (network_bits & mask)
     }
     
     /// Update usage statistics
@@ -431,5 +510,81 @@ mod tests {
         key.ip_whitelist.push("192.168.1.*".to_string());
         assert!(key.is_ip_allowed("192.168.1.100"));
         assert!(!key.is_ip_allowed("192.168.2.1"));
+    }
+
+    #[test]
+    fn test_cidr_ip_matching() {
+        let mut key = ApiKey::new(
+            "Test".to_string(),
+            Role::Operator,
+            "test".to_string(),
+            None,
+        );
+        
+        // Test IPv4 CIDR matching
+        key.ip_whitelist.push("192.168.1.0/24".to_string());
+        
+        // Should match IPs in the 192.168.1.0/24 range
+        assert!(key.is_ip_allowed("192.168.1.1"));
+        assert!(key.is_ip_allowed("192.168.1.100"));
+        assert!(key.is_ip_allowed("192.168.1.254"));
+        
+        // Should not match IPs outside the range
+        assert!(!key.is_ip_allowed("192.168.2.1"));
+        assert!(!key.is_ip_allowed("10.0.0.1"));
+        assert!(!key.is_ip_allowed("192.167.1.1"));
+        
+        // Test smaller subnet
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("10.0.0.0/16".to_string());
+        
+        assert!(key.is_ip_allowed("10.0.1.1"));
+        assert!(key.is_ip_allowed("10.0.255.255"));
+        assert!(!key.is_ip_allowed("10.1.0.1"));
+        assert!(!key.is_ip_allowed("192.168.1.1"));
+        
+        // Test /32 (single host)
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("127.0.0.1/32".to_string());
+        
+        assert!(key.is_ip_allowed("127.0.0.1"));
+        assert!(!key.is_ip_allowed("127.0.0.2"));
+        
+        // Test /0 (all IPs)
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("0.0.0.0/0".to_string());
+        
+        assert!(key.is_ip_allowed("1.2.3.4"));
+        assert!(key.is_ip_allowed("192.168.1.1"));
+        assert!(key.is_ip_allowed("127.0.0.1"));
+        
+        // Test IPv6 CIDR matching
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("2001:db8::/32".to_string());
+        
+        assert!(key.is_ip_allowed("2001:db8::1"));
+        assert!(key.is_ip_allowed("2001:db8:1234::5678"));
+        assert!(!key.is_ip_allowed("2001:db9::1"));
+        assert!(!key.is_ip_allowed("192.168.1.1")); // IPv4 doesn't match IPv6 CIDR
+        
+        // Test invalid CIDR patterns
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("192.168.1.0/33".to_string()); // Invalid prefix length
+        assert!(!key.is_ip_allowed("192.168.1.1"));
+        
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("invalid.ip/24".to_string());
+        assert!(!key.is_ip_allowed("192.168.1.1"));
+        
+        // Test mixed patterns (exact, wildcard, CIDR)
+        key.ip_whitelist.clear();
+        key.ip_whitelist.push("127.0.0.1".to_string());        // Exact match
+        key.ip_whitelist.push("192.168.1.*".to_string());      // Wildcard
+        key.ip_whitelist.push("10.0.0.0/16".to_string());      // CIDR
+        
+        assert!(key.is_ip_allowed("127.0.0.1"));     // Exact
+        assert!(key.is_ip_allowed("192.168.1.50"));  // Wildcard
+        assert!(key.is_ip_allowed("10.0.5.10"));     // CIDR
+        assert!(!key.is_ip_allowed("172.16.0.1"));   // None match
     }
 }

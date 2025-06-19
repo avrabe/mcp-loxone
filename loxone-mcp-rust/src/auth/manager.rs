@@ -16,7 +16,7 @@ use tracing::{debug, info, warn, error};
 /// The main authentication manager
 pub struct AuthenticationManager {
     /// Storage backend for persistent key storage
-    storage: Box<dyn StorageBackend>,
+    storage: Arc<dyn StorageBackend>,
     /// Validator for authentication logic and rate limiting
     validator: Validator,
     /// In-memory cache for fast key lookups
@@ -276,17 +276,12 @@ impl AuthenticationManager {
         cache.clone()
     }
     
-    /// Update key usage statistics
+    /// Update key usage statistics (in-memory only, periodic persistence)
     async fn update_key_usage(&self, key_id: &str) {
         if let Some(mut key) = self.get_key(key_id).await {
             key.record_usage();
             
-            // Update in storage (fire and forget)
-            if let Err(e) = self.storage.save_key(&key).await {
-                error!("Failed to update key usage for {}: {}", key_id, e);
-            }
-            
-            // Update in cache
+            // Update in cache only - let background task persist to storage
             {
                 let mut cache = self.key_cache.write().await;
                 cache.insert(key_id.to_string(), key);
@@ -304,8 +299,11 @@ impl AuthenticationManager {
     /// Start background maintenance tasks
     async fn start_background_tasks(&self) {
         let validator_ref = self.validator.clone();
+        let storage_ref = self.storage.clone();
+        let cache_ref = self.key_cache.clone();
+        let refresh_interval = self.config.cache_refresh_interval_minutes;
         
-        // Rate limit cleanup task (cache refresh disabled due to lifetime issues)
+        // Rate limit cleanup task
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(3600)); // Every hour
             
@@ -315,8 +313,71 @@ impl AuthenticationManager {
             }
         });
         
-        // TODO: Implement cache refresh with Arc<dyn StorageBackend> instead of raw pointer
-        debug!("Background tasks started (cache refresh disabled for safety)");
+        // Cache refresh task
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(
+                tokio::time::Duration::from_secs(refresh_interval * 60)
+            );
+            
+            loop {
+                interval.tick().await;
+                
+                debug!("Refreshing API key cache from storage...");
+                match storage_ref.load_keys().await {
+                    Ok(keys) => {
+                        let key_count = keys.len();
+                        {
+                            let mut cache = cache_ref.write().await;
+                            *cache = keys; // Replace the entire cache with loaded keys
+                        }
+                        debug!("Cache refreshed successfully with {} keys", key_count);
+                    }
+                    Err(e) => {
+                        warn!("Failed to refresh cache from storage: {}", e);
+                    }
+                }
+            }
+        });
+        
+        // Usage persistence task - save usage statistics every 5 minutes
+        let usage_storage_ref = self.storage.clone();
+        let usage_cache_ref = self.key_cache.clone();
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(tokio::time::Duration::from_secs(300)); // Every 5 minutes
+            
+            loop {
+                interval.tick().await;
+                
+                debug!("Persisting key usage statistics to storage...");
+                let keys = {
+                    let cache = usage_cache_ref.read().await;
+                    cache.clone()
+                };
+                
+                if let Err(e) = usage_storage_ref.save_all_keys(&keys).await {
+                    warn!("Failed to persist key usage statistics: {}", e);
+                } else {
+                    debug!("Successfully persisted usage statistics for {} keys", keys.len());
+                }
+            }
+        });
+        
+        debug!("Background tasks started (rate limit cleanup + cache refresh + usage persistence)");
+    }
+    
+    /// Gracefully shutdown and persist any pending usage statistics
+    pub async fn shutdown(&self) -> Result<()> {
+        info!("Saving final usage statistics before shutdown...");
+        
+        let keys = {
+            let cache = self.key_cache.read().await;
+            cache.clone()
+        };
+        
+        self.storage.save_all_keys(&keys).await?;
+        info!("Usage statistics saved successfully on shutdown");
+        
+        Ok(())
     }
     
 }

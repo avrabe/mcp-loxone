@@ -11,6 +11,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::Arc;
 use tokio::fs;
 use tracing::{debug, info, warn};
 
@@ -423,19 +424,19 @@ impl StorageBackend for MemoryStorage {
 }
 
 /// Create a storage backend from configuration
-pub async fn create_storage_backend(config: &StorageBackendConfig) -> Result<Box<dyn StorageBackend>> {
+pub async fn create_storage_backend(config: &StorageBackendConfig) -> Result<Arc<dyn StorageBackend>> {
     match config {
         StorageBackendConfig::File { path } => {
             let storage = FileStorage::new(path.clone()).await?;
-            Ok(Box::new(storage))
+            Ok(Arc::new(storage))
         }
         StorageBackendConfig::Environment { var_name } => {
             let storage = EnvironmentStorage::new(var_name.clone());
-            Ok(Box::new(storage))
+            Ok(Arc::new(storage))
         }
         StorageBackendConfig::Memory => {
             let storage = MemoryStorage::new();
-            Ok(Box::new(storage))
+            Ok(Arc::new(storage))
         }
     }
 }

@@ -46,6 +46,22 @@ cargo run --bin loxone-mcp-setup
 cargo run --bin loxone-mcp-verify
 ```
 
+### Authentication Management
+```bash
+# Create API keys for secure access
+cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin
+cargo run --bin loxone-mcp-auth create --name "Dev Key" --role operator --expires 30
+
+# List and manage API keys
+cargo run --bin loxone-mcp-auth list
+cargo run --bin loxone-mcp-auth show key_id
+cargo run --bin loxone-mcp-auth update key_id --ip-whitelist "192.168.1.0/24"
+
+# Security validation and audit
+cargo run --bin loxone-mcp-auth security --check-only
+cargo run --bin loxone-mcp-auth audit --limit 50
+```
+
 ### Running the Server
 ```bash
 # Development mode with MCP Inspector (recommended for testing)

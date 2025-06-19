@@ -447,6 +447,26 @@ impl Default for FeatureConfig {
 }
 
 impl ServerConfig {
+    /// Create a minimal configuration for development mode
+    pub fn dev_mode() -> Self {
+        let mut config = Self::default();
+        
+        // Override with minimal Loxone config for dev mode
+        config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
+        config.loxone.username = "dev".to_string();
+        config.loxone.timeout = Duration::from_secs(10);
+        config.loxone.max_retries = 1;
+        config.loxone.verify_ssl = false;
+        config.loxone.max_connections = Some(1);
+        config.loxone.auth_method = AuthMethod::Basic; // Simple auth for dev mode
+        
+        // Disable features that require real Loxone connection
+        config.features.enable_websocket = false;
+        config.features.enable_caching = false;
+        
+        config
+    }
+
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self> {
         let mut config = Self::default();

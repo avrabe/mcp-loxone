@@ -7,8 +7,7 @@
 pub fn get_shared_styles() -> &'static str {
     r#"
     <style>
-        /* Import Atkinson Hyperlegible font */
-        @import url('https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+        /* Use system fonts for better performance and CSP compliance */
         
         /* CSS Variables for dynamic color scheme */
         :root {
@@ -69,7 +68,7 @@ pub fn get_shared_styles() -> &'static str {
         }
         
         body {
-            font-family: 'Atkinson Hyperlegible', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', 'SF Pro Text', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--bg-primary);
             color: var(--text-primary);
             line-height: 1.6;
@@ -370,7 +369,65 @@ pub fn get_shared_styles() -> &'static str {
     "#
 }
 
-/// Get the navigation header HTML
+/// Get the API key preservation JavaScript
+pub fn get_api_key_preservation_script() -> &'static str {
+    r#"
+    <script>
+        // Preserve API key across navigation
+        (function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const apiKey = urlParams.get('api_key');
+            
+            if (apiKey) {
+                // Store in session storage for this tab
+                sessionStorage.setItem('api_key', apiKey);
+                
+                // Update all links on the page to include the API key
+                document.addEventListener('DOMContentLoaded', function() {
+                    const links = document.querySelectorAll('a[href]');
+                    links.forEach(link => {
+                        const href = link.getAttribute('href');
+                        if (href && !href.startsWith('http') && !href.startsWith('#') && !href.includes('api_key=')) {
+                            const separator = href.includes('?') ? '&' : '?';
+                            link.setAttribute('href', href + separator + 'api_key=' + encodeURIComponent(apiKey));
+                        }
+                    });
+                    
+                    // Also update form actions
+                    const forms = document.querySelectorAll('form[action]');
+                    forms.forEach(form => {
+                        const action = form.getAttribute('action');
+                        if (action && !action.startsWith('http') && !action.includes('api_key=')) {
+                            const separator = action.includes('?') ? '&' : '?';
+                            form.setAttribute('action', action + separator + 'api_key=' + encodeURIComponent(apiKey));
+                        }
+                    });
+                    
+                    // Update fetch calls
+                    const originalFetch = window.fetch;
+                    window.fetch = function(url, options) {
+                        if (typeof url === 'string' && !url.startsWith('http') && !url.includes('api_key=')) {
+                            const separator = url.includes('?') ? '&' : '?';
+                            url = url + separator + 'api_key=' + encodeURIComponent(apiKey);
+                        }
+                        return originalFetch.call(this, url, options);
+                    };
+                });
+            } else {
+                // Try to get API key from session storage
+                const storedKey = sessionStorage.getItem('api_key');
+                if (storedKey && !window.location.pathname.includes('/health')) {
+                    // Redirect to current page with API key
+                    const separator = window.location.search ? '&' : '?';
+                    window.location.href = window.location.pathname + window.location.search + separator + 'api_key=' + encodeURIComponent(storedKey);
+                }
+            }
+        })();
+    </script>
+    "#
+}
+
+/// Get the navigation header HTML with API key preservation
 pub fn get_nav_header(title: &str, show_home_link: bool) -> String {
     format!(
         r#"
@@ -380,6 +437,7 @@ pub fn get_nav_header(title: &str, show_home_link: bool) -> String {
                 {}
             </div>
         </header>
+        {}
         "#,
         title,
         if show_home_link {
@@ -389,6 +447,7 @@ pub fn get_nav_header(title: &str, show_home_link: bool) -> String {
             </a>"#
         } else {
             ""
-        }
+        },
+        get_api_key_preservation_script()
     )
 }

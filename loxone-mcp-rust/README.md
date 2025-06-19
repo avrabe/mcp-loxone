@@ -1,7 +1,7 @@
 # 🏠 Loxone MCP Rust Server
 
 **Model Context Protocol server for Loxone home automation systems**  
-*Development prototype • 17 working tools • Basic security*
+*Development prototype • 17 working tools • Enterprise authentication*
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
 [![Status](https://img.shields.io/badge/status-development-yellow.svg)](#-development-status)
@@ -38,7 +38,8 @@ cargo run --bin loxone-mcp-server -- http --port 3001   # HTTP API mode
 |---------|-------------|--------|
 | **🎛️ 17 MCP Tools** | Device control, sensor management, basic system info | ✅ Working |
 | **🌐 WASM Support** | Basic WASM compilation (needs testing) | ⚠️ Experimental |
-| **🛡️ Unified Auth** | SSH-style API keys, RBAC, audit logging | ✅ Production-ready |
+| **🛡️ Unified Auth** | SSH-style API keys, RBAC, IP whitelisting, audit logging | ✅ Production-ready |
+| **🔐 WebSocket Auth** | Token authentication for real-time connections | ✅ Working |
 | **📊 Dashboard** | Static HTML dashboard (no real-time data) | ⚠️ Basic |
 | **🐳 Multi-Platform** | Linux, macOS, Windows builds | ✅ Working |
 | **⚡ Core Performance** | Basic async I/O, single connections | ⚠️ Basic |
@@ -95,18 +96,19 @@ docker build -t loxone-mcp .
 make dev-run  # Hot reload + inspector
 ```
 
-### 🛡️ **Production Security** (NEW!)
+### 🛡️ **Production Security** (Enterprise-grade!)
 - ✅ **Unified Authentication System** with SSH-style secure storage
 - ✅ **Role-Based Access Control** (Admin, Operator, Monitor, Device, Custom)
 - ✅ **API Key Management CLI** with audit logging and key rotation
-- ✅ **Rate Limiting** and brute-force protection
+- ✅ **Rate Limiting** (blocks after 4 failed attempts, 30min cooldown)
+- ✅ **IP Whitelisting** with CIDR notation (`192.168.1.0/24`, IPv6 support)
+- ✅ **WebSocket Token Auth** (shared with HTTP client, no fallback)
+- ✅ **Background Cache Refresh** (automatic storage synchronization)
 - ✅ **SSH-Style Permissions** (700 dirs, 600 files) for credentials
 - ✅ **Input validation** against injection attacks
-- ✅ **Rate limiting** with token bucket algorithm
-- ✅ **IP whitelisting** for API key restrictions
 - ✅ **Credential sanitization** in logs
 - ✅ **CORS protection** with configurable policies
-- ✅ **Audit logging** with usage tracking
+- ✅ **Audit logging** with comprehensive usage tracking
 - ✅ **Request size limits** (DoS prevention)
 
 ### ⚡ **Performance Optimized**
@@ -143,7 +145,7 @@ git clone https://github.com/your-repo/loxone-mcp-rust && cd loxone-mcp-rust
 ./dev-env.sh  # Sets up credentials & environment
 
 # Generate API keys for secure access
-cargo run --bin loxone-mcp-keys -- generate --role admin --name "Main Admin"
+cargo run --bin loxone-mcp-auth -- create --role admin --name "Main Admin"
 
 # Build & Test
 cargo build                    # Native build

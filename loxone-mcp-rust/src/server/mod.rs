@@ -148,61 +148,35 @@ impl LoxoneMcpServer {
         let loxone_config = config.loxone.clone();
         let mut client = create_client(&loxone_config, &credentials).await?;
 
-        // Connect to the Loxone system
-        info!("🔌 Connecting to Loxone system...");
-        match client.connect().await {
-            Ok(()) => {
-                info!("✅ Successfully connected to Loxone system");
-                // Now test connection health
-                match client.health_check().await {
-                    Ok(true) => info!("✅ Health check passed"),
-                    Ok(false) => {
-                        warn!("⚠️ Loxone connection established but health check shows issues");
-                        info!("🔄 Attempting to continue with degraded health status...");
-                    }
-                    Err(e) => {
-                        warn!("⚠️ Health check failed after connection: {}", e);
-                    }
+        // Start async connection attempt (non-blocking)
+        info!("🚀 Starting asynchronous Loxone connection...");
+        info!("⚡ Server will start immediately - connection attempts continue in background");
+        
+        // Check if we're in dev mode to skip actual connection
+        let should_skip_connection = std::env::var("DEV_MODE").is_ok();
+        
+        if should_skip_connection {
+            info!("🚧 Development mode detected - skipping Loxone connection");
+        } else {
+            // Try to connect immediately without blocking server startup
+            info!("🔌 Attempting initial Loxone connection (non-blocking)...");
+            
+            // Try initial connection once, but don't fail if it doesn't work
+            match client.connect().await {
+                Ok(()) => {
+                    info!("✅ Initial connection successful");
                 }
-            }
-            Err(e) => {
-                warn!("⚠️ Connection failed: {}", e);
-
-                // If we're using advanced auth and it's failing, try to fall back to basic auth
-                if loxone_config.auth_method == crate::config::AuthMethod::Token 
-                    || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
-                    warn!("🔄 Advanced authentication connection failed, attempting fallback to basic authentication");
-                    let mut basic_config = loxone_config.clone();
-                    basic_config.auth_method = crate::config::AuthMethod::Basic;
-
-                    match create_client(&basic_config, &credentials).await {
-                        Ok(mut basic_client) => {
-                            info!("✅ Successfully created basic authentication client");
-                            // Connect with the basic client
-                            match basic_client.connect().await {
-                                Ok(()) => {
-                                    info!("✅ Basic authentication connection successful");
-                                    // Replace the client with the basic auth client
-                                    return Self::new_with_client(basic_client, basic_config).await;
-                                }
-                                Err(e) => {
-                                    error!("❌ Basic authentication connection also failed: {}", e);
-                                    return Err(e);
-                                }
-                            }
-                        }
-                        Err(fallback_err) => {
-                            error!(
-                                "❌ Failed to create basic auth fallback client: {}",
-                                fallback_err
-                            );
-                            error!("❌ Original token auth error: {}", e);
-                            return Err(e);
-                        }
-                    }
-                } else {
-                    error!("❌ Failed to connect to Loxone: {}", e);
-                    return Err(e);
+                Err(e) => {
+                    warn!("⚠️ Initial connection failed: {}", e);
+                    info!("🔄 Will retry connection in background...");
+                    
+                    // Spawn background reconnection task for failed initial connection
+                    let loxone_config_clone = loxone_config.clone();
+                    let credentials_clone = credentials.clone();
+                    
+                    tokio::spawn(async move {
+                        spawn_reconnection_task(loxone_config_clone, credentials_clone).await;
+                    });
                 }
             }
         }
@@ -854,4 +828,109 @@ impl LoxoneMcpServer {
                 | "discover_devices"
         )
     }
+}
+
+/// Try to connect with fallback authentication
+async fn try_connect_with_fallback(
+    mut client: Box<dyn LoxoneClient>,
+    loxone_config: LoxoneConfig,
+    credentials: crate::config::credentials::LoxoneCredentials,
+) -> Result<()> {
+    // Try initial connection
+    match client.connect().await {
+        Ok(()) => {
+            info!("✅ Successfully connected to Loxone system");
+            // Test connection health
+            match client.health_check().await {
+                Ok(true) => info!("✅ Health check passed"),
+                Ok(false) => {
+                    warn!("⚠️ Loxone connection established but health check shows issues");
+                    info!("🔄 Continuing with degraded health status...");
+                }
+                Err(e) => {
+                    warn!("⚠️ Health check failed after connection: {}", e);
+                }
+            }
+            Ok(())
+        }
+        Err(e) => {
+            warn!("⚠️ Connection failed: {}", e);
+
+            // If using advanced auth, try fallback to basic auth
+            if loxone_config.auth_method == crate::config::AuthMethod::Token 
+                || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
+                warn!("🔄 Advanced authentication failed, trying basic authentication fallback");
+                
+                let mut basic_config = loxone_config.clone();
+                basic_config.auth_method = crate::config::AuthMethod::Basic;
+
+                match create_client(&basic_config, &credentials).await {
+                    Ok(mut basic_client) => {
+                        info!("✅ Successfully created basic authentication client");
+                        match basic_client.connect().await {
+                            Ok(()) => {
+                                info!("✅ Basic authentication connection successful");
+                                Ok(())
+                            }
+                            Err(e) => {
+                                error!("❌ Basic authentication connection also failed: {}", e);
+                                Err(e)
+                            }
+                        }
+                    }
+                    Err(fallback_err) => {
+                        error!("❌ Failed to create basic auth fallback client: {}", fallback_err);
+                        Err(e)
+                    }
+                }
+            } else {
+                error!("❌ Failed to connect to Loxone: {}", e);
+                Err(e)
+            }
+        }
+    }
+}
+
+/// Spawn a background reconnection task
+async fn spawn_reconnection_task(
+    loxone_config: LoxoneConfig,
+    credentials: crate::config::credentials::LoxoneCredentials,
+) {
+    tokio::spawn(async move {
+        let mut retry_count = 0;
+        let max_retries = 10; // Limit retries to avoid infinite loops
+        let base_delay = std::time::Duration::from_secs(30);
+        
+        loop {
+            if retry_count >= max_retries {
+                error!("❌ Max reconnection attempts reached. Giving up.");
+                break;
+            }
+            
+            retry_count += 1;
+            let delay = base_delay * retry_count.min(5); // Cap delay at 5x base (2.5 minutes)
+            
+            info!("⏰ Sleeping for {} seconds before retry #{}", delay.as_secs(), retry_count);
+            tokio::time::sleep(delay).await;
+            
+            info!("🔌 Reconnection attempt #{}/{}", retry_count, max_retries);
+            
+            match create_client(&loxone_config, &credentials).await {
+                Ok(client) => {
+                    match try_connect_with_fallback(client, loxone_config.clone(), credentials.clone()).await {
+                        Ok(()) => {
+                            info!("✅ Reconnection successful after {} attempts", retry_count);
+                            break;
+                        }
+                        Err(e) => {
+                            warn!("⚠️ Reconnection attempt #{} failed: {}", retry_count, e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    warn!("⚠️ Failed to create client for reconnection attempt #{}: {}", retry_count, e);
+                }
+            }
+        }
+    });
 }

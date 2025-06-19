@@ -167,6 +167,8 @@ pub struct HttpServerConfig {
     pub security_config: Option<SecurityConfig>,
     /// Performance monitoring configuration
     pub performance_config: Option<PerformanceConfig>,
+    /// Development mode flag (bypasses auth)
+    pub dev_mode: bool,
     /// InfluxDB configuration (optional)
     #[cfg(feature = "influxdb")]
     pub influx_config: Option<InfluxConfig>,
@@ -175,7 +177,10 @@ pub struct HttpServerConfig {
 impl Default for HttpServerConfig {
     fn default() -> Self {
         // Determine security config based on environment
-        let security_config = if std::env::var("PRODUCTION").is_ok() {
+        let dev_mode = std::env::var("DEV_MODE").is_ok();
+        let security_config = if dev_mode {
+            None
+        } else if std::env::var("PRODUCTION").is_ok() {
             Some(SecurityConfig::production())
         } else if std::env::var("DISABLE_SECURITY").is_ok() {
             None
@@ -196,6 +201,7 @@ impl Default for HttpServerConfig {
             port: 3001,
             security_config,
             performance_config,
+            dev_mode,
             #[cfg(feature = "influxdb")]
             influx_config: None,
         }
@@ -422,19 +428,7 @@ impl HttpTransportServer {
             .route("/health", get(health_check))
             .route("/", get(root_handler))
             .route("/favicon.ico", get(favicon_handler))
-            .route("/metrics", get(prometheus_metrics)) // Prometheus endpoint
-            // History dashboard endpoints (public for web browser access)
-            // Unified dashboard routes (public for web browser access)
-            .route("/dashboard", get(unified_dashboard_home))
-            .route("/dashboard/", get(unified_dashboard_home))
-            .route("/dashboard/api/status", get(unified_dashboard_api_status))
-            .route("/dashboard/api/data", get(unified_dashboard_api_data))
-            .route("/dashboard/ws", get(unified_dashboard_websocket))
-            // Server metrics test endpoint (public for debugging)
-            .route("/dashboard/api/metrics", get(server_metrics_test))
-            // High-performance dashboard endpoints for <100ms response times (disabled until tower deps are fixed)
-            // .merge(fast_dashboard::create_fast_dashboard_router())
-            ;
+            .route("/metrics", get(prometheus_metrics)); // Prometheus endpoint
 
         // History-based dashboard removed - unused module
 
@@ -448,6 +442,20 @@ impl HttpTransportServer {
             .route("/mcp/sse", get(sse_handler)) // Alternative for n8n
             .route("/mcp/info", get(server_info))
             .route("/mcp/tools", get(list_tools))
+            // Web-accessible API endpoints for navigation
+            .route("/api/tools", get(list_tools_web))
+            .route("/api/resources", get(list_resources_web))
+            .route("/api/prompts", get(list_prompts_web))
+            // Dashboard routes (require authentication)
+            .route("/history", get(history_dashboard_handler))
+            .route("/history/", get(history_dashboard_handler))
+            .route("/history/api/data", get(history_api_data))
+            .route("/dashboard", get(unified_dashboard_home))
+            .route("/dashboard/", get(unified_dashboard_home))
+            .route("/dashboard/api/status", get(unified_dashboard_api_status))
+            .route("/dashboard/api/data", get(unified_dashboard_api_data))
+            .route("/dashboard/ws", get(unified_dashboard_websocket))
+            .route("/dashboard/api/metrics", get(server_metrics_test))
             // Admin endpoints (require admin auth)
             .route("/admin/status", get(admin_status))
             .route("/admin/rate-limits", get(rate_limit_status))
@@ -609,6 +617,7 @@ fn generate_navigation_html() -> String {
     // Use the new styled version
     crate::http_transport::navigation_new::generate_navigation_html()
 }
+
 
 /// Root handler
 async fn root_handler() -> impl IntoResponse {
@@ -2381,18 +2390,25 @@ async fn auth_middleware_wrapper(
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
-    // Use unified authentication system
-    unified_auth_middleware(State(state.auth_manager.clone()), request, next).await
+    // Check if dev mode is enabled - bypass auth entirely
+    // Note: This is a simplified check - in production, this should be passed through config
+    if std::env::var("DEV_MODE").is_ok() {
+        return Ok(next.run(request).await);
+    }
+    
+    // Use unified authentication system with smart error handling
+    unified_auth_middleware_with_smart_errors(State(state.auth_manager.clone()), request, next).await
 }
 
-/// Unified authentication middleware using the new AuthenticationManager
-async fn unified_auth_middleware(
+/// Unified authentication middleware with smart error handling
+async fn unified_auth_middleware_with_smart_errors(
     State(auth_manager): State<Arc<AuthenticationManager>>,
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
     let headers = request.headers();
     let query_string = request.uri().query();
+    let uri = request.uri().clone();
 
     // Authenticate the request using the unified system
     match auth_manager.authenticate_request(headers, query_string).await {
@@ -2402,18 +2418,31 @@ async fn unified_auth_middleware(
         }
         crate::auth::models::AuthResult::Unauthorized { reason } => {
             warn!("Authentication failed: {}", reason);
-            Err(StatusCode::UNAUTHORIZED)
+            
+            // Return smart 401 page for browser requests
+            if is_browser_request(headers) {
+                Ok(create_smart_401_response(&uri, &reason).await.into_response())
+            } else {
+                Err(StatusCode::UNAUTHORIZED)
+            }
         }
         crate::auth::models::AuthResult::Forbidden { reason } => {
             warn!("Access forbidden: {}", reason);
-            Err(StatusCode::FORBIDDEN)
+            
+            // Return smart 403 page for browser requests
+            if is_browser_request(headers) {
+                Ok(create_smart_403_response(&uri, &reason).await.into_response())
+            } else {
+                Err(StatusCode::FORBIDDEN)
+            }
         }
         crate::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
-            warn!("Rate limited for {} seconds", retry_after_seconds);
+            warn!("Request rate limited, retry after {} seconds", retry_after_seconds);
             Err(StatusCode::TOO_MANY_REQUESTS)
         }
     }
 }
+
 
 
 
@@ -2536,16 +2565,20 @@ fn generate_unified_dashboard_html() -> String {
 async fn unified_dashboard_websocket(
     ws: axum::extract::WebSocketUpgrade,
     Query(params): Query<HashMap<String, String>>,
+    headers: axum::http::HeaderMap,
     State(state): State<Arc<AppState>>,
 ) -> std::result::Result<axum::response::Response, StatusCode> {
     // Check for API key authentication
     if let Some(api_key) = params.get("api_key") {
         debug!("WebSocket authentication attempt with API key: {}", &api_key[..8.min(api_key.len())]);
         
-        // Use the unified authentication manager
+        // Extract client IP for proper authentication
+        let client_ip = crate::auth::validation::extract_client_ip(&headers);
+        
+        // Use the unified authentication manager with proper IP
         let auth_result = state.auth_manager.authenticate(
             api_key,
-            "websocket_client",
+            &client_ip,
         ).await;
         
         match auth_result {
@@ -2690,3 +2723,597 @@ async fn server_metrics_test(State(state): State<Arc<AppState>>) -> impl IntoRes
 // Note: LLM sampling endpoints were planned but not implemented in this version
 // The infrastructure exists via MCP Prompts protocol which can be accessed via
 // the standard MCP interface for LLM integration
+
+/// Web-accessible tools endpoint for navigation
+async fn list_tools_web(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
+    // Create simplified web view of tools
+    let tools_html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Tools</title>
+    {}
+</head>
+<body>
+    {}
+    
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">🛠️</div>
+                <h2 class="card-title">Available MCP Tools</h2>
+            </div>
+            
+            <p>These are the control tools available through the Model Context Protocol interface:</p>
+            
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Tool Name</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>control_device</td><td>Control a single Loxone device</td><td>Device Control</td></tr>
+                        <tr><td>control_multiple_devices</td><td>Control multiple devices simultaneously</td><td>Device Control</td></tr>
+                        <tr><td>control_all_rolladen</td><td>Control all blinds system-wide</td><td>Rolladen/Blinds</td></tr>
+                        <tr><td>control_room_rolladen</td><td>Control blinds in specific room</td><td>Rolladen/Blinds</td></tr>
+                        <tr><td>control_all_lights</td><td>Control all lights system-wide</td><td>Lighting</td></tr>
+                        <tr><td>control_room_lights</td><td>Control lights in specific room</td><td>Lighting</td></tr>
+                        <tr><td>get_room_devices</td><td>List devices in a room</td><td>Query</td></tr>
+                        <tr><td>get_all_door_window_sensors</td><td>Get sensor status</td><td>Sensors</td></tr>
+                        <tr><td>discover_new_sensors</td><td>Find new sensors</td><td>Discovery</td></tr>
+                        <tr><td>list_rooms</td><td>List all rooms</td><td>Query</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                <strong>Note:</strong> These tools require authentication and are primarily designed for AI/LLM integration via MCP.
+                For real-time data queries, see <a href="/api/resources">MCP Resources</a>.
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles(),
+        crate::shared_styles::get_nav_header("MCP Tools", true)
+    );
+    
+    axum::response::Html(tools_html)
+}
+
+/// Web-accessible resources endpoint for navigation
+async fn list_resources_web(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
+    let resources_html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Resources</title>
+    {}
+</head>
+<body>
+    {}
+    
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">📁</div>
+                <h2 class="card-title">Available MCP Resources</h2>
+            </div>
+            
+            <p>These are the data resources available through the Model Context Protocol interface:</p>
+            
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Resource URI</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>loxone://rooms/all</td><td>Complete list of all rooms</td><td>Rooms</td></tr>
+                        <tr><td>loxone://devices/all</td><td>All devices with current states</td><td>Devices</td></tr>
+                        <tr><td>loxone://devices/lights</td><td>All lighting devices</td><td>Lighting</td></tr>
+                        <tr><td>loxone://devices/rolladen</td><td>All blinds/shutters</td><td>Rolladen</td></tr>
+                        <tr><td>loxone://sensors/all</td><td>All configured sensors</td><td>Sensors</td></tr>
+                        <tr><td>loxone://sensors/door-window</td><td>Door and window sensors</td><td>Sensors</td></tr>
+                        <tr><td>loxone://weather/current</td><td>Current weather data</td><td>Weather</td></tr>
+                        <tr><td>loxone://system/status</td><td>System connection status</td><td>System</td></tr>
+                        <tr><td>loxone://energy/consumption</td><td>Energy consumption data</td><td>Energy</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                <strong>Note:</strong> Resources provide read-only access to system data. 
+                Use the loxone:// URI scheme to access specific resources via MCP.
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles(),
+        crate::shared_styles::get_nav_header("MCP Resources", true)
+    );
+    
+    axum::response::Html(resources_html)
+}
+
+/// Web-accessible prompts endpoint for navigation
+async fn list_prompts_web(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
+    let prompts_html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Prompts</title>
+    {}
+</head>
+<body>
+    {}
+    
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">💬</div>
+                <h2 class="card-title">Available MCP Prompts</h2>
+            </div>
+            
+            <p>These are the AI-powered automation prompts available through the Model Context Protocol:</p>
+            
+            <div class="data-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Prompt Name</th>
+                            <th>Description</th>
+                            <th>Category</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>room_analysis</td><td>Analyze room status and suggest actions</td><td>Analysis</td></tr>
+                        <tr><td>energy_optimization</td><td>Suggest energy saving improvements</td><td>Energy</td></tr>
+                        <tr><td>security_check</td><td>Perform security status assessment</td><td>Security</td></tr>
+                        <tr><td>lighting_scene</td><td>Create custom lighting scenarios</td><td>Lighting</td></tr>
+                        <tr><td>climate_optimization</td><td>Optimize temperature and ventilation</td><td>Climate</td></tr>
+                        <tr><td>morning_routine</td><td>Automated morning house preparation</td><td>Automation</td></tr>
+                        <tr><td>evening_shutdown</td><td>Automated evening house shutdown</td><td>Automation</td></tr>
+                        <tr><td>vacation_mode</td><td>Configure house for extended absence</td><td>Automation</td></tr>
+                        <tr><td>weather_adaptation</td><td>Adapt house settings to weather</td><td>Weather</td></tr>
+                        <tr><td>device_health</td><td>Check and report device status</td><td>Maintenance</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                <strong>Note:</strong> Prompts are interactive templates that guide AI assistants 
+                in performing complex automation tasks with contextual awareness.
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles(),
+        crate::shared_styles::get_nav_header("MCP Prompts", true)
+    );
+    
+    axum::response::Html(prompts_html)
+}
+
+/// History dashboard handler - simplified historical data view
+async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl IntoResponse {
+    let history_html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>History Dashboard</title>
+    {}
+    <style>
+        .metrics-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: calc(var(--spacing-unit) * 3);
+            margin-bottom: calc(var(--spacing-unit) * 3);
+        }}
+        
+        .metric-card {{
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            padding: calc(var(--spacing-unit) * 3);
+            border: 1px solid var(--border-color);
+        }}
+        
+        .metric-title {{
+            font-size: 1.125rem;
+            font-weight: 700;
+            margin-bottom: calc(var(--spacing-unit) * 2);
+            color: var(--text-primary);
+        }}
+        
+        .metric-value {{
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            margin-bottom: calc(var(--spacing-unit) * 1);
+        }}
+        
+        .metric-label {{
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }}
+        
+        .time-selector {{
+            display: flex;
+            gap: calc(var(--spacing-unit) * 1);
+            margin-bottom: calc(var(--spacing-unit) * 3);
+            flex-wrap: wrap;
+        }}
+        
+        .time-btn {{
+            padding: calc(var(--spacing-unit) * 1) calc(var(--spacing-unit) * 2);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: calc(var(--border-radius) / 2);
+            cursor: pointer;
+            transition: all var(--transition-fast);
+        }}
+        
+        .time-btn:hover, .time-btn.active {{
+            background: var(--accent-primary);
+            color: white;
+            border-color: var(--accent-primary);
+        }}
+        
+        .chart-placeholder {{
+            height: 200px;
+            background: var(--bg-primary);
+            border: 2px dashed var(--border-color);
+            border-radius: var(--border-radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-secondary);
+            font-style: italic;
+        }}
+    </style>
+</head>
+<body>
+    {}
+    
+    <div class="container">
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon">📈</div>
+                <h1 class="card-title">Historical Data Dashboard</h1>
+            </div>
+            
+            <p>View historical trends and analytics for your Loxone system.</p>
+            
+            <div class="time-selector">
+                <button class="time-btn active" onclick="updateTimeRange('1h')">Last Hour</button>
+                <button class="time-btn" onclick="updateTimeRange('24h')">Last 24 Hours</button>
+                <button class="time-btn" onclick="updateTimeRange('7d')">Last 7 Days</button>
+                <button class="time-btn" onclick="updateTimeRange('30d')">Last 30 Days</button>
+            </div>
+            
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-title">System Uptime</div>
+                    <div class="metric-value" id="uptimeMetric">--</div>
+                    <div class="metric-label">Total uptime this period</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">Device Operations</div>
+                    <div class="metric-value" id="operationsMetric">--</div>
+                    <div class="metric-label">Total operations executed</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">Response Time</div>
+                    <div class="metric-value" id="responseMetric">--</div>
+                    <div class="metric-label">Average response time</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-title">Active Devices</div>
+                    <div class="metric-value" id="devicesMetric">--</div>
+                    <div class="metric-label">Currently active devices</div>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">System Performance Trend</h2>
+                <div class="chart-placeholder">
+                    📊 Chart visualization would be displayed here
+                    <br>
+                    <small>(Future: Integration with time-series database)</small>
+                </div>
+            </div>
+            
+            <div class="card">
+                <h2 class="card-title">Device Activity Trend</h2>
+                <div class="chart-placeholder">
+                    🏠 Device usage patterns would be displayed here
+                    <br>
+                    <small>(Future: Historical device state changes)</small>
+                </div>
+            </div>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                <strong>Note:</strong> Historical data collection is currently in development. 
+                Enable with <code>ENABLE_LOXONE_STATS=1</code> environment variable.
+                <br><br>
+                <strong>Future Features:</strong>
+                <ul style="margin-top: 1rem;">
+                    <li>Time-series database integration (InfluxDB/TimescaleDB)</li>
+                    <li>Interactive charts and graphs</li>
+                    <li>Device usage analytics</li>
+                    <li>Energy consumption tracking</li>
+                    <li>Performance trend analysis</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let currentTimeRange = '1h';
+        
+        function updateTimeRange(range) {{
+            currentTimeRange = range;
+            
+            // Update button states
+            document.querySelectorAll('.time-btn').forEach(btn => {{
+                btn.classList.remove('active');
+            }});
+            event.target.classList.add('active');
+            
+            // Load data for the selected time range
+            loadHistoryData(range);
+        }}
+        
+        async function loadHistoryData(timeRange) {{
+            try {{
+                const response = await fetch(`/history/api/data?range=${{timeRange}}`);
+                const data = await response.json();
+                
+                // Update metrics
+                document.getElementById('uptimeMetric').textContent = data.uptime || '99.9%';
+                document.getElementById('operationsMetric').textContent = data.operations || '1,234';
+                document.getElementById('responseMetric').textContent = data.response_time || '45ms';
+                document.getElementById('devicesMetric').textContent = data.active_devices || '12';
+                
+            }} catch (error) {{
+                console.warn('Failed to load history data:', error);
+                // Set default values
+                document.getElementById('uptimeMetric').textContent = '99.9%';
+                document.getElementById('operationsMetric').textContent = '1,234';
+                document.getElementById('responseMetric').textContent = '45ms';
+                document.getElementById('devicesMetric').textContent = '12';
+            }}
+        }}
+        
+        // Load initial data
+        document.addEventListener('DOMContentLoaded', () => {{
+            loadHistoryData(currentTimeRange);
+        }});
+        
+        // Refresh every 30 seconds
+        setInterval(() => loadHistoryData(currentTimeRange), 30000);
+    </script>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles(),
+        crate::shared_styles::get_nav_header("History Dashboard", true)
+    );
+    
+    axum::response::Html(history_html)
+}
+
+/// History API data endpoint
+async fn history_api_data(State(_state): State<Arc<AppState>>, Query(params): Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
+    let time_range = params.get("range").map(String::as_str).unwrap_or("1h");
+    
+    // For now, return mock data. Future: integrate with time-series database
+    let data = serde_json::json!({
+        "time_range": time_range,
+        "uptime": "99.9%",
+        "operations": match time_range {
+            "1h" => "156",
+            "24h" => "1,234",
+            "7d" => "8,765",
+            "30d" => "32,109",
+            _ => "1,234"
+        },
+        "response_time": "45ms",
+        "active_devices": "12",
+        "timestamp": chrono::Utc::now().to_rfc3339(),
+        "status": "Historical data collection is in development"
+    });
+    
+    Json(data)
+}
+
+/// Check if request is from a browser (vs API client)
+fn is_browser_request(headers: &HeaderMap) -> bool {
+    headers
+        .get("accept")
+        .and_then(|v| v.to_str().ok())
+        .map(|accept| accept.contains("text/html"))
+        .unwrap_or(false)
+}
+
+/// Create smart 401 response with helpful setup instructions
+async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum::response::Html<String> {
+    let port = uri.port_u16().unwrap_or(3001);
+    let host = uri.host().unwrap_or("localhost");
+    
+    let html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔐 Authentication Required</title>
+    {}
+    <style>
+        .setup-container {{
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+        }}
+        
+        .error-icon {{
+            font-size: 4rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }}
+        
+        .setup-step {{
+            background: var(--bg-secondary);
+            border-radius: var(--border-radius);
+            padding: calc(var(--spacing-unit) * 2);
+            margin-bottom: calc(var(--spacing-unit) * 2);
+            border-left: 4px solid var(--accent-primary);
+        }}
+        
+        .code-block {{
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: calc(var(--border-radius) / 2);
+            padding: calc(var(--spacing-unit) * 1.5);
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 0.9rem;
+            margin: calc(var(--spacing-unit) * 1) 0;
+            overflow-x: auto;
+        }}
+        
+        .url-example {{
+            background: linear-gradient(135deg, var(--accent-primary), hsl(calc(var(--accent-hue) + 30), 70%, 50%));
+            color: white;
+            padding: calc(var(--spacing-unit) * 2);
+            border-radius: var(--border-radius);
+            font-family: 'SF Mono', Monaco, monospace;
+            word-break: break-all;
+            margin: calc(var(--spacing-unit) * 1) 0;
+        }}
+        
+        .quick-start {{
+            background: linear-gradient(135deg, #10B981, #059669);
+            color: white;
+            padding: calc(var(--spacing-unit) * 2);
+            border-radius: var(--border-radius);
+            margin-top: calc(var(--spacing-unit) * 2);
+        }}
+        
+        .dev-mode {{
+            background: linear-gradient(135deg, #F59E0B, #D97706);
+            color: white;
+            padding: calc(var(--spacing-unit) * 2);
+            border-radius: var(--border-radius);
+            margin-top: calc(var(--spacing-unit) * 2);
+        }}
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="error-icon">🔐</div>
+        
+        <div class="card">
+            <h1 style="text-align: center; margin-bottom: 1rem;">Authentication Required</h1>
+            <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">
+                This Loxone MCP Server requires an API key for access.
+                <br><strong>Reason:</strong> {reason}
+            </p>
+            
+            <div class="setup-step">
+                <h2>🚀 Quick Start (Recommended)</h2>
+                <p>Restart the server with the <code>--show-access-url</code> flag to get a ready-to-use URL:</p>
+                <div class="code-block">cargo run --bin loxone-mcp-server http --show-access-url</div>
+                <p>This will display a complete URL with a valid API key that you can copy and paste.</p>
+            </div>
+            
+            <div class="setup-step">
+                <h2>🔑 Manual API Key Setup</h2>
+                <p><strong>Step 1:</strong> Create an admin API key</p>
+                <div class="code-block">cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin</div>
+                
+                <p><strong>Step 2:</strong> Copy the generated API key and use it in the URL</p>
+                <div class="url-example">http://{host}:{port}/admin?api_key=YOUR_GENERATED_KEY</div>
+                
+                <p><strong>Step 3:</strong> Bookmark the URL for future access</p>
+            </div>
+            
+            <div class="dev-mode">
+                <h2>🚧 Development Mode</h2>
+                <p>For development/testing, you can bypass authentication entirely:</p>
+                <div class="code-block">cargo run --bin loxone-mcp-server http --dev-mode</div>
+                <p><strong>⚠️ WARNING:</strong> Never use dev mode in production!</p>
+            </div>
+            
+            <div class="quick-start">
+                <h2>📋 Available Endpoints</h2>
+                <ul style="margin: 0;">
+                    <li><strong>/admin</strong> - Administrative interface</li>
+                    <li><strong>/dashboard</strong> - Real-time monitoring dashboard</li>
+                    <li><strong>/history</strong> - Historical data and trends</li>
+                    <li><strong>/api/tools</strong> - Available MCP tools</li>
+                    <li><strong>/health</strong> - System health check</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles()
+    );
+    
+    axum::response::Html(html)
+}
+
+/// Create smart 403 response for forbidden access
+async fn create_smart_403_response(_uri: &axum::http::Uri, reason: &str) -> axum::response::Html<String> {
+    let html = format!(
+        r#"<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚫 Access Forbidden</title>
+    {}
+</head>
+<body>
+    <div class="container">
+        <div class="card" style="text-align: center;">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">🚫</div>
+            <h1>Access Forbidden</h1>
+            <p>Your API key does not have permission to access this resource.</p>
+            <p><strong>Reason:</strong> {}</p>
+            
+            <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
+                <p><strong>Need admin access?</strong></p>
+                <p>Contact your system administrator or create an admin key:</p>
+                <code>cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin</code>
+            </div>
+        </div>
+    </div>
+</body>
+</html>"#,
+        crate::shared_styles::get_shared_styles(),
+        reason
+    );
+    
+    axum::response::Html(html)
+}

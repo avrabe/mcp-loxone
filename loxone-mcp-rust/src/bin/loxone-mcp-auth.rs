@@ -208,8 +208,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let path = cli.file.unwrap_or_else(|| {
                 dirs::home_dir()
                     .unwrap_or_else(|| PathBuf::from("."))
-                    .join(".loxone-mcp")
-                    .join("credentials.json")
+                    .join(".loxone")
+                    .join("api_keys.json")
             });
             StorageBackendConfig::File { path }
         }

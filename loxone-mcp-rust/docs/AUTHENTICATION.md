@@ -15,9 +15,11 @@ The new unified authentication system provides enterprise-grade security with AP
 **Key Features**:
 - SSH-style secure credential storage
 - Role-based access control (Admin, Operator, Monitor, Device, Custom)
-- Rate limiting and brute-force protection
+- Rate limiting and brute-force protection (blocks after 4 failed attempts)
+- IP whitelisting with CIDR notation support (e.g., `192.168.1.0/24`)
 - Comprehensive audit logging
 - API key rotation and expiration
+- Automatic background cache refresh
 
 **Usage**:
 ```bash
@@ -40,6 +42,7 @@ For direct integration with Loxone Miniserver's native authentication system. Su
 - HMAC-SHA256 signature generation
 - JWT token management with automatic refresh
 - AES session key encryption
+- WebSocket token authentication (shares tokens with HTTP client)
 
 **Usage**:
 ```rust
@@ -87,6 +90,20 @@ let config = LoxoneConfig {
    - Rotate API keys periodically
    - Remove unused keys promptly
 
+5. **Configure IP Whitelisting**
+   - Restrict API keys to specific IP ranges
+   - Use CIDR notation for subnets:
+     ```bash
+     # Allow specific IP
+     loxone-mcp-auth update key_id --ip-whitelist "192.168.1.100"
+     
+     # Allow subnet
+     loxone-mcp-auth update key_id --ip-whitelist "192.168.1.0/24"
+     
+     # Allow multiple ranges
+     loxone-mcp-auth update key_id --ip-whitelist "192.168.1.0/24,10.0.0.0/16"
+     ```
+
 ### For Development
 
 1. **Use Memory Storage**
@@ -108,7 +125,10 @@ let config = LoxoneConfig {
 | Role-Based Access | ✅ | ❌ | ❌ |
 | Audit Logging | ✅ | ❌ | ❌ |
 | Rate Limiting | ✅ | ❌ | ❌ |
+| IP Whitelisting | ✅ (CIDR) | ❌ | ❌ |
+| WebSocket Support | ✅ | ✅ | ✅ |
 | Key Rotation | ✅ | ✅ | ❌ |
+| Background Cache | ✅ | ❌ | ❌ |
 | Setup Complexity | Low | Medium | Low |
 
 ## Migration Guide
@@ -154,8 +174,8 @@ If you were using `HTTP_API_KEY` environment variable:
    - Ensure proper role permissions
 
 2. **"Rate limited"**
-   - Too many failed attempts
-   - Wait 60 seconds before retrying
+   - Too many failed attempts (5 attempts in 15 minutes)
+   - Wait 30 minutes before retrying
 
 3. **"Permission denied"**
    - Key lacks required role

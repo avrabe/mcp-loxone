@@ -19,9 +19,8 @@ fn generate_api_keys_html() -> String {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>API Key Management - Loxone MCP Server</title>
+    {}
     <style>
-        {}
-        
         /* Additional styles for key management */
         .key-table {{
             width: 100%;
@@ -205,6 +204,8 @@ fn generate_api_keys_html() -> String {
     </style>
 </head>
 <body>
+    {}
+    
     <div class="container">
         <div class="header">
             <h1>🔑 API Key Management</h1>
@@ -316,6 +317,7 @@ fn generate_api_keys_html() -> String {
         
         async function loadKeys() {{
             try {{
+                // API key is automatically added by our fetch wrapper
                 const response = await fetch('/admin/api/keys');
                 if (!response.ok) throw new Error('Failed to load keys');
                 
@@ -533,6 +535,7 @@ fn generate_api_keys_html() -> String {
     </script>
 </body>
 </html>"#,
-        shared_styles::get_shared_styles()
+        shared_styles::get_shared_styles(),
+        shared_styles::get_nav_header("API Key Management", true)
     )
 }

@@ -32,7 +32,7 @@ pub struct Validator {
 /// Validation configuration
 #[derive(Debug, Clone)]
 pub struct ValidationConfig {
-    /// Maximum failed attempts before rate limiting
+    /// Maximum failed attempts before rate limiting (after this many attempts, requests are blocked)
     pub max_failed_attempts: u32,
     /// Time window for tracking failed attempts (minutes)
     pub failed_attempt_window_minutes: u64,
@@ -47,7 +47,7 @@ pub struct ValidationConfig {
 impl Default for ValidationConfig {
     fn default() -> Self {
         Self {
-            max_failed_attempts: 5,
+            max_failed_attempts: 4, // Block after 4 failed attempts (5th attempt returns RateLimited)
             failed_attempt_window_minutes: 15,
             block_duration_minutes: 30,
             session_timeout_minutes: 480, // 8 hours

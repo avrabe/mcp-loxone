@@ -1,6 +1,6 @@
 //! New navigation page with shared styles
 
-use crate::shared_styles::{get_nav_header, get_shared_styles};
+use crate::shared_styles::{get_nav_header, get_shared_styles, get_api_key_preservation_script};
 
 /// Generate the main navigation hub HTML
 pub fn generate_navigation_html() -> String {
@@ -11,6 +11,7 @@ pub fn generate_navigation_html() -> String {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Loxone MCP Server - Admin Hub</title>
+    {}
     {}
     <style>
         /* Navigation specific styles */
@@ -245,10 +246,10 @@ pub fn generate_navigation_html() -> String {
                         </div>
                         <div class="status-indicator"></div>
                     </a>
-                    <a href="/dashboard/influx" class="nav-link">
+                    <a href="/history/" class="nav-link">
                         <span class="link-icon">📈</span>
                         <div class="link-content">
-                            <div class="link-title">InfluxDB Dashboard</div>
+                            <div class="link-title">History Dashboard</div>
                             <div class="link-description">Historical data and trends</div>
                         </div>
                     </a>
@@ -369,14 +370,29 @@ pub fn generate_navigation_html() -> String {
         // Load system stats
         async function loadStats() {{
             try {{
+                // Get health status
                 const response = await fetch('/health');
                 const health = await response.json();
                 
-                document.getElementById('statusValue').textContent = health.status === 'healthy' ? '🟢' : '🔴';
+                document.getElementById('statusValue').textContent = health.status === 'ok' ? '🟢' : '🔴';
                 
-                // You can add more stats here from health endpoint
-                document.getElementById('uptimeValue').textContent = '24h';
-                document.getElementById('connectionsValue').textContent = '0';
+                // Get admin status for more details
+                const adminResponse = await fetch('/admin/status');
+                if (adminResponse.ok) {{
+                    const adminData = await adminResponse.json();
+                    document.getElementById('connectionsValue').textContent = adminData.connections || '0';
+                }}
+                
+                // Calculate uptime (for now, just show server start time)
+                const serverStartTime = sessionStorage.getItem('serverStartTime') || Date.now();
+                if (!sessionStorage.getItem('serverStartTime')) {{
+                    sessionStorage.setItem('serverStartTime', serverStartTime);
+                }}
+                const uptimeMs = Date.now() - parseInt(serverStartTime);
+                const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));
+                const uptimeMinutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
+                document.getElementById('uptimeValue').textContent = uptimeHours > 0 ? `${{uptimeHours}}h ${{uptimeMinutes}}m` : `${{uptimeMinutes}}m`;
+                
             }} catch (error) {{
                 console.warn('Failed to load stats:', error);
                 document.getElementById('statusValue').textContent = '🟡';
@@ -392,6 +408,7 @@ pub fn generate_navigation_html() -> String {
 </body>
 </html>"#,
         get_shared_styles(),
+        get_api_key_preservation_script(),
         get_nav_header("Admin Hub", false)
     )
 }
