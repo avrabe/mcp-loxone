@@ -688,3 +688,183 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
         }
     }))
 }
+
+/// Get all presence detector readings using unified value resolution
+pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolResponse {
+    // Ensure we're connected
+    if let Err(e) = context.ensure_connected().await {
+        return ToolResponse::error(format!("Connection error: {}", e));
+    }
+
+    // Get all devices using context helper
+    let all_devices = match context.get_devices(None).await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+    };
+
+    // Filter for presence detectors
+    let presence_detectors: Vec<_> = all_devices
+        .into_iter()
+        .filter(|device| {
+            let name_lower = device.name.to_lowercase();
+            let type_lower = device.device_type.to_lowercase();
+            
+            // Presence detector patterns
+            name_lower.contains("presence")
+                || name_lower.contains("präsenz")
+                || name_lower.contains("anwesenheit")
+                || name_lower.contains("occupancy")
+                || name_lower.contains("belegung")
+                || name_lower.contains("person")
+                || name_lower.contains("people")
+                || name_lower.contains("radar")
+                || name_lower.contains("microwave")
+                || name_lower.contains("ultrasonic")
+                || name_lower.contains("ultraschall")
+                || type_lower.contains("presence")
+                || type_lower.contains("occupancy")
+                || type_lower.contains("radar")
+                || type_lower.contains("ultrasonic")
+                || (type_lower.contains("digital") && (
+                    name_lower.contains("presence") || 
+                    name_lower.contains("occupancy") ||
+                    name_lower.contains("person")
+                ))
+        })
+        .collect();
+
+    if presence_detectors.is_empty() {
+        return ToolResponse::success(json!({
+            "detectors": [],
+            "summary": {
+                "total_detectors": 0,
+                "occupied_rooms": 0,
+                "vacant_rooms": 0,
+                "presence_detected": false,
+                "occupancy_rate": 0.0
+            }
+        }));
+    }
+
+    // Use unified value resolver for consistent value parsing
+    let resolver = &context.value_resolver;
+    let uuids: Vec<String> = presence_detectors.iter().map(|d| d.uuid.clone()).collect();
+    
+    // Batch resolve all detector values efficiently
+    let resolved_values = match resolver.resolve_batch_values(&uuids).await {
+        Ok(values) => values,
+        Err(e) => return ToolResponse::error(format!("Failed to resolve detector values: {}", e)),
+    };
+
+    let mut detector_data = Vec::new();
+    let mut occupied_count = 0;
+    let mut vacant_count = 0;
+    let mut room_occupancy = std::collections::HashMap::new();
+
+    for device in &presence_detectors {
+        if let Some(resolved) = resolved_values.get(&device.uuid) {
+            // Check if presence is detected based on resolved value
+            let presence_detected = if let Some(numeric) = resolved.numeric_value {
+                numeric > 0.0
+            } else {
+                // Check formatted value for presence status
+                let formatted = resolved.formatted_value.to_lowercase();
+                formatted.contains("present") || formatted.contains("occupied") || 
+                formatted.contains("detected") || formatted.contains("on") || 
+                formatted.contains("1") || formatted.contains("true") ||
+                formatted.contains("anwesend") || formatted.contains("belegt")
+            };
+
+            if presence_detected {
+                occupied_count += 1;
+            } else {
+                vacant_count += 1;
+            }
+
+            // Track room-level occupancy
+            let room_name = device.room.as_deref().unwrap_or("Unknown");
+            let current_occupancy = room_occupancy.get(room_name).unwrap_or(&false);
+            room_occupancy.insert(room_name, *current_occupancy || presence_detected);
+
+            let mut detector_json = create_sensor_json_from_resolved(device, resolved);
+            
+            // Add presence-specific fields
+            detector_json["presence_detected"] = json!(presence_detected);
+            detector_json["occupancy_status"] = json!(if presence_detected { "Occupied" } else { "Vacant" });
+            detector_json["detector_type"] = json!(if device.name.to_lowercase().contains("radar") {
+                "radar"
+            } else if device.name.to_lowercase().contains("ultrasonic") || device.name.to_lowercase().contains("ultraschall") {
+                "ultrasonic"
+            } else if device.name.to_lowercase().contains("microwave") {
+                "microwave"
+            } else if device.name.to_lowercase().contains("pir") {
+                "pir"
+            } else {
+                "presence"
+            });
+            
+            // Add confidence level based on detector type and value
+            if let Some(numeric) = resolved.numeric_value {
+                let confidence = if numeric >= 0.8 {
+                    "High"
+                } else if numeric >= 0.5 {
+                    "Medium"
+                } else if numeric > 0.0 {
+                    "Low"
+                } else {
+                    "None"
+                };
+                detector_json["detection_confidence"] = json!(confidence);
+            }
+            
+            detector_data.push(detector_json);
+        } else {
+            // Device found but no resolved value
+            detector_data.push(json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room.as_deref().unwrap_or("Unknown"),
+                "presence_detected": false,
+                "occupancy_status": "Unknown",
+                "detector_type": "unknown",
+                "status": "No Data",
+                "confidence": 0.0,
+                "source": "Missing"
+            }));
+        }
+    }
+
+    // Calculate room-level statistics
+    let occupied_rooms = room_occupancy.values().filter(|&&occupied| occupied).count();
+    let total_rooms = room_occupancy.len();
+    let occupancy_rate = if total_rooms > 0 {
+        occupied_rooms as f64 / total_rooms as f64
+    } else {
+        0.0
+    };
+
+    // Create room occupancy summary
+    let room_summary: Vec<_> = room_occupancy
+        .iter()
+        .map(|(room, &occupied)| json!({
+            "room": room,
+            "occupied": occupied,
+            "status": if occupied { "Occupied" } else { "Vacant" }
+        }))
+        .collect();
+
+    ToolResponse::success(json!({
+        "detectors": detector_data,
+        "room_occupancy": room_summary,
+        "summary": {
+            "total_detectors": detector_data.len(),
+            "occupied_detectors": occupied_count,
+            "vacant_detectors": vacant_count,
+            "occupied_rooms": occupied_rooms,
+            "total_rooms": total_rooms,
+            "presence_detected": occupied_count > 0,
+            "occupancy_rate": (occupancy_rate * 100.0).round() / 100.0,
+            "overall_status": if occupied_count > 0 { "Activity Detected" } else { "No Activity" }
+        }
+    }))
+}
