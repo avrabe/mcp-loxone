@@ -274,6 +274,18 @@ impl TokenHttpClient {
         &self.context
     }
 
+    /// Get authentication parameters for sharing with other clients (e.g., WebSocket)
+    /// Returns parameters in the format: "autht={token}&user={username}"
+    /// This method ensures authentication is valid before returning parameters.
+    pub async fn get_auth_params(&self) -> Result<String> {
+        // Ensure we have valid authentication first
+        self.ensure_authenticated().await?;
+        
+        // Get auth params from the authenticated client
+        let auth = self.auth_client.read().await;
+        auth.get_auth_params()
+    }
+
     /// Get connection pool statistics
     pub async fn pool_stats(&self) -> crate::client::connection_pool::PoolStats {
         self.connection_pool.stats().await

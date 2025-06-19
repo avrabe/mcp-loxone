@@ -400,25 +400,29 @@ impl LoxoneWebSocketClient {
                     .append_pair("password", &self.credentials.password);
             }
             AuthMethod::Token => {
-                // For token auth, we'll need to get a token first
-                // This would typically require the HTTP client to get a session token
-                if let Some(_http_client) = &self.http_client {
-                    // Try to extract token from HTTP client if available
-                    // For now, fall back to basic auth if token is not available
-                    warn!("Token authentication for WebSocket not fully implemented, using basic auth");
-                    ws_url
-                        .query_pairs_mut()
-                        .append_pair("user", &self.credentials.username)
-                        .append_pair("password", &self.credentials.password);
-                } else {
-                    // No HTTP client available, use basic auth
-                    warn!(
-                        "No HTTP client available for token auth, using basic auth for WebSocket"
-                    );
-                    ws_url
-                        .query_pairs_mut()
-                        .append_pair("user", &self.credentials.username)
-                        .append_pair("password", &self.credentials.password);
+                // Use proper token authentication from HTTP client
+                match self.get_token_auth_params().await {
+                    Ok(Some(auth_params)) => {
+                        // Use token-based authentication
+                        ws_url.set_query(Some(&auth_params));
+                        debug!("Using token authentication for WebSocket connection");
+                    }
+                    Ok(None) => {
+                        // No token available, fall back to basic auth
+                        warn!("No token available from HTTP client, falling back to basic auth for WebSocket");
+                        ws_url
+                            .query_pairs_mut()
+                            .append_pair("user", &self.credentials.username)
+                            .append_pair("password", &self.credentials.password);
+                    }
+                    Err(e) => {
+                        // Token extraction failed, fall back to basic auth
+                        warn!("Failed to get token authentication parameters: {}, falling back to basic auth", e);
+                        ws_url
+                            .query_pairs_mut()
+                            .append_pair("user", &self.credentials.username)
+                            .append_pair("password", &self.credentials.password);
+                    }
                 }
             }
             #[cfg(feature = "websocket")]
@@ -432,6 +436,33 @@ impl LoxoneWebSocketClient {
         }
 
         Ok(ws_url)
+    }
+
+    /// Get token authentication parameters from the HTTP client
+    async fn get_token_auth_params(&self) -> Result<Option<String>> {
+        if let Some(http_client) = &self.http_client {
+            // Try to downcast to TokenHttpClient to access token authentication
+            #[cfg(feature = "crypto-openssl")]
+            if let Some(token_client) = http_client.as_any().downcast_ref::<crate::client::TokenHttpClient>() {
+                // Get auth parameters (this method ensures authentication internally)
+                match token_client.get_auth_params().await {
+                    Ok(auth_params) => {
+                        debug!("Successfully extracted token auth parameters from HTTP client");
+                        return Ok(Some(auth_params));
+                    }
+                    Err(e) => {
+                        warn!("Failed to get auth parameters from TokenHttpClient: {}", e);
+                        return Ok(None);
+                    }
+                }
+            }
+            
+            // If not a TokenHttpClient or crypto-openssl feature not enabled, no token auth available
+            debug!("HTTP client is not a TokenHttpClient, token authentication not available");
+        }
+        
+        // No HTTP client or no token authentication available
+        Ok(None)
     }
 
     /// Start background tasks for message processing and reconnection
