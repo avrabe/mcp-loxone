@@ -461,3 +461,230 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
         }
     }))
 }
+
+/// Get all air quality sensor readings using unified value resolution
+pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolResponse {
+    // Ensure we're connected
+    if let Err(e) = context.ensure_connected().await {
+        return ToolResponse::error(format!("Connection error: {}", e));
+    }
+
+    // Get all devices using context helper
+    let all_devices = match context.get_devices(None).await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+    };
+
+    // Filter for air quality sensors
+    let air_quality_sensors: Vec<_> = all_devices
+        .into_iter()
+        .filter(|device| {
+            let name_lower = device.name.to_lowercase();
+            let type_lower = device.device_type.to_lowercase();
+            
+            // Air quality sensor patterns
+            name_lower.contains("air quality")
+                || name_lower.contains("luftqualität")
+                || name_lower.contains("co2")
+                || name_lower.contains("voc")
+                || name_lower.contains("pm2.5")
+                || name_lower.contains("pm10")
+                || name_lower.contains("humidity")
+                || name_lower.contains("feuchtigkeit")
+                || name_lower.contains("luftfeuchtigkeit")
+                || type_lower.contains("airquality")
+                || type_lower.contains("co2")
+                || type_lower.contains("voc")
+                || type_lower.contains("humidity")
+                || (device.device_type == "InfoOnlyAnalog" && (
+                    name_lower.contains("air") || 
+                    name_lower.contains("co2") ||
+                    name_lower.contains("humidity")
+                ))
+        })
+        .collect();
+
+    if air_quality_sensors.is_empty() {
+        return ToolResponse::success(json!({
+            "sensors": [],
+            "summary": {
+                "total_sensors": 0,
+                "air_quality_status": "No Data",
+                "average_co2": null,
+                "average_humidity": null,
+                "average_voc": null
+            }
+        }));
+    }
+
+    // Use unified value resolver for consistent value parsing
+    let resolver = &context.value_resolver;
+    let uuids: Vec<String> = air_quality_sensors.iter().map(|d| d.uuid.clone()).collect();
+    
+    // Batch resolve all sensor values efficiently
+    let resolved_values = match resolver.resolve_batch_values(&uuids).await {
+        Ok(values) => values,
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+    };
+
+    let mut sensor_data = Vec::new();
+    let mut co2_total = 0.0;
+    let mut co2_count = 0;
+    let mut humidity_total = 0.0;
+    let mut humidity_count = 0;
+    let mut voc_total = 0.0;
+    let mut voc_count = 0;
+    let mut worst_air_quality = "Good";
+
+    for device in &air_quality_sensors {
+        if let Some(resolved) = resolved_values.get(&device.uuid) {
+            let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
+            
+            // Determine sensor type and calculate averages
+            if let Some(unit) = &resolved.unit {
+                match unit.as_str() {
+                    "ppm" => {
+                        if let Some(value) = resolved.numeric_value {
+                            if device.name.to_lowercase().contains("co2") {
+                                co2_total += value;
+                                co2_count += 1;
+                                sensor_json["sensor_type"] = json!("co2");
+                                sensor_json["co2_ppm"] = json!(value);
+                                
+                                // Assess CO2 level
+                                let quality = if value < 800.0 {
+                                    "Good"
+                                } else if value < 1000.0 {
+                                    "Moderate"
+                                } else if value < 1400.0 {
+                                    "Poor"
+                                } else {
+                                    "Very Poor"
+                                };
+                                sensor_json["air_quality"] = json!(quality);
+                                
+                                // Update worst quality
+                                if quality == "Very Poor" || (worst_air_quality != "Very Poor" && quality == "Poor") {
+                                    worst_air_quality = quality;
+                                } else if worst_air_quality == "Good" && quality == "Moderate" {
+                                    worst_air_quality = quality;
+                                }
+                            } else if device.name.to_lowercase().contains("voc") {
+                                voc_total += value;
+                                voc_count += 1;
+                                sensor_json["sensor_type"] = json!("voc");
+                                sensor_json["voc_ppm"] = json!(value);
+                            }
+                        }
+                    }
+                    "%" => {
+                        if let Some(value) = resolved.numeric_value {
+                            if device.name.to_lowercase().contains("humid") || device.name.to_lowercase().contains("feucht") {
+                                humidity_total += value;
+                                humidity_count += 1;
+                                sensor_json["sensor_type"] = json!("humidity");
+                                sensor_json["humidity_percent"] = json!(value);
+                                
+                                // Assess humidity level
+                                let comfort = if value >= 30.0 && value <= 60.0 {
+                                    "Comfortable"
+                                } else if value < 20.0 || value > 70.0 {
+                                    "Uncomfortable"
+                                } else {
+                                    "Acceptable"
+                                };
+                                sensor_json["comfort_level"] = json!(comfort);
+                            }
+                        }
+                    }
+                    "μg/m³" | "ug/m3" => {
+                        if let Some(value) = resolved.numeric_value {
+                            if device.name.to_lowercase().contains("pm2.5") || device.name.to_lowercase().contains("pm25") {
+                                sensor_json["sensor_type"] = json!("pm2.5");
+                                sensor_json["pm25_ugm3"] = json!(value);
+                                
+                                // WHO guidelines for PM2.5
+                                let quality = if value < 15.0 {
+                                    "Good"
+                                } else if value < 35.0 {
+                                    "Moderate"
+                                } else if value < 55.0 {
+                                    "Poor"
+                                } else {
+                                    "Very Poor"
+                                };
+                                sensor_json["air_quality"] = json!(quality);
+                            } else if device.name.to_lowercase().contains("pm10") {
+                                sensor_json["sensor_type"] = json!("pm10");
+                                sensor_json["pm10_ugm3"] = json!(value);
+                            }
+                        }
+                    }
+                    _ => {
+                        sensor_json["sensor_type"] = json!("unknown");
+                    }
+                }
+            } else {
+                // Try to infer from name if no unit
+                let name_lower = device.name.to_lowercase();
+                if name_lower.contains("co2") {
+                    sensor_json["sensor_type"] = json!("co2");
+                } else if name_lower.contains("humid") || name_lower.contains("feucht") {
+                    sensor_json["sensor_type"] = json!("humidity");
+                } else if name_lower.contains("voc") {
+                    sensor_json["sensor_type"] = json!("voc");
+                } else if name_lower.contains("pm") {
+                    sensor_json["sensor_type"] = json!("particulate");
+                } else {
+                    sensor_json["sensor_type"] = json!("air_quality");
+                }
+            }
+            
+            sensor_data.push(sensor_json);
+        } else {
+            // Device found but no resolved value
+            sensor_data.push(json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room.as_deref().unwrap_or("Unknown"),
+                "value": null,
+                "sensor_type": "unknown",
+                "status": "No Data",
+                "confidence": 0.0,
+                "source": "Missing"
+            }));
+        }
+    }
+
+    let average_co2 = if co2_count > 0 {
+        Some(co2_total / co2_count as f64)
+    } else {
+        None
+    };
+
+    let average_humidity = if humidity_count > 0 {
+        Some(humidity_total / humidity_count as f64)
+    } else {
+        None
+    };
+
+    let average_voc = if voc_count > 0 {
+        Some(voc_total / voc_count as f64)
+    } else {
+        None
+    };
+
+    ToolResponse::success(json!({
+        "sensors": sensor_data,
+        "summary": {
+            "total_sensors": sensor_data.len(),
+            "air_quality_status": worst_air_quality,
+            "average_co2": average_co2,
+            "average_humidity": average_humidity,
+            "average_voc": average_voc,
+            "co2_sensors": co2_count,
+            "humidity_sensors": humidity_count,
+            "voc_sensors": voc_count
+        }
+    }))
+}

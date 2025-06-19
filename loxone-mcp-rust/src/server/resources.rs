@@ -19,6 +19,8 @@
 //! - `loxone://audio/sources` - Audio sources
 //! - `loxone://sensors/door-window` - Door/window sensors
 //! - `loxone://sensors/temperature` - Temperature sensors
+//! - `loxone://sensors/motion` - Motion sensors
+//! - `loxone://sensors/air-quality` - Air quality sensors (CO2, VOC, humidity, PM)
 //! - `loxone://sensors/discovered` - Dynamically discovered sensors
 //! - `loxone://weather/current` - Current weather data
 //! - `loxone://weather/outdoor-conditions` - Outdoor conditions with comfort assessment
@@ -363,6 +365,16 @@ impl ResourceManager {
                 uri: "loxone://sensors/motion".to_string(),
                 name: "Motion Sensors".to_string(),
                 description: "All motion and presence sensors with current state".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Sensors,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://sensors/air-quality".to_string(),
+                name: "Air Quality Sensors".to_string(),
+                description: "All air quality sensors including CO2, VOC, humidity, and particulate matter".to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Sensors,
@@ -1135,6 +1147,7 @@ impl ResourceHandler for LoxoneMcpServer {
             "loxone://sensors/door-window" => self.read_door_window_sensors_resource().await?,
             "loxone://sensors/temperature" => self.read_temperature_sensors_resource().await?,
             "loxone://sensors/motion" => self.read_motion_sensors_resource().await?,
+            "loxone://sensors/air-quality" => self.read_air_quality_sensors_resource().await?,
             "loxone://sensors/discovered" => self.read_discovered_sensors_resource().await?,
             "loxone://weather/current" => self.read_weather_current_resource().await?,
             "loxone://weather/outdoor-conditions" => {
@@ -1435,6 +1448,29 @@ impl LoxoneMcpServer {
         } else {
             Err(LoxoneError::invalid_input(format!(
                 "Failed to get motion sensors: {}",
+                response
+                    .message
+                    .unwrap_or_else(|| "Unknown error".to_string())
+            )))
+        }
+    }
+
+    async fn read_air_quality_sensors_resource(&self) -> Result<serde_json::Value> {
+        use crate::tools::{sensors_unified::get_air_quality_sensors_unified, ToolContext};
+
+        let tool_context = ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
+        let response = get_air_quality_sensors_unified(tool_context).await;
+
+        if response.status == "success" {
+            Ok(response.data)
+        } else {
+            Err(LoxoneError::invalid_input(format!(
+                "Failed to get air quality sensors: {}",
                 response
                     .message
                     .unwrap_or_else(|| "Unknown error".to_string())
