@@ -10,6 +10,7 @@ pub use crate::tools::sensors_unified::{
     get_energy_meters_unified as get_energy_meters,
     get_air_quality_sensors_unified as get_air_quality_sensors,
     get_presence_detectors_unified as get_presence_detectors,
+    get_weather_station_sensors_unified as get_weather_station_sensors,
 };
 
 use crate::tools::{ToolContext, ToolResponse};

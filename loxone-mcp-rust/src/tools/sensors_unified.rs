@@ -868,3 +868,264 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
         }
     }))
 }
+
+/// Get all weather station sensor readings using unified value resolution
+pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolResponse {
+    // Ensure we're connected
+    if let Err(e) = context.ensure_connected().await {
+        return ToolResponse::error(format!("Connection error: {}", e));
+    }
+
+    // Get all devices using context helper
+    let all_devices = match context.get_devices(None).await {
+        Ok(devices) => devices,
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+    };
+
+    // Filter for weather station sensors
+    let weather_sensors: Vec<_> = all_devices
+        .into_iter()
+        .filter(|device| {
+            let name_lower = device.name.to_lowercase();
+            let type_lower = device.device_type.to_lowercase();
+            
+            // Weather station patterns
+            name_lower.contains("weather")
+                || name_lower.contains("wetter")
+                || name_lower.contains("wind")
+                || name_lower.contains("rain")
+                || name_lower.contains("regen")
+                || name_lower.contains("humidity")
+                || name_lower.contains("feuchtigkeit")
+                || name_lower.contains("pressure")
+                || name_lower.contains("druck")
+                || name_lower.contains("barometric")
+                || name_lower.contains("solar")
+                || name_lower.contains("uv")
+                || name_lower.contains("brightness")
+                || name_lower.contains("helligkeit")
+                || name_lower.contains("lux")
+                || name_lower.contains("outdoor")
+                || name_lower.contains("außen")
+                || name_lower.contains("external")
+                || type_lower.contains("weather")
+                || type_lower.contains("windspeed")
+                || type_lower.contains("rainfall")
+                || (device.device_type == "InfoOnlyAnalog" && (
+                    name_lower.contains("wind") || 
+                    name_lower.contains("rain") ||
+                    name_lower.contains("pressure") ||
+                    name_lower.contains("outdoor") ||
+                    name_lower.contains("solar")
+                ))
+        })
+        .collect();
+
+    if weather_sensors.is_empty() {
+        return ToolResponse::success(json!({
+            "sensors": [],
+            "summary": {
+                "total_sensors": 0,
+                "weather_status": "No Data",
+                "outdoor_temperature": null,
+                "wind_speed": null,
+                "rainfall": null,
+                "atmospheric_pressure": null,
+                "humidity": null,
+                "solar_radiation": null
+            }
+        }));
+    }
+
+    // Use unified value resolver for consistent value parsing
+    let resolver = &context.value_resolver;
+    let uuids: Vec<String> = weather_sensors.iter().map(|d| d.uuid.clone()).collect();
+    
+    // Batch resolve all sensor values efficiently
+    let resolved_values = match resolver.resolve_batch_values(&uuids).await {
+        Ok(values) => values,
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+    };
+
+    let mut sensor_data = Vec::new();
+    let mut outdoor_temp: Option<f64> = None;
+    let mut wind_speed: Option<f64> = None;
+    let mut rainfall: Option<f64> = None;
+    let mut pressure: Option<f64> = None;
+    let mut humidity: Option<f64> = None;
+    let mut solar_radiation: Option<f64> = None;
+    let mut uv_index: Option<f64> = None;
+    let mut brightness: Option<f64> = None;
+
+    for device in &weather_sensors {
+        if let Some(resolved) = resolved_values.get(&device.uuid) {
+            let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
+            
+            // Determine sensor type based on name and unit
+            let name_lower = device.name.to_lowercase();
+            let sensor_type = if name_lower.contains("temp") && (name_lower.contains("outdoor") || name_lower.contains("außen")) {
+                "outdoor_temperature"
+            } else if name_lower.contains("wind") {
+                "wind_speed"
+            } else if name_lower.contains("rain") || name_lower.contains("regen") {
+                "rainfall"
+            } else if name_lower.contains("pressure") || name_lower.contains("druck") {
+                "atmospheric_pressure"
+            } else if name_lower.contains("humid") && (name_lower.contains("outdoor") || name_lower.contains("außen")) {
+                "outdoor_humidity"
+            } else if name_lower.contains("solar") {
+                "solar_radiation"
+            } else if name_lower.contains("uv") {
+                "uv_index"
+            } else if name_lower.contains("brightness") || name_lower.contains("helligkeit") || name_lower.contains("lux") {
+                "brightness"
+            } else {
+                "weather_sensor"
+            };
+
+            sensor_json["sensor_type"] = json!(sensor_type);
+
+            // Extract values for summary based on type and unit
+            if let Some(value) = resolved.numeric_value {
+                match sensor_type {
+                    "outdoor_temperature" => {
+                        outdoor_temp = Some(value);
+                        sensor_json["temperature_celsius"] = json!(value);
+                    }
+                    "wind_speed" => {
+                        wind_speed = Some(value);
+                        sensor_json["wind_speed_ms"] = json!(value);
+                        
+                        // Add wind condition assessment
+                        let condition = if value < 1.0 {
+                            "Calm"
+                        } else if value < 5.0 {
+                            "Light breeze"
+                        } else if value < 10.0 {
+                            "Moderate breeze"
+                        } else if value < 15.0 {
+                            "Strong breeze"
+                        } else {
+                            "High wind"
+                        };
+                        sensor_json["wind_condition"] = json!(condition);
+                    }
+                    "rainfall" => {
+                        rainfall = Some(value);
+                        sensor_json["rainfall_mm"] = json!(value);
+                        
+                        // Add rain intensity
+                        let intensity = if value == 0.0 {
+                            "No rain"
+                        } else if value < 2.0 {
+                            "Light rain"
+                        } else if value < 10.0 {
+                            "Moderate rain"
+                        } else {
+                            "Heavy rain"
+                        };
+                        sensor_json["rain_intensity"] = json!(intensity);
+                    }
+                    "atmospheric_pressure" => {
+                        pressure = Some(value);
+                        sensor_json["pressure_hpa"] = json!(value);
+                        
+                        // Add pressure trend indication
+                        let trend = if value > 1020.0 {
+                            "High pressure"
+                        } else if value > 1000.0 {
+                            "Normal pressure"
+                        } else {
+                            "Low pressure"
+                        };
+                        sensor_json["pressure_trend"] = json!(trend);
+                    }
+                    "outdoor_humidity" => {
+                        humidity = Some(value);
+                        sensor_json["humidity_percent"] = json!(value);
+                    }
+                    "solar_radiation" => {
+                        solar_radiation = Some(value);
+                        sensor_json["solar_radiation_wm2"] = json!(value);
+                    }
+                    "uv_index" => {
+                        uv_index = Some(value);
+                        sensor_json["uv_index"] = json!(value);
+                        
+                        // Add UV risk level
+                        let risk = if value < 3.0 {
+                            "Low"
+                        } else if value < 6.0 {
+                            "Moderate"
+                        } else if value < 8.0 {
+                            "High"
+                        } else if value < 11.0 {
+                            "Very High"
+                        } else {
+                            "Extreme"
+                        };
+                        sensor_json["uv_risk"] = json!(risk);
+                    }
+                    "brightness" => {
+                        brightness = Some(value);
+                        sensor_json["brightness_lux"] = json!(value);
+                    }
+                    _ => {}
+                }
+            }
+            
+            sensor_data.push(sensor_json);
+        } else {
+            // Device found but no resolved value
+            sensor_data.push(json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room.as_deref().unwrap_or("Outdoor"),
+                "value": null,
+                "sensor_type": "unknown",
+                "status": "No Data",
+                "confidence": 0.0,
+                "source": "Missing"
+            }));
+        }
+    }
+
+    // Determine overall weather status
+    let weather_status = if outdoor_temp.is_some() || wind_speed.is_some() || rainfall.is_some() {
+        let temp_status = outdoor_temp.map(|t| {
+            if t < 0.0 { "Freezing" }
+            else if t < 10.0 { "Cold" }
+            else if t < 20.0 { "Cool" }
+            else if t < 30.0 { "Warm" }
+            else { "Hot" }
+        }).unwrap_or("Unknown");
+
+        let rain_status = rainfall.map(|r| {
+            if r > 0.0 { "Rainy" } else { "Dry" }
+        }).unwrap_or("Unknown");
+
+        let wind_status = wind_speed.map(|w| {
+            if w > 10.0 { "Windy" } else { "Calm" }
+        }).unwrap_or("Unknown");
+
+        format!("{}, {}, {}", temp_status, rain_status, wind_status)
+    } else {
+        "No Data".to_string()
+    };
+
+    ToolResponse::success(json!({
+        "sensors": sensor_data,
+        "summary": {
+            "total_sensors": sensor_data.len(),
+            "weather_status": weather_status,
+            "outdoor_temperature": outdoor_temp,
+            "wind_speed": wind_speed,
+            "rainfall": rainfall,
+            "atmospheric_pressure": pressure,
+            "humidity": humidity,
+            "solar_radiation": solar_radiation,
+            "uv_index": uv_index,
+            "brightness": brightness
+        }
+    }))
+}
