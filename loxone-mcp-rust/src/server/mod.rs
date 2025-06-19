@@ -214,81 +214,9 @@ impl LoxoneMcpServer {
         ) {
             // If using HTTP client, get its context which already has the structure loaded from connect()
             Arc::new(http_client.context().clone())
-        } else if let Some(token_client) = client
-            .as_any()
-            .downcast_ref::<crate::client::token_http_client::TokenHttpClient>(
-        ) {
-            // If using token HTTP client, get its context
-            Arc::new(token_client.context().clone())
-        } else if let Some(ws_client) = client
-            .as_any()
-            .downcast_ref::<crate::client::websocket_client::LoxoneWebSocketClient>(
-        ) {
-            // If using WebSocket client, get its context
-            #[cfg(feature = "websocket")]
-            {
-                Arc::new(ws_client.context().clone())
-            }
-            #[cfg(not(feature = "websocket"))]
-            {
-                // This shouldn't happen but handle gracefully
-                warn!("WebSocket client detected but websocket feature not enabled");
-                Arc::new(ClientContext::new())
-            }
         } else {
-            // For other client types, load structure manually
-            info!("📊 Loading Loxone structure...");
-            let structure = match client.get_structure().await {
-                Ok(structure) => {
-                    info!("✅ Structure loaded successfully");
-                    structure
-                }
-                Err(e) => {
-                    warn!("⚠️ Structure loading failed: {}", e);
-
-                    // If we're using advanced auth and structure loading fails, try fallback
-                    if loxone_config.auth_method == crate::config::AuthMethod::Token 
-                        || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
-                        warn!("🔄 Advanced authentication structure loading failed, attempting fallback to basic authentication");
-                        let mut basic_config = loxone_config.clone();
-                        basic_config.auth_method = crate::config::AuthMethod::Basic;
-
-                        match create_client(&basic_config, &credentials).await {
-                            Ok(mut basic_client) => {
-                                info!("✅ Successfully created basic authentication client");
-                                // Connect the basic client
-                                match basic_client.connect().await {
-                                    Ok(()) => {
-                                        info!("✅ Basic authentication connection successful");
-                                        // Return with the connected basic client
-                                        return Self::new_with_client(basic_client, basic_config)
-                                            .await;
-                                    }
-                                    Err(e) => {
-                                        error!("❌ Basic authentication connection failed: {}", e);
-                                        return Err(e);
-                                    }
-                                }
-                            }
-                            Err(fallback_err) => {
-                                error!(
-                                    "❌ Failed to create basic auth fallback client: {}",
-                                    fallback_err
-                                );
-                                return Err(e);
-                            }
-                        }
-                    } else {
-                        error!("❌ Failed to load structure: {}", e);
-                        return Err(e);
-                    }
-                }
-            };
-
-            // Create new context and update with structure
-            let new_context = Arc::new(ClientContext::new());
-            new_context.update_structure(structure).await?;
-            new_context
+            // For all other clients, create default context for now
+            Arc::new(ClientContext::new())
         };
 
         {

@@ -4,6 +4,7 @@
 //! of truth for device values, sensor detection, and state management.
 
 pub mod cache_manager;
+pub mod connection_pool;
 pub mod sensor_registry;
 pub mod state_manager;
 pub mod unified_models;

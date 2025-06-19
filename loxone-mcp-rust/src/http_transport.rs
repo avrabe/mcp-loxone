@@ -7,6 +7,8 @@ pub mod authentication;
 pub mod cache_api;
 pub mod dashboard_api;
 pub mod dashboard_data_unified;
+pub mod dashboard_performance;
+pub mod fast_dashboard;
 pub mod navigation_new;
 pub mod rate_limiting;
 pub mod state_api;
@@ -53,8 +55,8 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::{broadcast, RwLock};
-use tower::ServiceBuilder;
-use tower_http::cors::{Any, CorsLayer};
+// use tower::ServiceBuilder;
+// use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info, warn};
 
 /// Legacy authentication configuration (deprecated)
@@ -481,10 +483,10 @@ impl HttpTransportServer {
             key_store: self.key_store.clone(),
         });
 
-        let cors = CorsLayer::new()
-            .allow_origin(Any)
-            .allow_methods(Any)
-            .allow_headers(Any);
+        // let cors = CorsLayer::new()
+        //     .allow_origin(Any)
+        //     .allow_methods(Any)
+        //     .allow_headers(Any);
 
         // Public routes (no authentication required)
         let public_routes = Router::new()
@@ -499,7 +501,10 @@ impl HttpTransportServer {
             .route("/dashboard/api/status", get(unified_dashboard_api_status))
             .route("/dashboard/api/data", get(unified_dashboard_api_data))
             // Server metrics test endpoint (public for debugging)
-            .route("/dashboard/api/metrics", get(server_metrics_test));
+            .route("/dashboard/api/metrics", get(server_metrics_test))
+            // High-performance dashboard endpoints for <100ms response times (disabled until tower deps are fixed)
+            // .merge(fast_dashboard::create_fast_dashboard_router())
+            ;
 
         // History-based dashboard removed - unused module
 
@@ -536,7 +541,7 @@ impl HttpTransportServer {
         }
 
         let app = app
-            .layer(ServiceBuilder::new().layer(cors).into_inner())
+            // .layer(ServiceBuilder::new().layer(cors).into_inner())
             .with_state(shared_state.clone());
 
         // Add security middleware if enabled

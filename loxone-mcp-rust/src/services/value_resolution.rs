@@ -163,10 +163,17 @@ impl UnifiedValueResolver {
             .downcast_ref::<crate::client::LoxoneHttpClient>()
             .map(|c| c.context())
             .or_else(|| {
-                self.client
-                    .as_any()
-                    .downcast_ref::<crate::client::TokenHttpClient>()
-                    .map(|c| c.context())
+                #[cfg(feature = "crypto-openssl")]
+                {
+                    self.client
+                        .as_any()
+                        .downcast_ref::<crate::client::TokenHttpClient>()
+                        .map(|c| c.context())
+                }
+                #[cfg(not(feature = "crypto-openssl"))]
+                {
+                    None
+                }
             })
             .ok_or_else(|| LoxoneError::config("Unable to access client context"))?;
 
@@ -591,10 +598,17 @@ impl UnifiedValueResolver {
             .downcast_ref::<crate::client::LoxoneHttpClient>()
             .map(|c| c.context())
             .or_else(|| {
-                self.client
-                    .as_any()
-                    .downcast_ref::<crate::client::TokenHttpClient>()
-                    .map(|c| c.context())
+                #[cfg(feature = "crypto-openssl")]
+                {
+                    self.client
+                        .as_any()
+                        .downcast_ref::<crate::client::TokenHttpClient>()
+                        .map(|c| c.context())
+                }
+                #[cfg(not(feature = "crypto-openssl"))]
+                {
+                    None
+                }
             })
             .ok_or_else(|| LoxoneError::config("Unable to access client context"))?;
 
