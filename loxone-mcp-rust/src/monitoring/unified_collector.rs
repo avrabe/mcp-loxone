@@ -5,7 +5,7 @@
 
 use crate::client::LoxoneClient;
 use crate::error::Result;
-use crate::history::core::UnifiedHistoryStore;
+// Removed history import - module was unused
 use crate::http_transport::rate_limiting::RateLimitResult;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
@@ -21,8 +21,6 @@ pub struct UnifiedDataCollector {
     /// Loxone clients for different endpoints
     clients: HashMap<String, Arc<dyn LoxoneClient>>,
 
-    /// History store for persistence
-    history_store: Option<Arc<UnifiedHistoryStore>>,
 
     /// Real-time data broadcast
     realtime_tx: broadcast::Sender<DashboardUpdate>,
@@ -532,14 +530,12 @@ impl UnifiedDataCollector {
     /// Create new unified data collector
     pub fn new(
         clients: HashMap<String, Arc<dyn LoxoneClient>>,
-        history_store: Option<Arc<UnifiedHistoryStore>>,
         config: CollectorConfig,
     ) -> Self {
         let (realtime_tx, _) = broadcast::channel(1000);
 
         Self {
             clients,
-            history_store,
             realtime_tx,
             operational_metrics: Arc::new(RwLock::new(OperationalMetrics::default())),
             state: Arc::new(RwLock::new(CollectorState::default())),
@@ -668,7 +664,6 @@ impl UnifiedDataCollector {
     async fn start_collection_loop(&self) {
         let state = self.state.clone();
         let clients = self.clients.clone();
-        let history_store = self.history_store.clone();
         let realtime_tx = self.realtime_tx.clone();
         let operational_metrics = self.operational_metrics.clone();
         let interval_secs = self.config.collection_interval_seconds;
@@ -690,7 +685,6 @@ impl UnifiedDataCollector {
 
                 match Self::collect_data(
                     &clients,
-                    &history_store,
                     &realtime_tx,
                     &operational_metrics,
                 )
@@ -731,7 +725,6 @@ impl UnifiedDataCollector {
     /// Collect data from all sources
     async fn collect_data(
         _clients: &HashMap<String, Arc<dyn LoxoneClient>>,
-        _history_store: &Option<Arc<UnifiedHistoryStore>>,
         realtime_tx: &broadcast::Sender<DashboardUpdate>,
         _operational_metrics: &Arc<RwLock<OperationalMetrics>>,
     ) -> Result<DashboardData> {
@@ -740,9 +733,8 @@ impl UnifiedDataCollector {
         // 1. Poll all Loxone clients for current state
         // 2. Process device and sensor data
         // 3. Update operational metrics
-        // 4. Store to history if enabled
-        // 5. Broadcast real-time updates
-        // 6. Return consolidated dashboard data
+        // 4. Broadcast real-time updates
+        // 5. Return consolidated dashboard data
 
         let dashboard_data = DashboardData {
             metadata: DashboardMetadata {

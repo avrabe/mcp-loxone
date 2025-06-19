@@ -132,68 +132,81 @@ impl ServerHandler for LoxoneMcpServer {
                 }),
             },
             Tool {
-                name: "control_all_rolladen".into(),
-                description: "Control all rolladen/blinds in the entire system simultaneously"
-                    .into(),
+                name: "control_rolladen_unified".into(),
+                description: "Unified rolladen/blinds control with scope-based targeting (device/room/system)".into(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "action": {
+                        "scope": {
                             "type": "string",
-                            "description": "Action to perform: 'up', 'down', or 'stop'"
-                        }
-                    },
-                    "required": ["action"]
-                }),
-            },
-            Tool {
-                name: "control_room_rolladen".into(),
-                description: "Control all rolladen/blinds in a specific room".into(),
-                input_schema: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "room": {
+                            "description": "Control scope: 'device', 'room', or 'system'",
+                            "enum": ["device", "room", "system"]
+                        },
+                        "target": {
                             "type": "string",
-                            "description": "Name of the room"
+                            "description": "Target name (device name/UUID for device scope, room name for room scope, optional for system scope)"
                         },
                         "action": {
                             "type": "string",
-                            "description": "Action to perform: 'up', 'down', or 'stop'"
+                            "description": "Action: 'up', 'down', 'stop', 'position'",
+                            "enum": ["up", "down", "stop", "position"]
+                        },
+                        "position": {
+                            "type": "integer",
+                            "description": "Position for 'position' action (0-100, where 0=fully up, 100=fully down)",
+                            "minimum": 0,
+                            "maximum": 100
                         }
                     },
-                    "required": ["room", "action"]
+                    "required": ["scope", "action"]
                 }),
             },
             Tool {
-                name: "control_all_lights".into(),
-                description: "Control all lights in the entire system simultaneously".into(),
+                name: "discover_rolladen_capabilities".into(),
+                description: "Discover all rolladen/blinds devices and capabilities in the system".into(),
                 input_schema: serde_json::json!({
                     "type": "object",
-                    "properties": {
-                        "action": {
-                            "type": "string",
-                            "description": "Action to perform: 'on' or 'off'"
-                        }
-                    },
-                    "required": ["action"]
+                    "properties": {},
+                    "required": []
                 }),
             },
             Tool {
-                name: "control_room_lights".into(),
-                description: "Control all lights in a specific room".into(),
+                name: "control_lights_unified".into(),
+                description: "Unified lighting control with scope-based targeting (device/room/system)".into(),
                 input_schema: serde_json::json!({
                     "type": "object",
                     "properties": {
-                        "room": {
+                        "scope": {
                             "type": "string",
-                            "description": "Name of the room"
+                            "description": "Control scope: 'device', 'room', or 'system'",
+                            "enum": ["device", "room", "system"]
+                        },
+                        "target": {
+                            "type": "string",
+                            "description": "Target name (device name/UUID for device scope, room name for room scope, optional for system scope)"
                         },
                         "action": {
                             "type": "string",
-                            "description": "Action to perform: 'on' or 'off'"
+                            "description": "Action: 'on', 'off', 'dim', 'bright'",
+                            "enum": ["on", "off", "dim", "bright"]
+                        },
+                        "brightness": {
+                            "type": "integer",
+                            "description": "Brightness level for dim/bright actions (0-100)",
+                            "minimum": 0,
+                            "maximum": 100
                         }
                     },
-                    "required": ["room", "action"]
+                    "required": ["scope", "action"]
+                }),
+            },
+            Tool {
+                name: "discover_lighting_capabilities".into(),
+                description: "Discover all lighting devices and capabilities in the system".into(),
+                input_schema: serde_json::json!({
+                    "type": "object",
+                    "properties": {},
+                    "required": []
                 }),
             },
             Tool {
@@ -585,70 +598,70 @@ impl ServerHandler for LoxoneMcpServer {
                     .map_err(|_| Error::invalid_params("Failed to control multiple devices"))
             }
 
-            "control_all_rolladen" => {
+            "control_rolladen_unified" => {
                 let args = request
                     .arguments
                     .ok_or_else(|| Error::invalid_params("Missing arguments"))?;
+                let scope = args
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| Error::invalid_params("Missing scope parameter"))?;
+                let target = args
+                    .get("target")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 let action = args
                     .get("action")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string())
                     .ok_or_else(|| Error::invalid_params("Missing action parameter"))?;
-                self.control_all_rolladen(action)
+                let position = args
+                    .get("position")
+                    .and_then(|v| v.as_u64())
+                    .map(|p| p as u8);
+                self.control_rolladen_unified(scope, target, action, position)
                     .await
-                    .map_err(|_| Error::invalid_params("Failed to control all rolladen"))
+                    .map_err(|_| Error::invalid_params("Failed to control rolladen"))
             }
 
-            "control_room_rolladen" => {
-                let args = request
-                    .arguments
-                    .ok_or_else(|| Error::invalid_params("Missing arguments"))?;
-                let room = args
-                    .get("room")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| Error::invalid_params("Missing room parameter"))?;
-                let action = args
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| Error::invalid_params("Missing action parameter"))?;
-                self.control_room_rolladen(room, action)
+            "discover_rolladen_capabilities" => {
+                self.discover_rolladen_capabilities()
                     .await
-                    .map_err(|_| Error::invalid_params("Failed to control room rolladen"))
+                    .map_err(|_| Error::invalid_params("Failed to discover rolladen capabilities"))
             }
 
-            "control_all_lights" => {
+            "control_lights_unified" => {
                 let args = request
                     .arguments
                     .ok_or_else(|| Error::invalid_params("Missing arguments"))?;
+                let scope = args
+                    .get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string())
+                    .ok_or_else(|| Error::invalid_params("Missing scope parameter"))?;
+                let target = args
+                    .get("target")
+                    .and_then(|v| v.as_str())
+                    .map(|s| s.to_string());
                 let action = args
                     .get("action")
                     .and_then(|v| v.as_str())
                     .map(|s| s.to_string())
                     .ok_or_else(|| Error::invalid_params("Missing action parameter"))?;
-                self.control_all_lights(action)
+                let brightness = args
+                    .get("brightness")
+                    .and_then(|v| v.as_u64())
+                    .map(|b| b as u8);
+                self.control_lights_unified(scope, target, action, brightness)
                     .await
-                    .map_err(|_| Error::invalid_params("Failed to control all lights"))
+                    .map_err(|_| Error::invalid_params("Failed to control lights"))
             }
 
-            "control_room_lights" => {
-                let args = request
-                    .arguments
-                    .ok_or_else(|| Error::invalid_params("Missing arguments"))?;
-                let room = args
-                    .get("room")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| Error::invalid_params("Missing room parameter"))?;
-                let action = args
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .map(|s| s.to_string())
-                    .ok_or_else(|| Error::invalid_params("Missing action parameter"))?;
-                self.control_room_lights(room, action)
+            "discover_lighting_capabilities" => {
+                self.discover_lighting_capabilities()
                     .await
-                    .map_err(|_| Error::invalid_params("Failed to control room lights"))
+                    .map_err(|_| Error::invalid_params("Failed to discover lighting capabilities"))
             }
 
             // "discover_all_devices" → loxone://devices/all

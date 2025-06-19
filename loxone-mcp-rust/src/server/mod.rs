@@ -79,9 +79,7 @@ pub struct LoxoneMcpServer {
     /// Resource subscription coordinator for real-time notifications
     pub(crate) subscription_coordinator: Arc<subscription::SubscriptionCoordinator>,
 
-    /// Unified history store for dashboard data
-    #[allow(dead_code)]
-    pub(crate) history_store: Option<Arc<crate::history::core::UnifiedHistoryStore>>,
+    // Removed history_store - unused module
 
     /// Loxone statistics collector (optional)
     #[cfg(feature = "influxdb")]
@@ -523,7 +521,7 @@ impl LoxoneMcpServer {
             response_cache,
             sampling_integration,
             subscription_coordinator,
-            history_store: None, // Initialize history store as None for now
+            // Removed history_store initialization - unused module
             #[cfg(feature = "influxdb")]
             stats_collector,
             value_resolver,
@@ -814,7 +812,7 @@ impl LoxoneMcpServer {
             response_cache,
             sampling_integration,
             subscription_coordinator,
-            history_store: None, // Initialize history store as None for now
+            // Removed history_store initialization - unused module
             #[cfg(feature = "influxdb")]
             stats_collector,
             value_resolver,

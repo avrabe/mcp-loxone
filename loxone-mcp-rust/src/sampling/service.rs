@@ -7,9 +7,7 @@ use super::client::{SamplingCapabilities, SamplingClient};
 use super::executor::{BatchExecutionResult, CommandExecutor, ExecutionContext};
 use super::response_parser::{CommandExtractor, SamplingResponse as ParsedResponse};
 use super::{AutomationSamplingBuilder, SamplingMessage, SamplingRequest};
-use crate::audit_log::{
-    AuditConfig, AuditEntry, AuditEventType, AuditLogger, AuditOutput, AuditSeverity,
-};
+// Removed audit_log imports - module was unused
 use crate::client::ClientContext;
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
@@ -90,7 +88,7 @@ pub struct SamplingService {
     client_context: Arc<ClientContext>,
     command_extractor: CommandExtractor,
     command_executor: CommandExecutor,
-    audit_logger: AuditLogger,
+    // audit_logger removed - audit_log module was unused
     config: SamplingServiceConfig,
     response_cache: Arc<tokio::sync::RwLock<std::collections::HashMap<String, ParsedResponse>>>,
 }
@@ -102,17 +100,14 @@ impl SamplingService {
         client_context: Arc<ClientContext>,
         config: SamplingServiceConfig,
     ) -> Self {
-        // Create audit logger
-        let audit_config = AuditConfig::default();
-        let audit_output = AuditOutput::Stdout;
-        let audit_logger = AuditLogger::new(audit_config, audit_output);
+        // Audit logger removed - module was unused
 
         Self {
             client,
             client_context: client_context.clone(),
             command_extractor: CommandExtractor::default(),
             command_executor: CommandExecutor::new(client_context),
-            audit_logger,
+            // audit_logger removed
             config,
             response_cache: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
         }
@@ -234,7 +229,7 @@ impl SamplingService {
         &self,
         sampling_request: SamplingRequest,
         context: ExecutionContext,
-        request_id: String,
+        _request_id: String,
     ) -> Result<(
         String,
         ParsedResponse,
@@ -273,27 +268,7 @@ impl SamplingService {
             },
         };
 
-        // Audit the complete pipeline
-        let audit_entry = AuditEntry::new(
-            AuditSeverity::Info,
-            AuditEventType::SystemLifecycle {
-                event: "automation_pipeline".to_string(),
-                details: std::collections::HashMap::from([
-                    (
-                        "success_count".to_string(),
-                        execution_result.success_count.to_string(),
-                    ),
-                    (
-                        "total_commands".to_string(),
-                        execution_result.results.len().to_string(),
-                    ),
-                    ("request_id".to_string(), request_id.clone()),
-                ]),
-            },
-        );
-        if let Err(e) = self.audit_logger.log(audit_entry).await {
-            warn!("Failed to audit pipeline execution: {}", e);
-        }
+        // Audit logging removed - module was unused
 
         Ok((llm_response, parsed_response, execution_result, metrics))
     }

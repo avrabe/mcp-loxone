@@ -5,7 +5,7 @@
 
 use crate::client::LoxoneClient;
 use crate::error::{LoxoneError, Result};
-use crate::services::cache_manager::{CacheConfig, EnhancedCacheManager};
+use crate::services::cache_manager::{CacheConfig, EnhancedCacheManager, PrefetchHandler};
 use crate::services::sensor_registry::{SensorType, SensorTypeRegistry};
 use crate::services::value_parsers::{ParsedValue, ValueParserRegistry};
 use chrono::{DateTime, Utc};
@@ -60,9 +60,19 @@ impl UnifiedValueResolver {
     /// Create new resolver
     pub fn new(client: Arc<dyn LoxoneClient>, sensor_registry: Arc<SensorTypeRegistry>) -> Self {
         let cache_config = CacheConfig::default();
+        
+        // Create a prefetch handler that uses the client
+        let prefetch_client = client.clone();
+        let prefetch_handler = Arc::new(ValueResolverPrefetchHandler {
+            client: prefetch_client,
+        });
+        
         Self {
             client,
-            enhanced_cache: Arc::new(EnhancedCacheManager::new(cache_config)),
+            enhanced_cache: Arc::new(EnhancedCacheManager::with_prefetch_handler(
+                cache_config,
+                prefetch_handler,
+            )),
             sensor_registry,
             parsers: Arc::new(ValueParserRegistry::new()),
         }
@@ -74,9 +84,18 @@ impl UnifiedValueResolver {
         sensor_registry: Arc<SensorTypeRegistry>,
         cache_config: CacheConfig,
     ) -> Self {
+        // Create a prefetch handler that uses the client
+        let prefetch_client = client.clone();
+        let prefetch_handler = Arc::new(ValueResolverPrefetchHandler {
+            client: prefetch_client,
+        });
+        
         Self {
             client,
-            enhanced_cache: Arc::new(EnhancedCacheManager::new(cache_config)),
+            enhanced_cache: Arc::new(EnhancedCacheManager::with_prefetch_handler(
+                cache_config,
+                prefetch_handler,
+            )),
             sensor_registry,
             parsers: Arc::new(ValueParserRegistry::new()),
         }
@@ -651,4 +670,17 @@ fn extract_unit(value_str: &str) -> Option<String> {
         return Some("ppm".to_string());
     }
     None
+}
+
+/// Prefetch handler implementation for the UnifiedValueResolver
+struct ValueResolverPrefetchHandler {
+    client: Arc<dyn LoxoneClient>,
+}
+
+#[async_trait::async_trait]
+impl PrefetchHandler for ValueResolverPrefetchHandler {
+    async fn prefetch_devices(&self, device_uuids: Vec<String>) -> Result<HashMap<String, serde_json::Value>> {
+        // Use the client's batch method to fetch device states
+        self.client.get_device_states(&device_uuids).await
+    }
 }

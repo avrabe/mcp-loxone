@@ -129,7 +129,31 @@ pub fn format_sensor_value_display(value: &ToolValue) -> String {
     }
 }
 
-/// Create standardized sensor JSON representation
+/// Create standardized sensor JSON representation from ResolvedValue (service layer)
+pub fn create_sensor_json_from_resolved(device: &LoxoneDevice, value: &crate::services::value_resolution::ResolvedValue) -> Value {
+    json!({
+        "uuid": device.uuid,
+        "name": device.name,
+        "room": device.room.as_deref().unwrap_or("Unknown"),
+        "type": device.device_type,
+        "category": device.category,
+        "sensor_type": value.sensor_type.as_ref().map(|t| {
+            let type_str = format!("{:?}", t);
+            type_str.split('{').next().unwrap_or("Unknown").to_string()
+        }),
+        "value": value.numeric_value,
+        "display_value": &value.formatted_value,
+        "unit": value.unit.as_deref().unwrap_or(""),
+        "raw_value": value.raw_value,
+        "confidence": value.confidence,
+        "validation_status": format!("{:?}", value.validation_status),
+        "source": format!("{:?}", value.source),
+        "timestamp": value.timestamp,
+        "states": device.states,
+    })
+}
+
+/// Create standardized sensor JSON representation (legacy)
 pub fn create_sensor_json(device: &LoxoneDevice, value: &ToolValue) -> Value {
     json!({
         "uuid": device.uuid,

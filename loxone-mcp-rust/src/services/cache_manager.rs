@@ -50,6 +50,8 @@ pub struct EnhancedCacheManager {
     access_tracker: Arc<RwLock<AccessPatternTracker>>,
     /// Cache configuration
     config: CacheConfig,
+    /// Background prefetch handler (optional)
+    prefetch_handler: Option<Arc<dyn PrefetchHandler + Send + Sync>>,
 }
 
 #[derive(Debug, Clone)]
@@ -134,6 +136,13 @@ impl<K: Clone + Eq + std::hash::Hash, V> LruCache<K, V> {
     }
 }
 
+/// Trait for handling background prefetch operations
+#[async_trait::async_trait]
+pub trait PrefetchHandler {
+    /// Prefetch device states in the background
+    async fn prefetch_devices(&self, device_uuids: Vec<String>) -> Result<HashMap<String, serde_json::Value>>;
+}
+
 impl EnhancedCacheManager {
     pub fn new(config: CacheConfig) -> Self {
         Self {
@@ -141,6 +150,21 @@ impl EnhancedCacheManager {
             batch_cache: Arc::new(RwLock::new(HashMap::new())),
             access_tracker: Arc::new(RwLock::new(AccessPatternTracker::default())),
             config,
+            prefetch_handler: None,
+        }
+    }
+
+    /// Create with a prefetch handler for background operations
+    pub fn with_prefetch_handler(
+        config: CacheConfig,
+        handler: Arc<dyn PrefetchHandler + Send + Sync>,
+    ) -> Self {
+        Self {
+            device_cache: Arc::new(RwLock::new(LruCache::new(config.max_cache_size))),
+            batch_cache: Arc::new(RwLock::new(HashMap::new())),
+            access_tracker: Arc::new(RwLock::new(AccessPatternTracker::default())),
+            config,
+            prefetch_handler: Some(handler),
         }
     }
 
@@ -375,8 +399,40 @@ impl EnhancedCacheManager {
                     let time_since_last = Utc::now() - freq.last_access;
                     if time_since_last < freq.average_interval * 2 {
                         // This device is likely to be accessed soon
-                        // TODO: Trigger background prefetch
-                        tracing::debug!("Would prefetch device: {}", device_uuid);
+                        // Trigger background prefetch
+                        tracing::debug!("Prefetching device: {}", device_uuid);
+                        
+                        // Clone what we need for the async task
+                        let device_uuid = device_uuid.to_string();
+                        let handler = self.prefetch_handler.clone();
+                        let device_cache = self.device_cache.clone();
+                        let config = self.config.clone();
+                        
+                        // Spawn background prefetch task
+                        if let Some(handler) = handler {
+                            tokio::spawn(async move {
+                                match handler.prefetch_devices(vec![device_uuid.clone()]).await {
+                                    Ok(results) => {
+                                        if let Some(value) = results.get(&device_uuid) {
+                                            let mut cache = device_cache.write().await;
+                                            cache.insert(
+                                                device_uuid.clone(),
+                                                CachedValue {
+                                                    value: value.clone(),
+                                                    timestamp: Utc::now(),
+                                                    access_count: 0,
+                                                    last_access: Utc::now(),
+                                                },
+                                            );
+                                            tracing::debug!("Prefetched device {} successfully", device_uuid);
+                                        }
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Failed to prefetch device {}: {}", device_uuid, e);
+                                    }
+                                }
+                            });
+                        }
                     }
                 }
             }

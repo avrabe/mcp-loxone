@@ -28,11 +28,11 @@
 //! }
 //! ```
 
-pub mod audit_log;
+// pub mod audit_log; // Removed: unused module
 pub mod client;
 pub mod config;
 pub mod error;
-pub mod history;
+// pub mod history; // Removed: unused module
 pub mod http_transport;
 pub mod logging;
 pub mod mcp_consent;
@@ -63,11 +63,6 @@ pub use crate::{
 // Re-export MCP types from rmcp
 // pub use rmcp::{}; // TODO: Fix when rmcp API is clarified
 
-#[cfg(target_arch = "wasm32")]
-mod wasm;
-
-#[cfg(target_arch = "wasm32")]
-pub use wasm::*;
 
 // Test module for subscription integration
 #[cfg(test)]

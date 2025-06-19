@@ -4,9 +4,7 @@
 //! against the Loxone system through the appropriate tool interfaces.
 
 use super::response_parser::{DeviceCommand, SamplingResponse};
-use crate::audit_log::{
-    AuditConfig, AuditEntry, AuditEventType, AuditLogger, AuditOutput, AuditSeverity,
-};
+// Removed audit_log imports - module was unused
 use crate::client::ClientContext;
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
@@ -77,7 +75,7 @@ impl Default for ExecutionContext {
 /// Command executor that interfaces with Loxone system
 pub struct CommandExecutor {
     client_context: Arc<ClientContext>,
-    audit_logger: AuditLogger,
+    // audit_logger removed - audit_log module was unused
     device_cache: Arc<tokio::sync::RwLock<HashMap<String, String>>>, // name -> UUID mapping
     safety_rules: SafetyRules,
 }
@@ -118,13 +116,11 @@ impl CommandExecutor {
     /// Create new command executor
     pub fn new(client_context: Arc<ClientContext>) -> Self {
         // Create a simple audit logger for command execution
-        let config = AuditConfig::default();
-        let output = AuditOutput::Stdout; // Use stdout output for now
-        let audit_logger = AuditLogger::new(config, output);
+        // Audit logger removed - module was unused
 
         Self {
             client_context,
-            audit_logger,
+            // audit_logger removed
             device_cache: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
             safety_rules: SafetyRules::default(),
         }
@@ -142,19 +138,7 @@ impl CommandExecutor {
             response.recommendations.len()
         );
 
-        // Audit the LLM response
-        let audit_entry = AuditEntry::new(
-            AuditSeverity::Info,
-            AuditEventType::DataAccess {
-                resource: "llm_response".to_string(),
-                operation: "process".to_string(),
-                user: Some(context.user_id.clone()),
-                records_affected: Some(1),
-            },
-        );
-        if let Err(e) = self.audit_logger.log(audit_entry).await {
-            warn!("Failed to audit LLM response: {}", e);
-        }
+        // Audit logging removed - module was unused
 
         // Validate response confidence
         if response.confidence < 0.3 {
@@ -298,21 +282,7 @@ impl CommandExecutor {
             Err(e) => e.to_string(),
         };
 
-        // Audit the command execution
-        if let Err(audit_err) = self
-            .audit_logger
-            .log_device_control(
-                &device_uuid,
-                &command.device,
-                &command.action,
-                &context.user_id,
-                success,
-                if success { None } else { Some(message.clone()) },
-            )
-            .await
-        {
-            warn!("Failed to audit command execution: {}", audit_err);
-        }
+        // Audit logging removed - module was unused
 
         ExecutionResult {
             command,

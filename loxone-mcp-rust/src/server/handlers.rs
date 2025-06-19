@@ -242,10 +242,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::control_multiple_devices, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = control_multiple_devices(tool_context, devices, action).await;
@@ -265,215 +266,140 @@ impl LoxoneMcpServer {
         }
     }
 
-    /// Control all rolladen in the system
-    pub async fn control_all_rolladen(
+    /// Unified rolladen/blinds control with scope-based targeting
+    pub async fn control_rolladen_unified(
         &self,
+        scope: String,
+        target: Option<String>,
         action: String,
+        position: Option<u8>,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let devices = self.context.devices.read().await;
-        let rolladen_devices: Vec<_> = devices
-            .values()
-            .filter(|device| device.device_type == "Jalousie")
-            .collect();
-
-        if rolladen_devices.is_empty() {
-            return Ok(OptimizedResponses::empty_blinds(Some("system")));
-        }
-
-        let mut results = Vec::new();
-        let mut success_count = 0;
-        let mut error_count = 0;
-
-        for device in &rolladen_devices {
-            match self.client.send_command(&device.uuid, &action).await {
-                Ok(_) => {
-                    results.push(format!("✅ {}: {}", device.name, action));
-                    success_count += 1;
-                }
-                Err(e) => {
-                    results.push(format!("❌ {}: failed ({})", device.name, e));
-                    error_count += 1;
-                }
-            }
-        }
-
-        let summary = format!(
-            "Controlled {} rolladen/blinds - {} successful, {} failed\n\nDetails:\n{}",
-            rolladen_devices.len(),
-            success_count,
-            error_count,
-            results.join("\n")
+        // Create tool context
+        let tool_context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
-        Ok(CallToolResult::success(vec![Content::text(summary)]))
+        // Call the unified rolladen control function
+        let tool_response = crate::tools::rolladen::control_rolladen_unified(
+            tool_context,
+            scope,
+            target,
+            action,
+            position,
+        ).await;
+
+        // Convert ToolResponse to CallToolResult
+        match tool_response.status.as_str() {
+            "success" => {
+                let content = serde_json::to_string_pretty(&tool_response.data)
+                    .unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(content)]))
+            }
+            _ => {
+                let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
+                Err(mcp_foundation::Error::invalid_params(error_msg))
+            }
+        }
     }
 
-    /// Control rolladen in a specific room
-    pub async fn control_room_rolladen(
+    /// Discover all rolladen/blinds capabilities in the system
+    pub async fn discover_rolladen_capabilities(
         &self,
-        room_name: String,
-        action: String,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let devices = self.context.devices.read().await;
-        let rooms = self.context.rooms.read().await;
-
-        // Find room by name
-        let room_uuid = rooms
-            .iter()
-            .find(|(_, room)| room.name.to_lowercase() == room_name.to_lowercase())
-            .map(|(uuid, _)| uuid.clone());
-
-        let room_uuid = match room_uuid {
-            Some(uuid) => uuid,
-            None => return Ok(OptimizedResponses::room_not_found(&room_name)),
-        };
-        let rolladen_devices: Vec<_> = devices
-            .values()
-            .filter(|device| {
-                device.device_type == "Jalousie" && (device.room.as_ref() == Some(&room_uuid))
-            })
-            .collect();
-
-        if rolladen_devices.is_empty() {
-            return Ok(OptimizedResponses::empty_blinds(Some(&room_name)));
-        }
-
-        let mut results = Vec::new();
-        let mut success_count = 0;
-        let mut error_count = 0;
-
-        for device in &rolladen_devices {
-            match self.client.send_command(&device.uuid, &action).await {
-                Ok(_) => {
-                    results.push(format!("✅ {}: {}", device.name, action));
-                    success_count += 1;
-                }
-                Err(e) => {
-                    results.push(format!("❌ {}: failed ({})", device.name, e));
-                    error_count += 1;
-                }
-            }
-        }
-
-        let summary = format!(
-            "Controlled {} rolladen/blinds in '{}' - {} successful, {} failed\n\nDetails:\n{}",
-            rolladen_devices.len(),
-            room_name,
-            success_count,
-            error_count,
-            results.join("\n")
+        // Create tool context
+        let tool_context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
-        Ok(CallToolResult::success(vec![Content::text(summary)]))
+        // Call the discovery function
+        let tool_response = crate::tools::rolladen::discover_rolladen_capabilities(tool_context).await;
+
+        // Convert ToolResponse to CallToolResult
+        match tool_response.status.as_str() {
+            "success" => {
+                let content = serde_json::to_string_pretty(&tool_response.data)
+                    .unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(content)]))
+            }
+            _ => {
+                let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
+                Err(mcp_foundation::Error::invalid_params(error_msg))
+            }
+        }
     }
 
-    /// Control all lights in the system
-    pub async fn control_all_lights(
+    /// Unified lighting control with scope-based targeting
+    pub async fn control_lights_unified(
         &self,
+        scope: String,
+        target: Option<String>,
         action: String,
+        brightness: Option<u8>,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let devices = self.context.devices.read().await;
-        let light_devices: Vec<_> = devices
-            .values()
-            .filter(|device| {
-                device.category == "lighting"
-                    || device.device_type == "Switch"
-                    || device.device_type == "Dimmer"
-            })
-            .collect();
-
-        if light_devices.is_empty() {
-            return Ok(OptimizedResponses::empty_lights(Some("system")));
-        }
-
-        let mut results = Vec::new();
-        let mut success_count = 0;
-        let mut error_count = 0;
-
-        for device in &light_devices {
-            match self.client.send_command(&device.uuid, &action).await {
-                Ok(_) => {
-                    results.push(format!("✅ {}: {}", device.name, action));
-                    success_count += 1;
-                }
-                Err(e) => {
-                    results.push(format!("❌ {}: failed ({})", device.name, e));
-                    error_count += 1;
-                }
-            }
-        }
-
-        let summary = format!(
-            "Controlled {} lights - {} successful, {} failed\n\nDetails:\n{}",
-            light_devices.len(),
-            success_count,
-            error_count,
-            results.join("\n")
+        // Create tool context
+        let tool_context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
-        Ok(CallToolResult::success(vec![Content::text(summary)]))
+        // Call the unified lighting control function
+        let tool_response = crate::tools::lighting::control_lights_unified(
+            tool_context,
+            scope,
+            target,
+            action,
+            brightness,
+        ).await;
+
+        // Convert ToolResponse to CallToolResult
+        match tool_response.status.as_str() {
+            "success" => {
+                let content = serde_json::to_string_pretty(&tool_response.data)
+                    .unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(content)]))
+            }
+            _ => {
+                let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
+                Err(mcp_foundation::Error::invalid_params(error_msg))
+            }
+        }
     }
 
-    /// Control lights in a specific room
-    pub async fn control_room_lights(
+    /// Discover all lighting capabilities in the system
+    pub async fn discover_lighting_capabilities(
         &self,
-        room_name: String,
-        action: String,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let devices = self.context.devices.read().await;
-        let rooms = self.context.rooms.read().await;
-
-        // Find room by name
-        let room_uuid = rooms
-            .iter()
-            .find(|(_, room)| room.name.to_lowercase() == room_name.to_lowercase())
-            .map(|(uuid, _)| uuid.clone());
-
-        let room_uuid = match room_uuid {
-            Some(uuid) => uuid,
-            None => return Ok(OptimizedResponses::room_not_found(&room_name)),
-        };
-        let light_devices: Vec<_> = devices
-            .values()
-            .filter(|device| {
-                (device.category == "lighting"
-                    || device.device_type == "Switch"
-                    || device.device_type == "Dimmer")
-                    && (device.room.as_ref() == Some(&room_uuid))
-            })
-            .collect();
-
-        if light_devices.is_empty() {
-            return Ok(OptimizedResponses::empty_lights(Some(&room_name)));
-        }
-
-        let mut results = Vec::new();
-        let mut success_count = 0;
-        let mut error_count = 0;
-
-        for device in &light_devices {
-            match self.client.send_command(&device.uuid, &action).await {
-                Ok(_) => {
-                    results.push(format!("✅ {}: {}", device.name, action));
-                    success_count += 1;
-                }
-                Err(e) => {
-                    results.push(format!("❌ {}: failed ({})", device.name, e));
-                    error_count += 1;
-                }
-            }
-        }
-
-        let summary = format!(
-            "Controlled {} lights in '{}' - {} successful, {} failed\n\nDetails:\n{}",
-            light_devices.len(),
-            room_name,
-            success_count,
-            error_count,
-            results.join("\n")
+        // Create tool context
+        let tool_context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
-        Ok(CallToolResult::success(vec![Content::text(summary)]))
+        // Call the discovery function
+        let tool_response = crate::tools::lighting::discover_lighting_capabilities(tool_context).await;
+
+        // Convert ToolResponse to CallToolResult
+        match tool_response.status.as_str() {
+            "success" => {
+                let content = serde_json::to_string_pretty(&tool_response.data)
+                    .unwrap_or_else(|_| "{}".to_string());
+                Ok(CallToolResult::success(vec![Content::text(content)]))
+            }
+            _ => {
+                let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
+                Err(mcp_foundation::Error::invalid_params(error_msg))
+            }
+        }
     }
 
     /// Get state history for a specific sensor
@@ -489,10 +415,11 @@ impl LoxoneMcpServer {
             "sensor_history.json",
         )));
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::get_sensor_state_history(tool_context, uuid, Some(logger)).await;
@@ -524,10 +451,11 @@ impl LoxoneMcpServer {
             "sensor_history.json",
         )));
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::get_recent_sensor_changes(tool_context, limit, Some(logger)).await;
@@ -664,10 +592,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_devices_by_category, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = get_devices_by_category(tool_context, category, limit).await;
@@ -693,10 +622,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_available_capabilities, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = get_available_capabilities(tool_context).await;
@@ -722,10 +652,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{devices::get_all_categories_overview, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = get_all_categories_overview(tool_context).await;
@@ -749,7 +680,12 @@ impl LoxoneMcpServer {
     pub async fn get_audio_zones(
         &self,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let result = crate::tools::audio::get_audio_zones(context).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
@@ -763,7 +699,12 @@ impl LoxoneMcpServer {
         action: String,
         value: Option<f64>,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let result =
             crate::tools::audio::control_audio_zone(context, zone_name, action, value).await;
@@ -775,7 +716,12 @@ impl LoxoneMcpServer {
     pub async fn get_audio_sources(
         &self,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let result = crate::tools::audio::get_audio_sources(context).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
@@ -788,7 +734,12 @@ impl LoxoneMcpServer {
         zone_name: String,
         volume: f64,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let result = crate::tools::audio::set_audio_volume(context, zone_name, volume).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
@@ -800,7 +751,12 @@ impl LoxoneMcpServer {
         &self,
         hours: Option<u32>,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let logger = self.context.get_sensor_logger().await;
         let result = crate::tools::sensors::get_door_window_activity(context, hours, logger).await;
@@ -812,7 +768,12 @@ impl LoxoneMcpServer {
     pub async fn get_logging_statistics_tool(
         &self,
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
-        let context = crate::tools::ToolContext::new(self.client.clone(), self.context.clone());
+        let context = crate::tools::ToolContext::with_services(
+            self.client.clone(),
+            self.context.clone(),
+            self.value_resolver.clone(),
+            self.state_manager.clone(),
+        );
 
         let logger = self.context.get_sensor_logger().await;
         let result = crate::tools::sensors::get_logging_statistics(context, logger).await;
@@ -937,10 +898,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::get_all_door_window_sensors(tool_context).await;
@@ -959,10 +921,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::get_temperature_sensors(tool_context).await;
@@ -982,10 +945,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::discover_new_sensors(tool_context, duration_seconds).await;
@@ -1006,10 +970,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{sensors, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = sensors::list_discovered_sensors(tool_context, sensor_type, room).await;
@@ -1086,60 +1051,6 @@ impl LoxoneMcpServer {
                 {
                     Ok(result) => self.convert_tool_result(result),
                     Err(e) => Err(format!("Failed to control device: {}", e)),
-                }
-            }
-            "control_all_rolladen" => {
-                let action = arguments
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing action parameter")?;
-                match self.control_all_rolladen(action.to_string()).await {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to control all rolladen: {}", e)),
-                }
-            }
-            "control_room_rolladen" => {
-                let room = arguments
-                    .get("room")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing room parameter")?;
-                let action = arguments
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing action parameter")?;
-                match self
-                    .control_room_rolladen(room.to_string(), action.to_string())
-                    .await
-                {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to control room rolladen: {}", e)),
-                }
-            }
-            "control_all_lights" => {
-                let action = arguments
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing action parameter")?;
-                match self.control_all_lights(action.to_string()).await {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to control all lights: {}", e)),
-                }
-            }
-            "control_room_lights" => {
-                let room = arguments
-                    .get("room")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing room parameter")?;
-                let action = arguments
-                    .get("action")
-                    .and_then(|v| v.as_str())
-                    .ok_or("Missing action parameter")?;
-                match self
-                    .control_room_lights(room.to_string(), action.to_string())
-                    .await
-                {
-                    Ok(result) => self.convert_tool_result(result),
-                    Err(e) => Err(format!("Failed to control room lights: {}", e)),
                 }
             }
             // "discover_all_devices" → loxone://devices/all
@@ -1265,10 +1176,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let params: workflows::CreateWorkflowParams =
@@ -1300,10 +1212,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let params: workflows::ExecuteWorkflowParams =
@@ -1334,10 +1247,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
         let params = workflows::ListPredefinedWorkflowsParams {};
 
@@ -1364,10 +1278,11 @@ impl LoxoneMcpServer {
     ) -> std::result::Result<CallToolResult, mcp_foundation::Error> {
         use crate::tools::{workflows, ToolContext};
 
-        let tool_context = ToolContext::with_resolver(
+        let tool_context = ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
             self.value_resolver.clone(),
+            self.state_manager.clone(),
         );
 
         let response = workflows::get_workflow_examples(tool_context).await;

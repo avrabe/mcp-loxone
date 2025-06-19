@@ -8,8 +8,6 @@ pub mod security_keychain;
 #[cfg(feature = "infisical")]
 pub mod infisical_client;
 
-#[cfg(feature = "wasi-keyvalue")]
-pub mod wasi_keyvalue;
 
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
@@ -249,9 +247,6 @@ pub enum CredentialStore {
         host: Option<String>, // For self-hosted instances
     },
 
-    /// Use WASI keyvalue interface (WASM component model)
-    #[cfg(feature = "wasi-keyvalue")]
-    WasiKeyValue { store_name: Option<String> },
 }
 
 /// Logging configuration

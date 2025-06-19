@@ -212,33 +212,3 @@ async fn run_http_server(config: ServerConfig, port: u16, api_key: Option<String
     http_server.start().await
 }
 
-#[cfg(target_arch = "wasm32")]
-fn main() {
-    // WASM entry point
-    wasm_bindgen_futures::spawn_local(async {
-        if let Err(e) = run_wasm_server().await {
-            web_sys::console::error_1(&format!("WASM server error: {}", e).into());
-        }
-    });
-}
-
-#[cfg(target_arch = "wasm32")]
-async fn run_wasm_server() -> Result<()> {
-    use wasm_bindgen::prelude::*;
-
-    // Initialize console logging for WASM
-    console_error_panic_hook::set_once();
-    tracing_wasm::set_as_global_default();
-
-    web_sys::console::log_1(&"🚀 Starting Loxone MCP Server (WASM)".into());
-
-    // Load configuration from browser storage or environment
-    let config = ServerConfig::from_wasm_env().await?;
-
-    // Create and run server
-    let server = LoxoneMcpServer::new(config).await?;
-    web_sys::console::log_1(&"✅ WASM Server initialized successfully".into());
-
-    server.run().await?;
-    Ok(())
-}

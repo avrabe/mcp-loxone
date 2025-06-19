@@ -8,6 +8,8 @@ pub mod climate;
 pub mod devices;
 pub mod documentation;
 pub mod energy;
+pub mod lighting;
+pub mod rolladen;
 pub mod rooms;
 pub mod security;
 pub mod sensors;
@@ -124,27 +126,53 @@ impl ToolResponse {
 /// Shared tool context for all MCP tools
 #[derive(Clone)]
 pub struct ToolContext {
-    /// Loxone client for API calls
+    /// Loxone client for API calls (legacy - prefer services)
     pub client: Arc<dyn LoxoneClient>,
 
-    /// Client context for cached data
+    /// Client context for cached data (legacy - prefer services)
     pub context: Arc<ClientContext>,
 
     /// Unified value resolver for consistent value parsing
-    pub value_resolver: Option<Arc<crate::services::UnifiedValueResolver>>,
+    pub value_resolver: Arc<crate::services::UnifiedValueResolver>,
+
+    /// Centralized state manager with change detection
+    pub state_manager: Option<Arc<crate::services::StateManager>>,
 }
 
 impl ToolContext {
-    /// Create new tool context
-    pub fn new(client: Arc<dyn LoxoneClient>, context: Arc<ClientContext>) -> Self {
+    /// Create new tool context (legacy - use with_services instead)
+    #[deprecated(note = "Use with_services for service-layer architecture")]
+    pub fn new(_client: Arc<dyn LoxoneClient>, context: Arc<ClientContext>) -> Self {
+        // This will panic in debug builds to encourage migration
+        #[cfg(debug_assertions)]
+        panic!("Use ToolContext::with_services instead of ::new");
+        
+        #[cfg(not(debug_assertions))]
         Self {
-            client,
+            client: _client,
             context,
-            value_resolver: None,
+            value_resolver: todo!("Missing value resolver - use with_services"),
+            state_manager: None,
         }
     }
 
-    /// Create tool context with value resolver
+    /// Create tool context with unified services (recommended)
+    pub fn with_services(
+        client: Arc<dyn LoxoneClient>,
+        context: Arc<ClientContext>,
+        value_resolver: Arc<crate::services::UnifiedValueResolver>,
+        state_manager: Option<Arc<crate::services::StateManager>>,
+    ) -> Self {
+        Self {
+            client,
+            context,
+            value_resolver,
+            state_manager,
+        }
+    }
+
+    /// Create tool context with value resolver (legacy compatibility)
+    #[deprecated(note = "Use with_services for full service-layer support")]
     pub fn with_resolver(
         client: Arc<dyn LoxoneClient>,
         context: Arc<ClientContext>,
@@ -153,7 +181,8 @@ impl ToolContext {
         Self {
             client,
             context,
-            value_resolver: Some(value_resolver),
+            value_resolver,
+            state_manager: None,
         }
     }
 

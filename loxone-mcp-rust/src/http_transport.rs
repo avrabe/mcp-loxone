@@ -30,11 +30,7 @@ use crate::monitoring::{
     metrics::{MetricsCollector, RequestTiming},
 };
 
-use crate::history::{
-    config::HistoryConfig,
-    // dashboard_api::create_dashboard_router, // Temporarily disabled due to state type mismatch
-    core::UnifiedHistoryStore,
-};
+// Removed history imports - module was unused
 
 use axum::{
     extract::{Query, Request, State},
@@ -466,22 +462,7 @@ impl HttpTransportServer {
 
     /// Create the router with all endpoints
     async fn create_router(&self) -> Result<Router> {
-        // Initialize history store for dashboard only if explicitly enabled
-        let history_store = if std::env::var("ENABLE_LOXONE_STATS").unwrap_or_default() == "1" {
-            match UnifiedHistoryStore::new(HistoryConfig::from_env()).await {
-                Ok(store) => {
-                    info!("✅ History store initialized for dashboard (ENABLE_LOXONE_STATS=1)");
-                    Some(Arc::new(store))
-                }
-                Err(e) => {
-                    warn!("⚠️ Failed to initialize history store: {}", e);
-                    None
-                }
-            }
-        } else {
-            debug!("📊 History store disabled (ENABLE_LOXONE_STATS not set to 1)");
-            None
-        };
+        // History store removed - unused module
 
         let sse_manager = Arc::new(SseConnectionManager::new());
 
@@ -496,8 +477,7 @@ impl HttpTransportServer {
             metrics_collector: self.metrics_collector.clone(),
             #[cfg(feature = "influxdb")]
             influx_manager: self.influx_manager.clone(),
-            history_store,
-            sse_manager,
+                    sse_manager,
             key_store: self.key_store.clone(),
         });
 
@@ -507,15 +487,12 @@ impl HttpTransportServer {
             .allow_headers(Any);
 
         // Public routes (no authentication required)
-        let mut public_routes = Router::new()
+        let public_routes = Router::new()
             .route("/health", get(health_check))
             .route("/", get(root_handler))
             .route("/favicon.ico", get(favicon_handler))
             .route("/metrics", get(prometheus_metrics)) // Prometheus endpoint
             // History dashboard endpoints (public for web browser access)
-            .route("/history", get(history_dashboard_home))
-            .route("/history/", get(history_dashboard_home))
-            .route("/history/api/status", get(history_api_status))
             // Unified dashboard routes (public for web browser access)
             .route("/dashboard", get(unified_dashboard_home))
             .route("/dashboard/", get(unified_dashboard_home))
@@ -524,10 +501,7 @@ impl HttpTransportServer {
             // Server metrics test endpoint (public for debugging)
             .route("/dashboard/api/metrics", get(server_metrics_test));
 
-        // Add WebSocket route for unified dashboard (public, no auth required)
-        if shared_state.history_store.is_some() {
-            public_routes = public_routes.route("/dashboard/ws", get(unified_dashboard_websocket));
-        }
+        // History-based dashboard removed - unused module
 
         // Protected routes (authentication required)
         let protected_routes = Router::new()
@@ -550,21 +524,15 @@ impl HttpTransportServer {
         // Create base app
         let mut app = Router::new().merge(public_routes).merge(protected_routes);
 
-        // Add dashboard routes - prefer unified dashboard if history store is available
-        if shared_state.history_store.is_some() {
-            info!("✅ Using unified dashboard (history store available)");
-            // Unified dashboard is already included in public_routes
-        } else {
-            // Fallback to InfluxDB dashboard if available
-            #[cfg(feature = "influxdb")]
-            {
-                let dashboard_state = DashboardState {
-                    metrics_collector: shared_state.metrics_collector.clone(),
-                    influx_manager: shared_state.influx_manager.clone(),
-                };
-                app = app.nest("/dashboard/influx", dashboard_routes(dashboard_state));
-                info!("✅ Using InfluxDB dashboard at /dashboard/influx (no history store)");
-            }
+        // Add InfluxDB dashboard
+        #[cfg(feature = "influxdb")]
+        {
+            let dashboard_state = DashboardState {
+                metrics_collector: shared_state.metrics_collector.clone(),
+                influx_manager: shared_state.influx_manager.clone(),
+            };
+            app = app.nest("/dashboard/influx", dashboard_routes(dashboard_state));
+            info!("✅ Using InfluxDB dashboard at /dashboard/influx");
         }
 
         let app = app
@@ -649,7 +617,6 @@ struct AppState {
     metrics_collector: Arc<MetricsCollector>,
     #[cfg(feature = "influxdb")]
     influx_manager: Option<Arc<InfluxManager>>,
-    history_store: Option<Arc<UnifiedHistoryStore>>,
     sse_manager: Arc<SseConnectionManager>,
     #[allow(dead_code)]
     key_store: Arc<KeyStore>,
@@ -678,7 +645,6 @@ async fn root_handler() -> impl IntoResponse {
             "mcp_info": "/mcp/info",
             "tools": "/mcp/tools",
             "dashboard": "/dashboard/",
-            "history_dashboard": "/history/",
             "key_management": "/admin/keys"
         },
         "mcp_features": {
@@ -689,14 +655,12 @@ async fn root_handler() -> impl IntoResponse {
         },
         "dashboard_features": {
             "monitoring_dashboard": "Real-time metrics and system monitoring (web browser)",
-            "history_dashboard": "Historical data visualization and export (web browser)",
             "live_metrics": "Server-sent events for real-time updates",
             "widget_system": "Dynamic widget generation and customization",
             "data_export": "JSON/CSV export capabilities"
         },
         "web_access": {
             "monitoring": "Open http://localhost:3001/dashboard/ in your web browser",
-            "history": "Open http://localhost:3001/history/ in your web browser",
             "api_info": "Open http://localhost:3001/ in your web browser",
             "key_management": "Open http://localhost:3001/admin/keys in your web browser"
         },
@@ -1277,24 +1241,6 @@ async fn handle_mcp_message(
                         }
                     }),
                     serde_json::json!({
-                        "name": "get_sensor_state_history",
-                        "description": "Get complete state history for a specific sensor",
-                        "inputSchema": {
-                            "type": "object",
-                            "properties": {
-                                "uuid": {
-                                    "type": "string",
-                                    "description": "Sensor UUID"
-                                },
-                                "limit": {
-                                    "type": "number",
-                                    "description": "Maximum number of events to return"
-                                }
-                            },
-                            "required": ["uuid"]
-                        }
-                    }),
-                    serde_json::json!({
                         "name": "get_recent_sensor_changes",
                         "description": "Get recent sensor changes across all sensors",
                         "inputSchema": {
@@ -1557,12 +1503,6 @@ async fn handle_mcp_message(
                         "uri": "loxone://energy/meters",
                         "name": "Energy Meters",
                         "description": "All energy meters and their current readings",
-                        "mimeType": "application/json"
-                    }),
-                    serde_json::json!({
-                        "uri": "loxone://energy/usage-history",
-                        "name": "Energy Usage History",
-                        "description": "Historical energy usage data and trends",
                         "mimeType": "application/json"
                     }),
                 ];
@@ -2557,132 +2497,6 @@ async fn prometheus_metrics(State(state): State<Arc<AppState>>) -> impl IntoResp
     }
 }
 
-// History dashboard endpoints
-
-/// History dashboard home page
-/// Returns HTML for browsers, JSON for API clients
-async fn history_dashboard_home(
-    State(state): State<Arc<AppState>>,
-    headers: HeaderMap,
-) -> impl IntoResponse {
-    let status = if state.history_store.is_some() {
-        "available"
-    } else {
-        "not_available"
-    };
-
-    // Check if request is from a browser
-    let is_browser = headers
-        .get(header::ACCEPT)
-        .and_then(|v| v.to_str().ok())
-        .map(|v| v.contains("text/html"))
-        .unwrap_or(false);
-
-    if is_browser {
-        // Return a simple HTML page for browsers
-        let html = format!(
-            r#"<!DOCTYPE html>
-<html>
-<head>
-    <title>Loxone History Dashboard</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }}
-        .container {{ background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }}
-        h1 {{ color: #333; }}
-        .status {{ padding: 10px 20px; border-radius: 4px; display: inline-block; font-weight: bold; }}
-        .available {{ background: #4CAF50; color: white; }}
-        .unavailable {{ background: #f44336; color: white; }}
-        .info {{ margin: 20px 0; line-height: 1.6; }}
-        .endpoints {{ background: #f9f9f9; padding: 20px; border-radius: 4px; margin: 20px 0; }}
-        code {{ background: #e0e0e0; padding: 2px 4px; border-radius: 3px; }}
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1>🏠 Loxone History Dashboard</h1>
-        <p>Status: <span class="status {}">{}</span></p>
-        
-        <div class="info">
-            <h2>About</h2>
-            <p>This dashboard provides access to historical data from your Loxone system.</p>
-            {}
-        </div>
-        
-        <div class="endpoints">
-            <h3>Available API Endpoints:</h3>
-            <ul>
-                <li><a href="/history/api/status">/history/api/status</a> - Check system status</li>
-                <li><code>/history/api/data</code> - Query historical data (coming soon)</li>
-                <li><code>/history/api/widgets</code> - Get dashboard widgets (coming soon)</li>
-            </ul>
-        </div>
-        
-        <div class="info">
-            <p><small>Loxone MCP Server v{}</small></p>
-        </div>
-    </div>
-</body>
-</html>"#,
-            if status == "available" {
-                "available"
-            } else {
-                "unavailable"
-            },
-            status.replace("_", " "),
-            if status == "available" {
-                "<p>✅ The history system is running and collecting data.</p>"
-            } else {
-                "<p>⚠️ The history system is not currently available. To enable it, set the <code>ENABLE_LOXONE_STATS=1</code> environment variable when starting the server.</p>"
-            },
-            env!("CARGO_PKG_VERSION")
-        );
-
-        (
-            StatusCode::OK,
-            [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
-            html,
-        )
-            .into_response()
-    } else {
-        // Return JSON for API clients
-        Json(serde_json::json!({
-            "title": "Loxone History Dashboard",
-            "description": "View historical data from your Loxone system",
-            "status": status,
-            "endpoints": {
-                "status": "/history/api/status",
-                "data": "/history/api/data",
-                "widgets": "/history/api/widgets"
-            },
-            "message": if status == "available" {
-                "History system is running and collecting data"
-            } else {
-                "History system is not currently available. Check ENABLE_LOXONE_STATS environment variable."
-            }
-        })).into_response()
-    }
-}
-
-/// History API status endpoint
-async fn history_api_status(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if let Some(_history_store) = &state.history_store {
-        Json(serde_json::json!({
-            "status": "healthy",
-            "storage_type": "unified_history_store",
-            "features": ["hot_storage", "cold_storage", "auto_archival"],
-            "message": "History system is operational"
-        }))
-        .into_response()
-    } else {
-        (
-            StatusCode::SERVICE_UNAVAILABLE,
-            Json(serde_json::json!({
-                "status": "unavailable", 
-                "message": "History store not initialized. Set ENABLE_LOXONE_STATS=1 to enable statistics collection."
-            }))
-        ).into_response()
-    }
-}
 
 /// Favicon handler to prevent 401 errors
 async fn favicon_handler() -> impl IntoResponse {

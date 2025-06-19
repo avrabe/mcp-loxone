@@ -11,8 +11,6 @@ use std::env;
 #[cfg(feature = "infisical")]
 use crate::config::infisical_client::{create_authenticated_client, InfisicalClient};
 
-#[cfg(feature = "wasi-keyvalue")]
-use crate::config::wasi_keyvalue::WasiKeyValueManager;
 
 /// Loxone credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -38,8 +36,6 @@ pub struct CredentialManager {
     #[cfg(feature = "infisical")]
     infisical_client: Option<InfisicalClient>,
 
-    #[cfg(feature = "wasi-keyvalue")]
-    wasi_manager: Option<WasiKeyValueManager>,
 }
 
 // Credential key constants (shared across all backends)
