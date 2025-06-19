@@ -93,15 +93,10 @@ async fn run_http_server(config: ServerConfig, port: u16) -> Result<()> {
     let mcp_server = LoxoneMcpServer::new(config).await?;
     info!("✅ MCP server initialized successfully");
 
-    // Configure logging for authentication
-    if std::env::var("DISABLE_AUTH").is_ok() {
-        info!("⚠️ Authentication DISABLED (DISABLE_AUTH is set)");
-        info!("   Authentication is disabled via environment variable");
-    } else {
-        info!("🔐 Authentication ENABLED");
-        info!("   Use 'loxone-mcp-auth' CLI to manage API keys");
-        info!("   Or visit http://localhost:{}/admin/keys", port);
-    }
+    // Authentication is always enabled for HTTP mode
+    info!("🔐 Authentication ENABLED");
+    info!("   Use 'loxone-mcp-auth' CLI to manage API keys");
+    info!("   Or visit http://localhost:{}/admin/keys", port);
 
     // Create HTTP server configuration with security based on environment
     let security_config = if std::env::var("PRODUCTION").is_ok() {

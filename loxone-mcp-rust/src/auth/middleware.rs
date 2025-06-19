@@ -108,30 +108,6 @@ pub async fn require_admin_middleware(
     }
 }
 
-/// Middleware that optionally authenticates requests (doesn't fail if no auth)
-pub async fn optional_auth_middleware(
-    State(auth_manager): State<Arc<AuthenticationManager>>,
-    mut request: Request,
-    next: Next,
-) -> Response {
-    let headers = request.headers();
-    let query = request.uri().query();
-    
-    // Try to authenticate, but don't fail if no auth provided
-    let auth_result = auth_manager.authenticate_request(headers, query).await;
-    
-    if let AuthResult::Success(auth_success) = auth_result {
-        let auth_info = AuthInfo {
-            is_admin: matches!(auth_success.context.role, crate::auth::models::Role::Admin),
-            context: auth_success.context,
-        };
-        
-        request.extensions_mut().insert(auth_info);
-        debug!("Optional auth successful for key: {}", auth_success.key.id);
-    }
-    
-    next.run(request).await
-}
 
 /// Middleware that checks for specific permissions
 pub fn require_permission(permission: &'static str) -> impl Fn(
