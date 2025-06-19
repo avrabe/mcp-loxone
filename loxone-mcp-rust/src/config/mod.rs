@@ -22,6 +22,9 @@ pub enum AuthMethod {
     Basic,
     /// Token-based authentication (recommended for V9+)
     Token,
+    /// WebSocket real-time communication (for advanced features)
+    #[cfg(feature = "websocket")]
+    WebSocket,
 }
 
 impl Default for AuthMethod {

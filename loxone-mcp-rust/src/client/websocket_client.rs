@@ -342,6 +342,14 @@ impl LoxoneWebSocketClient {
                         .append_pair("password", &self.credentials.password);
                 }
             }
+            #[cfg(feature = "websocket")]
+            AuthMethod::WebSocket => {
+                // WebSocket native authentication - use basic auth for simplicity
+                ws_url
+                    .query_pairs_mut()
+                    .append_pair("user", &self.credentials.username)
+                    .append_pair("password", &self.credentials.password);
+            }
         }
 
         Ok(ws_url)

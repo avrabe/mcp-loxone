@@ -168,9 +168,10 @@ impl LoxoneMcpServer {
             Err(e) => {
                 warn!("⚠️ Connection failed: {}", e);
 
-                // If we're using token auth and it's failing, try to fall back to basic auth
-                if loxone_config.auth_method == crate::config::AuthMethod::Token {
-                    warn!("🔄 Token authentication connection failed, attempting fallback to basic authentication");
+                // If we're using advanced auth and it's failing, try to fall back to basic auth
+                if loxone_config.auth_method == crate::config::AuthMethod::Token 
+                    || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
+                    warn!("🔄 Advanced authentication connection failed, attempting fallback to basic authentication");
                     let mut basic_config = loxone_config.clone();
                     basic_config.auth_method = crate::config::AuthMethod::Basic;
 
@@ -219,6 +220,21 @@ impl LoxoneMcpServer {
         ) {
             // If using token HTTP client, get its context
             Arc::new(token_client.context().clone())
+        } else if let Some(ws_client) = client
+            .as_any()
+            .downcast_ref::<crate::client::websocket_client::LoxoneWebSocketClient>(
+        ) {
+            // If using WebSocket client, get its context
+            #[cfg(feature = "websocket")]
+            {
+                Arc::new(ws_client.context().clone())
+            }
+            #[cfg(not(feature = "websocket"))]
+            {
+                // This shouldn't happen but handle gracefully
+                warn!("WebSocket client detected but websocket feature not enabled");
+                Arc::new(ClientContext::new())
+            }
         } else {
             // For other client types, load structure manually
             info!("📊 Loading Loxone structure...");
@@ -230,9 +246,10 @@ impl LoxoneMcpServer {
                 Err(e) => {
                     warn!("⚠️ Structure loading failed: {}", e);
 
-                    // If we're using token auth and structure loading fails, try basic auth fallback
-                    if loxone_config.auth_method == crate::config::AuthMethod::Token {
-                        warn!("🔄 Token authentication structure loading failed, attempting fallback to basic authentication");
+                    // If we're using advanced auth and structure loading fails, try fallback
+                    if loxone_config.auth_method == crate::config::AuthMethod::Token 
+                        || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
+                        warn!("🔄 Advanced authentication structure loading failed, attempting fallback to basic authentication");
                         let mut basic_config = loxone_config.clone();
                         basic_config.auth_method = crate::config::AuthMethod::Basic;
 

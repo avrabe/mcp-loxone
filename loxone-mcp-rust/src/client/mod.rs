@@ -494,6 +494,23 @@ pub async fn create_client(
                 http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
             Ok(Box::new(client))
         }
+        #[cfg(feature = "websocket")]
+        AuthMethod::WebSocket => {
+            tracing::info!("🔌 Initializing WebSocket client for real-time communication");
+            match websocket_client::LoxoneWebSocketClient::new(config.clone(), credentials.clone()).await {
+                Ok(client) => {
+                    tracing::info!("✅ WebSocket client initialized successfully");
+                    Ok(Box::new(client))
+                }
+                Err(e) => {
+                    tracing::warn!("⚠️ WebSocket client initialization failed: {}", e);
+                    tracing::info!("🔄 Falling back to HTTP client for compatibility");
+                    let client =
+                        http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
+                    Ok(Box::new(client))
+                }
+            }
+        }
     }
 }
 
@@ -523,6 +540,11 @@ pub async fn create_hybrid_client(
             }
         }
         crate::config::AuthMethod::Basic => {
+            Arc::new(http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?)
+        }
+        #[cfg(feature = "websocket")]
+        crate::config::AuthMethod::WebSocket => {
+            // For hybrid client, use basic HTTP for structure loading
             Arc::new(http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?)
         }
     };
