@@ -1,9 +1,0 @@
-# Loxone MCP Server Requirements
-# Install with: pip install -r requirements.txt
-
-fastmcp>=2.0
-keyring>=24.0.0
-httpx>=0.25.0
-python-dotenv>=1.0.0
-websockets>=12.0
-aiohttp>=3.8.0
