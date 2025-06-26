@@ -35,7 +35,7 @@ pub struct LoxoneHttpClient {
     config: LoxoneConfig,
 
     /// Shared context for caching
-    context: ClientContext,
+    context: Arc<ClientContext>,
 
     /// Connection state
     connected: bool,
@@ -93,7 +93,7 @@ impl LoxoneHttpClient {
             base_url: config.url.clone(),
             credentials,
             config,
-            context: ClientContext::new(),
+            context: Arc::new(ClientContext::new()),
             connected: false,
             connection_pool,
         })
@@ -182,7 +182,7 @@ impl LoxoneHttpClient {
 
     /// Get public context for external access
     #[must_use]
-    pub fn context(&self) -> &ClientContext {
+    pub fn context(&self) -> &Arc<ClientContext> {
         &self.context
     }
 
@@ -307,17 +307,27 @@ impl LoxoneClient for LoxoneHttpClient {
     ) -> Result<HashMap<String, serde_json::Value>> {
         let mut states = HashMap::new();
 
-        // For HTTP client, we need to query each device individually
-        // In a real implementation, this could be optimized with batch requests
-        for uuid in uuids {
-            match self.send_command(uuid, "state").await {
-                Ok(response) => {
-                    states.insert(uuid.clone(), response.value);
+        // Process requests concurrently to avoid timeout issues
+        let futures: Vec<_> = uuids.iter().map(|uuid| {
+            let uuid = uuid.clone();
+            async move {
+                match self.send_command(&uuid, "state").await {
+                    Ok(response) => Some((uuid, response.value)),
+                    Err(e) => {
+                        warn!("Failed to get state for device {uuid}: {e}");
+                        None
+                    }
                 }
-                Err(e) => {
-                    warn!("Failed to get state for device {uuid}: {e}");
-                    // Continue with other devices
-                }
+            }
+        }).collect();
+
+        // Execute all requests concurrently
+        let results = futures_util::future::join_all(futures).await;
+        
+        // Collect successful results
+        for result in results {
+            if let Some((uuid, value)) = result {
+                states.insert(uuid, value);
             }
         }
 
@@ -445,16 +455,27 @@ impl LoxoneHttpClient {
     ) -> Result<HashMap<String, serde_json::Value>> {
         let mut state_values = HashMap::new();
 
-        for state_uuid in state_uuids {
-            // Try different endpoints to get state values
-            match self.get_state_value_by_uuid(state_uuid).await {
-                Ok(value) => {
-                    state_values.insert(state_uuid.clone(), value);
+        // Process requests concurrently to avoid timeout issues
+        let futures: Vec<_> = state_uuids.iter().map(|state_uuid| {
+            let state_uuid = state_uuid.clone();
+            async move {
+                match self.get_state_value_by_uuid(&state_uuid).await {
+                    Ok(value) => Some((state_uuid, value)),
+                    Err(e) => {
+                        warn!("Failed to get state value for UUID {state_uuid}: {e}");
+                        None
+                    }
                 }
-                Err(e) => {
-                    warn!("Failed to get state value for UUID {state_uuid}: {e}");
-                    // Continue with other states
-                }
+            }
+        }).collect();
+
+        // Execute all requests concurrently
+        let results = futures_util::future::join_all(futures).await;
+        
+        // Collect successful results
+        for result in results {
+            if let Some((state_uuid, value)) = result {
+                state_values.insert(state_uuid, value);
             }
         }
 

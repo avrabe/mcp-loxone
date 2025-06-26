@@ -179,19 +179,33 @@ impl UnifiedValueResolver {
 
         let devices = context.devices.read().await;
 
-        // Resolve each device value
-        for uuid in uuids {
+        // Process value resolution concurrently
+        let futures: Vec<_> = uuids.iter().filter_map(|uuid| {
             if let Some(device) = devices.get(uuid) {
-                let raw_state = device_states.get(uuid);
-                match self.resolve_value_with_strategies(device, raw_state).await {
-                    Ok(resolved) => {
-                        // Note: Caching is handled automatically by enhanced_cache in get_batch_device_values
-                        results.insert(uuid.clone(), resolved);
+                let device = device.clone();
+                let uuid = uuid.clone();
+                let raw_state = device_states.get(&uuid).cloned();
+                Some(async move {
+                    match self.resolve_value_with_strategies(&device, raw_state.as_ref()).await {
+                        Ok(resolved) => Some((uuid, resolved)),
+                        Err(e) => {
+                            tracing::warn!("Failed to resolve value for {}: {}", uuid, e);
+                            None
+                        }
                     }
-                    Err(e) => {
-                        tracing::warn!("Failed to resolve value for {}: {}", uuid, e);
-                    }
-                }
+                })
+            } else {
+                None
+            }
+        }).collect();
+
+        // Execute all value resolutions concurrently
+        let resolution_results = futures_util::future::join_all(futures).await;
+        
+        // Collect successful results
+        for result in resolution_results {
+            if let Some((uuid, resolved)) = result {
+                results.insert(uuid, resolved);
             }
         }
 

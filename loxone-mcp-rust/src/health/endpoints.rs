@@ -199,9 +199,9 @@ impl HealthEndpoints {
         let latest_snapshot = collector.get_latest();
         
         let metrics = if self.config.prometheus_format {
-            self.format_prometheus_metrics(&report, latest_snapshot.as_ref())?
+            self.format_prometheus_metrics(&report, latest_snapshot)?
         } else {
-            self.format_json_metrics(&report, latest_snapshot.as_ref())?
+            self.format_json_metrics(&report, latest_snapshot)?
         };
         
         let content_type = if self.config.prometheus_format {

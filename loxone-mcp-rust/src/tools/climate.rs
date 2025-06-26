@@ -2,7 +2,7 @@
 //!
 //! Tools for HVAC control, temperature monitoring, and climate management.
 
-use crate::tools::{ToolContext, ToolResponse};
+use crate::tools::{DeviceFilter, ToolContext, ToolResponse};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -74,7 +74,13 @@ pub struct ClimateStatistics {
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_climate_control(context: ToolContext) -> ToolResponse {
     // Get all climate-related devices
-    let devices = match context.context.get_devices_by_category("climate").await {
+    let filter = DeviceFilter {
+        category: Some("climate".to_string()),
+        device_type: None,
+        room: None,
+        limit: None,
+    };
+    let devices = match context.get_devices(Some(filter)).await {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
@@ -165,7 +171,13 @@ pub async fn get_climate_control(context: ToolContext) -> ToolResponse {
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_room_climate(context: ToolContext, room_name: String) -> ToolResponse {
     // Get climate devices in the specified room
-    let all_devices = match context.context.get_devices_by_category("climate").await {
+    let filter = DeviceFilter {
+        category: Some("climate".to_string()),
+        device_type: None,
+        room: None,
+        limit: None,
+    };
+    let all_devices = match context.get_devices(Some(filter)).await {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
@@ -244,7 +256,13 @@ pub async fn set_room_temperature(
     }
 
     // Find room controller
-    let all_devices = match context.context.get_devices_by_category("climate").await {
+    let filter = DeviceFilter {
+        category: Some("climate".to_string()),
+        device_type: None,
+        room: None,
+        limit: None,
+    };
+    let all_devices = match context.get_devices(Some(filter)).await {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
@@ -265,7 +283,8 @@ pub async fn set_room_temperature(
     let command = format!("setpoint/{}", temperature);
 
     let result = match context
-        .send_device_command(&controller.uuid, &command)
+        .client
+        .send_command(&controller.uuid, &command)
         .await
     {
         Ok(response) => {
@@ -301,7 +320,13 @@ pub async fn set_room_temperature(
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_temperature_readings(context: ToolContext) -> ToolResponse {
     // Get all climate devices
-    let devices = match context.context.get_devices_by_category("climate").await {
+    let filter = DeviceFilter {
+        category: Some("climate".to_string()),
+        device_type: None,
+        room: None,
+        limit: None,
+    };
+    let devices = match context.get_devices(Some(filter)).await {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
@@ -400,7 +425,13 @@ pub async fn set_room_mode(
     }
 
     // Find room controller
-    let all_devices = match context.context.get_devices_by_category("climate").await {
+    let filter = DeviceFilter {
+        category: Some("climate".to_string()),
+        device_type: None,
+        room: None,
+        limit: None,
+    };
+    let all_devices = match context.get_devices(Some(filter)).await {
         Ok(devices) => devices,
         Err(e) => return ToolResponse::error(e.to_string()),
     };
@@ -421,7 +452,8 @@ pub async fn set_room_mode(
     let command = format!("mode/{}", mode);
 
     let result = match context
-        .send_device_command(&controller.uuid, &command)
+        .client
+        .send_command(&controller.uuid, &command)
         .await
     {
         Ok(response) => {

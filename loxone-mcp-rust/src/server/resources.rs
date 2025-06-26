@@ -45,7 +45,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
-use tracing::debug;
+use tracing::{debug, warn};
 
 /// MCP Resource representation
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1156,8 +1156,16 @@ pub trait ResourceHandler {
 impl ResourceHandler for LoxoneMcpServer {
     async fn read_resource(&self, context: ResourceContext) -> Result<ResourceContent> {
         debug!("Reading resource: {}", context.uri);
-
-        let data = match context.uri.as_str() {
+        
+        // Add timeout to resource operations to prevent hanging
+        use std::time::Duration;
+        use tokio::time::timeout;
+        
+        let resource_timeout = Duration::from_secs(15); // 15 second timeout for resource operations (increased for concurrent sensor processing)
+        let uri = context.uri.clone(); // Clone URI for use in async block
+        
+        let data = timeout(resource_timeout, async move {
+            let result: Result<serde_json::Value> = Ok(match uri.as_str() {
             // Route to appropriate handler based on exact URI match
             "loxone://rooms" => self.read_rooms_resource().await?,
             "loxone://devices/all" => self.read_all_devices_resource().await?,
@@ -1201,10 +1209,14 @@ impl ResourceHandler for LoxoneMcpServer {
             _ => {
                 return Err(LoxoneError::invalid_input(format!(
                     "Unknown resource URI: {}. Available resources: loxone://rooms, loxone://devices/*, loxone://system/*, loxone://audio/*, loxone://sensors/*, loxone://weather/*, loxone://security/*, loxone://energy/*",
-                    context.uri
+                    uri
                 )));
             }
-        };
+            });
+            result
+        })
+        .await
+        .map_err(|_| LoxoneError::timeout("Resource read operation timed out after 5 seconds".to_string()))??;
 
         let content_str = serde_json::to_string(&data)?;
         let metadata = ResourceMetadata {
@@ -1223,6 +1235,19 @@ impl LoxoneMcpServer {
     /// Resource handlers - implement the actual data retrieval
     async fn read_rooms_resource(&self) -> Result<serde_json::Value> {
         let rooms = self.context.rooms.read().await;
+        
+        // If cache is empty, return empty result quickly (don't block on refresh)
+        if rooms.is_empty() {
+            warn!("Rooms cache is empty - returning empty result (consider checking Loxone connection)");
+            return Ok(serde_json::json!({
+                "total_rooms": 0,
+                "rooms": [],
+                "uri": "loxone://rooms",
+                "status": "cache_empty",
+                "message": "No rooms data available - ensure Loxone client is connected and structure is loaded"
+            }));
+        }
+        
         let rooms_data: Vec<_> = rooms
             .iter()
             .map(|(uuid, room)| {
@@ -1243,8 +1268,21 @@ impl LoxoneMcpServer {
 
     async fn read_all_devices_resource(&self) -> Result<serde_json::Value> {
         let devices = self.context.devices.read().await;
+        
+        // If cache is empty, return empty result quickly (don't block on refresh)
+        if devices.is_empty() {
+            warn!("Devices cache is empty - returning empty result (consider checking Loxone connection)");
+            return Ok(serde_json::json!({
+                "total_devices": 0,
+                "devices": [],
+                "uri": "loxone://devices/all",
+                "status": "cache_empty",
+                "message": "No devices data available - ensure Loxone client is connected and structure is loaded"
+            }));
+        }
+        
         let rooms = self.context.rooms.read().await;
-
+        
         let device_list: Vec<_> = devices
             .values()
             .map(|device| {

@@ -70,11 +70,11 @@ impl HealthCheck for MemoryHealthCheck {
                 .unwrap()
                 .as_secs(),
             metadata: std::collections::HashMap::from([
-                ("usage_percent".to_string(), serde_json::Value::Number(usage_percent.into())),
+                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
                 ("used_bytes".to_string(), serde_json::Value::Number(memory_info.used_bytes.into())),
                 ("total_bytes".to_string(), serde_json::Value::Number(memory_info.total_bytes.into())),
-                ("warning_threshold".to_string(), serde_json::Value::Number(self.warning_threshold.into())),
-                ("critical_threshold".to_string(), serde_json::Value::Number(self.critical_threshold.into())),
+                ("warning_threshold".to_string(), serde_json::Value::from(self.warning_threshold)),
+                ("critical_threshold".to_string(), serde_json::Value::from(self.critical_threshold)),
             ]),
             error: None,
             critical: self.is_critical(),
@@ -150,7 +150,7 @@ impl HealthCheck for DiskSpaceHealthCheck {
                 .as_secs(),
             metadata: std::collections::HashMap::from([
                 ("path".to_string(), serde_json::Value::String(self.path.clone())),
-                ("usage_percent".to_string(), serde_json::Value::Number(usage_percent.into())),
+                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
                 ("used_bytes".to_string(), serde_json::Value::Number(used_bytes.into())),
                 ("available_bytes".to_string(), serde_json::Value::Number(available_bytes.into())),
                 ("total_bytes".to_string(), serde_json::Value::Number(total_bytes.into())),
@@ -227,7 +227,7 @@ impl HealthCheck for ThreadPoolHealthCheck {
                 .unwrap()
                 .as_secs(),
             metadata: std::collections::HashMap::from([
-                ("usage_percent".to_string(), serde_json::Value::Number(usage_percent.into())),
+                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
                 ("active_threads".to_string(), serde_json::Value::Number(thread_metrics.active_threads.into())),
                 ("total_threads".to_string(), serde_json::Value::Number(thread_metrics.total_threads.into())),
                 ("queued_tasks".to_string(), serde_json::Value::Number(thread_metrics.queued_tasks.into())),
@@ -293,7 +293,7 @@ impl HealthCheck for ConfigHealthCheck {
                     &format!("Configuration file accessible: {}", self.config_path),
                 ).with_metadata("file_size", file_size)
                  .with_metadata("last_modified", modified)
-                 .with_metadata("path", &self.config_path))
+                 .with_metadata("path", self.config_path.clone()))
             }
             Err(e) => {
                 Ok(HealthCheckResult::unhealthy(

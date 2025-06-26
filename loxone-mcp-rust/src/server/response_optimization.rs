@@ -3,11 +3,14 @@
 //! This module provides utilities to optimize response text according to MCP best practices,
 //! returning empty results instead of "not found" error messages for better user experience.
 
-use mcp_foundation::{CallToolResult, Content};
+
+// Use framework types instead of legacy mcp_foundation
+use mcp_protocol::{CallToolResult, Content};
 use serde_json::json;
 
 /// Standard empty response patterns for different scenarios
 pub struct OptimizedResponses;
+
 
 impl OptimizedResponses {
     /// Create an empty room list response
@@ -177,6 +180,7 @@ impl OptimizedResponses {
 }
 
 /// Response optimization helper functions
+
 pub trait ResponseOptimizer {
     /// Convert a potential error response to an optimized empty response
     fn optimize_empty_result(self) -> CallToolResult;
@@ -185,7 +189,8 @@ pub trait ResponseOptimizer {
     fn optimize_not_found(self, identifier: &str, suggestion: Option<&str>) -> CallToolResult;
 }
 
-impl ResponseOptimizer for Result<CallToolResult, mcp_foundation::Error> {
+
+impl ResponseOptimizer for Result<CallToolResult, mcp_protocol::Error> {
     fn optimize_empty_result(self) -> CallToolResult {
         match self {
             Ok(result) => result,

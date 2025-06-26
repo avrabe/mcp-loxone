@@ -21,7 +21,7 @@ use crate::performance::{
 use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
 use crate::auth::AuthenticationManager;
-use mcp_foundation::ServerHandler;
+// Legacy support removed - framework is now default
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
 
 #[cfg(feature = "influxdb")]
@@ -45,7 +45,7 @@ use axum::{
     Json, Router,
 };
 use chrono;
-use futures_util::stream::{self};
+use futures_util::stream;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -66,6 +66,8 @@ struct SseQuery {
     client_id: Option<String>,
     /// Optional resource subscriptions (comma-separated)
     subscribe: Option<String>,
+    /// Optional session ID for MCP Inspector compatibility
+    session_id: Option<String>,
 }
 
 /// SSE notification event
@@ -83,7 +85,7 @@ pub struct SseNotificationEvent {
     pub timestamp: String,
 }
 
-/// SSE connection manager for broadcasting notifications
+/// SSE connection manager for broadcasting notifications and routing responses
 #[derive(Clone)]
 pub struct SseConnectionManager {
     /// Broadcast channel for sending notifications to all SSE connections
@@ -91,6 +93,8 @@ pub struct SseConnectionManager {
     /// Active SSE connections tracking
     #[allow(dead_code)]
     connections: Arc<RwLock<HashMap<String, broadcast::Receiver<SseNotificationEvent>>>>,
+    /// Session-based response routing for MCP Inspector compatibility
+    session_responses: Arc<RwLock<HashMap<String, broadcast::Sender<serde_json::Value>>>>,
 }
 
 impl Default for SseConnectionManager {
@@ -106,6 +110,7 @@ impl SseConnectionManager {
         Self {
             notification_sender,
             connections: Arc::new(RwLock::new(HashMap::new())),
+            session_responses: Arc::new(RwLock::new(HashMap::new())),
         }
     }
 
@@ -126,6 +131,35 @@ impl SseConnectionManager {
     /// Create a receiver for a new SSE connection
     pub fn create_receiver(&self) -> broadcast::Receiver<SseNotificationEvent> {
         self.notification_sender.subscribe()
+    }
+
+    /// Register a session for response routing (MCP Inspector compatibility)
+    pub async fn register_session(&self, session_id: &str) -> broadcast::Receiver<serde_json::Value> {
+        let (sender, receiver) = broadcast::channel(100);
+        self.session_responses.write().await.insert(session_id.to_string(), sender);
+        receiver
+    }
+
+    /// Send response through session-specific channel
+    pub async fn send_session_response(&self, session_id: &str, response: serde_json::Value) -> Result<()> {
+        let session_responses = self.session_responses.read().await;
+        if let Some(sender) = session_responses.get(session_id) {
+            match sender.send(response) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    warn!("Failed to send session response for {}: {}", session_id, e);
+                    Err(LoxoneError::connection(format!("Session response failed: {}", e)))
+                }
+            }
+        } else {
+            warn!("Session {} not found for response routing", session_id);
+            Err(LoxoneError::connection(format!("Session {} not found", session_id)))
+        }
+    }
+
+    /// Remove session when connection closes
+    pub async fn remove_session(&self, session_id: &str) {
+        self.session_responses.write().await.remove(session_id);
     }
 }
 
@@ -704,7 +738,7 @@ async fn sse_handler(
     };
 
     // Create proper MCP SSE stream that implements the initialization handshake
-    create_mcp_sse_stream(&state, &client_id, subscriptions).await
+    create_mcp_sse_stream(&state, &client_id, subscriptions, query.session_id).await
 }
 
 /// Create proper MCP SSE stream with subscription support
@@ -712,6 +746,7 @@ async fn create_mcp_sse_stream(
     state: &AppState,
     client_id: &str,
     subscriptions: Vec<String>,
+    _session_id: Option<String>,
 ) -> impl IntoResponse {
     info!(
         "Creating MCP SSE stream for client: {} with {} subscriptions",
@@ -786,6 +821,17 @@ async fn create_mcp_sse_stream(
         .to_string(),
     );
 
+    // Set up session-based response routing for SSE transport
+    // Always register the session for SSE connections to enable bidirectional communication
+    info!("Setting up session-based routing for client: {}", client_id_owned);
+    let session_receiver = sse_manager.register_session(&client_id_owned).await;
+
+    // Create endpoint event first for MCP Inspector (SSE transport pattern)
+    // For SSE transport, send endpoint with session_id for bidirectional communication
+    let endpoint_event = Event::default()
+        .event("endpoint")
+        .data(format!("/message?session_id={}", client_id_owned));
+
     // Create notification stream from SSE manager
     let notification_receiver = sse_manager.create_receiver();
     let client_id_for_notifications = client_id_owned.clone();
@@ -852,12 +898,37 @@ async fn create_mcp_sse_stream(
         Some((ping_event, server))
     });
 
-    // Merge notifications and pings - prioritize notifications but include periodic pings
+    // Create session response stream for SSE bidirectional communication
+    let session_stream = stream::unfold(session_receiver, |mut receiver| async move {
+        match receiver.recv().await {
+            Ok(response) => {
+                let response_event = Event::default()
+                    .event("message")
+                    .data(response.to_string());
+                Some((response_event, receiver))
+            }
+            Err(broadcast::error::RecvError::Lagged(_)) => {
+                let lag_event = Event::default()
+                    .event("error")
+                    .data(serde_json::json!({
+                        "error": "Session response stream lagged"
+                    }).to_string());
+                Some((lag_event, receiver))
+            }
+            Err(broadcast::error::RecvError::Closed) => None,
+        }
+    });
+
+    // Merge notifications, pings, and session responses
     use futures_util::stream::select;
-    let live_stream = select(notification_stream, ping_stream);
-    let complete_stream = initial_stream
+    let live_stream = select(select(notification_stream, ping_stream), session_stream).boxed();
+
+    // Compose the complete stream with endpoint event first (required for SSE transport)
+    let complete_stream = stream::once(async move { endpoint_event })
+        .chain(initial_stream)
         .chain(live_stream)
-        .map(Ok::<Event, Infallible>);
+        .map(Ok::<Event, Infallible>)
+        .boxed();
 
     Sse::new(complete_stream).keep_alive(
         axum::response::sse::KeepAlive::new()
@@ -869,6 +940,7 @@ async fn create_mcp_sse_stream(
 /// Handle MCP messages via HTTP POST (Streamable HTTP transport for MCP Inspector)
 async fn handle_mcp_message(
     State(state): State<Arc<AppState>>,
+    Query(query): Query<HashMap<String, String>>,
     headers: HeaderMap,
     Json(request): Json<serde_json::Value>,
 ) -> impl IntoResponse {
@@ -994,6 +1066,9 @@ async fn handle_mcp_message(
 
     info!("Received MCP message: {:?}", request);
 
+    // Store the JSON response for SSE routing
+    let mut json_response: Option<serde_json::Value> = None;
+    
     // Handle different MCP request types according to MCP specification
     let response_result = if let Some(method) = request.get("method").and_then(|m| m.as_str()) {
         match method {
@@ -1012,12 +1087,13 @@ async fn handle_mcp_message(
                             "prompts": {}
                         },
                         "serverInfo": {
-                            "name": server_info.server_info.name,
-                            "version": server_info.server_info.version
+                            "name": server_info["server_info"]["name"].as_str().unwrap_or("Loxone MCP Server"),
+                            "version": server_info["server_info"]["version"].as_str().unwrap_or("1.0.0")
                         },
                         "protocolVersion": "2024-11-05"
                     }
                 });
+                json_response = Some(response.clone());
                 Ok(Json(response).into_response())
             }
             "notifications/initialized" => {
@@ -1333,6 +1409,7 @@ async fn handle_mcp_message(
                         "tools": tools
                     }
                 });
+                json_response = Some(response.clone());
                 Ok(Json(response).into_response())
             }
             "tools/list_old" => {
@@ -1500,6 +1577,7 @@ async fn handle_mcp_message(
                         "resources": resources
                     }
                 });
+                json_response = Some(response.clone());
                 Ok(Json(response).into_response())
             }
             "tools/call" => {
@@ -1528,6 +1606,7 @@ async fn handle_mcp_message(
                             "id": request.get("id"),
                             "result": result
                         });
+                        json_response = Some(response.clone());
                         Ok(Json(response).into_response())
                     }
                     Err(e) => {
@@ -1539,6 +1618,7 @@ async fn handle_mcp_message(
                                 "message": format!("Tool execution error: {}", e)
                             }
                         });
+                        json_response = Some(error_response.clone());
                         Ok(Json(error_response).into_response())
                     }
                 }
@@ -1587,6 +1667,7 @@ async fn handle_mcp_message(
                                 }]
                             }
                         });
+                        json_response = Some(response.clone());
                         Ok(Json(response).into_response())
                     }
                     Err(e) => {
@@ -1598,6 +1679,7 @@ async fn handle_mcp_message(
                                 "message": format!("Resource error: {}", e)
                             }
                         });
+                        json_response = Some(error_response.clone());
                         Ok(Json(error_response).into_response())
                     }
                 }
@@ -2149,6 +2231,18 @@ async fn handle_mcp_message(
                 });
                 Ok(Json(response).into_response())
             }
+            "resources/templates/list" => {
+                // Return empty templates list for now
+                let response = serde_json::json!({
+                    "jsonrpc": "2.0",
+                    "id": request.get("id"),
+                    "result": {
+                        "resourceTemplates": []
+                    }
+                });
+                json_response = Some(response.clone());
+                Ok(Json(response).into_response())
+            }
             _ => {
                 let error_response = serde_json::json!({
                     "jsonrpc": "2.0",
@@ -2158,6 +2252,7 @@ async fn handle_mcp_message(
                         "message": "Method not found"
                     }
                 });
+                json_response = Some(error_response.clone());
                 Ok(Json(error_response).into_response())
             }
         }
@@ -2221,6 +2316,23 @@ async fn handle_mcp_message(
         }
     }
 
+    // Check if we need to route response through SSE session (for SSE transport)
+    let session_id = query.get("session_id");
+    if let Some(session_id) = session_id {
+        // For SSE transport, send response through SSE stream
+        if let Some(ref response) = json_response {
+            if let Err(e) = state.sse_manager.send_session_response(session_id, response.clone()).await {
+                warn!("Failed to send session response for {}: {}", session_id, e);
+                // Fall back to HTTP response if SSE fails
+                return response_result;
+            } else {
+                info!("Response routed to SSE session: {}", session_id);
+                // Return 204 No Content for successful SSE routing
+                return Ok(StatusCode::NO_CONTENT.into_response());
+            }
+        }
+    }
+
     response_result
 }
 
@@ -2230,9 +2342,9 @@ async fn server_info(State(state): State<Arc<AppState>>, _headers: HeaderMap) ->
 
     let info = state.mcp_server.get_info();
     Json(serde_json::json!({
-        "name": info.server_info.name,
-        "version": info.server_info.version,
-        "instructions": info.instructions,
+        "name": info["server_info"]["name"].as_str().unwrap_or("Loxone MCP Server"),
+        "version": info["server_info"]["version"].as_str().unwrap_or("1.0.0"),
+        "instructions": info["instructions"].as_str().unwrap_or("MCP server for Loxone home automation"),
         "transport": "HTTP/SSE",
         "authentication": "Bearer"
     }))

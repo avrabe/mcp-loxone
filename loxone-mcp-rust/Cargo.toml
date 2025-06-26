@@ -1,12 +1,70 @@
+[workspace]
+members = [
+    ".",
+    "mcp-framework/mcp-protocol",
+    "mcp-framework/mcp-server", 
+    "mcp-framework/mcp-auth",
+    "mcp-framework/mcp-transport",
+    "mcp-framework/mcp-security",
+    "mcp-framework/mcp-monitoring",
+    "mcp-framework/mcp-logging",
+    "examples/hello-world-mcp",
+]
+
+resolver = "2"
+
+[workspace.dependencies]
+# Core dependencies
+tokio = { version = "1.40", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+async-trait = "0.1"
+uuid = { version = "1.11", features = ["v4", "serde"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Validation
+validator = { version = "0.18", features = ["derive"] }
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# System
+dirs = "5.0"
+
+# Crypto
+sha2 = "0.10"
+base64 = "0.22"
+rand = "0.8"
+
+# Keyring
+keyring = { version = "3.5" }
+
+# HTTP/Web 
+axum = { version = "0.7", features = ["ws"] }
+tower = { version = "0.4" }
+tower-http = { version = "0.5", features = ["cors", "auth"] }
+hyper = { version = "1.4", features = ["full"] }
+
+# WebSocket
+tokio-tungstenite = { version = "0.20", features = ["rustls-tls-webpki-roots"] }
+tungstenite = { version = "0.24" }
+
+# Async utilities
+futures = "0.3"
+futures-util = "0.3"
+
 [package]
 name = "loxone-mcp-rust"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
 license = "MIT"
-description = "Loxone MCP Server implementation in Rust"
+description = "Loxone MCP Server implementation in Rust with framework separation"
 repository = "https://github.com/avrabe/mcp-loxone"
-keywords = ["loxone", "mcp", "home-automation"]
+keywords = ["loxone", "mcp", "home-automation", "framework"]
 categories = ["api-bindings", "web-programming"]
 build = "build.rs"
 
@@ -47,10 +105,17 @@ path = "src/bin/loxone-mcp-auth.rs"
 
 
 [dependencies]
-# MCP Framework (conditional features for WASM)
-# rmcp = { version = "0.1.5", features = ["server", "macros"], optional = true } # Replaced by mcp-foundation
-# Custom MCP Foundation (replaces rmcp)
-mcp-foundation = { path = "mcp-foundation" }
+# MCP Logging Framework
+mcp-logging = { path = "mcp-framework/mcp-logging" }
+
+# MCP Framework (new unified framework)
+mcp-protocol = { path = "mcp-framework/mcp-protocol", optional = true }
+mcp-server = { path = "mcp-framework/mcp-server", optional = true }
+mcp-transport = { path = "mcp-framework/mcp-transport", optional = true }
+mcp-auth = { path = "mcp-framework/mcp-auth", optional = true }
+
+# Legacy MCP Foundation (to be removed after migration)
+# Legacy mcp-foundation removed - framework is now default
 
 # Async runtime
 tokio = { version = "1.0", features = ["rt-multi-thread", "rt", "io-util", "sync", "macros", "time", "fs"] }
@@ -169,7 +234,10 @@ socket2 = { version = "0.5", optional = true }
 dirs = "5.0"  # For default storage directory
 
 [features]
-default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb"]
+default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration"]
+
+# Framework features (now default)
+framework-migration = ["mcp-protocol", "mcp-server", "mcp-transport", "mcp-auth", "http-server", "websocket"]
 
 # Crypto features
 crypto-openssl = ["openssl", "aes", "x509-parser"] # Modern crypto with OpenSSL (recommended)

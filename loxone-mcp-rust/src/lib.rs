@@ -13,27 +13,16 @@
 //! - WebSocket and HTTP client support
 //! - Secure credential management
 //! - WASM-compatible for server deployment via WASIP2
-//!
-//! # Example
-//!
-//! ```rust,no_run
-//! use loxone_mcp_rust::{LoxoneMcpServer, ServerConfig};
-//!
-//! #[tokio::main]
-//! async fn main() -> Result<(), Box<dyn std::error::Error>> {
-//!     let config = ServerConfig::from_env()?;
-//!     let server = LoxoneMcpServer::new(config).await?;
-//!     server.run().await?;
-//!     Ok(())
-//! }
-//! ```
 
-// pub mod audit_log; // Removed: unused module
-pub mod auth;  // New unified authentication system
+// Core modules
+pub mod auth;
 pub mod client;
 pub mod config;
+pub mod crypto;
+pub mod discovery;
 pub mod error;
-// pub mod history; // Removed: unused module
+pub mod framework_integration;
+pub mod health;
 pub mod http_transport;
 pub mod logging;
 pub mod mcp_consent;
@@ -47,24 +36,7 @@ pub mod shared_styles;
 pub mod tools;
 pub mod validation;
 
-pub mod mock;
-
-#[cfg(feature = "crypto-openssl")]
-pub mod crypto;
-
-pub mod discovery;
-
-// Re-export main types
-pub use crate::{
-    config::{CredentialStore, ServerConfig},
-    error::{LoxoneError, Result},
-    server::LoxoneMcpServer,
-};
-
-// Re-export MCP types from rmcp
-// pub use rmcp::{}; // TODO: Fix when rmcp API is clarified
-
-
-// Test module for subscription integration
-#[cfg(test)]
-mod test_subscription_integration;
+// Re-export main types for convenience
+pub use error::{LoxoneError, Result};
+pub use config::ServerConfig;
+pub use framework_integration::LoxoneBackend;

@@ -487,9 +487,24 @@ impl LoxoneError {
         Self::Parsing(msg.into())
     }
 
+    /// Create an internal error
+    pub fn internal<S: Into<String>>(msg: S) -> Self {
+        Self::Generic(anyhow::anyhow!(msg.into()))
+    }
+
     /// Create a configuration error (alias for backwards compatibility)
     pub fn configuration_error<S: Into<String>>(msg: S) -> Self {
         Self::Config(msg.into())
+    }
+
+    /// Create a validation error
+    pub fn validation<S: Into<String>>(msg: S) -> Self {
+        Self::InvalidInput(msg.into())
+    }
+
+    /// Create a serialization error
+    pub fn serialization<S: Into<String>>(msg: S) -> Self {
+        Self::Parsing(msg.into())
     }
 
     /// Map LoxoneError to structured error code
@@ -914,5 +929,60 @@ impl From<tokio_tungstenite::tungstenite::Error> for LoxoneError {
 impl From<regex::Error> for LoxoneError {
     fn from(err: regex::Error) -> Self {
         LoxoneError::InvalidInput(format!("Regex pattern error: {}", err))
+    }
+}
+
+// Implement ErrorClassification trait for LoxoneError to work with mcp-logging
+impl mcp_logging::ErrorClassification for LoxoneError {
+    fn error_type(&self) -> &str {
+        match self {
+            LoxoneError::Connection(_) => "connection_error",
+            LoxoneError::Authentication(_) => "authentication_error",
+            LoxoneError::Http(_) => "http_error",
+            LoxoneError::Json(_) => "json_error",
+            LoxoneError::Config(_) => "config_error",
+            LoxoneError::Credentials(_) => "credentials_error",
+            LoxoneError::Crypto(_) => "crypto_error",
+            LoxoneError::DeviceControl(_) => "device_control_error",
+            LoxoneError::SensorDiscovery(_) => "sensor_discovery_error",
+            LoxoneError::Discovery(_) => "discovery_error",
+            #[cfg(feature = "websocket")]
+            LoxoneError::WebSocket(_) => "websocket_error",
+            LoxoneError::Mcp(_) => "mcp_protocol_error",
+            #[cfg(target_arch = "wasm32")]
+            LoxoneError::Wasm(_) => "wasm_error",
+            LoxoneError::Io(_) => "io_error",
+            LoxoneError::Generic(_) => "generic_error",
+            LoxoneError::Timeout(_) => "timeout_error",
+            LoxoneError::InvalidInput(_) => "invalid_input_error",
+            LoxoneError::NotFound(_) => "not_found_error",
+            LoxoneError::PermissionDenied(_) => "permission_denied_error",
+            LoxoneError::ServiceUnavailable(_) => "service_unavailable_error",
+            LoxoneError::ResourceExhausted(_) => "resource_exhausted_error",
+            LoxoneError::ConsentDenied(_) => "consent_denied_error",
+            LoxoneError::RateLimit(_) => "rate_limit_error",
+            LoxoneError::Network(_) => "network_error",
+            LoxoneError::ExternalService(_) => "external_service_error",
+            LoxoneError::Parsing(_) => "parsing_error",
+        }
+    }
+
+    fn is_retryable(&self) -> bool {
+        self.is_retryable()
+    }
+
+    fn is_timeout(&self) -> bool {
+        matches!(self, LoxoneError::Timeout(_))
+    }
+
+    fn is_auth_error(&self) -> bool {
+        self.is_auth_error()
+    }
+
+    fn is_connection_error(&self) -> bool {
+        matches!(
+            self,
+            LoxoneError::Connection(_) | LoxoneError::Network(_) | LoxoneError::Http(_)
+        )
     }
 }

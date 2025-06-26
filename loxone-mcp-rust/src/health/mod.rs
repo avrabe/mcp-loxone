@@ -8,6 +8,9 @@ pub mod diagnostics;
 pub mod endpoints;
 pub mod monitoring;
 
+// Re-export types from diagnostics
+pub use diagnostics::{DiagnosticsCollector, DiagnosticSnapshot, DiagnosticTrends, TrendDirection};
+
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -251,9 +254,9 @@ impl SystemInfo {
         
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            build_time: env!("VERGEN_BUILD_TIMESTAMP").unwrap_or("unknown").to_string(),
-            git_commit: env!("VERGEN_GIT_SHA").unwrap_or("unknown").to_string(),
-            rust_version: env!("VERGEN_RUSTC_SEMVER").unwrap_or("unknown").to_string(),
+            build_time: std::env::var("VERGEN_BUILD_TIMESTAMP").unwrap_or_else(|_| "unknown".to_string()),
+            git_commit: std::env::var("VERGEN_GIT_SHA").unwrap_or_else(|_| "unknown".to_string()),
+            rust_version: std::env::var("VERGEN_RUSTC_SEMVER").unwrap_or_else(|_| "unknown".to_string()),
             target_arch: std::env::consts::ARCH.to_string(),
             os: std::env::consts::OS.to_string(),
             pid: std::process::id(),

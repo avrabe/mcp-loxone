@@ -467,6 +467,26 @@ impl ServerConfig {
         config
     }
 
+    /// Create configuration for offline mode (when credentials are missing)
+    pub fn offline_mode() -> Self {
+        let mut config = Self::default();
+        
+        // Set dummy Loxone config to allow server to start
+        config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
+        config.loxone.username = "offline".to_string();
+        config.loxone.timeout = Duration::from_secs(5);
+        config.loxone.max_retries = 0; // Don't retry in offline mode
+        config.loxone.verify_ssl = false;
+        config.loxone.max_connections = Some(1);
+        config.loxone.auth_method = AuthMethod::Basic;
+        
+        // Disable features that require Loxone connection
+        config.features.enable_websocket = false;
+        config.features.enable_caching = false;
+        
+        config
+    }
+
     /// Load configuration from environment variables
     pub fn from_env() -> Result<Self> {
         let mut config = Self::default();

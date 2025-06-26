@@ -3,7 +3,7 @@
 //! This module provides request ID tracking and context management for better
 //! debugging and observability in distributed systems.
 
-use crate::logging::structured::{StructuredContext, StructuredLogger};
+use mcp_logging::{StructuredContext, StructuredLogger};
 
 use std::time::Instant;
 use uuid::Uuid;

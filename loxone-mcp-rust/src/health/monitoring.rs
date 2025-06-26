@@ -151,27 +151,21 @@ impl HealthMonitor {
             
             debug!("Performing scheduled health check");
             
-            match self.health_checker.check_health().await {
-                Ok(report) => {
-                    if let Err(e) = self.process_health_report(report).await {
-                        warn!("Failed to process health report: {}", e);
-                    }
-                }
-                Err(e) => {
-                    error!("Health check failed: {}", e);
-                    
-                    let event = HealthEvent {
-                        event_type: HealthEventType::HealthCheckFailed,
-                        timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
-                        data: serde_json::json!({
-                            "error": e.to_string()
-                        }),
-                        severity: EventSeverity::Critical,
-                    };
-                    
-                    if let Err(_) = self.event_broadcaster.send(event) {
-                        warn!("No subscribers for health events");
-                    }
+            let report = self.health_checker.check_health().await;
+            if let Err(e) = self.process_health_report(report).await {
+                warn!("Failed to process health report: {}", e);
+                
+                let event = HealthEvent {
+                    event_type: HealthEventType::HealthCheckFailed,
+                    timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+                    data: serde_json::json!({
+                        "error": e.to_string()
+                    }),
+                    severity: EventSeverity::Critical,
+                };
+                
+                if let Err(_) = self.event_broadcaster.send(event) {
+                    warn!("No subscribers for health events");
                 }
             }
         }
@@ -492,7 +486,7 @@ impl AlertManager {
 }
 
 /// Monitoring configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct MonitoringConfig {
     /// Health check interval
     pub health_check_interval: Duration,
@@ -519,7 +513,7 @@ impl Default for MonitoringConfig {
 }
 
 /// Alert configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct AlertConfig {
     /// Memory usage threshold for alerts (percentage)
     pub memory_threshold: f64,

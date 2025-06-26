@@ -373,3 +373,39 @@ example-stdio:
 example-health:
 	@echo "📝 Testing server health..."
 	timeout 5s cargo run --release || echo "Server started successfully"
+
+# Integration Testing
+install-test-deps:
+	@echo "📦 Installing test dependencies..."
+	pip install -r integration_tests/requirements.txt
+
+# Run quick bash integration tests
+integration-quick:
+	@echo "⚡ Starting server for quick integration tests..."
+	@cargo run --bin loxone-mcp-server -- http --port 3003 --dev-mode > /tmp/mcp_test_server.log 2>&1 & \
+	SERVER_PID=$$!; \
+	sleep 5; \
+	echo "🧪 Running integration tests..."; \
+	if ./integration_tests/test_mcp_server.sh; then \
+		echo "✅ Integration tests passed"; \
+		kill $$SERVER_PID 2>/dev/null || true; \
+		exit 0; \
+	else \
+		echo "❌ Integration tests failed"; \
+		kill $$SERVER_PID 2>/dev/null || true; \
+		exit 1; \
+	fi
+
+# Run full Python integration tests
+integration-full: install-test-deps
+	@echo "🐍 Running full Python integration tests..."
+	python -m pytest integration_tests/test_mcp_compatibility.py -v
+
+# Test with MCP Inspector
+integration-inspector: install-test-deps
+	@echo "🔍 Testing with MCP Inspector..."
+	python integration_tests/test_with_mcp_inspector.py
+
+# All integration tests
+integration-test: integration-quick integration-full
+	@echo "✅ All integration tests completed"

@@ -2,15 +2,25 @@
 //!
 //! This example shows how optimized responses provide better user experience
 //! by returning empty results instead of "not found" error messages.
+//! 
+//! NOTE: This example is temporarily disabled as the response_optimization module
+//! is being refactored as part of the framework migration.
 
+fn main() {
+    println!("Response optimization example is temporarily disabled during refactoring.");
+}
+
+/*
+// Response optimization example - currently disabled as module is being refactored
 use loxone_mcp_rust::server::response_optimization::OptimizedResponses;
 use loxone_mcp_rust::tools::ToolResponse;
+use mcp_protocol::{CallToolResult, Content};
 use tracing::{info, Level};
 
-fn extract_content_text(result: &mcp_foundation::model::CallToolResult) -> String {
+fn extract_content_text(result: &mcp_protocol::CallToolResult) -> String {
     if let Some(content) = result.content.first() {
         match content {
-            mcp_foundation::model::Content::Text { text } => text.clone(),
+            mcp_protocol::Content::Text { text } => text.clone(),
             _ => "No text content".to_string(),
         }
     } else {
@@ -131,3 +141,4 @@ fn main() {
 
     info!("\n✅ Response optimization demonstration complete");
 }
+*/
