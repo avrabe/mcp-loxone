@@ -1,0 +1,33 @@
+[package]
+name = "mcp-server"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ralf Anton Beier"]
+license = "MIT"
+description = "Generic MCP server infrastructure with pluggable backends"
+repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+keywords = ["mcp", "server", "framework", "backend"]
+categories = ["web-programming::http-server", "api-bindings"]
+
+[dependencies]
+mcp-protocol = { path = "../mcp-protocol" }
+mcp-auth = { path = "../mcp-auth" }
+mcp-transport = { path = "../mcp-transport" }
+mcp-security = { path = "../mcp-security" }
+mcp-monitoring = { path = "../mcp-monitoring" }
+
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+async-trait = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }
+futures = { workspace = true }
+
+[features]
+default = []
+
+[dev-dependencies]
+tokio-test = "0.4"

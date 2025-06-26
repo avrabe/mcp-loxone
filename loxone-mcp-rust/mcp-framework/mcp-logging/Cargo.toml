@@ -1,0 +1,40 @@
+[package]
+name = "mcp-logging"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ralf Anton Beier"]
+license = "MIT"
+description = "Structured logging framework for MCP servers"
+keywords = ["mcp", "logging", "structured", "metrics"]
+categories = ["development-tools::debugging"]
+
+[dependencies]
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = "0.2"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Time handling
+chrono = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Async
+tokio = { workspace = true }
+
+# Metrics
+uuid = { workspace = true }
+
+# Pattern matching
+regex = "1.0"
+
+# Hex encoding
+hex = "0.4"
+
+# Static initializer
+once_cell = "1.0"

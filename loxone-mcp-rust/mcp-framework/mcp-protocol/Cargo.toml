@@ -1,0 +1,22 @@
+[package]
+name = "mcp-protocol"
+version = "0.1.0"
+edition = "2021"
+authors = ["Ralf Anton Beier"]
+license = "MIT"
+description = "Core Model Context Protocol types and validation"
+repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+keywords = ["mcp", "model-context-protocol", "protocol", "validation"]
+categories = ["api-bindings", "data-structures"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+uuid = { workspace = true }
+thiserror = { workspace = true }
+validator = { workspace = true }
+chrono = { workspace = true }
+async-trait = { workspace = true }
+
+[dev-dependencies]
+tokio-test = "0.4"
