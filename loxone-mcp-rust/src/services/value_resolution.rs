@@ -434,7 +434,7 @@ impl UnifiedValueResolver {
             let formatted = if unit.as_ref().is_some_and(|u| u.contains('%')) {
                 format!("{}%", numeric.round() as i32)
             } else if unit.as_ref().is_some_and(|u| u.contains('°')) {
-                format!("{:.1}°C", numeric)
+                format!("{numeric:.1}°C")
             } else if (0.0..=1.0).contains(&numeric) && !value_str.contains('.') {
                 // Likely a binary state encoded as 0/1
                 if numeric > 0.0 {
@@ -521,7 +521,7 @@ impl UnifiedValueResolver {
                 if let Some(val) = value.as_f64() {
                     return Some(ParsedValue {
                         numeric_value: Some(val),
-                        formatted_value: format!("{:.1}", val),
+                        formatted_value: format!("{val:.1}"),
                         unit: None,
                         metadata: HashMap::new(),
                     });

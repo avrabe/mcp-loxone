@@ -92,7 +92,7 @@ impl ValueParserRegistry {
     }
 
     fn sensor_type_to_key(&self, sensor_type: &SensorType) -> String {
-        format!("{:?}", sensor_type)
+        format!("{sensor_type:?}")
             .split('{')
             .next()
             .unwrap_or("Unknown")
@@ -117,7 +117,7 @@ impl ValueParser for TemperatureParser {
                 if let Some(numeric) = extract_temperature(value_str) {
                     return Ok(ParsedValue {
                         numeric_value: Some(numeric),
-                        formatted_value: format!("{:.1}°C", numeric),
+                        formatted_value: format!("{numeric:.1}°C"),
                         unit: Some("°C".to_string()),
                         metadata: HashMap::new(),
                     });
@@ -129,7 +129,7 @@ impl ValueParser for TemperatureParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.1}°C", numeric),
+                formatted_value: format!("{numeric:.1}°C"),
                 unit: Some("°C".to_string()),
                 metadata: HashMap::new(),
             });
@@ -140,7 +140,7 @@ impl ValueParser for TemperatureParser {
             if let Some(numeric) = extract_temperature(value_str) {
                 return Ok(ParsedValue {
                     numeric_value: Some(numeric),
-                    formatted_value: format!("{:.1}°C", numeric),
+                    formatted_value: format!("{numeric:.1}°C"),
                     unit: Some("°C".to_string()),
                     metadata: HashMap::new(),
                 });
@@ -227,7 +227,7 @@ impl ValueParser for LightParser {
                 if let Some(numeric) = extract_lux(value_str) {
                     return Ok(ParsedValue {
                         numeric_value: Some(numeric),
-                        formatted_value: format!("{:.0} Lx", numeric),
+                        formatted_value: format!("{numeric:.0} Lx"),
                         unit: Some("Lx".to_string()),
                         metadata: HashMap::new(),
                     });
@@ -238,7 +238,7 @@ impl ValueParser for LightParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.0} Lx", numeric),
+                formatted_value: format!("{numeric:.0} Lx"),
                 unit: Some("Lx".to_string()),
                 metadata: HashMap::new(),
             });
@@ -248,7 +248,7 @@ impl ValueParser for LightParser {
             if let Some(numeric) = extract_lux(value_str) {
                 return Ok(ParsedValue {
                     numeric_value: Some(numeric),
-                    formatted_value: format!("{:.0} Lx", numeric),
+                    formatted_value: format!("{numeric:.0} Lx"),
                     unit: Some("Lx".to_string()),
                     metadata: HashMap::new(),
                 });
@@ -359,7 +359,7 @@ impl ValueParser for PowerParser {
                 formatted_value: if watts >= 1000.0 {
                     format!("{:.1} kW", watts / 1000.0)
                 } else {
-                    format!("{:.0} W", watts)
+                    format!("{watts:.0} W")
                 },
                 unit: Some("W".to_string()),
                 metadata: HashMap::new(),
@@ -395,7 +395,7 @@ impl ValueParser for EnergyParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(kwh),
-                formatted_value: format!("{:.2} kWh", kwh),
+                formatted_value: format!("{kwh:.2} kWh"),
                 unit: Some("kWh".to_string()),
                 metadata: HashMap::new(),
             });
@@ -426,7 +426,7 @@ impl ValueParser for CurrentParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(amps),
-                formatted_value: format!("{:.2} A", amps),
+                formatted_value: format!("{amps:.2} A"),
                 unit: Some("A".to_string()),
                 metadata: HashMap::new(),
             });
@@ -461,7 +461,7 @@ impl ValueParser for VoltageParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(volts),
-                formatted_value: format!("{:.1} V", volts),
+                formatted_value: format!("{volts:.1} V"),
                 unit: Some("V".to_string()),
                 metadata: HashMap::new(),
             });
@@ -522,7 +522,7 @@ impl ValueParser for AirPressureParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(value),
-                formatted_value: format!("{:.0} {}", value, unit),
+                formatted_value: format!("{value:.0} {unit}"),
                 unit: Some(unit),
                 metadata: HashMap::new(),
             });
@@ -532,7 +532,7 @@ impl ValueParser for AirPressureParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.0} hPa", numeric),
+                formatted_value: format!("{numeric:.0} hPa"),
                 unit: Some("hPa".to_string()),
                 metadata: HashMap::new(),
             });
@@ -562,7 +562,7 @@ impl ValueParser for AirQualityParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(value),
-                formatted_value: format!("{:.0} {}", value, unit),
+                formatted_value: format!("{value:.0} {unit}"),
                 unit: Some(unit),
                 metadata: HashMap::new(),
             });
@@ -572,7 +572,7 @@ impl ValueParser for AirQualityParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.0} ppm", numeric),
+                formatted_value: format!("{numeric:.0} ppm"),
                 unit: Some("ppm".to_string()),
                 metadata: HashMap::new(),
             });
@@ -602,7 +602,7 @@ impl ValueParser for WindSpeedParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(value),
-                formatted_value: format!("{:.1} {}", value, unit),
+                formatted_value: format!("{value:.1} {unit}"),
                 unit: Some(unit),
                 metadata: HashMap::new(),
             });
@@ -612,7 +612,7 @@ impl ValueParser for WindSpeedParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.1} m/s", numeric),
+                formatted_value: format!("{numeric:.1} m/s"),
                 unit: Some("m/s".to_string()),
                 metadata: HashMap::new(),
             });
@@ -642,7 +642,7 @@ impl ValueParser for RainfallParser {
 
             return Ok(ParsedValue {
                 numeric_value: Some(value),
-                formatted_value: format!("{:.1} {}", value, unit),
+                formatted_value: format!("{value:.1} {unit}"),
                 unit: Some(unit),
                 metadata: HashMap::new(),
             });
@@ -652,7 +652,7 @@ impl ValueParser for RainfallParser {
         if let Some(numeric) = raw_value.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.1} mm", numeric),
+                formatted_value: format!("{numeric:.1} mm"),
                 unit: Some("mm".to_string()),
                 metadata: HashMap::new(),
             });

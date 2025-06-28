@@ -39,7 +39,7 @@ impl SanitizerValidator {
                 for (index, item) in arr.iter().enumerate() {
                     if sanitized_arr.len() >= self.config.max_array_size {
                         warnings.push(ValidationWarning {
-                            field: format!("array[{}+]", index),
+                            field: format!("array[{index}+]"),
                             message: format!(
                                 "Array truncated at {} items",
                                 self.config.max_array_size
@@ -120,8 +120,7 @@ impl SanitizerValidator {
             warnings.push(ValidationWarning {
                 field: "string_length".to_string(),
                 message: format!(
-                    "String truncated from {} to {} characters",
-                    original_length, truncated_length
+                    "String truncated from {original_length} to {truncated_length} characters"
                 ),
                 code: ValidationWarningCode::PerformanceImpact,
                 recommendation: Some("Consider using shorter strings".to_string()),
@@ -186,7 +185,7 @@ impl SanitizerValidator {
             if self.is_dangerous_property_name(&sanitized_key) {
                 warnings.push(ValidationWarning {
                     field: sanitized_key.clone(),
-                    message: format!("Property name '{}' may cause issues", sanitized_key),
+                    message: format!("Property name '{sanitized_key}' may cause issues"),
                     code: ValidationWarningCode::SecurityConcern,
                     recommendation: Some("Consider using a different property name".to_string()),
                 });

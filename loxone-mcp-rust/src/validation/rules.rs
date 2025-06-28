@@ -189,8 +189,7 @@ impl ValidationRule for AuthorizationRule {
             return Ok(ValidationResult::failure(vec![ValidationError {
                 field: "authorization".to_string(),
                 message: format!(
-                    "Method '{}' requires {:?} authentication, but client has {:?}",
-                    method, required_auth, auth_level
+                    "Method '{method}' requires {required_auth:?} authentication, but client has {auth_level:?}"
                 ),
                 code: ValidationErrorCode::SecurityViolation,
                 expected: Some(format!("{required_auth:?} authentication")),
@@ -282,8 +281,7 @@ impl ValidationRule for RateLimitRule {
                         ),
                         code: ValidationErrorCode::RateLimit,
                         expected: Some(format!(
-                            "Max {} requests for method '{}'",
-                            effective_limit, method
+                            "Max {effective_limit} requests for method '{method}'"
                         )),
                         actual: Some(format!("{} requests", rate_limit.current_requests)),
                         suggestion: Some("Reduce request frequency for this method".to_string()),
@@ -334,7 +332,7 @@ impl ValidationRule for ResourceAccessRule {
                     if !self.is_valid_resource_uri(uri) {
                         return Ok(ValidationResult::failure(vec![ValidationError {
                             field: "uri".to_string(),
-                            message: format!("Invalid resource URI: {}", uri),
+                            message: format!("Invalid resource URI: {uri}"),
                             code: ValidationErrorCode::InvalidFormat,
                             expected: Some("Valid resource URI (scheme:path)".to_string()),
                             actual: Some(uri.to_string()),
@@ -352,7 +350,7 @@ impl ValidationRule for ResourceAccessRule {
                     if !self.is_resource_accessible(uri, auth_level) {
                         return Ok(ValidationResult::failure(vec![ValidationError {
                             field: "resource_access".to_string(),
-                            message: format!("Access denied to resource: {}", uri),
+                            message: format!("Access denied to resource: {uri}"),
                             code: ValidationErrorCode::SecurityViolation,
                             expected: Some("Sufficient privileges for resource".to_string()),
                             actual: Some(format!("{auth_level:?} authentication")),
@@ -473,7 +471,7 @@ impl LoxoneSpecificRule {
                         if !self.is_valid_room_name(room) {
                             return Some(ValidationError {
                                 field: "arguments.room".to_string(),
-                                message: format!("Invalid room name: {}", room),
+                                message: format!("Invalid room name: {room}"),
                                 code: ValidationErrorCode::InvalidFormat,
                                 expected: Some("Valid Loxone room name".to_string()),
                                 actual: Some(room.to_string()),
@@ -489,7 +487,7 @@ impl LoxoneSpecificRule {
                         if !self.is_valid_loxone_uuid(uuid) {
                             return Some(ValidationError {
                                 field: "arguments.uuid".to_string(),
-                                message: format!("Invalid Loxone UUID format: {}", uuid),
+                                message: format!("Invalid Loxone UUID format: {uuid}"),
                                 code: ValidationErrorCode::InvalidFormat,
                                 expected: Some(
                                     "Loxone UUID format (XXXXXXXX-XXXXXX-XXX)".to_string(),
@@ -511,10 +509,7 @@ impl LoxoneSpecificRule {
                                 if !(0.0..=1.0).contains(&pos_num) {
                                     return Some(ValidationError {
                                         field: "arguments.position".to_string(),
-                                        message: format!(
-                                            "Blind position out of range: {}",
-                                            pos_num
-                                        ),
+                                        message: format!("Blind position out of range: {pos_num}"),
                                         code: ValidationErrorCode::OutOfRange,
                                         expected: Some("Position between 0.0 and 1.0".to_string()),
                                         actual: Some(pos_num.to_string()),
@@ -580,12 +575,12 @@ impl ValidationRule for SecurityPolicyRule {
             errors.push(ValidationError {
                 field: "request_size".to_string(),
                 message: format!(
-                    "Request too large: {} > {}",
-                    request_size, context.config.max_request_size
+                    "Request too large: {request_size} > {}",
+                    context.config.max_request_size
                 ),
                 code: ValidationErrorCode::SecurityViolation,
                 expected: Some(format!("Max {} bytes", context.config.max_request_size)),
-                actual: Some(format!("{} bytes", request_size)),
+                actual: Some(format!("{request_size} bytes")),
                 suggestion: Some("Reduce request payload size".to_string()),
             });
         }

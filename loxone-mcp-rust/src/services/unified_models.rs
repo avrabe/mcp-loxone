@@ -411,7 +411,7 @@ impl UnifiedValue {
     pub fn humidity(percentage: f64) -> Self {
         Self {
             numeric: Some(percentage),
-            display_text: format!("{:.1}%", percentage),
+            display_text: format!("{percentage:.1}%"),
             unit: Some("%".to_string()),
             sensor_type: Some(SensorType::Humidity {
                 range: (0.0, 100.0),

@@ -426,7 +426,7 @@ impl SchemaValidator {
                     field: field_path.to_string(),
                     message: format!("Invalid enum value: {value}"),
                     code: ValidationErrorCode::InvalidEnum,
-                    expected: Some(format!("One of: {:?}", enum_values)),
+                    expected: Some(format!("One of: {enum_values:?}")),
                     actual: Some(value.to_string()),
                     suggestion: Some(format!("Use one of: {}", enum_values.join(", "))),
                 });
@@ -469,11 +469,11 @@ impl SchemaValidator {
             if num_value < min {
                 errors.push(ValidationError {
                     field: field_path.to_string(),
-                    message: format!("Number too small: {} < {}", num_value, min),
+                    message: format!("Number too small: {num_value} < {min}"),
                     code: ValidationErrorCode::OutOfRange,
                     expected: Some(format!("Minimum: {min}")),
                     actual: Some(num_value.to_string()),
-                    suggestion: Some(format!("Use a value >= {}", min)),
+                    suggestion: Some(format!("Use a value >= {min}")),
                 });
             }
         }
@@ -482,11 +482,11 @@ impl SchemaValidator {
             if num_value > max {
                 errors.push(ValidationError {
                     field: field_path.to_string(),
-                    message: format!("Number too large: {} > {}", num_value, max),
+                    message: format!("Number too large: {num_value} > {max}"),
                     code: ValidationErrorCode::OutOfRange,
                     expected: Some(format!("Maximum: {max}")),
                     actual: Some(num_value.to_string()),
-                    suggestion: Some(format!("Use a value <= {}", max)),
+                    suggestion: Some(format!("Use a value <= {max}")),
                 });
             }
         }
@@ -505,9 +505,9 @@ impl SchemaValidator {
             if value.len() < min_items {
                 errors.push(ValidationError {
                     field: field_path.to_string(),
-                    message: format!("Array too short: {} < {}", value.len(), min_items),
+                    message: format!("Array too short: {} < {min_items}", value.len()),
                     code: ValidationErrorCode::TooShort,
-                    expected: Some(format!("Minimum items: {}", min_items)),
+                    expected: Some(format!("Minimum items: {min_items}")),
                     actual: Some(format!("Items: {}", value.len())),
                     suggestion: Some("Add more items to the array".to_string()),
                 });
@@ -518,9 +518,9 @@ impl SchemaValidator {
             if value.len() > max_items {
                 errors.push(ValidationError {
                     field: field_path.to_string(),
-                    message: format!("Array too long: {} > {}", value.len(), max_items),
+                    message: format!("Array too long: {} > {max_items}", value.len()),
                     code: ValidationErrorCode::TooLong,
-                    expected: Some(format!("Maximum items: {}", max_items)),
+                    expected: Some(format!("Maximum items: {max_items}")),
                     actual: Some(format!("Items: {}", value.len())),
                     suggestion: Some("Remove some items from the array".to_string()),
                 });
@@ -530,7 +530,7 @@ impl SchemaValidator {
         // Validate array items
         if let Some(items_schema) = &schema.items {
             for (index, item) in value.iter().enumerate() {
-                let item_path = format!("{}[{}]", field_path, index);
+                let item_path = format!("{field_path}[{index}]");
                 let item_errors = self.validate_against_schema(item, items_schema, &item_path);
                 errors.extend(item_errors);
             }
@@ -550,12 +550,12 @@ impl SchemaValidator {
             for req_field in required {
                 if !value.contains_key(req_field) {
                     errors.push(ValidationError {
-                        field: format!("{}.{}", field_path, req_field),
-                        message: format!("Required field '{}' is missing", req_field),
+                        field: format!("{field_path}.{req_field}"),
+                        message: format!("Required field '{req_field}' is missing"),
                         code: ValidationErrorCode::MissingRequired,
-                        expected: Some(format!("Field: {}", req_field)),
+                        expected: Some(format!("Field: {req_field}")),
                         actual: Some("Field not present".to_string()),
-                        suggestion: Some(format!("Add the required field '{}'", req_field)),
+                        suggestion: Some(format!("Add the required field '{req_field}'")),
                     });
                 }
             }
@@ -568,7 +568,7 @@ impl SchemaValidator {
                     let prop_path = if field_path.is_empty() {
                         prop_name.clone()
                     } else {
-                        format!("{}.{}", field_path, prop_name)
+                        format!("{field_path}.{prop_name}")
                     };
                     let prop_errors =
                         self.validate_against_schema(prop_value, prop_schema, &prop_path);
