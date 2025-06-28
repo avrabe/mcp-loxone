@@ -224,11 +224,11 @@ impl Transport for StreamableHttpTransport {
         // Start server
         let addr: SocketAddr = format!("{}:{}", self.config.host, self.config.port)
             .parse()
-            .map_err(|e| TransportError::Config(format!("Invalid address: {}", e)))?;
+            .map_err(|e| TransportError::Config(format!("Invalid address: {e}")))?;
 
         let listener = tokio::net::TcpListener::bind(addr)
             .await
-            .map_err(|e| TransportError::Connection(format!("Failed to bind: {}", e)))?;
+            .map_err(|e| TransportError::Connection(format!("Failed to bind: {e}")))?;
 
         info!("Streamable HTTP transport listening on {}", addr);
         info!("Endpoints:");

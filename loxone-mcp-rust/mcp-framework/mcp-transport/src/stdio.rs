@@ -179,8 +179,7 @@ impl StdioTransport {
         if self.config.validate_messages {
             if let Err(e) = validate_message_string(line, Some(self.config.max_message_size)) {
                 return Err(TransportError::Protocol(format!(
-                    "Outgoing message validation failed: {}",
-                    e
+                    "Outgoing message validation failed: {e}"
                 )));
             }
         }
@@ -188,19 +187,17 @@ impl StdioTransport {
         debug!("Sending response: {}", line);
 
         // Write with newline
-        let line_with_newline = format!("{}\n", line);
+        let line_with_newline = format!("{line}\n");
 
         if let Err(e) = stdout.write_all(line_with_newline.as_bytes()).await {
             return Err(TransportError::Connection(format!(
-                "Failed to write to stdout: {}",
-                e
+                "Failed to write to stdout: {e}"
             )));
         }
 
         if let Err(e) = stdout.flush().await {
             return Err(TransportError::Connection(format!(
-                "Failed to flush stdout: {}",
-                e
+                "Failed to flush stdout: {e}"
             )));
         }
 
@@ -255,8 +252,7 @@ impl Transport for StdioTransport {
                 Err(e) => {
                     error!("Failed to read from stdin: {}", e);
                     return Err(TransportError::Connection(format!(
-                        "Stdin read error: {}",
-                        e
+                        "Stdin read error: {e}"
                     )));
                 }
             }

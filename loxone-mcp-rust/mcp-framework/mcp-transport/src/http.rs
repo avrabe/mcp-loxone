@@ -216,8 +216,7 @@ impl HttpTransport {
 
                 if !allowed_origins.contains(&origin_str.to_string()) {
                     return Err(TransportError::Protocol(format!(
-                        "Origin not allowed: {}",
-                        origin_str
+                        "Origin not allowed: {origin_str}"
                     )));
                 }
             } else {
@@ -601,7 +600,7 @@ async fn handle_sse(
         let mut event_counter = 0u64;
 
         // Send "endpoint" event first (as per official MCP SDK)
-        let endpoint_url = format!("/messages?session_id={}", session_id);
+        let endpoint_url = format!("/messages?session_id={session_id}");
         info!("Sending 'endpoint' event for session: {} with URL: {}", session_id, endpoint_url);
         event_counter += 1;
         yield Ok::<_, axum::Error>(Event::default()
