@@ -246,14 +246,11 @@ fn generate_mock_response_for_provider(
 
     // Determine the type of request
     if user_lower.contains("cozy") {
-        format!("{} Creating a Cozy Atmosphere ({} Mock Response)\n\nBased on your request, I recommend dimming lights to 30%, adjusting temperature to 22°C, and partially closing blinds for intimacy.\n\n*Note: This is a {} mock response. Configure actual {} credentials for real AI-powered suggestions.*",
-            provider_icon, provider_name, provider_type, provider_type)
+        format!("{provider_icon} Creating a Cozy Atmosphere ({provider_name} Mock Response)\n\nBased on your request, I recommend dimming lights to 30%, adjusting temperature to 22°C, and partially closing blinds for intimacy.\n\n*Note: This is a {provider_type} mock response. Configure actual {provider_type} credentials for real AI-powered suggestions.*")
     } else if user_lower.contains("event") || user_lower.contains("party") {
-        format!("{} Event Preparation ({} Mock Response)\n\nFor your event, I suggest bright entrance lighting, appropriate room temperature, and testing all critical systems.\n\n*Note: This is a {} mock response. Configure actual {} credentials for real AI-powered suggestions.*",
-            provider_icon, provider_name, provider_type, provider_type)
+        format!("{provider_icon} Event Preparation ({provider_name} Mock Response)\n\nFor your event, I suggest bright entrance lighting, appropriate room temperature, and testing all critical systems.\n\n*Note: This is a {provider_type} mock response. Configure actual {provider_type} credentials for real AI-powered suggestions.*")
     } else {
-        format!("{} Home Automation Suggestion ({} Mock Response)\n\nI understand you'd like help with your home automation. For intelligent, context-aware suggestions, configure actual {} credentials.\n\n*Current Status: Using {} simulation for development/testing.*",
-            provider_icon, provider_name, provider_type, provider_type)
+        format!("{provider_icon} Home Automation Suggestion ({provider_name} Mock Response)\n\nI understand you'd like help with your home automation. For intelligent, context-aware suggestions, configure actual {provider_type} credentials.\n\n*Current Status: Using {provider_type} simulation for development/testing.*")
     }
 }
 

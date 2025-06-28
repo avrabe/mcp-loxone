@@ -898,7 +898,7 @@ pub async fn get_sensor_categories(context: ToolContext) -> ToolResponse {
 
     for device in &devices {
         let sensor_type = classify_sensor_type(device);
-        let type_name = format!("{:?}", sensor_type).to_lowercase();
+        let type_name = format!("{sensor_type:?}").to_lowercase();
 
         // Update type distribution
         *type_distribution.entry(type_name.clone()).or_insert(0) += 1;
@@ -1225,7 +1225,7 @@ pub async fn get_sensor_state_history(
                 ),
             )
         }
-        None => ToolResponse::error(format!("No history found for sensor '{}'", uuid)),
+        None => ToolResponse::error(format!("No history found for sensor '{uuid}'")),
     }
 }
 

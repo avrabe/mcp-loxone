@@ -1244,7 +1244,7 @@ impl PerformanceAnalyzer {
                             .alert_thresholds
                             .resource_usage
                             .cpu_critical_percent,
-                        message: format!("CPU usage {:.1}% exceeds critical threshold", cpu),
+                        message: format!("CPU usage {cpu:.1}% exceeds critical threshold"),
                         triggered_at: SystemTime::now()
                             .duration_since(UNIX_EPOCH)
                             .unwrap()

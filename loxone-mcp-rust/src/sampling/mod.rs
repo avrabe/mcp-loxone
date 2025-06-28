@@ -277,10 +277,9 @@ impl AutomationSamplingBuilder {
         let context_text = self.build_context_text()?;
 
         let user_message = SamplingMessage::user(format!(
-            "I want to make my home cozy. It's {} and the weather is {}. I'm looking for a {} atmosphere. \
+            "I want to make my home cozy. It's {time_of_day} and the weather is {weather}. I'm looking for a {mood} atmosphere. \
              Please analyze the current state and suggest optimal settings for lighting, temperature, and blinds.\n\n\
-             Current Home State:\n{}",
-            time_of_day, weather, mood, context_text
+             Current Home State:\n{context_text}"
         ));
 
         let request = SamplingRequest::new(vec![user_message])
@@ -329,9 +328,8 @@ impl AutomationSamplingBuilder {
         }
 
         let user_message = SamplingMessage::user(format!(
-            "{}. Please suggest the optimal home automation settings.\n\n\
-             Current Home State:\n{}",
-            event_description, context_text
+            "{event_description}. Please suggest the optimal home automation settings.\n\n\
+             Current Home State:\n{context_text}"
         ));
 
         let mut request = SamplingRequest::new(vec![user_message])

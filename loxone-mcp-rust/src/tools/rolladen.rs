@@ -60,7 +60,7 @@ pub async fn control_rolladen_unified(
             match get_rolladen_device_by_id(&context, device_id).await {
                 Ok(devices) => devices,
                 Err(e) => {
-                    return ToolResponse::error(format!("Failed to get rolladen device: {}", e))
+                    return ToolResponse::error(format!("Failed to get rolladen device: {e}"))
                 }
             }
         }
@@ -72,23 +72,19 @@ pub async fn control_rolladen_unified(
             match get_room_rolladen_devices(&context, room_name).await {
                 Ok(devices) => devices,
                 Err(e) => {
-                    return ToolResponse::error(format!(
-                        "Failed to get room rolladen devices: {}",
-                        e
-                    ))
+                    return ToolResponse::error(format!("Failed to get room rolladen devices: {e}"))
                 }
             }
         }
         "system" | "all" => match get_all_rolladen_devices(&context).await {
             Ok(devices) => devices,
             Err(e) => {
-                return ToolResponse::error(format!("Failed to get all rolladen devices: {}", e))
+                return ToolResponse::error(format!("Failed to get all rolladen devices: {e}"))
             }
         },
         _ => {
             return ToolResponse::error(format!(
-                "Invalid scope '{}'. Supported scopes: device, room, system",
-                scope
+                "Invalid scope '{scope}'. Supported scopes: device, room, system"
             ));
         }
     };
@@ -211,8 +207,7 @@ async fn get_rolladen_device_by_id(
             return Ok(vec![device.clone()]);
         } else {
             return Err(crate::error::LoxoneError::invalid_input(format!(
-                "Device '{}' exists but is not a rolladen/blinds device",
-                device_id
+                "Device '{device_id}' exists but is not a rolladen/blinds device"
             )));
         }
     }
@@ -226,15 +221,13 @@ async fn get_rolladen_device_by_id(
             return Ok(vec![device.clone()]);
         } else {
             return Err(crate::error::LoxoneError::invalid_input(format!(
-                "Device '{}' exists but is not a rolladen/blinds device",
-                device_id
+                "Device '{device_id}' exists but is not a rolladen/blinds device"
             )));
         }
     }
 
     Err(crate::error::LoxoneError::not_found(format!(
-        "Rolladen/blinds device '{}' not found",
-        device_id
+        "Rolladen/blinds device '{device_id}' not found"
     )))
 }
 

@@ -216,7 +216,7 @@ impl ToolContext {
         self.context
             .get_device(identifier)
             .await?
-            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", identifier)))
+            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {identifier}")))
     }
 
     /// Send command to device

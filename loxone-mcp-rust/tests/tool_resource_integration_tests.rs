@@ -365,8 +365,7 @@ mod tests {
         for expected_type in expected_types {
             assert!(
                 resource_types.contains_key(expected_type),
-                "Missing expected resource type: {}",
-                expected_type
+                "Missing expected resource type: {expected_type}"
             );
         }
 
@@ -408,8 +407,7 @@ mod tests {
         for pattern in legacy_patterns {
             assert!(
                 !resource_uris.iter().any(|uri| uri.contains(pattern)),
-                "Legacy pattern '{}' should not appear in resource URIs",
-                pattern
+                "Legacy pattern '{pattern}' should not appear in resource URIs"
             );
         }
 
@@ -442,8 +440,7 @@ mod tests {
         for required_resource in required_resources {
             assert!(
                 resource_uris.contains(&required_resource),
-                "Required resource missing: {}",
-                required_resource
+                "Required resource missing: {required_resource}"
             );
         }
 

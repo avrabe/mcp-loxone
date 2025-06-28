@@ -524,8 +524,7 @@ fn create_demo_workflow(
         ),
         _ => {
             return Err(LoxoneError::not_found(format!(
-                "Demo workflow not found: {}",
-                name
+                "Demo workflow not found: {name}"
             )));
         }
     };

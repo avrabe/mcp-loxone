@@ -42,7 +42,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Method-specific TTLs
     println!("\n   ⏰ Method-specific TTLs:");
     for (method, ttl) in &default_config.method_ttls {
-        println!("      {}: {:?}", method, ttl);
+        println!("      {method}: {ttl:?}");
     }
 
     // High-performance configuration
@@ -170,7 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("   📈 Devices by discovery method:");
     for (method, count) in &updated_stats.devices_by_method {
-        println!("      {}: {} devices", method, count);
+        println!("      {method}: {count} devices");
     }
 
     // Demo 6: Scan Interval Management
