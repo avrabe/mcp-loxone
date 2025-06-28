@@ -1,16 +1,16 @@
 [package]
-name = "mcp-security"
+name = "pulseengine-mcp-security"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Security middleware and validation for MCP servers"
-repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+license = "MIT OR Apache-2.0"
+description = "Security middleware and validation for MCP servers - PulseEngine MCP Framework"
+repository = "https://github.com/avrabe/mcp-loxone"
 keywords = ["mcp", "security", "validation", "middleware"]
 categories = ["web-programming", "authentication"]
 
 [dependencies]
-mcp-protocol = { path = "../mcp-protocol" }
+pulseengine-mcp-protocol = { path = "../mcp-protocol" }
 
 tokio = { workspace = true }
 serde = { workspace = true }

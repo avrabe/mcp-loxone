@@ -8,7 +8,7 @@ members = [
     "mcp-framework/mcp-security",
     "mcp-framework/mcp-monitoring",
     "mcp-framework/mcp-logging",
-    "examples/hello-world-mcp",
+    # "examples/hello-world-mcp", # Temporarily disabled for publishing
 ]
 
 resolver = "2"
@@ -106,13 +106,13 @@ path = "src/bin/loxone-mcp-auth.rs"
 
 [dependencies]
 # MCP Logging Framework
-mcp-logging = { path = "mcp-framework/mcp-logging" }
+pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging" }
 
 # MCP Framework (new unified framework)
-mcp-protocol = { path = "mcp-framework/mcp-protocol", optional = true }
-mcp-server = { path = "mcp-framework/mcp-server", optional = true }
-mcp-transport = { path = "mcp-framework/mcp-transport", optional = true }
-mcp-auth = { path = "mcp-framework/mcp-auth", optional = true }
+pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol", optional = true }
+pulseengine-mcp-server = { path = "mcp-framework/mcp-server", optional = true }
+pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport", optional = true }
+pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth", optional = true }
 
 # Legacy MCP Foundation (to be removed after migration)
 # Legacy mcp-foundation removed - framework is now default
@@ -237,7 +237,7 @@ dirs = "5.0"  # For default storage directory
 default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration"]
 
 # Framework features (now default)
-framework-migration = ["mcp-protocol", "mcp-server", "mcp-transport", "mcp-auth", "http-server", "websocket"]
+framework-migration = ["pulseengine-mcp-protocol", "pulseengine-mcp-server", "pulseengine-mcp-transport", "pulseengine-mcp-auth", "http-server", "websocket"]
 
 # Crypto features
 crypto-openssl = ["openssl", "aes", "x509-parser"] # Modern crypto with OpenSSL (recommended)

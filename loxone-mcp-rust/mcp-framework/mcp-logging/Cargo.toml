@@ -1,10 +1,11 @@
 [package]
-name = "mcp-logging"
+name = "pulseengine-mcp-logging"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Structured logging framework for MCP servers"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/avrabe/mcp-loxone"
+description = "Structured logging framework for MCP servers - PulseEngine MCP Framework"
 keywords = ["mcp", "logging", "structured", "metrics"]
 categories = ["development-tools::debugging"]
 

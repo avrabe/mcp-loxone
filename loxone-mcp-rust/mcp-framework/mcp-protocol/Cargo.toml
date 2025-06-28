@@ -1,11 +1,11 @@
 [package]
-name = "mcp-protocol"
+name = "pulseengine-mcp-protocol"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Core Model Context Protocol types and validation"
-repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+license = "MIT OR Apache-2.0"
+description = "Core Model Context Protocol types and validation - PulseEngine MCP Framework"
+repository = "https://github.com/avrabe/mcp-loxone"
 keywords = ["mcp", "model-context-protocol", "protocol", "validation"]
 categories = ["api-bindings", "data-structures"]
 

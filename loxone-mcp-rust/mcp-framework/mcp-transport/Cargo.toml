@@ -1,16 +1,16 @@
 [package]
-name = "mcp-transport"
+name = "pulseengine-mcp-transport"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Transport layer implementations for MCP servers (HTTP/SSE, WebSocket, stdio)"
-repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+license = "MIT OR Apache-2.0"
+description = "Transport layer implementations for MCP servers (HTTP/SSE, WebSocket, stdio) - PulseEngine MCP Framework"
+repository = "https://github.com/avrabe/mcp-loxone"
 keywords = ["mcp", "transport", "http", "websocket", "stdio"]
 categories = ["web-programming::http-server", "network-programming"]
 
 [dependencies]
-mcp-protocol = { path = "../mcp-protocol" }
+pulseengine-mcp-protocol = { path = "../mcp-protocol" }
 
 tokio = { workspace = true }
 serde = { workspace = true }

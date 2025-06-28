@@ -1,20 +1,20 @@
 [package]
-name = "mcp-server"
+name = "pulseengine-mcp-server"
 version = "0.1.0"
 edition = "2021"
 authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Generic MCP server infrastructure with pluggable backends"
-repository = "https://github.com/ralphbeier/loxone-mcp-rust"
+license = "MIT OR Apache-2.0"
+description = "Generic MCP server infrastructure with pluggable backends - PulseEngine MCP Framework"
+repository = "https://github.com/avrabe/mcp-loxone"
 keywords = ["mcp", "server", "framework", "backend"]
 categories = ["web-programming::http-server", "api-bindings"]
 
 [dependencies]
-mcp-protocol = { path = "../mcp-protocol" }
-mcp-auth = { path = "../mcp-auth" }
-mcp-transport = { path = "../mcp-transport" }
-mcp-security = { path = "../mcp-security" }
-mcp-monitoring = { path = "../mcp-monitoring" }
+pulseengine-mcp-protocol = { path = "../mcp-protocol" }
+pulseengine-mcp-auth = { path = "../mcp-auth" }
+pulseengine-mcp-transport = { path = "../mcp-transport" }
+pulseengine-mcp-security = { path = "../mcp-security" }
+pulseengine-mcp-monitoring = { path = "../mcp-monitoring" }
 
 tokio = { workspace = true }
 serde = { workspace = true }
