@@ -337,8 +337,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Add multiple commands for batch processing
     for i in 1..=5 {
         let command = QueuedCommand::new(
-            format!("device{}", i),
-            format!("batch_cmd_{}", i),
+            format!("device{i}"),
+            format!("batch_cmd_{i}"),
             "demo".to_string(),
         );
         batch_queue.enqueue(command).await?;

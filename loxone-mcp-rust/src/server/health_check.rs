@@ -244,7 +244,7 @@ impl HealthChecker {
                 name,
                 HealthStatus::Critical,
                 start.elapsed().as_millis() as u64,
-                format!("Connection failed: {}", e),
+                format!("Connection failed: {e}"),
             ),
             Err(_) => HealthCheckResult::new(
                 name,
@@ -289,7 +289,7 @@ impl HealthChecker {
                 name,
                 HealthStatus::Unhealthy,
                 start.elapsed().as_millis() as u64,
-                format!("Failed to get system info: {}", e),
+                format!("Failed to get system info: {e}"),
             ),
             Err(_) => HealthCheckResult::new(
                 name,
@@ -335,7 +335,7 @@ impl HealthChecker {
                 name,
                 HealthStatus::Unhealthy,
                 start.elapsed().as_millis() as u64,
-                format!("Failed to load structure: {}", e),
+                format!("Failed to load structure: {e}"),
             ),
             Err(_) => HealthCheckResult::new(
                 name,
@@ -464,7 +464,7 @@ impl HealthChecker {
                         name,
                         HealthStatus::Unhealthy,
                         start.elapsed().as_millis() as u64,
-                        format!("Failed to sample device states: {}", e),
+                        format!("Failed to sample device states: {e}"),
                     ),
                     Err(_) => HealthCheckResult::new(
                         name,
@@ -478,7 +478,7 @@ impl HealthChecker {
                 name,
                 HealthStatus::Unhealthy,
                 start.elapsed().as_millis() as u64,
-                format!("Failed to get structure for device sampling: {}", e),
+                format!("Failed to get structure for device sampling: {e}"),
             ),
         }
     }

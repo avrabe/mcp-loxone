@@ -31,7 +31,7 @@ mod tests {
         for uri in valid_uris {
             let context = resource_manager
                 .parse_uri(uri)
-                .unwrap_or_else(|_| panic!("Failed to parse valid URI: {}", uri));
+                .unwrap_or_else(|_| panic!("Failed to parse valid URI: {uri}"));
 
             // Verify context has correct URI
             assert_eq!(context.uri, uri);
@@ -202,7 +202,7 @@ mod tests {
         for (uri, _expected_type) in simple_contexts {
             let context = resource_manager
                 .parse_uri(uri)
-                .unwrap_or_else(|_| panic!("Failed to parse URI: {}", uri));
+                .unwrap_or_else(|_| panic!("Failed to parse URI: {uri}"));
 
             assert_eq!(context.uri, uri);
             // Resource type is inferred from URI structure, not stored in context
@@ -231,7 +231,7 @@ mod tests {
         for (uri, expected_params) in parameterized_contexts {
             let context = resource_manager
                 .parse_uri(uri)
-                .unwrap_or_else(|_| panic!("Failed to parse URI: {}", uri));
+                .unwrap_or_else(|_| panic!("Failed to parse URI: {uri}"));
 
             assert_eq!(context.uri, uri);
             assert_eq!(context.params.path_params.len(), expected_params.len());
@@ -266,7 +266,7 @@ mod tests {
         for uri in test_uris {
             let context = resource_manager
                 .parse_uri(uri)
-                .unwrap_or_else(|_| panic!("Failed to parse URI: {}", uri));
+                .unwrap_or_else(|_| panic!("Failed to parse URI: {uri}"));
 
             // Verify basic context properties
             assert_eq!(context.uri, uri);

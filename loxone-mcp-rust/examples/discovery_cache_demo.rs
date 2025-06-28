@@ -267,8 +267,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for i in 1..=3 {
         let device = create_sample_device(
             &format!("192.168.1.{}", 150 + i),
-            &format!("PERSIST{:03}", i),
-            &format!("Persistent Device {}", i),
+            &format!("PERSIST{i:03}"),
+            &format!("Persistent Device {i}"),
             "manual",
         );
         persistent_cache.add_device(device).await?;
@@ -302,9 +302,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let start_time = std::time::Instant::now();
     for i in 1..=100 {
         let device = create_sample_device(
-            &format!("10.0.0.{}", i),
-            &format!("PERF{:03}", i),
-            &format!("Performance Test Device {}", i),
+            &format!("10.0.0.{i}"),
+            &format!("PERF{i:03}"),
+            &format!("Performance Test Device {i}"),
             "benchmark",
         );
         performance_cache.add_device(device).await?;
@@ -316,7 +316,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Test retrieval performance
     let start_time = std::time::Instant::now();
     for i in 1..=100 {
-        let ip = IpAddr::V4(format!("10.0.0.{}", i).parse()?);
+        let ip = IpAddr::V4(format!("10.0.0.{i}").parse()?);
         performance_cache.get_device(&ip).await;
     }
     let retrieval_duration = start_time.elapsed();

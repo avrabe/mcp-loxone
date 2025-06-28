@@ -326,11 +326,8 @@ async fn test_queue_clear() {
 
     // Add several commands
     for i in 1..=5 {
-        let command = QueuedCommand::new(
-            format!("device{}", i),
-            "test".to_string(),
-            "test".to_string(),
-        );
+        let command =
+            QueuedCommand::new(format!("device{i}"), "test".to_string(), "test".to_string());
         queue.enqueue(command).await.unwrap();
     }
 
@@ -348,11 +345,8 @@ async fn test_batch_execution() {
 
     // Add multiple commands
     for i in 1..=4 {
-        let command = QueuedCommand::new(
-            format!("device{}", i),
-            format!("cmd{}", i),
-            "test".to_string(),
-        );
+        let command =
+            QueuedCommand::new(format!("device{i}"), format!("cmd{i}"), "test".to_string());
         queue.enqueue(command).await.unwrap();
     }
 
@@ -440,7 +434,7 @@ async fn test_queue_statistics() {
     // Add some commands
     for i in 1..=3 {
         let command = QueuedCommand::new_high_priority(
-            format!("device{}", i),
+            format!("device{i}"),
             "test".to_string(),
             "test".to_string(),
         );
@@ -511,11 +505,8 @@ async fn test_queue_utilization_calculation() {
 
     // Add 5 commands to a queue with max size 10
     for i in 1..=5 {
-        let command = QueuedCommand::new(
-            format!("device{}", i),
-            "test".to_string(),
-            "test".to_string(),
-        );
+        let command =
+            QueuedCommand::new(format!("device{i}"), "test".to_string(), "test".to_string());
         queue.enqueue(command).await.unwrap();
     }
 
