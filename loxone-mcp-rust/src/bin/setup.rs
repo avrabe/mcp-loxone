@@ -231,11 +231,11 @@ async fn main() -> Result<()> {
         let mock_host = if host.contains(':') {
             host.clone()
         } else {
-            format!("{}:8080", host)
+            format!("{host}:8080")
         };
 
         // Check if mock server is already running
-        let test_url = format!("http://{}/", mock_host);
+        let test_url = format!("http://{mock_host}/");
         let is_running = reqwest::Client::new()
             .get(&test_url)
             .timeout(Duration::from_millis(500))
@@ -591,7 +591,7 @@ async fn test_connection(
         .timeout(Duration::from_secs(5))
         .build()?;
 
-    let url = format!("http://{}/data/LoxAPP3.json", host);
+    let url = format!("http://{host}/data/LoxAPP3.json");
     let response = client
         .get(&url)
         .basic_auth(username, Some(password))
@@ -1131,7 +1131,7 @@ echo "   Host: $LOXONE_HOST"
                 credentials
                     .api_key
                     .as_ref()
-                    .map(|key| format!("\nexport LOXONE_API_KEY=\"{}\"", key))
+                    .map(|key| format!("\nexport LOXONE_API_KEY=\"{key}\""))
                     .unwrap_or_default()
             )
         }

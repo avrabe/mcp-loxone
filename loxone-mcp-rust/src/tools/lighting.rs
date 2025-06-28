@@ -78,8 +78,7 @@ pub async fn control_lights_unified(
         },
         _ => {
             return ToolResponse::error(format!(
-                "Invalid scope '{}'. Supported scopes: device, room, system",
-                scope
+                "Invalid scope '{scope}'. Supported scopes: device, room, system"
             ));
         }
     };
@@ -202,8 +201,7 @@ async fn get_lighting_device_by_id(
             return Ok(vec![device.clone()]);
         } else {
             return Err(crate::error::LoxoneError::invalid_input(format!(
-                "Device '{}' exists but is not a lighting device",
-                device_id
+                "Device '{device_id}' exists but is not a lighting device"
             )));
         }
     }
@@ -217,15 +215,13 @@ async fn get_lighting_device_by_id(
             return Ok(vec![device.clone()]);
         } else {
             return Err(crate::error::LoxoneError::invalid_input(format!(
-                "Device '{}' exists but is not a lighting device",
-                device_id
+                "Device '{device_id}' exists but is not a lighting device"
             )));
         }
     }
 
     Err(crate::error::LoxoneError::not_found(format!(
-        "Lighting device '{}' not found",
-        device_id
+        "Lighting device '{device_id}' not found"
     )))
 }
 
@@ -300,7 +296,7 @@ pub async fn discover_lighting_capabilities(context: ToolContext) -> ToolRespons
 
     let lighting_devices = match get_all_lighting_devices(&context).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get lighting devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get lighting devices: {e}")),
     };
 
     // Group devices by room and type

@@ -438,7 +438,7 @@ pub async fn set_room_mode(
     };
 
     // Send mode command
-    let command = format!("mode/{}", mode);
+    let command = format!("mode/{mode}");
 
     let result = match context
         .client
@@ -467,7 +467,7 @@ pub async fn set_room_mode(
 
     ToolResponse::success_with_message(
         result,
-        format!("Set mode to '{}' for room '{}'", mode, room_name),
+        format!("Set mode to '{mode}' for room '{room_name}'"),
     )
 }
 

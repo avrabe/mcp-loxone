@@ -17,7 +17,7 @@ pub async fn control_rolladen_unified(
 ) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Validate action using ActionAliases for multi-language support
@@ -28,8 +28,7 @@ pub async fn control_rolladen_unified(
         "position" | "pos" => "position",
         _ => {
             return ToolResponse::error(format!(
-                "Invalid action '{}'. Supported actions: up, down, stop, position",
-                action
+                "Invalid action '{action}'. Supported actions: up, down, stop, position"
             ));
         }
     };
@@ -301,12 +300,12 @@ async fn execute_rolladen_commands(
 pub async fn discover_rolladen_capabilities(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     let rolladen_devices = match get_all_rolladen_devices(&context).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get rolladen devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get rolladen devices: {e}")),
     };
 
     // Group devices by room and type
