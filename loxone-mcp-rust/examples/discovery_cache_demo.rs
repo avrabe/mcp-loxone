@@ -223,7 +223,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Manual cleanup
     let expired_count = expiry_cache.cleanup_expired().await?;
-    println!("   🧹 Cleaned up {} expired entries", expired_count);
+    println!("   🧹 Cleaned up {expired_count} expired entries");
 
     // Check if device still exists
     if expiry_cache.get_device(&temp_ip).await.is_none() {
@@ -249,7 +249,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Cleanup stale devices
     let stale_count = stale_cache.cleanup_stale_devices().await?;
-    println!("   🧹 Cleaned up {} stale devices", stale_count);
+    println!("   🧹 Cleaned up {stale_count} stale devices");
 
     // Demo 9: Persistence Simulation
     println!("\n9️⃣  Cache Persistence");
@@ -311,7 +311,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let insert_duration = start_time.elapsed();
 
-    println!("   ⚡ Added 100 devices in {:?}", insert_duration);
+    println!("   ⚡ Added 100 devices in {insert_duration:?}");
 
     // Test retrieval performance
     let start_time = std::time::Instant::now();
@@ -321,7 +321,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let retrieval_duration = start_time.elapsed();
 
-    println!("   ⚡ Retrieved 100 devices in {:?}", retrieval_duration);
+    println!("   ⚡ Retrieved 100 devices in {retrieval_duration:?}");
 
     let perf_stats = performance_cache.get_statistics().await;
     println!("   📊 Performance Statistics:");

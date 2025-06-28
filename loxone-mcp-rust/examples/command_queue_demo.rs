@@ -160,22 +160,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for (command, description) in commands {
         println!("   📋 {}: Priority={:?}", description, command.priority);
         if let Some(expires_at) = command.expires_at {
-            println!("      Expires at: {:?}", expires_at);
+            println!("      Expires at: {expires_at:?}");
         }
         match command.strategy {
             ExecutionStrategy::Immediate => println!("      Strategy: Immediate execution"),
             ExecutionStrategy::Delayed { delay } => {
-                println!("      Strategy: Delayed by {:?}", delay)
+                println!("      Strategy: Delayed by {delay:?}")
             }
             ExecutionStrategy::Batch { max_batch_size } => {
-                println!("      Strategy: Batch (max {})", max_batch_size)
+                println!("      Strategy: Batch (max {max_batch_size})")
             }
             ExecutionStrategy::Retry {
                 max_retries,
                 backoff,
             } => println!(
-                "      Strategy: Retry ({} attempts, {:?} backoff)",
-                max_retries, backoff
+                "      Strategy: Retry ({max_retries} attempts, {backoff:?} backoff)"
             ),
         }
     }
@@ -292,7 +291,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("      Current size: {}", stats.current_queue_size);
             }
         }
-        Err(e) => println!("   ❌ Error creating client: {}", e),
+        Err(e) => println!("   ❌ Error creating client: {e}"),
     }
 
     // Demo 5: Command Expiration and Cleanup
@@ -317,7 +316,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Cleanup expired commands
     let expired_count = cleanup_queue.cleanup_expired().await?;
-    println!("   🧹 Cleaned up {} expired commands", expired_count);
+    println!("   🧹 Cleaned up {expired_count} expired commands");
 
     let final_stats = cleanup_queue.get_statistics().await;
     println!(
