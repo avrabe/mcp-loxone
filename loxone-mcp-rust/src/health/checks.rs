@@ -7,7 +7,7 @@ use crate::client::ClientContext;
 use crate::error::Result;
 use std::sync::Arc;
 use std::time::Duration;
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// Memory usage health check
 pub struct MemoryHealthCheck {
@@ -411,14 +411,14 @@ impl HealthCheck for CredentialsHealthCheck {
 
 /// Loxone Miniserver dependency check
 pub struct LoxoneMiniserverCheck {
-    client_context: Arc<ClientContext>,
+    _client_context: Arc<ClientContext>,
     endpoint: String,
 }
 
 impl LoxoneMiniserverCheck {
     pub fn new(client_context: Arc<ClientContext>, endpoint: String) -> Self {
         Self {
-            client_context,
+            _client_context: client_context,
             endpoint,
         }
     }

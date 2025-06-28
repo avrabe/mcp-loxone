@@ -38,7 +38,7 @@ impl HealthStatus {
     /// Combine multiple health statuses to determine overall status
     pub fn combine(statuses: &[HealthStatus]) -> HealthStatus {
         if statuses.is_empty() {
-            return HealthStatus::Unhealthy;
+            return HealthStatus::Healthy;
         }
 
         if statuses
@@ -567,8 +567,6 @@ impl HealthChecker {
     pub async fn check_health(&self) -> HealthReport {
         debug!("Running {} health checks", self.checks.len());
 
-        let mut results = Vec::new();
-
         // Run health checks in parallel
         let check_futures: Vec<_> = self
             .checks
@@ -598,7 +596,7 @@ impl HealthChecker {
             })
             .collect();
 
-        results = futures::future::join_all(check_futures).await;
+        let results = futures::future::join_all(check_futures).await;
 
         // Run dependency checks
         let mut dependencies = Vec::new();

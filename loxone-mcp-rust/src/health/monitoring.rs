@@ -179,7 +179,7 @@ impl HealthMonitor {
                     severity: EventSeverity::Critical,
                 };
 
-                if let Err(_) = self.event_broadcaster.send(event) {
+                if self.event_broadcaster.send(event).is_err() {
                     warn!("No subscribers for health events");
                 }
             }
@@ -275,7 +275,7 @@ impl HealthMonitor {
             },
         };
 
-        if let Err(_) = self.event_broadcaster.send(event) {
+        if self.event_broadcaster.send(event).is_err() {
             debug!("No subscribers for health events");
         }
 
@@ -309,7 +309,7 @@ impl HealthMonitor {
             severity: EventSeverity::Info,
         };
 
-        if let Err(_) = self.event_broadcaster.send(event) {
+        if self.event_broadcaster.send(event).is_err() {
             debug!("No subscribers for health events");
         }
 
@@ -711,7 +711,6 @@ pub struct MonitoringStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::health::checks::MemoryHealthCheck;
 
     #[tokio::test]
     async fn test_health_monitor_creation() {

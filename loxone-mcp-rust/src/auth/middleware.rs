@@ -16,6 +16,10 @@ use axum::{
 use std::sync::Arc;
 use tracing::{debug, warn};
 
+/// Type alias for middleware future
+type MiddlewareFuture =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>>;
+
 /// Authentication information added to request extensions
 #[derive(Debug, Clone)]
 pub struct AuthInfo {
@@ -112,13 +116,7 @@ pub async fn require_admin_middleware(
 /// Middleware that checks for specific permissions
 pub fn require_permission(
     permission: &'static str,
-) -> impl Fn(
-    State<Arc<AuthenticationManager>>,
-    Request,
-    Next,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>,
-> + Clone {
+) -> impl Fn(State<Arc<AuthenticationManager>>, Request, Next) -> MiddlewareFuture + Clone {
     move |State(auth_manager): State<Arc<AuthenticationManager>>,
           mut request: Request,
           next: Next| {
@@ -207,35 +205,20 @@ pub fn has_permission(request: &Request, permission: &str) -> bool {
 }
 
 /// Create admin-only middleware
-pub fn admin_only() -> impl Fn(
-    State<Arc<AuthenticationManager>>,
-    Request,
-    Next,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>,
-> + Clone {
+pub fn admin_only(
+) -> impl Fn(State<Arc<AuthenticationManager>>, Request, Next) -> MiddlewareFuture + Clone {
     require_permission(permissions::ADMIN_CREATE_KEY)
 }
 
 /// Create device control middleware
-pub fn device_control() -> impl Fn(
-    State<Arc<AuthenticationManager>>,
-    Request,
-    Next,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>,
-> + Clone {
+pub fn device_control(
+) -> impl Fn(State<Arc<AuthenticationManager>>, Request, Next) -> MiddlewareFuture + Clone {
     require_permission(permissions::DEVICE_CONTROL)
 }
 
 /// Create MCP tools middleware
-pub fn mcp_tools() -> impl Fn(
-    State<Arc<AuthenticationManager>>,
-    Request,
-    Next,
-) -> std::pin::Pin<
-    Box<dyn std::future::Future<Output = Result<Response, StatusCode>> + Send>,
-> + Clone {
+pub fn mcp_tools(
+) -> impl Fn(State<Arc<AuthenticationManager>>, Request, Next) -> MiddlewareFuture + Clone {
     require_permission(permissions::MCP_TOOLS_EXECUTE)
 }
 

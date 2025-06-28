@@ -150,7 +150,7 @@ impl ToolContext {
         #[cfg(not(debug_assertions))]
         Self {
             client: _client,
-            context,
+            context: _context,
             value_resolver: todo!("Missing value resolver - use with_services"),
             state_manager: None,
         }

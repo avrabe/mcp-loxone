@@ -210,10 +210,8 @@ impl UnifiedValueResolver {
         let resolution_results = futures_util::future::join_all(futures).await;
 
         // Collect successful results
-        for result in resolution_results {
-            if let Some((uuid, resolved)) = result {
-                results.insert(uuid, resolved);
-            }
+        for (uuid, resolved) in resolution_results.into_iter().flatten() {
+            results.insert(uuid, resolved);
         }
 
         Ok(results)

@@ -549,10 +549,8 @@ impl LoxoneClient for TokenHttpClient {
         let results = futures_util::future::join_all(futures).await;
 
         // Collect successful results
-        for result in results {
-            if let Some((uuid, value)) = result {
-                states.insert(uuid, value);
-            }
+        for (uuid, value) in results.into_iter().flatten() {
+            states.insert(uuid, value);
         }
 
         Ok(states)
@@ -702,10 +700,8 @@ impl TokenHttpClient {
         let results = futures_util::future::join_all(futures).await;
 
         // Collect successful results
-        for result in results {
-            if let Some((state_uuid, value)) = result {
-                state_values.insert(state_uuid, value);
-            }
+        for (state_uuid, value) in results.into_iter().flatten() {
+            state_values.insert(state_uuid, value);
         }
 
         Ok(state_values)

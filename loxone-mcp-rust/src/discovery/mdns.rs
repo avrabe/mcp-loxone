@@ -86,7 +86,7 @@ pub async fn discover_via_mdns(timeout: Duration) -> Result<Vec<DiscoveredServer
                         );
 
                         // Check if this looks like a Loxone service
-                        if is_likely_loxone_service(&info.get_fullname(), info.get_properties()) {
+                        if is_likely_loxone_service(info.get_fullname(), info.get_properties()) {
                             let addr = if let Some(ip) = info.get_addresses().iter().next() {
                                 ip.to_string()
                             } else {
@@ -96,11 +96,13 @@ pub async fn discover_via_mdns(timeout: Duration) -> Result<Vec<DiscoveredServer
                             let key = format!("{}:{}", addr, info.get_port());
 
                             // Avoid duplicates from multiple service types
-                            if !discovered_hosts.contains_key(&key) {
+                            if let std::collections::hash_map::Entry::Vacant(e) =
+                                discovered_hosts.entry(key)
+                            {
                                 let server = DiscoveredServer {
                                     ip: addr,
                                     name: extract_device_name(
-                                        &info.get_fullname(),
+                                        info.get_fullname(),
                                         info.get_properties(),
                                     ),
                                     port: info.get_port().to_string(),
@@ -109,7 +111,7 @@ pub async fn discover_via_mdns(timeout: Duration) -> Result<Vec<DiscoveredServer
                                     service_name: Some(info.get_fullname().to_string()),
                                 };
 
-                                discovered_hosts.insert(key, server.clone());
+                                e.insert(server.clone());
                                 servers.push(server);
 
                                 info!(

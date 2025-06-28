@@ -5,13 +5,12 @@ use super::{
     HealthStatus,
 };
 use crate::error::{LoxoneError, Result};
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
 use tokio::sync::RwLock;
-use tracing::{debug, info, warn};
+use tracing::{debug, info};
 
 /// Health endpoints handler
 pub struct HealthEndpoints {
@@ -424,7 +423,7 @@ impl HealthEndpoints {
             metrics.insert(
                 "disk_usage_percent".to_string(),
                 serde_json::json!({
-                    "value": snapshot.disk_info.filesystems.get(0)
+                    "value": snapshot.disk_info.filesystems.first()
                         .map(|fs| fs.usage_percent)
                         .unwrap_or(0.0),
                     "timestamp": snapshot.timestamp

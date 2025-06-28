@@ -1,16 +1,16 @@
 //! System diagnostics collection for health monitoring
 
-use super::{CpuInfo, MemoryInfo, PerformanceMetrics, SystemInfo, ThreadPoolMetrics};
+use super::{SystemInfo, ThreadPoolMetrics};
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use tracing::{debug, warn};
+use tracing::debug;
 
 /// System diagnostics collector
 pub struct DiagnosticsCollector {
     /// Metrics collection interval
-    collection_interval: Duration,
+    _collection_interval: Duration,
     /// Historical data points to keep
     history_size: usize,
     /// Collected metrics history
@@ -21,7 +21,7 @@ impl DiagnosticsCollector {
     /// Create new diagnostics collector
     pub fn new(collection_interval: Duration, history_size: usize) -> Self {
         Self {
-            collection_interval,
+            _collection_interval: collection_interval,
             history_size,
             metrics_history: Vec::with_capacity(history_size),
         }

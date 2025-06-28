@@ -36,6 +36,10 @@ pub mod shared_styles;
 pub mod tools;
 pub mod validation;
 
+// Test support modules
+#[cfg(test)]
+pub mod mock;
+
 // Re-export main types for convenience
 pub use config::ServerConfig;
 pub use error::{LoxoneError, Result};
