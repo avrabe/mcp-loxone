@@ -49,7 +49,7 @@ async fn main() -> Result<()> {
     // Initialize enhanced logging
     let log_config = loxone_mcp_rust::logging::LogConfig::from_env();
     if let Err(e) = loxone_mcp_rust::logging::init_logging(log_config) {
-        eprintln!("Failed to initialize logging: {}", e);
+        eprintln!("Failed to initialize logging: {e}");
         std::process::exit(1);
     }
 
@@ -231,7 +231,7 @@ async fn run_http_server(
 
     // Wait for shutdown signal
     tokio::signal::ctrl_c().await.map_err(|e| {
-        LoxoneError::connection(format!("Failed to listen for shutdown signal: {}", e))
+        LoxoneError::connection(format!("Failed to listen for shutdown signal: {e}"))
     })?;
     info!("👋 Shutdown signal received, stopping server...");
 

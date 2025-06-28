@@ -30,7 +30,7 @@ fn main() -> Result<()> {
                 info!("   Set LOXONE_HOST environment variable or use Infisical configuration.");
             }
             Err(e) => {
-                eprintln!("❌ No credentials found: {}", e);
+                eprintln!("❌ No credentials found: {e}");
                 eprintln!("\n💡 Please run the setup utility first to configure credentials.");
                 return Err(e);
             }

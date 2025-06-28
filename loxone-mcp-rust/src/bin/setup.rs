@@ -951,18 +951,18 @@ fn show_environment_variables(
                 println!("\n# Optional (overrides Keychain):");
                 println!("# export LOXONE_USER=\"{username}\"");
                 println!("# export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("# export LOXONE_HOST=\"{}\"", host);
+                println!("# export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("# export LOXONE_API_KEY=\"{}\"", api_key);
+                    println!("# export LOXONE_API_KEY=\"{api_key}\"");
                 }
             } else {
                 println!("\n```bash");
                 println!("# Optional (überschreibt Keychain):");
                 println!("# export LOXONE_USER=\"{username}\"");
                 println!("# export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("# export LOXONE_HOST=\"{}\"", host);
+                println!("# export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("# export LOXONE_API_KEY=\"{}\"", api_key);
+                    println!("# export LOXONE_API_KEY=\"{api_key}\"");
                 }
                 println!("```");
             }
@@ -1027,28 +1027,18 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
             println!("   • Rotiere regelmäßig deine Service Tokens");
             println!();
             println!("🌐 Infisical Instance:");
-            println!("   URL: {}", infisical_host);
+            println!("   URL: {infisical_host}");
             if is_custom_host {
                 println!("   Type: Self-hosted/Custom Instance");
-                println!(
-                    "   Project Dashboard: {}/project/{}/overview",
-                    infisical_host, project_id
-                );
-                println!(
-                    "   Settings: {}/project/{}/settings",
-                    infisical_host, project_id
-                );
+                println!("   Project Dashboard: {infisical_host}/project/{project_id}/overview");
+                println!("   Settings: {infisical_host}/project/{project_id}/settings");
             } else {
                 println!("   Type: Official Cloud Instance");
                 println!(
-                    "   Project Dashboard: https://app.infisical.com/project/{}/overview",
-                    project_id
+                    "   Project Dashboard: https://app.infisical.com/project/{project_id}/overview"
                 );
-                println!(
-                    "   Settings: https://app.infisical.com/project/{}/settings",
-                    project_id
-                );
-                println!("   Service Tokens: https://app.infisical.com/project/{}/settings/service-tokens", project_id);
+                println!("   Settings: https://app.infisical.com/project/{project_id}/settings");
+                println!("   Service Tokens: https://app.infisical.com/project/{project_id}/settings/service-tokens");
             }
         }
         CredentialBackend::Environment => {
@@ -1163,7 +1153,7 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
                 client_secret,
                 environment,
                 if !infisical_host.is_empty() {
-                    format!("\nexport INFISICAL_HOST=\"{}\"", infisical_host)
+                    format!("\nexport INFISICAL_HOST=\"{infisical_host}\"")
                 } else {
                     "".to_string()
                 }
@@ -1189,7 +1179,7 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
             }
         }
         Err(e) => {
-            println!("\n⚠️  Konnte export_env.sh nicht erstellen: {}", e);
+            println!("\n⚠️  Konnte export_env.sh nicht erstellen: {e}");
         }
     }
 }

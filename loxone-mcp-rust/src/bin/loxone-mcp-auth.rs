@@ -405,11 +405,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 if !key.metadata.is_empty() {
                     println!("  Metadata:");
                     for (k, v) in &key.metadata {
-                        println!("    {}: {}", k, v);
+                        println!("    {k}: {v}");
                     }
                 }
             } else {
-                eprintln!("❌ API key not found: {}", key_id);
+                eprintln!("❌ API key not found: {key_id}");
                 std::process::exit(1);
             }
         }
@@ -458,22 +458,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 if updated {
                     auth_manager.update_key(key).await?;
-                    println!("✅ API key updated successfully: {}", key_id);
+                    println!("✅ API key updated successfully: {key_id}");
                 } else {
-                    println!("ℹ️  No changes specified for key: {}", key_id);
+                    println!("ℹ️  No changes specified for key: {key_id}");
                 }
             } else {
-                eprintln!("❌ API key not found: {}", key_id);
+                eprintln!("❌ API key not found: {key_id}");
                 std::process::exit(1);
             }
         }
 
         Commands::Delete { key_id, yes } => {
             if !yes {
-                print!(
-                    "Are you sure you want to delete API key '{}'? [y/N]: ",
-                    key_id
-                );
+                print!("Are you sure you want to delete API key '{key_id}'? [y/N]: ");
                 use std::io::{self, Write};
                 io::stdout().flush().unwrap();
 
@@ -486,9 +483,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             if auth_manager.delete_key(&key_id).await? {
-                println!("✅ API key deleted successfully: {}", key_id);
+                println!("✅ API key deleted successfully: {key_id}");
             } else {
-                eprintln!("❌ API key not found: {}", key_id);
+                eprintln!("❌ API key not found: {key_id}");
                 std::process::exit(1);
             }
         }
@@ -505,20 +502,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("  Client IP: {}", auth_success.context.client_ip);
                 }
                 loxone_mcp_rust::auth::models::AuthResult::Unauthorized { reason } => {
-                    eprintln!("❌ Authentication failed: {}", reason);
+                    eprintln!("❌ Authentication failed: {reason}");
                     std::process::exit(1);
                 }
                 loxone_mcp_rust::auth::models::AuthResult::Forbidden { reason } => {
-                    eprintln!("❌ Authentication forbidden: {}", reason);
+                    eprintln!("❌ Authentication forbidden: {reason}");
                     std::process::exit(1);
                 }
                 loxone_mcp_rust::auth::models::AuthResult::RateLimited {
                     retry_after_seconds,
                 } => {
-                    eprintln!(
-                        "❌ Rate limited. Retry after {} seconds",
-                        retry_after_seconds
-                    );
+                    eprintln!("❌ Rate limited. Retry after {retry_after_seconds} seconds");
                     std::process::exit(1);
                 }
             }
@@ -563,7 +557,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Err(e) => {
-                eprintln!("❌ Failed to retrieve audit events: {}", e);
+                eprintln!("❌ Failed to retrieve audit events: {e}");
                 std::process::exit(1);
             }
         },
@@ -662,27 +656,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             } => {
                                 has_issues = true;
                                 println!("⚠️  SECURITY WARNING:");
+                                println!("   Permissions {current:o} for '{path}' are too open.");
                                 println!(
-                                    "   Permissions {:o} for '{}' are too open.",
-                                    current, path
+                                    "   Required: {required:o} (SSH-style secure permissions)"
                                 );
-                                println!(
-                                    "   Required: {:o} (SSH-style secure permissions)",
-                                    required
-                                );
-                                println!("   Fix: {}", fix_command);
+                                println!("   Fix: {fix_command}");
                                 println!();
                             }
                             SecurityCheck::Unchecked { reason } => {
-                                println!("ℹ️  Security check skipped: {}", reason);
+                                println!("ℹ️  Security check skipped: {reason}");
                             }
                         }
                     }
 
                     if !has_issues {
                         println!(
-                            "✅ All credential files have secure permissions ({} files checked)",
-                            secure_count
+                            "✅ All credential files have secure permissions ({secure_count} files checked)"
                         );
                         println!("   Directory: {} (700)", cred_dir.display());
                         for file in &existing_files {
@@ -698,7 +687,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 println!("✅ All permissions have been fixed");
                             }
                             Err(e) => {
-                                eprintln!("❌ Failed to fix permissions: {}", e);
+                                eprintln!("❌ Failed to fix permissions: {e}");
                                 std::process::exit(1);
                             }
                         }
@@ -708,7 +697,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     }
                 }
                 Err(e) => {
-                    eprintln!("❌ Security validation failed: {}", e);
+                    eprintln!("❌ Security validation failed: {e}");
                     std::process::exit(1);
                 }
             }

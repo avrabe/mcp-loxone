@@ -39,14 +39,14 @@ fn main() -> Result<()> {
         };
 
         println!("🔗 Testing connection to:");
-        println!("   Host: {}", host);
-        println!("   User: {}", username);
+        println!("   Host: {host}");
+        println!("   User: {username}");
         println!("   Pass: ***");
         println!();
 
         // Parse host URL
         let url = host.parse().map_err(|e| {
-            loxone_mcp_rust::error::LoxoneError::config(format!("Invalid URL: {}", e))
+            loxone_mcp_rust::error::LoxoneError::config(format!("Invalid URL: {e}"))
         })?;
 
         // Create config
@@ -132,7 +132,7 @@ fn main() -> Result<()> {
 
                 // Additional debugging
                 debug!("Debug: Checking base URL accessibility...");
-                let test_url = format!("{}/favicon.ico", host);
+                let test_url = format!("{host}/favicon.ico");
                 match reqwest::get(&test_url).await {
                     Ok(response) => {
                         debug!("Test GET {}: {}", test_url, response.status());

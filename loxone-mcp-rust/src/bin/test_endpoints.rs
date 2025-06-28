@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _username = "Ralf"; // From keychain
     let _password = "test"; // Will get 401 but that's OK, we want to see if endpoint exists
 
-    println!("🔗 Testing endpoints on: {}", host);
+    println!("🔗 Testing endpoints on: {host}");
     println!();
 
     // Create HTTP client with basic auth
@@ -41,9 +41,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     for endpoint in endpoints {
-        let url = format!("{}{}", host, endpoint);
+        let url = format!("{host}{endpoint}");
 
-        print!("Testing {:<25} ... ", endpoint);
+        print!("Testing {endpoint:<25} ... ");
 
         match client.get(&url).send().await {
             Ok(response) => {
@@ -74,9 +74,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 };
 
                 match status_code {
-                    200 => println!("✅ {} ({})", status, content_type),
-                    401 => println!("🔐 {} - Auth required (endpoint exists)", status),
-                    404 => println!("❌ {} - Not found", status),
+                    200 => println!("✅ {status} ({content_type})"),
+                    401 => println!("🔐 {status} - Auth required (endpoint exists)"),
+                    404 => println!("❌ {status} - Not found"),
                     _ => println!(
                         "⚠️  {} - {}",
                         status,
@@ -90,7 +90,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 }
             }
             Err(e) => {
-                println!("❌ Connection error: {}", e);
+                println!("❌ Connection error: {e}");
             }
         }
     }
