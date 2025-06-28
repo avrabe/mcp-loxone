@@ -381,7 +381,7 @@ impl SchemaValidator {
                     field: field_path.to_string(),
                     message: format!("String too short: {} < {}", value.len(), min_len),
                     code: ValidationErrorCode::TooShort,
-                    expected: Some(format!("Minimum length: {}", min_len)),
+                    expected: Some(format!("Minimum length: {min_len}")),
                     actual: Some(format!("Length: {}", value.len())),
                     suggestion: Some("Provide a longer string".to_string()),
                 });
@@ -394,7 +394,7 @@ impl SchemaValidator {
                     field: field_path.to_string(),
                     message: format!("String too long: {} > {}", value.len(), max_len),
                     code: ValidationErrorCode::TooLong,
-                    expected: Some(format!("Maximum length: {}", max_len)),
+                    expected: Some(format!("Maximum length: {max_len}")),
                     actual: Some(format!("Length: {}", value.len())),
                     suggestion: Some("Provide a shorter string".to_string()),
                 });
@@ -407,9 +407,9 @@ impl SchemaValidator {
                 if !regex.is_match(value) {
                     errors.push(ValidationError {
                         field: field_path.to_string(),
-                        message: format!("String does not match pattern: {}", pattern),
+                        message: format!("String does not match pattern: {pattern}"),
                         code: ValidationErrorCode::PatternMismatch,
-                        expected: Some(format!("Pattern: {}", pattern)),
+                        expected: Some(format!("Pattern: {pattern}")),
                         actual: Some(value.to_string()),
                         suggestion: Some(
                             "Provide a string matching the required pattern".to_string(),
@@ -424,7 +424,7 @@ impl SchemaValidator {
             if !enum_values.contains(&value.to_string()) {
                 errors.push(ValidationError {
                     field: field_path.to_string(),
-                    message: format!("Invalid enum value: {}", value),
+                    message: format!("Invalid enum value: {value}"),
                     code: ValidationErrorCode::InvalidEnum,
                     expected: Some(format!("One of: {:?}", enum_values)),
                     actual: Some(value.to_string()),
@@ -471,7 +471,7 @@ impl SchemaValidator {
                     field: field_path.to_string(),
                     message: format!("Number too small: {} < {}", num_value, min),
                     code: ValidationErrorCode::OutOfRange,
-                    expected: Some(format!("Minimum: {}", min)),
+                    expected: Some(format!("Minimum: {min}")),
                     actual: Some(num_value.to_string()),
                     suggestion: Some(format!("Use a value >= {}", min)),
                 });
@@ -484,7 +484,7 @@ impl SchemaValidator {
                     field: field_path.to_string(),
                     message: format!("Number too large: {} > {}", num_value, max),
                     code: ValidationErrorCode::OutOfRange,
-                    expected: Some(format!("Maximum: {}", max)),
+                    expected: Some(format!("Maximum: {max}")),
                     actual: Some(num_value.to_string()),
                     suggestion: Some(format!("Use a value <= {}", max)),
                 });

@@ -110,7 +110,7 @@ impl UnifiedValueResolver {
             .into_iter()
             .next()
             .map(|(_, value)| value)
-            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", uuid)))
+            .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {uuid}")))
     }
 
     /// Resolve values for multiple devices efficiently with enhanced caching
@@ -278,7 +278,7 @@ impl UnifiedValueResolver {
                     device_name: device.name.clone(),
                     raw_value: cached_value.clone(),
                     numeric_value: Some(numeric),
-                    formatted_value: format!("{:.1}", numeric),
+                    formatted_value: format!("{numeric:.1}"),
                     unit: None,
                     sensor_type,
                     room: device.room.clone(),
@@ -362,7 +362,7 @@ impl UnifiedValueResolver {
         if let Some(numeric) = raw_state.as_f64() {
             return Ok(ParsedValue {
                 numeric_value: Some(numeric),
-                formatted_value: format!("{:.1}", numeric),
+                formatted_value: format!("{numeric:.1}"),
                 unit: None,
                 metadata: HashMap::new(),
             });
