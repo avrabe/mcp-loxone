@@ -266,10 +266,33 @@ async fn handle_post(
     State(state): State<Arc<HttpState>>,
     Query(query): Query<PostQuery>,
     headers: HeaderMap,
-    Json(request): Json<McpRequest>,
+    body: String,
 ) -> Result<AxumResponse<String>, StatusCode> {
     info!("Received POST request with session query: {:?}", query);
-    info!("Request message: {:?}", request.message);
+    debug!("Raw request body: {}", body);
+    
+    // Parse JSON directly to handle both wrapped and direct JSON-RPC formats
+    let request_value: serde_json::Value = match serde_json::from_str(&body) {
+        Ok(v) => v,
+        Err(e) => {
+            warn!("Failed to parse JSON: {}", e);
+            return Err(StatusCode::BAD_REQUEST);
+        }
+    };
+    
+    // Extract the actual message (handle both wrapped {"message": {...}} and direct {...} formats)
+    let message = if let Some(wrapped_message) = request_value.get("message") {
+        // Wrapped format: {"message": {"jsonrpc": "2.0", ...}}
+        wrapped_message.clone()
+    } else if request_value.get("jsonrpc").is_some() {
+        // Direct JSON-RPC format: {"jsonrpc": "2.0", ...}
+        request_value
+    } else {
+        warn!("Invalid request format - no 'message' field and no 'jsonrpc' field");
+        return Err(StatusCode::BAD_REQUEST);
+    };
+    
+    info!("Request message: {:?}", message);
     
     // Validate origin
     if let Err(e) = HttpTransport::validate_origin(&state.config, &headers) {
@@ -296,7 +319,7 @@ async fn handle_post(
     };
     
     // Validate message
-    let message_json = serde_json::to_string(&request.message)
+    let message_json = serde_json::to_string(&message)
         .map_err(|_| StatusCode::BAD_REQUEST)?;
     
     if state.config.validate_messages {
@@ -330,10 +353,19 @@ async fn handle_post(
             // Implement proper MCP backwards compatibility protocol
             let accept_header = headers.get("accept").and_then(|v| v.to_str().ok()).unwrap_or("");
             
-            // MCP Inspector expects immediate JSON responses for streamable HTTP transport
-            // Prioritize streamable HTTP when application/json is requested, regardless of other headers
-            // This fixes MCP Inspector compatibility which sends both headers
-            let wants_json_response = accept_header.contains("application/json");
+            // Determine transport mode based on Accept header priority
+            // MCP Inspector often sends "application/json, text/event-stream" but expects JSON responses
+            // If "application/json" appears first or is the only content type, use streamable HTTP
+            let wants_json_response = if accept_header.starts_with("application/json") {
+                true // JSON is the primary preference
+            } else if accept_header.contains("application/json") && accept_header.contains("text/event-stream") {
+                // Mixed headers - check which appears first (client preference)
+                let json_pos = accept_header.find("application/json").unwrap_or(usize::MAX);
+                let sse_pos = accept_header.find("text/event-stream").unwrap_or(usize::MAX);
+                json_pos < sse_pos // Use JSON if it appears first
+            } else {
+                accept_header.contains("application/json")
+            };
             
             if wants_json_response {
                 // New Streamable HTTP transport - return response directly
@@ -518,10 +550,14 @@ async fn handle_sse(
     
     // Create SSE stream following official MCP Python SDK pattern
     let stream = async_stream::stream! {
+        let mut event_counter = 0u64;
+        
         // Send "endpoint" event first (as per official MCP SDK)
         let endpoint_url = format!("/messages?session_id={}", session_id);
         info!("Sending 'endpoint' event for session: {} with URL: {}", session_id, endpoint_url);
+        event_counter += 1;
         yield Ok::<_, axum::Error>(Event::default()
+            .id(event_counter.to_string())
             .event("endpoint")
             .data(endpoint_url));
         
@@ -530,13 +566,17 @@ async fn handle_sse(
         loop {
             tokio::select! {
                 Ok(data) = receiver.recv() => {
+                    event_counter += 1;
                     yield Ok::<_, axum::Error>(Event::default()
+                        .id(event_counter.to_string())
                         .event("message")
                         .data(data));
                 }
                 _ = tokio::time::sleep(Duration::from_secs(30)) => {
                     // Send periodic ping to keep connection alive
+                    event_counter += 1;
                     yield Ok::<_, axum::Error>(Event::default()
+                        .id(event_counter.to_string())
                         .event("ping")
                         .data(serde_json::json!({
                             "type": "ping",

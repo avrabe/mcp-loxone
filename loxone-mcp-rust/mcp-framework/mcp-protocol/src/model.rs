@@ -165,6 +165,7 @@ pub struct ServerInfo {
 
 /// Tool definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Tool {
     pub name: String,
     pub description: String,
@@ -173,9 +174,10 @@ pub struct Tool {
 
 /// List tools result
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {
     pub tools: Vec<Tool>,
-    pub next_cursor: Option<String>,
+    pub next_cursor: String,  // Changed from Option<String> to String
 }
 
 /// Pagination parameters
@@ -485,11 +487,24 @@ pub struct SetLevelRequestParam {
     pub level: String,
 }
 
+/// Resource template definition
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceTemplate {
+    #[serde(rename = "uriTemplate")]
+    pub uri_template: String,
+    pub name: String,
+    pub description: Option<String>,
+    #[serde(rename = "mimeType")]
+    pub mime_type: Option<String>,
+}
+
 /// List resource templates result
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListResourceTemplatesResult {
-    pub resource_templates: Vec<Resource>,
-    pub next_cursor: Option<String>,
+    #[serde(rename = "resourceTemplates")]
+    pub resource_templates: Vec<ResourceTemplate>,
+    #[serde(rename = "nextCursor")]
+    pub next_cursor: String,  // Changed from Option<String> to String
 }
 
 /// Subscribe request parameters

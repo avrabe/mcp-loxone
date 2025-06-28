@@ -108,7 +108,7 @@ impl<B: McpBackend> GenericServerHandler<B> {
             protocol_version: mcp_protocol::MCP_VERSION.to_string(),
             capabilities: self.backend.get_server_info().capabilities,
             server_info: self.backend.get_server_info().server_info.clone(),
-            instructions: None,
+            instructions: Some(String::new()),  // MCP Inspector expects a string, not null
         };
         
         Ok(Response {
