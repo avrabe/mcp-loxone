@@ -229,8 +229,16 @@ impl ResourceManager {
             ResourceCategory::Rooms,
         );
 
-        // Note: Room-specific device resources would need to be generated dynamically
-        // based on actual rooms discovered in the system. For now, use tools instead.
+        // Room-specific device resources (template)
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://rooms/{roomName}/devices".to_string(),
+                name: "Room Devices".to_string(),
+                description: "All devices in a specific room".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Rooms,
+        );
 
         // Device resources
         self.register_resource(
@@ -243,38 +251,29 @@ impl ResourceManager {
             ResourceCategory::Devices,
         );
 
-        // Note: Device type filtering would need concrete resources or use tools instead
-
-        // Device category resources - register common categories
+        // Device type resources - template for any device type
         self.register_resource(
             LoxoneResource {
-                uri: "loxone://devices/category/blinds".to_string(),
-                name: "Blinds/Rolladen Devices".to_string(),
-                description: "All blinds and rolladen devices with current positions".to_string(),
+                uri: "loxone://devices/type/{deviceType}".to_string(),
+                name: "Type Devices".to_string(),
+                description: "All devices of a specific type".to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Devices,
         );
 
+        // Device category resources - template for any category
         self.register_resource(
             LoxoneResource {
-                uri: "loxone://devices/category/lighting".to_string(),
-                name: "Lighting Devices".to_string(),
-                description: "All lighting devices and their current states".to_string(),
+                uri: "loxone://devices/category/{category}".to_string(),
+                name: "Category Devices".to_string(),
+                description: "All devices in a specific category".to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Devices,
         );
 
-        self.register_resource(
-            LoxoneResource {
-                uri: "loxone://devices/category/climate".to_string(),
-                name: "Climate Devices".to_string(),
-                description: "All climate control devices and sensors".to_string(),
-                mime_type: Some("application/json".to_string()),
-            },
-            ResourceCategory::Devices,
-        );
+        // Note: Specific category resources removed in favor of the template above
 
         // Note: Additional device categories can be added as needed
 
@@ -520,6 +519,10 @@ impl ResourceManager {
         if let Some(uris) = self.categories.get(&category) {
             uris.iter()
                 .filter_map(|uri| self.resources.get(uri))
+                .filter(|resource| {
+                    // Filter out template resources (with placeholders)
+                    !(resource.uri.contains('{') && resource.uri.contains('}'))
+                })
                 .collect()
         } else {
             Vec::new()
@@ -528,6 +531,10 @@ impl ResourceManager {
 
     /// Get resource by URI
     pub fn get_resource(&self, uri: &str) -> Option<&LoxoneResource> {
+        // Don't return template resources (with placeholders) via direct lookup
+        if uri.contains('{') && uri.contains('}') {
+            return None;
+        }
         self.resources.get(uri)
     }
 
@@ -554,19 +561,34 @@ impl ResourceManager {
             query_params = self.parse_query_parameters(query)?;
         }
 
-        // Find exact matching resource (no templating)
-        let _matching_resource = self
-            .get_resource(uri_path)
-            .ok_or_else(|| LoxoneError::invalid_input(format!("Resource not found: {uri_path}")))?;
+        // First try exact matching
+        if let Some(_resource) = self.get_resource(uri_path) {
+            // Exact match found
+            Ok(ResourceContext {
+                uri: uri.to_string(),
+                params: ResourceParams {
+                    path_params: HashMap::new(), // No path params for exact matches
+                    query_params,
+                },
+                timestamp: chrono::Utc::now(),
+            })
+        } else {
+            // Try template matching
+            let (matching_resource, path_params) =
+                self.find_matching_resource_and_extract_params(uri_path)?;
 
-        Ok(ResourceContext {
-            uri: uri.to_string(),
-            params: ResourceParams {
-                path_params: HashMap::new(), // No path params for concrete resources
-                query_params,
-            },
-            timestamp: chrono::Utc::now(),
-        })
+            // Validate extracted parameters
+            self.validate_extracted_parameters(&path_params, &query_params, &matching_resource)?;
+
+            Ok(ResourceContext {
+                uri: uri.to_string(),
+                params: ResourceParams {
+                    path_params,
+                    query_params,
+                },
+                timestamp: chrono::Utc::now(),
+            })
+        }
     }
 
     /// Validate URI format and basic structure

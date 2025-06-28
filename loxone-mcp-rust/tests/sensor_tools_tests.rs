@@ -361,8 +361,7 @@ mod tests {
                     // Validate temperature range (reasonable for indoor/outdoor)
                     assert!(
                         (-50.0..=50.0).contains(&temp),
-                        "Temperature {} out of reasonable range",
-                        temp
+                        "Temperature {temp} out of reasonable range"
                     );
                 }
             }

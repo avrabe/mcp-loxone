@@ -770,7 +770,7 @@ impl Default for OllamaConfig {
     fn default() -> Self {
         Self {
             base_url: "http://localhost:11434".to_string(),
-            default_model: "qwen3:14b".to_string(),
+            default_model: "llama3.2".to_string(),
             available_models: vec![], // Auto-detected
             auto_download_models: true,
             timeout_seconds: 60,

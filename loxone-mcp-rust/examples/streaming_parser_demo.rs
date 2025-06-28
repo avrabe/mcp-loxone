@@ -65,7 +65,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("\n   ⚠️  Note: Actual parsing would require a real Loxone server");
         }
-        Err(e) => println!("   ❌ Error creating client: {}", e),
+        Err(e) => println!("   ❌ Error creating client: {e}"),
     }
 
     // Demo 2: Different Parser Configurations
@@ -151,7 +151,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             StructureSection::Categories => "Categories (device groupings)",
             StructureSection::GlobalStates => "Global States (system-wide variables)",
         };
-        println!("   🏷️  {:?}: {}", section, section_name);
+        println!("   🏷️  {section:?}: {section_name}");
     }
 
     // Demo 4: Memory and Performance Benefits

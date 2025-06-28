@@ -45,7 +45,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             #[cfg(not(feature = "crypto-openssl"))]
             println!("   ⚠️  Crypto feature disabled - falling back to basic auth");
         }
-        Err(e) => println!("   ❌ Error: {}", e),
+        Err(e) => println!("   ❌ Error: {e}"),
     }
 
     // Demo 2: Basic Authentication (legacy for Loxone V8 and older)
@@ -60,13 +60,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   ✅ Basic authentication HTTP client created successfully");
             println!("   📝 Uses HTTP Basic Auth headers (less secure)");
         }
-        Err(e) => println!("   ❌ Error: {}", e),
+        Err(e) => println!("   ❌ Error: {e}"),
     }
 
     // Demo 3: Show default behavior
     println!("\n3️⃣  Default authentication method for new configurations");
     let default_method = AuthMethod::default();
-    println!("   🎯 Default: {:?}", default_method);
+    println!("   🎯 Default: {default_method:?}");
     println!("   💡 New installations automatically use Token auth for better security");
 
     println!("\n✨ Features of Token Authentication:");

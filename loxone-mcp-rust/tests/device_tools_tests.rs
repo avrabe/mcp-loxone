@@ -79,7 +79,7 @@ fn map_device_type_to_category(device_type: &str) -> &'static str {
         "IRoomControllerV2" | "Thermostat" => "climate",
         "AnalogInput" | "DigitalInput" => "sensors",
         "AudioZone" => "audio",
-        _ => "unknown",
+        _ => "other",
     }
 }
 
@@ -298,8 +298,7 @@ mod tests {
             let category = map_device_type_to_category(device_type);
             assert_eq!(
                 category, expected_category,
-                "Failed for device type: {}",
-                device_type
+                "Failed for device type: {device_type}"
             );
         }
     }

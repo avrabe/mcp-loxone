@@ -189,7 +189,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             OperationType::ConnectionManagement { .. } => SensitivityLevel::Low,
         };
 
-        println!("   📋 {}: {:?}", description, sensitivity);
+        println!("   📋 {description}: {sensitivity:?}");
     }
 
     // Demo 3: Consent Manager Creation and Setup
@@ -264,7 +264,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("   ✅ Consent management is active");
             }
         }
-        Err(e) => println!("   ❌ Error creating client: {}", e),
+        Err(e) => println!("   ❌ Error creating client: {e}"),
     }
 
     // Demo 6: Consent Flow Scenarios

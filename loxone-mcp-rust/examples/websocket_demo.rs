@@ -96,7 +96,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             println!("   ⚠️  Note: Connection would be established in a real environment");
         }
-        Err(e) => println!("   ❌ Error creating hybrid client: {}", e),
+        Err(e) => println!("   ❌ Error creating hybrid client: {e}"),
     }
 
     // Demo 2: Standalone WebSocket Client
@@ -107,7 +107,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("   📡 Real-time monitoring only (no HTTP capabilities)");
             println!("   💡 Ideal for dedicated event processing applications");
         }
-        Err(e) => println!("   ❌ Error creating WebSocket client: {}", e),
+        Err(e) => println!("   ❌ Error creating WebSocket client: {e}"),
     }
 
     // Demo 3: Event Type System
@@ -124,7 +124,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     for event_type in event_types {
         let serialized = serde_json::to_string(&event_type)?;
-        println!("   🏷️  Event type: {:?} → JSON: {}", event_type, serialized);
+        println!("   🏷️  Event type: {event_type:?} → JSON: {serialized}");
     }
 
     // Demo 4: Advanced Filtering

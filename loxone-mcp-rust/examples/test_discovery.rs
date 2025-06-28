@@ -38,11 +38,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("   Discovery Method: {}", server.method);
 
                     if let Some(service_type) = &server.service_type {
-                        println!("   Service Type: {}", service_type);
+                        println!("   Service Type: {service_type}");
                     }
 
                     if let Some(service_name) = &server.service_name {
-                        println!("   Service Name: {}", service_name);
+                        println!("   Service Name: {service_name}");
                     }
 
                     println!("   URL: http://{}:{}", server.ip, server.port);
@@ -56,7 +56,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Err(e) => {
-            eprintln!("❌ Discovery error: {}", e);
+            eprintln!("❌ Discovery error: {e}");
         }
     }
 

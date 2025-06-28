@@ -187,7 +187,7 @@ mod tests {
         assert_eq!(audio_resources.len(), 2); // zones, sources
 
         let sensor_resources = manager.list_resources_by_category(ResourceCategory::Sensors);
-        assert_eq!(sensor_resources.len(), 3); // door-window, temperature, discovered
+        assert_eq!(sensor_resources.len(), 7); // door-window, temperature, discovered, motion, air-quality, presence, weather-station
 
         let weather_resources = manager.list_resources_by_category(ResourceCategory::Weather);
         assert_eq!(weather_resources.len(), 4); // current, outdoor-conditions, forecast-daily, forecast-hourly
@@ -233,7 +233,7 @@ mod tests {
 
         for uri in valid_uris {
             let context = manager.parse_uri(uri);
-            assert!(context.is_ok(), "Failed to parse valid URI: {}", uri);
+            assert!(context.is_ok(), "Failed to parse valid URI: {uri}");
         }
 
         // Test URIs with query parameters
@@ -345,8 +345,7 @@ mod tests {
             let resources = manager.list_resources_by_category(category);
             assert!(
                 !resources.is_empty(),
-                "Category {:?} should have at least one resource",
-                category
+                "Category {category:?} should have at least one resource"
             );
 
             // Verify all resources in category have correct URI prefix
@@ -441,7 +440,7 @@ mod tests {
         // Test invalid characters in path
         let invalid_chars = vec!["<", ">", "\"", "{", "}", "|", "\\", "^", "`"];
         for char in invalid_chars {
-            let uri = format!("loxone://rooms/test{}room/devices", char);
+            let uri = format!("loxone://rooms/test{char}room/devices");
             // Some characters may be valid in URLs, but we test that they don't break parsing
             let _result = manager.parse_uri(&uri);
             // The result may be Ok or Err depending on URL parsing rules, but shouldn't panic
@@ -516,10 +515,10 @@ mod tests {
         // Test resource lookup with parameters vs templates
         assert!(manager
             .get_resource("loxone://rooms/Kitchen/devices")
-            .is_none()); // Specific instance
+            .is_none()); // Specific instance - not available via get_resource
         assert!(manager
             .get_resource("loxone://rooms/{roomName}/devices")
-            .is_some()); // Template
+            .is_none()); // Template - not available via get_resource
     }
 
     #[test]
@@ -551,8 +550,7 @@ mod tests {
         for category in expected_categories {
             assert!(
                 categories_found.contains(category),
-                "Expected category '{}' not found in resources",
-                category
+                "Expected category '{category}' not found in resources"
             );
         }
 

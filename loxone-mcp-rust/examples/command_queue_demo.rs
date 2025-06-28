@@ -173,9 +173,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             ExecutionStrategy::Retry {
                 max_retries,
                 backoff,
-            } => println!(
-                "      Strategy: Retry ({max_retries} attempts, {backoff:?} backoff)"
-            ),
+            } => println!("      Strategy: Retry ({max_retries} attempts, {backoff:?} backoff)"),
         }
     }
 

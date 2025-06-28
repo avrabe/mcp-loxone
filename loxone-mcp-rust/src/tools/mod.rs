@@ -148,11 +148,19 @@ impl ToolContext {
         panic!("Use ToolContext::with_services instead of ::new");
 
         #[cfg(not(debug_assertions))]
-        Self {
-            client: _client,
-            context: _context,
-            value_resolver: todo!("Missing value resolver - use with_services"),
-            state_manager: None,
+        {
+            let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
+            let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
+                _client.clone(),
+                sensor_registry,
+            ));
+
+            Self {
+                client: _client,
+                context: _context,
+                value_resolver,
+                state_manager: None,
+            }
         }
     }
 

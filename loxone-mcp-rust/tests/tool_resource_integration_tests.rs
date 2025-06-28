@@ -39,16 +39,16 @@ mod tests {
             // Verify parameters are extracted correctly for parameterized URIs
             match uri {
                 uri if uri.contains("/Kitchen/") => {
-                    assert!(context.params.path_params.contains_key("room_name"));
+                    assert!(context.params.path_params.contains_key("roomName"));
                     assert_eq!(
-                        context.params.path_params.get("room_name").unwrap(),
+                        context.params.path_params.get("roomName").unwrap(),
                         "Kitchen"
                     );
                 }
                 uri if uri.contains("/type/Switch") => {
-                    assert!(context.params.path_params.contains_key("device_type"));
+                    assert!(context.params.path_params.contains_key("deviceType"));
                     assert_eq!(
-                        context.params.path_params.get("device_type").unwrap(),
+                        context.params.path_params.get("deviceType").unwrap(),
                         "Switch"
                     );
                 }
@@ -75,8 +75,7 @@ mod tests {
         for uri in invalid_uris {
             assert!(
                 resource_manager.parse_uri(uri).is_err(),
-                "Should have failed to parse invalid URI: {}",
-                uri
+                "Should have failed to parse invalid URI: {uri}"
             );
         }
     }
@@ -87,8 +86,8 @@ mod tests {
         let resource_manager = ResourceManager::new();
         let resources = resource_manager.list_resources();
 
-        // Verify we have the expected number of resources (22 total)
-        assert_eq!(resources.len(), 22);
+        // Verify we have the expected number of resources (26 total)
+        assert_eq!(resources.len(), 26);
 
         // Verify some key resources are present
         let resource_uris: Vec<&str> = resources.iter().map(|r| r.uri.as_str()).collect();
@@ -140,7 +139,7 @@ mod tests {
                 .expect("Failed to parse room URI");
             // Resource type is inferred from URI structure, not stored in context
             assert_eq!(
-                context.params.path_params.get("room_name").unwrap(),
+                context.params.path_params.get("roomName").unwrap(),
                 expected_room
             );
         }
@@ -158,7 +157,7 @@ mod tests {
                 .expect("Failed to parse device type URI");
             // Resource type is inferred from URI structure, not stored in context
             assert_eq!(
-                context.params.path_params.get("device_type").unwrap(),
+                context.params.path_params.get("deviceType").unwrap(),
                 expected_type
             );
         }
@@ -216,11 +215,11 @@ mod tests {
         let parameterized_contexts = vec![
             (
                 "loxone://rooms/TestRoom/devices",
-                vec![("room_name", "TestRoom")],
+                vec![("roomName", "TestRoom")],
             ),
             (
                 "loxone://devices/type/TestType",
-                vec![("device_type", "TestType")],
+                vec![("deviceType", "TestType")],
             ),
             (
                 "loxone://devices/category/TestCategory",
@@ -272,7 +271,7 @@ mod tests {
             assert_eq!(context.uri, uri);
             // Resource type is inferred from URI structure, not stored in context
 
-            println!("✓ Successfully parsed resource: {}", uri);
+            println!("✓ Successfully parsed resource: {uri}");
         }
 
         // Step 3: Test parameterized resource URIs
@@ -285,13 +284,12 @@ mod tests {
         for uri in parameterized_uris {
             let context = resource_manager
                 .parse_uri(uri)
-                .unwrap_or_else(|_| panic!("Failed to parse parameterized URI: {}", uri));
+                .unwrap_or_else(|_| panic!("Failed to parse parameterized URI: {uri}"));
 
             // Verify parameters were extracted
             assert!(
                 !context.params.path_params.is_empty(),
-                "Parameterized URI {} should have parameters",
-                uri
+                "Parameterized URI {uri} should have parameters"
             );
 
             println!(
@@ -323,15 +321,10 @@ mod tests {
             let result = resource_manager.parse_uri(uri);
             assert!(
                 result.is_err(),
-                "Should have failed for {}: {}",
-                description,
-                uri
+                "Should have failed for {description}: {uri}"
             );
 
-            println!(
-                "✓ Correctly rejected invalid URI ({}): {}",
-                description, uri
-            );
+            println!("✓ Correctly rejected invalid URI ({description}): {uri}");
         }
     }
 
@@ -426,6 +419,10 @@ mod tests {
             "loxone://sensors/door-window",
             "loxone://sensors/temperature",
             "loxone://sensors/discovered",
+            "loxone://sensors/motion",
+            "loxone://sensors/air-quality",
+            "loxone://sensors/presence",
+            "loxone://sensors/weather-station",
             "loxone://weather/current",
             "loxone://weather/outdoor-conditions",
             "loxone://weather/forecast-daily",
@@ -446,8 +443,8 @@ mod tests {
 
         assert_eq!(
             resources.len(),
-            22,
-            "Should have exactly 22 consolidated resources"
+            26,
+            "Should have exactly 26 consolidated resources"
         );
 
         println!(

@@ -273,8 +273,8 @@ async fn test_cache_cleanup_expired() {
     for i in 0..5 {
         let device = create_test_device(
             &format!("192.168.1.{}", 100 + i),
-            &format!("serial{}", i),
-            &format!("Device {}", i),
+            &format!("serial{i}"),
+            &format!("Device {i}"),
             "test",
         );
         cache.add_device(device).await.unwrap();
@@ -339,8 +339,8 @@ async fn test_cache_clear() {
     for i in 1..=5 {
         let device = create_test_device(
             &format!("192.168.1.{}", 100 + i),
-            &format!("serial{}", i),
-            &format!("Device {}", i),
+            &format!("serial{i}"),
+            &format!("Device {i}"),
             "test",
         );
         cache.add_device(device).await.unwrap();

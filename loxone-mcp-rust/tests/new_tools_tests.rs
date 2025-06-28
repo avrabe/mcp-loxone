@@ -345,7 +345,7 @@ mod tests {
         assert!(valid_devices.len() <= 50); // Assume reasonable batch limit
 
         // Test large device list (should be rejected)
-        let large_devices: Vec<String> = (0..101).map(|i| format!("Device {}", i)).collect();
+        let large_devices: Vec<String> = (0..101).map(|i| format!("Device {i}")).collect();
         assert!(large_devices.len() > 100); // Should exceed reasonable limit
     }
 

@@ -65,7 +65,7 @@ jobs:
       working-directory: ./loxone-mcp-rust
     
     - name: Run integration tests with test-utils
-      run: cargo test --test '*' --features "test-utils" --verbose
+      run: cargo test --tests --features "test-utils" --verbose
       working-directory: ./loxone-mcp-rust
     
     - name: Run tests (no default features)
