@@ -266,6 +266,18 @@ opt-level = 0
 debug = true
 incremental = true
 
+# Patch published crates to use local versions for development
+# This allows us to test local changes immediately while keeping
+# published version references in individual Cargo.toml files
+[patch.crates-io]
+pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol" }
+pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport" }
+pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth" }
+pulseengine-mcp-security = { path = "mcp-framework/mcp-security" }
+pulseengine-mcp-monitoring = { path = "mcp-framework/mcp-monitoring" }
+pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging" }
+pulseengine-mcp-server = { path = "mcp-framework/mcp-server" }
+
 [dev-dependencies]
 tokio-test = "0.4"
 tempfile = "3.8"

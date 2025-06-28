@@ -10,11 +10,11 @@ keywords = ["mcp", "server", "framework", "backend"]
 categories = ["web-programming::http-server", "api-bindings"]
 
 [dependencies]
-pulseengine-mcp-protocol = { path = "../mcp-protocol" }
-pulseengine-mcp-auth = { path = "../mcp-auth" }
-pulseengine-mcp-transport = { path = "../mcp-transport" }
-pulseengine-mcp-security = { path = "../mcp-security" }
-pulseengine-mcp-monitoring = { path = "../mcp-monitoring" }
+pulseengine-mcp-protocol = "0.1.0"
+pulseengine-mcp-auth = "0.1.0"
+pulseengine-mcp-transport = "0.1.0"
+pulseengine-mcp-security = "0.1.0"
+pulseengine-mcp-monitoring = "0.1.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }
