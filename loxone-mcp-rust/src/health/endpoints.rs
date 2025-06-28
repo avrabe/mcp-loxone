@@ -601,8 +601,10 @@ mod tests {
     async fn test_metrics_endpoint_json() {
         let health_checker = Arc::new(HealthChecker::new());
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
-        let mut config = HealthEndpointsConfig::default();
-        config.prometheus_format = false;
+        let config = HealthEndpointsConfig {
+            prometheus_format: false,
+            ..Default::default()
+        };
         let endpoints = HealthEndpoints::with_config(health_checker, diagnostics_collector, config);
 
         let response = endpoints.handle_metrics().await.unwrap();
@@ -618,8 +620,10 @@ mod tests {
     async fn test_metrics_endpoint_prometheus() {
         let health_checker = Arc::new(HealthChecker::new());
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
-        let mut config = HealthEndpointsConfig::default();
-        config.prometheus_format = true;
+        let config = HealthEndpointsConfig {
+            prometheus_format: true,
+            ..Default::default()
+        };
         let endpoints = HealthEndpoints::with_config(health_checker, diagnostics_collector, config);
 
         let response = endpoints.handle_metrics().await.unwrap();
