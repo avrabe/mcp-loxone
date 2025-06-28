@@ -827,8 +827,8 @@ mod tests {
         for i in 0..5 {
             let device = create_test_device(
                 &format!("192.168.1.{}", 100 + i),
-                &format!("serial{}", i),
-                &format!("Device {}", i),
+                &format!("serial{i}"),
+                &format!("Device {i}"),
             );
             cache.add_device(device).await.unwrap();
         }

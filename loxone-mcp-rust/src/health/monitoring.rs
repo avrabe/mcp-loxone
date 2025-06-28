@@ -263,7 +263,7 @@ impl HealthMonitor {
             event_type: HealthEventType::HealthStatusChanged,
             timestamp: report.timestamp,
             data: serde_json::to_value(&report).map_err(|e| {
-                LoxoneError::internal(format!("Failed to serialize health report: {}", e))
+                LoxoneError::internal(format!("Failed to serialize health report: {e}"))
             })?,
             severity: match report.status {
                 HealthStatus::Healthy => EventSeverity::Info,

@@ -91,7 +91,7 @@ impl HealthEndpoints {
                 },
             })
             .map_err(|e| {
-                LoxoneError::internal(format!("Failed to serialize health response: {}", e))
+                LoxoneError::internal(format!("Failed to serialize health response: {e}"))
             })?,
         })
     }
@@ -192,9 +192,7 @@ impl HealthEndpoints {
                     history_size: 100,    // Default from collector
                 },
             })
-            .map_err(|e| {
-                LoxoneError::internal(format!("Failed to serialize diagnostics: {}", e))
-            })?,
+            .map_err(|e| LoxoneError::internal(format!("Failed to serialize diagnostics: {e}")))?,
         })
     }
 
@@ -302,10 +300,7 @@ impl HealthEndpoints {
         };
 
         if cache_time > 0 {
-            headers.insert(
-                "Cache-Control".to_string(),
-                format!("max-age={}", cache_time),
-            );
+            headers.insert("Cache-Control".to_string(), format!("max-age={cache_time}"));
         } else {
             headers.insert("Cache-Control".to_string(), "no-cache".to_string());
         }

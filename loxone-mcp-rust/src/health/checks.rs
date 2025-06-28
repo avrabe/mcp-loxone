@@ -48,17 +48,17 @@ impl HealthCheck for MemoryHealthCheck {
         let (status, message) = if usage_percent >= self.critical_threshold {
             (
                 HealthStatus::Unhealthy,
-                format!("Memory usage critical: {:.1}%", usage_percent),
+                format!("Memory usage critical: {usage_percent:.1}%"),
             )
         } else if usage_percent >= self.warning_threshold {
             (
                 HealthStatus::Warning,
-                format!("Memory usage high: {:.1}%", usage_percent),
+                format!("Memory usage high: {usage_percent:.1}%"),
             )
         } else {
             (
                 HealthStatus::Healthy,
-                format!("Memory usage normal: {:.1}%", usage_percent),
+                format!("Memory usage normal: {usage_percent:.1}%"),
             )
         };
 
@@ -238,17 +238,17 @@ impl HealthCheck for ThreadPoolHealthCheck {
         let (status, message) = if usage_percent >= self.critical_threshold {
             (
                 HealthStatus::Unhealthy,
-                format!("Thread pool usage critical: {:.1}%", usage_percent),
+                format!("Thread pool usage critical: {usage_percent:.1}%"),
             )
         } else if usage_percent >= self.warning_threshold {
             (
                 HealthStatus::Warning,
-                format!("Thread pool usage high: {:.1}%", usage_percent),
+                format!("Thread pool usage high: {usage_percent:.1}%"),
             )
         } else {
             (
                 HealthStatus::Healthy,
-                format!("Thread pool usage normal: {:.1}%", usage_percent),
+                format!("Thread pool usage normal: {usage_percent:.1}%"),
             )
         };
 

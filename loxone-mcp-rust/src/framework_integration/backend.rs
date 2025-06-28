@@ -179,10 +179,7 @@ impl McpBackend for LoxoneBackend {
             }
             Err(e) => {
                 error!("❌ Loxone backend health check error: {}", e);
-                Err(LoxoneError::connection(format!(
-                    "Health check error: {}",
-                    e
-                )))
+                Err(LoxoneError::connection(format!("Health check error: {e}")))
             }
         }
     }
@@ -218,8 +215,7 @@ impl McpBackend for LoxoneBackend {
             Err(e) => {
                 error!("❌ Tool {} failed: {}", params.name, e);
                 Ok(CallToolResult::error_text(format!(
-                    "Tool execution failed: {}",
-                    e
+                    "Tool execution failed: {e}"
                 )))
             }
         }
@@ -934,9 +930,6 @@ impl McpBackend for LoxoneBackend {
         _params: serde_json::Value,
     ) -> std::result::Result<serde_json::Value, Self::Error> {
         warn!("❓ Unknown custom method: {}", method);
-        Err(LoxoneError::validation(format!(
-            "Unknown method: {}",
-            method
-        )))
+        Err(LoxoneError::validation(format!("Unknown method: {method}")))
     }
 }
