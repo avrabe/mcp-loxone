@@ -269,7 +269,7 @@ mod tests {
 
         let models = client.list_models().await.unwrap();
         assert!(!models.is_empty(), "Should have at least one model");
-        println!("Available models: {:?}", models);
+        println!("Available models: {models:?}");
     }
 
     #[tokio::test]

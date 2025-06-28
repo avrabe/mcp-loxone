@@ -1651,8 +1651,7 @@ mod tests {
         for category in expected_categories {
             assert!(
                 tools.contains_key(category),
-                "Missing category: {}",
-                category
+                "Missing category: {category}"
             );
         }
     }

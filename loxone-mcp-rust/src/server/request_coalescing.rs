@@ -685,9 +685,9 @@ mod tests {
             let handle = tokio::spawn(async move {
                 coalescer_clone
                     .submit_request(
-                        format!("req-{}", i),
+                        format!("req-{i}"),
                         RequestType::DeviceState,
-                        serde_json::json!({"uuid": format!("device-{}", i)}),
+                        serde_json::json!({"uuid": format!("device-{i}")}),
                     )
                     .await
             });
@@ -762,9 +762,9 @@ mod tests {
         for i in 0..10 {
             let (tx, _) = oneshot::channel();
             batch.add_request(PendingRequest {
-                request_id: format!("req-{}", i),
+                request_id: format!("req-{i}"),
                 request_type: RequestType::DeviceState,
-                parameters: serde_json::json!({"uuid": format!("device-{}", i)}),
+                parameters: serde_json::json!({"uuid": format!("device-{i}")}),
                 response_sender: tx,
                 created_at: Instant::now(),
             });
