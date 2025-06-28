@@ -1,7 +1,7 @@
 //! Minimal test to determine what MCP Inspector expects
 
 use axum::{
-    extract::{Query, Request},
+    extract::Query,
     http::{HeaderMap, StatusCode, Uri},
     response::{IntoResponse, Json, Response},
     routing::{get, post},

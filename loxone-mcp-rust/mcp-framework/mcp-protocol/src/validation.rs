@@ -14,15 +14,14 @@ impl Validator {
     pub fn validate_uuid(uuid_str: &str) -> Result<Uuid> {
         uuid_str
             .parse::<Uuid>()
-            .map_err(|e| Error::validation_error(format!("Invalid UUID: {}", e)))
+            .map_err(|e| Error::validation_error(format!("Invalid UUID: {e}")))
     }
 
     /// Validate that a string is not empty
     pub fn validate_non_empty(value: &str, field_name: &str) -> Result<()> {
         if value.trim().is_empty() {
             Err(Error::validation_error(format!(
-                "{} cannot be empty",
-                field_name
+                "{field_name} cannot be empty"
             )))
         } else {
             Ok(())
@@ -85,8 +84,7 @@ impl Validator {
                         if let Some(field_name) = req_field.as_str() {
                             if !args.contains_key(field_name) {
                                 return Err(Error::validation_error(format!(
-                                    "Required argument '{}' is missing",
-                                    field_name
+                                    "Required argument '{field_name}' is missing"
                                 )));
                             }
                         }

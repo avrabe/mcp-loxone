@@ -104,13 +104,6 @@ struct SseQuery {
     url: Option<String>,
 }
 
-/// Request body for POST endpoint
-#[derive(Debug, Deserialize)]
-struct McpRequest {
-    #[serde(flatten)]
-    message: serde_json::Value,
-}
-
 /// HTTP transport for MCP protocol
 ///
 /// Implements the MCP HTTP transport specification:

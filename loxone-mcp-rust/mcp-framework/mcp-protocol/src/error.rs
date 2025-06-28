@@ -75,10 +75,7 @@ impl Error {
     pub fn protocol_version_mismatch(client_version: &str, server_version: &str) -> Self {
         Self::with_data(
             ErrorCode::InvalidRequest,
-            format!(
-                "Protocol version mismatch: client={}, server={}",
-                client_version, server_version
-            ),
+            format!("Protocol version mismatch: client={client_version}, server={server_version}"),
             serde_json::json!({
                 "client_version": client_version,
                 "server_version": server_version
@@ -168,7 +165,7 @@ impl fmt::Display for ErrorCode {
             ErrorCode::ValidationError => "ValidationError",
             ErrorCode::RateLimitExceeded => "RateLimitExceeded",
         };
-        write!(f, "{}", name)
+        write!(f, "{name}")
     }
 }
 
@@ -181,7 +178,7 @@ impl From<serde_json::Error> for Error {
 
 impl From<uuid::Error> for Error {
     fn from(err: uuid::Error) -> Self {
-        Error::validation_error(format!("Invalid UUID: {}", err))
+        Error::validation_error(format!("Invalid UUID: {err}"))
     }
 }
 
