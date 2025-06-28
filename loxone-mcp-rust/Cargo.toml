@@ -8,7 +8,7 @@ members = [
     "mcp-framework/mcp-security",
     "mcp-framework/mcp-monitoring",
     "mcp-framework/mcp-logging",
-    # "examples/hello-world-mcp", # Temporarily disabled for publishing
+    "mcp-framework/examples/hello-world",
 ]
 
 resolver = "2"

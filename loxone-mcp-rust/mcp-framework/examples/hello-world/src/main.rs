@@ -3,7 +3,7 @@
 //! This demonstrates a minimal MCP server using the framework.
 //! It shows the basic structure without overwhelming complexity.
 
-use pulseengine_mcp_server::{McpServer, ServerConfig, McpBackend};
+use pulseengine_mcp_server::{McpServer, ServerConfig, McpBackend, BackendError};
 use pulseengine_mcp_protocol::*;
 use pulseengine_mcp_transport::TransportConfig;
 
@@ -21,6 +21,9 @@ pub enum HelloWorldError {
 
     #[error("Internal error: {0}")]
     Internal(String),
+
+    #[error("Backend error: {0}")]
+    Backend(#[from] BackendError),
 }
 
 /// Convert backend errors to MCP protocol errors
@@ -29,6 +32,7 @@ impl From<HelloWorldError> for pulseengine_mcp_protocol::Error {
         match err {
             HelloWorldError::InvalidParameter(msg) => Error::invalid_params(msg),
             HelloWorldError::Internal(msg) => Error::internal_error(msg),
+            HelloWorldError::Backend(backend_err) => backend_err.into(),
         }
     }
 }
@@ -176,7 +180,7 @@ impl McpBackend for HelloWorldBackend {
     async fn list_resources(&self, _request: PaginatedRequestParam) -> std::result::Result<ListResourcesResult, Self::Error> {
         Ok(ListResourcesResult {
             resources: vec![],
-            next_cursor: String::new(),
+            next_cursor: None,
         })
     }
 
@@ -187,7 +191,7 @@ impl McpBackend for HelloWorldBackend {
     async fn list_prompts(&self, _request: PaginatedRequestParam) -> std::result::Result<ListPromptsResult, Self::Error> {
         Ok(ListPromptsResult {
             prompts: vec![],
-            next_cursor: String::new(),
+            next_cursor: None,
         })
     }
 
