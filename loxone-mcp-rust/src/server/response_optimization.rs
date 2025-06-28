@@ -5,7 +5,7 @@
 
 
 // Use framework types instead of legacy mcp_foundation
-use mcp_protocol::{CallToolResult, Content};
+use pulseengine_mcp_protocol::{CallToolResult, Content};
 use serde_json::json;
 
 /// Standard empty response patterns for different scenarios
@@ -190,7 +190,7 @@ pub trait ResponseOptimizer {
 }
 
 
-impl ResponseOptimizer for Result<CallToolResult, mcp_protocol::Error> {
+impl ResponseOptimizer for Result<CallToolResult, pulseengine_mcp_protocol::Error> {
     fn optimize_empty_result(self) -> CallToolResult {
         match self {
             Ok(result) => result,

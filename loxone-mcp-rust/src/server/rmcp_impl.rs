@@ -9,13 +9,13 @@ use super::{
     response_cache::create_cache_key,
     LoxoneMcpServer,
 };
-use mcp_logging::{
+use pulseengine_mcp_logging::{
     MetricsCollector, get_metrics,
     StructuredContext, StructuredLogger,
 };
 
 // Legacy removed - use framework instead
-use mcp_protocol::{
+use pulseengine_mcp_protocol::{
     CallToolResult, Content, Error, GetPromptRequestParam, GetPromptResult, ListPromptsResult,
     ListResourcesResult, ListToolsResult, PaginatedRequestParam, Prompt, ProtocolVersion,
     ReadResourceRequestParam, ReadResourceResult, RequestContext, Resource, ResourceContents,
@@ -57,7 +57,7 @@ impl ServerHandler for LoxoneMcpServer {
                 .enable_resources()
                 .enable_prompts()
                 .build(),
-            server_info: mcp_protocol::Implementation {
+            server_info: pulseengine_mcp_protocol::Implementation {
                 name: "Loxone MCP Server".into(),
                 version: "1.0.0".into(),
             },
@@ -72,7 +72,7 @@ impl ServerHandler for LoxoneMcpServer {
 
     async fn list_tools(
         &self,
-        _request: mcp_protocol::PaginatedRequestParam,
+        _request: pulseengine_mcp_protocol::PaginatedRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<ListToolsResult, Error> {
         let tools = vec![
@@ -415,7 +415,7 @@ impl ServerHandler for LoxoneMcpServer {
 
     async fn call_tool(
         &self,
-        request: mcp_protocol::CallToolRequestParam,
+        request: pulseengine_mcp_protocol::CallToolRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> std::result::Result<CallToolResult, Error> {
         // Create request context for tracking
@@ -874,8 +874,8 @@ impl ServerHandler for LoxoneMcpServer {
                 name: lr.name.clone(),
                 description: Some(lr.description.clone()),
                 mime_type: lr.mime_type.clone(),
-                annotations: Some(mcp_protocol::Annotations::default()),
-                raw: Some(mcp_protocol::RawResource {
+                annotations: Some(pulseengine_mcp_protocol::Annotations::default()),
+                raw: Some(pulseengine_mcp_protocol::RawResource {
                     uri: lr.uri.clone(),
                     name: Some(lr.name.clone()),
                     description: Some(lr.description.clone()),
@@ -945,17 +945,17 @@ impl ServerHandler for LoxoneMcpServer {
                 name: "make_home_cozy".to_string(),
                 description: Some("Transform your home into a cozy atmosphere with optimal lighting, temperature, and ambiance settings".to_string()),
                 arguments: Some(vec![
-                    mcp_protocol::PromptArgument {
+                    pulseengine_mcp_protocol::PromptArgument {
                         name: "time_of_day".to_string(),
                         description: Some("Current time of day (morning, afternoon, evening, night)".to_string()),
                         required: Some(false),
                     },
-                    mcp_protocol::PromptArgument {
+                    pulseengine_mcp_protocol::PromptArgument {
                         name: "weather".to_string(),
                         description: Some("Current weather conditions (sunny, cloudy, rainy, cold, hot)".to_string()),
                         required: Some(false),
                     },
-                    mcp_protocol::PromptArgument {
+                    pulseengine_mcp_protocol::PromptArgument {
                         name: "mood".to_string(),
                         description: Some("Desired mood (relaxing, romantic, energizing, peaceful)".to_string()),
                         required: Some(false),
@@ -966,22 +966,22 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "prepare_for_event".to_string(),
                     description: Some("Intelligently prepare your home for different types of events with optimal automation settings".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "event_type".to_string(),
                             description: Some("Type of event (party, movie_night, dinner, work_meeting, gaming, reading, meditation)".to_string()),
                             required: Some(true),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "room".to_string(),
                             description: Some("Primary room for the event".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "duration".to_string(),
                             description: Some("Expected duration of the event".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "guest_count".to_string(),
                             description: Some("Number of guests expected".to_string()),
                             required: Some(false),
@@ -992,12 +992,12 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "analyze_energy_usage".to_string(),
                     description: Some("Comprehensive energy usage analysis with intelligent optimization recommendations".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "time_period".to_string(),
                             description: Some("Time period to analyze (last_hour, today, last_week, last_month)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "focus_area".to_string(),
                             description: Some("Specific area to focus on (lighting, climate, audio, overall)".to_string()),
                             required: Some(false),
@@ -1008,17 +1008,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "good_morning_routine".to_string(),
                     description: Some("Execute a personalized morning routine with gradual automation adjustments".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "wake_time".to_string(),
                             description: Some("Time the user woke up".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "day_type".to_string(),
                             description: Some("Type of day (workday, weekend, holiday, vacation)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "weather_outside".to_string(),
                             description: Some("Weather conditions for the day".to_string()),
                             required: Some(false),
@@ -1029,17 +1029,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "good_night_routine".to_string(),
                     description: Some("Execute a personalized bedtime routine with security and comfort optimization".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "bedtime".to_string(),
                             description: Some("Planned bedtime".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "wake_time".to_string(),
                             description: Some("Planned wake time for tomorrow".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "security_mode".to_string(),
                             description: Some("Security preference (high, normal, minimal)".to_string()),
                             required: Some(false),
@@ -1051,17 +1051,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "optimize_comfort_zone".to_string(),
                     description: Some("Analyze and optimize comfort settings for specific rooms or the entire home".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "target_rooms".to_string(),
                             description: Some("Comma-separated list of rooms to optimize (or 'all' for entire home)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "occupancy_pattern".to_string(),
                             description: Some("Expected occupancy pattern (frequent, occasional, rare)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "priority".to_string(),
                             description: Some("Optimization priority (energy_saving, comfort, convenience)".to_string()),
                             required: Some(false),
@@ -1072,17 +1072,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "seasonal_adjustment".to_string(),
                     description: Some("Adjust home automation settings for seasonal changes and weather patterns".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "season".to_string(),
                             description: Some("Current season (spring, summer, autumn, winter)".to_string()),
                             required: Some(true),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "climate_zone".to_string(),
                             description: Some("Local climate characteristics (humid, dry, temperate, extreme)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "adjustment_scope".to_string(),
                             description: Some("Scope of adjustments (lighting_only, climate_only, comprehensive)".to_string()),
                             required: Some(false),
@@ -1093,17 +1093,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "security_mode_analysis".to_string(),
                     description: Some("Analyze current security settings and recommend optimal configuration".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "occupancy_status".to_string(),
                             description: Some("Current occupancy status (home, away, vacation, unknown)".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "time_away".to_string(),
                             description: Some("Expected time away from home".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "security_level".to_string(),
                             description: Some("Desired security level (basic, enhanced, maximum)".to_string()),
                             required: Some(false),
@@ -1114,17 +1114,17 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "troubleshoot_automation".to_string(),
                     description: Some("Diagnose and troubleshoot home automation issues with intelligent recommendations".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "issue_description".to_string(),
                             description: Some("Description of the problem or unexpected behavior".to_string()),
                             required: Some(true),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "affected_devices".to_string(),
                             description: Some("Devices or rooms affected by the issue".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "when_started".to_string(),
                             description: Some("When the issue first appeared".to_string()),
                             required: Some(false),
@@ -1135,22 +1135,22 @@ impl ServerHandler for LoxoneMcpServer {
                     name: "create_custom_scene".to_string(),
                     description: Some("Design a custom automation scene based on specific requirements and preferences".to_string()),
                     arguments: Some(vec![
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "scene_name".to_string(),
                             description: Some("Name for the custom scene".to_string()),
                             required: Some(true),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "scene_purpose".to_string(),
                             description: Some("Purpose or use case for the scene".to_string()),
                             required: Some(true),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "included_rooms".to_string(),
                             description: Some("Rooms to include in the scene".to_string()),
                             required: Some(false),
                         },
-                        mcp_protocol::PromptArgument {
+                        pulseengine_mcp_protocol::PromptArgument {
                             name: "automation_types".to_string(),
                             description: Some("Types of automation to include (lighting, climate, audio, blinds)".to_string()),
                             required: Some(false),
@@ -1225,18 +1225,18 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn initialize(
         &self,
-        _request: mcp_protocol::InitializeRequestParam,
+        _request: pulseengine_mcp_protocol::InitializeRequestParam,
         _context: RequestContext<RoleServer>,
-    ) -> Result<mcp_protocol::InitializeResult, Error> {
+    ) -> Result<pulseengine_mcp_protocol::InitializeResult, Error> {
         debug!("MCP Server initialize request received");
-        Ok(mcp_protocol::InitializeResult {
-            protocol_version: mcp_protocol::ProtocolVersion::default().to_string(),
-            capabilities: mcp_protocol::ServerCapabilities::builder()
+        Ok(pulseengine_mcp_protocol::InitializeResult {
+            protocol_version: pulseengine_mcp_protocol::ProtocolVersion::default().to_string(),
+            capabilities: pulseengine_mcp_protocol::ServerCapabilities::builder()
                 .enable_tools()
                 .enable_resources()
                 .enable_prompts()
                 .build(),
-            server_info: mcp_protocol::Implementation {
+            server_info: pulseengine_mcp_protocol::Implementation {
                 name: "Loxone MCP Server".into(),
                 version: "1.0.0".into(),
             },
@@ -1252,13 +1252,13 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn complete(
         &self,
-        _request: mcp_protocol::CompleteRequestParam,
+        _request: pulseengine_mcp_protocol::CompleteRequestParam,
         _context: RequestContext<RoleServer>,
-    ) -> Result<mcp_protocol::CompleteResult, Error> {
+    ) -> Result<pulseengine_mcp_protocol::CompleteResult, Error> {
         debug!("Completion request received");
         // Return empty completion result (no completions supported yet)
-        Ok(mcp_protocol::CompleteResult {
-            completion: vec![mcp_protocol::CompletionInfo {
+        Ok(pulseengine_mcp_protocol::CompleteResult {
+            completion: vec![pulseengine_mcp_protocol::CompletionInfo {
                 completion: "".to_string(),
                 has_more: Some(false),
             }],
@@ -1269,7 +1269,7 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn set_level(
         &self,
-        _request: mcp_protocol::SetLevelRequestParam,
+        _request: pulseengine_mcp_protocol::SetLevelRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> Result<(), Error> {
         debug!("Set level request received");
@@ -1281,12 +1281,12 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn list_resource_templates(
         &self,
-        _request: mcp_protocol::PaginatedRequestParam,
+        _request: pulseengine_mcp_protocol::PaginatedRequestParam,
         _context: RequestContext<RoleServer>,
-    ) -> Result<mcp_protocol::ListResourceTemplatesResult, Error> {
+    ) -> Result<pulseengine_mcp_protocol::ListResourceTemplatesResult, Error> {
         debug!("List resource templates request received");
         // Return empty templates since we use concrete resources
-        Ok(mcp_protocol::ListResourceTemplatesResult {
+        Ok(pulseengine_mcp_protocol::ListResourceTemplatesResult {
             resource_templates: vec![],
             next_cursor: None,
         })
@@ -1296,7 +1296,7 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn subscribe(
         &self,
-        request: mcp_protocol::SubscribeRequestParam,
+        request: pulseengine_mcp_protocol::SubscribeRequestParam,
         context: RequestContext<RoleServer>,
     ) -> Result<(), Error> {
         debug!("Subscribe request received for URI: {}", request.uri);
@@ -1330,7 +1330,7 @@ impl ServerHandler for LoxoneMcpServer {
     #[allow(clippy::manual_async_fn)]
     async fn unsubscribe(
         &self,
-        request: mcp_protocol::UnsubscribeRequestParam,
+        request: pulseengine_mcp_protocol::UnsubscribeRequestParam,
         context: RequestContext<RoleServer>,
     ) -> Result<(), Error> {
         debug!("Unsubscribe request received for URI: {}", request.uri);
@@ -1364,7 +1364,7 @@ impl LoxoneMcpServer {
     pub async fn get_cozy_prompt_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         use crate::server::resources::ResourceHandler;
 
         // Extract arguments if provided
@@ -1400,8 +1400,8 @@ impl LoxoneMcpServer {
         let climate_data = ResourceHandler::read_resource(self, climate_context).await?;
 
         // Build context message
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "I want to make my home cozy. It's {} and the weather is {}. I'm looking for a {} atmosphere. \
                 Please analyze the current state and suggest optimal settings for lighting, temperature, and blinds.",
@@ -1436,8 +1436,8 @@ impl LoxoneMcpServer {
                     let _parsed_response =
                         command_extractor.parse_response(response_text.clone())?;
 
-                    let assistant_message = mcp_protocol::PromptMessage::new_text(
-                        mcp_protocol::PromptMessageRole::Assistant,
+                    let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+                        pulseengine_mcp_protocol::PromptMessageRole::Assistant,
                         response_text,
                     );
 
@@ -1454,8 +1454,8 @@ impl LoxoneMcpServer {
         }
 
         // Fallback to static response when MCP sampling is not available
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "I'll help you create a cozy {} atmosphere. Here's the current state:\n\n\
                 Rooms: {}\n\n\
@@ -1484,7 +1484,7 @@ impl LoxoneMcpServer {
     pub async fn get_event_prompt_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let event_type = arguments
             .as_ref()
             .and_then(|args| args.get("event_type"))
@@ -1496,8 +1496,8 @@ impl LoxoneMcpServer {
             .and_then(|args| args.get("room"))
             .and_then(|v| v.as_str());
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "I'm preparing for a {}{}. Please suggest the optimal home automation settings.",
                 event_type,
@@ -1532,8 +1532,8 @@ impl LoxoneMcpServer {
                         .text
                         .unwrap_or_else(|| "AI response not available".to_string());
 
-                    let assistant_message = mcp_protocol::PromptMessage::new_text(
-                        mcp_protocol::PromptMessageRole::Assistant,
+                    let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+                        pulseengine_mcp_protocol::PromptMessageRole::Assistant,
                         response_text,
                     );
 
@@ -1558,8 +1558,8 @@ impl LoxoneMcpServer {
             _ => "Balanced lighting and comfortable temperature",
         };
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "I'll help you prepare for your {}. Recommended settings:\n{}\n\n\
                 *Note: This is a static response. Connect an MCP client with sampling support (like Claude Desktop) for AI-powered event preparation suggestions.*",
@@ -1574,23 +1574,23 @@ impl LoxoneMcpServer {
     pub async fn get_energy_prompt_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let time_period = arguments
             .as_ref()
             .and_then(|args| args.get("time_period"))
             .and_then(|v| v.as_str())
             .unwrap_or("today");
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Analyze my home's energy usage for {} and suggest optimizations.",
                 time_period
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Analyzing energy usage for {}. Key findings:\n\
                 - Highest consumption: Living room lights (always on)\n\
@@ -1608,7 +1608,7 @@ impl LoxoneMcpServer {
     pub async fn get_morning_prompt_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let wake_time = arguments
             .as_ref()
             .and_then(|args| args.get("wake_time"))
@@ -1621,8 +1621,8 @@ impl LoxoneMcpServer {
             .and_then(|v| v.as_str())
             .unwrap_or("workday");
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Execute my morning routine. I woke up at {} on a {}.",
                 wake_time, day_type
@@ -1646,8 +1646,8 @@ impl LoxoneMcpServer {
             _ => "1. Standard morning lighting\n2. Open blinds\n3. Comfortable temperature",
         };
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Good morning! Executing your {} routine:\n{}",
                 day_type, routine_steps
@@ -1661,23 +1661,23 @@ impl LoxoneMcpServer {
     pub async fn get_night_prompt_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let bedtime = arguments
             .as_ref()
             .and_then(|args| args.get("bedtime"))
             .and_then(|v| v.as_str())
             .unwrap_or("10:00 PM");
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Execute my bedtime routine. Planning to sleep at {}.",
                 bedtime
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Preparing for bedtime at {}:\n\
                 1. Dimming all lights gradually\n\
@@ -1697,7 +1697,7 @@ impl LoxoneMcpServer {
     pub async fn get_comfort_optimization_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let target_rooms = arguments
             .as_ref()
             .and_then(|args| args.get("target_rooms"))
@@ -1717,8 +1717,8 @@ impl LoxoneMcpServer {
             crate::server::resources::ResourceHandler::read_resource(self, system_status_context)
                 .await?;
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Optimize comfort settings for {} with {} priority. \
                 Analyze current system performance and suggest improvements.",
@@ -1726,8 +1726,8 @@ impl LoxoneMcpServer {
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Analyzing comfort optimization for {}:\n\n\
                 Current System Status: {}\n\n\
@@ -1749,7 +1749,7 @@ impl LoxoneMcpServer {
     pub async fn get_seasonal_adjustment_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let season = arguments
             .as_ref()
             .and_then(|args| args.get("season"))
@@ -1762,8 +1762,8 @@ impl LoxoneMcpServer {
             .and_then(|v| v.as_str())
             .unwrap_or("temperate");
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Adjust my home automation for {} season in a {} climate. \
                 Optimize all systems for seasonal comfort and efficiency.",
@@ -1799,8 +1799,8 @@ impl LoxoneMcpServer {
             _ => "General seasonal optimization recommendations",
         };
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Seasonal adjustment plan for {} in {} climate:\n\n{}",
                 season, climate_zone, adjustments
@@ -1814,7 +1814,7 @@ impl LoxoneMcpServer {
     pub async fn get_security_analysis_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let occupancy_status = arguments
             .as_ref()
             .and_then(|args| args.get("occupancy_status"))
@@ -1833,16 +1833,16 @@ impl LoxoneMcpServer {
         let sensor_data =
             crate::server::resources::ResourceHandler::read_resource(self, sensor_context).await?;
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Analyze my home security configuration. Current occupancy: {}, desired level: {}",
                 occupancy_status, security_level
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Security analysis for {} occupancy with {} security level:\n\n\
                 Current Sensors: {}\n\n\
@@ -1864,7 +1864,7 @@ impl LoxoneMcpServer {
     pub async fn get_troubleshooting_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let issue_description = arguments
             .as_ref()
             .and_then(|args| args.get("issue_description"))
@@ -1886,16 +1886,16 @@ impl LoxoneMcpServer {
             crate::server::resources::ResourceHandler::read_resource(self, capabilities_context)
                 .await?;
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "I'm experiencing this automation issue: {}. Affected devices/areas: {}",
                 issue_description, affected_devices
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Troubleshooting analysis for: {}\n\n\
                 System Capabilities: {}\n\n\
@@ -1917,7 +1917,7 @@ impl LoxoneMcpServer {
     pub async fn get_custom_scene_messages(
         &self,
         arguments: Option<serde_json::Value>,
-    ) -> Result<Vec<mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
+    ) -> Result<Vec<pulseengine_mcp_protocol::PromptMessage>, crate::error::LoxoneError> {
         let scene_name = arguments
             .as_ref()
             .and_then(|args| args.get("scene_name"))
@@ -1942,16 +1942,16 @@ impl LoxoneMcpServer {
         let devices_data =
             crate::server::resources::ResourceHandler::read_resource(self, devices_context).await?;
 
-        let context_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::User,
+        let context_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::User,
             format!(
                 "Create a custom scene called '{}' for {}. Include rooms: {}",
                 scene_name, scene_purpose, included_rooms
             ),
         );
 
-        let assistant_message = mcp_protocol::PromptMessage::new_text(
-            mcp_protocol::PromptMessageRole::Assistant,
+        let assistant_message = pulseengine_mcp_protocol::PromptMessage::new_text(
+            pulseengine_mcp_protocol::PromptMessageRole::Assistant,
             format!(
                 "Creating custom scene '{}' for {}:\n\n\
                 Available Devices: {}\n\n\

@@ -1,30 +1,27 @@
 //! HTTP transport with Server-Sent Events (SSE) support
 
 use crate::{
-    Transport, TransportError, RequestHandler,
-    validation::{validate_message_string},
-    batch::{JsonRpcMessage, process_batch},
+    batch::{process_batch, JsonRpcMessage},
+    validation::validate_message_string,
+    RequestHandler, Transport, TransportError,
 };
 use async_trait::async_trait;
+use axum::response::sse::{Event, KeepAlive};
 use axum::{
     extract::{Query, State},
-    http::{HeaderMap, StatusCode, header::{CONTENT_TYPE, ORIGIN, AUTHORIZATION}},
-    response::{Response as AxumResponse, Sse, IntoResponse},
-    routing::{get, post},
-    Json, Router,
+    http::{
+        header::{AUTHORIZATION, ORIGIN},
+        HeaderMap, StatusCode,
+    },
+    response::{IntoResponse, Response as AxumResponse, Sse},
+    routing::{get, post}, Router,
 };
-use axum::response::sse::{Event, KeepAlive};
 // futures_util used for async_stream
 // mcp_protocol types are imported via batch module
 use serde::Deserialize;
 use serde_json;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::Arc,
-    time::Duration,
-};
-use tokio::sync::{broadcast, RwLock, Mutex};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
+use tokio::sync::{broadcast, Mutex, RwLock};
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
 use tracing::{debug, error, info, warn};
@@ -114,7 +111,7 @@ struct McpRequest {
 }
 
 /// HTTP transport for MCP protocol
-/// 
+///
 /// Implements the MCP HTTP transport specification:
 /// - HTTP POST for client-to-server messages
 /// - Server-Sent Events (SSE) for server-to-client streaming
@@ -134,14 +131,14 @@ impl HttpTransport {
             port,
             ..Default::default()
         };
-        
+
         Self {
             config,
             state: None,
             server_handle: None,
         }
     }
-    
+
     /// Send a message to all connected SSE clients
     pub async fn broadcast_message(&self, message: &str) -> Result<(), TransportError> {
         if let Some(ref state) = self.state {
@@ -153,10 +150,12 @@ impl HttpTransport {
             }
             Ok(())
         } else {
-            Err(TransportError::Connection("Transport not started".to_string()))
+            Err(TransportError::Connection(
+                "Transport not started".to_string(),
+            ))
         }
     }
-    
+
     /// Create a new HTTP transport with custom configuration
     pub fn with_config(config: HttpConfig) -> Self {
         Self {
@@ -165,14 +164,14 @@ impl HttpTransport {
             server_handle: None,
         }
     }
-    
+
     /// Create a new session
     async fn create_session(state: Arc<HttpState>) -> String {
         let session_id = Uuid::new_v4().to_string();
         // Create a broadcast channel with a reasonable buffer size
         // Keep at least one receiver alive to prevent the channel from closing
         let (tx, keepalive_rx) = broadcast::channel(1024);
-        
+
         let session_info = SessionInfo {
             id: session_id.clone(),
             created_at: std::time::Instant::now(),
@@ -180,16 +179,16 @@ impl HttpTransport {
             event_sender: tx,
             _keepalive_receiver: Arc::new(Mutex::new(keepalive_rx)),
         };
-        
+
         {
             let mut sessions = state.sessions.write().await;
             sessions.insert(session_id.clone(), session_info);
         }
-        
+
         debug!("Created new session: {}", session_id);
         session_id
     }
-    
+
     /// Update session activity
     async fn update_session_activity(state: Arc<HttpState>, session_id: &str) {
         let mut sessions = state.sessions.write().await;
@@ -197,12 +196,12 @@ impl HttpTransport {
             session.last_activity = std::time::Instant::now();
         }
     }
-    
+
     /// Clean up expired sessions
     async fn cleanup_sessions(state: Arc<HttpState>) {
         let timeout = Duration::from_secs(state.config.session_timeout_secs);
         let now = std::time::Instant::now();
-        
+
         let mut sessions = state.sessions.write().await;
         sessions.retain(|id, session| {
             let expired = now.duration_since(session.last_activity) > timeout;
@@ -212,37 +211,45 @@ impl HttpTransport {
             !expired
         });
     }
-    
+
     /// Validate origin header
     fn validate_origin(config: &HttpConfig, headers: &HeaderMap) -> Result<(), TransportError> {
         if let Some(allowed_origins) = &config.allowed_origins {
             if let Some(origin) = headers.get(ORIGIN) {
-                let origin_str = origin.to_str()
+                let origin_str = origin
+                    .to_str()
                     .map_err(|_| TransportError::Protocol("Invalid Origin header".to_string()))?;
-                
+
                 if !allowed_origins.contains(&origin_str.to_string()) {
-                    return Err(TransportError::Protocol(format!("Origin not allowed: {}", origin_str)));
+                    return Err(TransportError::Protocol(format!(
+                        "Origin not allowed: {}",
+                        origin_str
+                    )));
                 }
             } else {
-                return Err(TransportError::Protocol("Missing Origin header".to_string()));
+                return Err(TransportError::Protocol(
+                    "Missing Origin header".to_string(),
+                ));
             }
         }
-        
+
         Ok(())
     }
-    
+
     /// Validate authentication
     fn validate_auth(config: &HttpConfig, headers: &HeaderMap) -> Result<(), TransportError> {
         if !config.require_auth {
             return Ok(());
         }
-        
-        let auth_header = headers.get(AUTHORIZATION)
+
+        let auth_header = headers
+            .get(AUTHORIZATION)
             .ok_or_else(|| TransportError::Protocol("Missing Authorization header".to_string()))?;
-        
-        let auth_str = auth_header.to_str()
+
+        let auth_str = auth_header
+            .to_str()
             .map_err(|_| TransportError::Protocol("Invalid Authorization header".to_string()))?;
-        
+
         if let Some(token) = auth_str.strip_prefix("Bearer ") {
             if config.valid_tokens.contains(&token.to_string()) {
                 Ok(())
@@ -250,7 +257,9 @@ impl HttpTransport {
                 Err(TransportError::Protocol("Invalid bearer token".to_string()))
             }
         } else {
-            Err(TransportError::Protocol("Invalid Authorization format, expected Bearer token".to_string()))
+            Err(TransportError::Protocol(
+                "Invalid Authorization format, expected Bearer token".to_string(),
+            ))
         }
     }
 }
@@ -270,7 +279,7 @@ async fn handle_post(
 ) -> Result<AxumResponse<String>, StatusCode> {
     info!("Received POST request with session query: {:?}", query);
     debug!("Raw request body: {}", body);
-    
+
     // Parse JSON directly to handle both wrapped and direct JSON-RPC formats
     let request_value: serde_json::Value = match serde_json::from_str(&body) {
         Ok(v) => v,
@@ -279,7 +288,7 @@ async fn handle_post(
             return Err(StatusCode::BAD_REQUEST);
         }
     };
-    
+
     // Extract the actual message (handle both wrapped {"message": {...}} and direct {...} formats)
     let message = if let Some(wrapped_message) = request_value.get("message") {
         // Wrapped format: {"message": {"jsonrpc": "2.0", ...}}
@@ -291,82 +300,92 @@ async fn handle_post(
         warn!("Invalid request format - no 'message' field and no 'jsonrpc' field");
         return Err(StatusCode::BAD_REQUEST);
     };
-    
+
     info!("Request message: {:?}", message);
-    
+
     // Validate origin
     if let Err(e) = HttpTransport::validate_origin(&state.config, &headers) {
         warn!("Origin validation failed: {}", e);
         return Err(StatusCode::FORBIDDEN);
     }
-    
+
     // Validate authentication
     if let Err(e) = HttpTransport::validate_auth(&state.config, &headers) {
         warn!("Authentication failed: {}", e);
         return Err(StatusCode::UNAUTHORIZED);
     }
-    
+
     // Get session ID from query parameter (MCP standard) or header (fallback)
     let session_id = if let Some(id) = query.session_id {
         id
-    } else if let Some(id) = headers.get("Mcp-Session-Id")
+    } else if let Some(id) = headers
+        .get("Mcp-Session-Id")
         .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string()) {
+        .map(|s| s.to_string())
+    {
         id
     } else {
         // Create new session for first request
         HttpTransport::create_session(state.clone()).await
     };
-    
+
     // Validate message
-    let message_json = serde_json::to_string(&message)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
+    let message_json = serde_json::to_string(&message).map_err(|_| StatusCode::BAD_REQUEST)?;
+
     if state.config.validate_messages {
-        if let Err(e) = validate_message_string(&message_json, Some(state.config.max_message_size)) {
+        if let Err(e) = validate_message_string(&message_json, Some(state.config.max_message_size))
+        {
             warn!("Message validation failed: {}", e);
             return Err(StatusCode::BAD_REQUEST);
         }
     }
-    
+
     // Parse and process message
-    let message = JsonRpcMessage::parse(&message_json)
-        .map_err(|_| StatusCode::BAD_REQUEST)?;
-    
+    let message = JsonRpcMessage::parse(&message_json).map_err(|_| StatusCode::BAD_REQUEST)?;
+
     // Validate JSON-RPC structure
     if let Err(e) = message.validate() {
         warn!("JSON-RPC validation failed: {}", e);
         return Err(StatusCode::BAD_REQUEST);
     }
-    
+
     // Update session activity
     {
         HttpTransport::update_session_activity(state.clone(), &session_id).await;
     }
-    
+
     // Process the message
     match process_batch(message, &state.handler).await {
         Ok(Some(response_message)) => {
-            let response_json = response_message.to_string()
+            let response_json = response_message
+                .to_string()
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-            
+
             // Implement proper MCP backwards compatibility protocol
-            let accept_header = headers.get("accept").and_then(|v| v.to_str().ok()).unwrap_or("");
-            
+            let accept_header = headers
+                .get("accept")
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+
             // Determine transport mode based on Accept header priority
             // MCP Inspector often sends "application/json, text/event-stream" but expects JSON responses
             // If "application/json" appears first or is the only content type, use streamable HTTP
             let wants_json_response = if accept_header.starts_with("application/json") {
                 true // JSON is the primary preference
-            } else if accept_header.contains("application/json") && accept_header.contains("text/event-stream") {
+            } else if accept_header.contains("application/json")
+                && accept_header.contains("text/event-stream")
+            {
                 // Mixed headers - check which appears first (client preference)
                 let json_pos = accept_header.find("application/json").unwrap_or(usize::MAX);
-                let sse_pos = accept_header.find("text/event-stream").unwrap_or(usize::MAX);
+                let sse_pos = accept_header
+                    .find("text/event-stream")
+                    .unwrap_or(usize::MAX);
                 json_pos < sse_pos // Use JSON if it appears first
             } else {
                 accept_header.contains("application/json")
+                    && !accept_header.contains("text/event-stream")
             };
-            
+
             if wants_json_response {
                 // New Streamable HTTP transport - return response directly
                 info!("Using Streamable HTTP transport, returning response directly for session: {}, Accept: {}", session_id, accept_header);
@@ -379,24 +398,33 @@ async fn handle_post(
                     .unwrap())
             } else {
                 // Legacy HTTP+SSE transport - send through SSE
-                info!("Using legacy HTTP+SSE transport for session: {}, Accept: {}", session_id, accept_header);
+                info!(
+                    "Using legacy HTTP+SSE transport for session: {}, Accept: {}",
+                    session_id, accept_header
+                );
                 debug!("Response to send through SSE: {}", response_json);
-                
+
                 let sessions = state.sessions.read().await;
                 info!("Active sessions: {}", sessions.len());
-                
+
                 if let Some(session) = sessions.get(&session_id) {
                     info!("Found session {}, sending response", session_id);
                     match session.event_sender.send(response_json.clone()) {
                         Ok(num_receivers) => {
-                            info!("Response sent successfully to {} receivers on session: {}", num_receivers, session_id);
+                            info!(
+                                "Response sent successfully to {} receivers on session: {}",
+                                num_receivers, session_id
+                            );
                         }
                         Err(e) => {
                             warn!("Failed to send response through SSE: {}", e);
                         }
                     }
                 } else {
-                    warn!("Session {} not found for response, trying any active session", session_id);
+                    warn!(
+                        "Session {} not found for response, trying any active session",
+                        session_id
+                    );
                     // Fallback: try to send to any active session (for MCP Inspector compatibility)
                     let mut sent = false;
                     for (sid, session) in sessions.iter() {
@@ -415,7 +443,7 @@ async fn handle_post(
                         warn!("No active sessions available to send response");
                     }
                 }
-                
+
                 // Return 204 No Content (response sent through SSE)
                 Ok(AxumResponse::builder()
                     .status(StatusCode::NO_CONTENT)
@@ -433,23 +461,30 @@ async fn handle_post(
         }
         Err(e) => {
             error!("Failed to process message: {}", e);
-            
+
             // Create error response
-            let error_response = mcp_protocol::Response {
+            let error_response = pulseengine_mcp_protocol::Response {
                 jsonrpc: "2.0".to_string(),
                 id: serde_json::Value::Null,
                 result: None,
-                error: Some(mcp_protocol::Error::internal_error(e.to_string())),
+                error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
             };
-            
+
             if let Ok(error_json) = serde_json::to_string(&error_response) {
                 // Use same transport detection logic as for success responses
-                let accept_header = headers.get("accept").and_then(|v| v.to_str().ok()).unwrap_or("");
-                let wants_json_response = accept_header.contains("application/json");
-                
+                let accept_header = headers
+                    .get("accept")
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+                let wants_json_response = accept_header.contains("application/json")
+                    && !accept_header.contains("text/event-stream");
+
                 if wants_json_response {
                     // New Streamable HTTP transport - return error directly
-                    debug!("Using Streamable HTTP transport, returning error directly: {}", error_json);
+                    debug!(
+                        "Using Streamable HTTP transport, returning error directly: {}",
+                        error_json
+                    );
                     Ok(AxumResponse::builder()
                         .status(StatusCode::OK)
                         .header("Content-Type", "application/json")
@@ -458,21 +493,33 @@ async fn handle_post(
                         .unwrap())
                 } else {
                     // Legacy HTTP+SSE transport - send through SSE
-                    debug!("Using legacy HTTP+SSE transport, sending error through SSE: {}", error_json);
+                    debug!(
+                        "Using legacy HTTP+SSE transport, sending error through SSE: {}",
+                        error_json
+                    );
                     let sessions = state.sessions.read().await;
                     if let Some(session) = sessions.get(&session_id) {
                         if let Err(e) = session.event_sender.send(error_json.clone()) {
                             warn!("Failed to send error through SSE: {}", e);
                         } else {
-                            debug!("Error response sent successfully to session: {}", session_id);
+                            debug!(
+                                "Error response sent successfully to session: {}",
+                                session_id
+                            );
                         }
                     } else {
-                        warn!("Session {} not found for error response, trying any active session", session_id);
+                        warn!(
+                            "Session {} not found for error response, trying any active session",
+                            session_id
+                        );
                         // Fallback: try to send to any active session (for MCP Inspector compatibility)
                         let mut sent = false;
                         for (sid, session) in sessions.iter() {
-                            if let Ok(_) = session.event_sender.send(error_json.clone()) {
-                                debug!("Error response sent successfully to fallback session: {}", sid);
+                            if session.event_sender.send(error_json.clone()).is_ok() {
+                                debug!(
+                                    "Error response sent successfully to fallback session: {}",
+                                    sid
+                                );
                                 sent = true;
                                 break;
                             }
@@ -481,7 +528,7 @@ async fn handle_post(
                             warn!("No active sessions available to send error response");
                         }
                     }
-                    
+
                     // Return 204 No Content (error sent through SSE)
                     Ok(AxumResponse::builder()
                         .status(StatusCode::NO_CONTENT)
@@ -503,22 +550,26 @@ async fn handle_sse(
     headers: HeaderMap,
     Query(query): Query<SseQuery>,
 ) -> Result<axum::response::Response, StatusCode> {
-    info!("Received SSE request - URI: {}, query string: {:?}, parsed query: {:?}", 
-          uri, uri.query(), query);
+    info!(
+        "Received SSE request - URI: {}, query string: {:?}, parsed query: {:?}",
+        uri,
+        uri.query(),
+        query
+    );
     info!("Headers: {:?}", headers);
-    
+
     // Validate origin
     if let Err(e) = HttpTransport::validate_origin(&state.config, &headers) {
         warn!("Origin validation failed: {}", e);
         return Err(StatusCode::FORBIDDEN);
     }
-    
+
     // Validate authentication
     if let Err(e) = HttpTransport::validate_auth(&state.config, &headers) {
         warn!("Authentication failed: {}", e);
         return Err(StatusCode::UNAUTHORIZED);
     }
-    
+
     // Get or create session
     let session_id = if let Some(session_id) = query.session_id {
         // Verify session exists
@@ -534,24 +585,25 @@ async fn handle_sse(
         info!("Created new SSE session: {}", new_session_id);
         new_session_id
     };
-    
+
     // All MCP clients expect SSE with "endpoint" event first (based on official Python SDK)
     info!("Creating MCP-compliant SSE stream with endpoint event");
-    
+
     // Get the event receiver for this session
     let receiver = {
         let sessions = state.sessions.read().await;
-        sessions.get(&session_id)
+        sessions
+            .get(&session_id)
             .map(|session| session.event_sender.subscribe())
             .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?
     };
-    
+
     info!("Starting SSE stream for session: {}", session_id);
-    
+
     // Create SSE stream following official MCP Python SDK pattern
     let stream = async_stream::stream! {
         let mut event_counter = 0u64;
-        
+
         // Send "endpoint" event first (as per official MCP SDK)
         let endpoint_url = format!("/messages?session_id={}", session_id);
         info!("Sending 'endpoint' event for session: {} with URL: {}", session_id, endpoint_url);
@@ -560,7 +612,7 @@ async fn handle_sse(
             .id(event_counter.to_string())
             .event("endpoint")
             .data(endpoint_url));
-        
+
         // Stream events from the receiver
         let mut receiver = receiver;
         loop {
@@ -586,30 +638,28 @@ async fn handle_sse(
             }
         }
     };
-    
+
     // Build SSE response with proper headers and keep-alive
-    let sse = Sse::new(stream)
-        .keep_alive(
-            KeepAlive::new()
-                .interval(Duration::from_secs(15))
-                .text("keep-alive")
-        );
-    
+    let sse = Sse::new(stream).keep_alive(
+        KeepAlive::new()
+            .interval(Duration::from_secs(15))
+            .text("keep-alive"),
+    );
+
     // Convert to Response and add headers
     let mut response = sse.into_response();
     response.headers_mut().insert(
         axum::http::header::CACHE_CONTROL,
-        "no-cache".parse().unwrap()
+        "no-cache".parse().unwrap(),
     );
     response.headers_mut().insert(
         axum::http::header::CONNECTION,
-        "keep-alive".parse().unwrap()
+        "keep-alive".parse().unwrap(),
     );
-    response.headers_mut().insert(
-        "X-Accel-Buffering",
-        "no".parse().unwrap()
-    );
-    
+    response
+        .headers_mut()
+        .insert("X-Accel-Buffering", "no".parse().unwrap());
+
     Ok(response)
 }
 
@@ -621,21 +671,23 @@ async fn handle_health() -> &'static str {
 #[async_trait]
 impl Transport for HttpTransport {
     async fn start(&mut self, handler: RequestHandler) -> Result<(), TransportError> {
-        info!("Starting HTTP transport on {}:{}", self.config.host, self.config.port);
-        
+        info!(
+            "Starting HTTP transport on {}:{}",
+            self.config.host, self.config.port
+        );
+
         let state = Arc::new(HttpState {
             handler: Arc::new(handler),
             config: self.config.clone(),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         });
-        
+
         // Build CORS layer - be very permissive for MCP Inspector
-        let cors = CorsLayer::very_permissive()
-            .expose_headers(vec![
-                axum::http::header::HeaderName::from_static("mcp-session-id"),
-                axum::http::header::HeaderName::from_static("content-type"),
-            ]);
-        
+        let cors = CorsLayer::very_permissive().expose_headers(vec![
+            axum::http::header::HeaderName::from_static("mcp-session-id"),
+            axum::http::header::HeaderName::from_static("content-type"),
+        ]);
+
         // Build router
         let app = Router::new()
             .route("/messages", post(handle_post))
@@ -643,7 +695,7 @@ impl Transport for HttpTransport {
             .route("/health", get(handle_health))
             .layer(ServiceBuilder::new().layer(cors))
             .with_state(state.clone());
-        
+
         // Start session cleanup task
         let cleanup_state = state.clone();
         tokio::spawn(async move {
@@ -653,53 +705,56 @@ impl Transport for HttpTransport {
                 HttpTransport::cleanup_sessions(cleanup_state.clone()).await;
             }
         });
-        
+
         // Start server
         let addr: SocketAddr = format!("{}:{}", self.config.host, self.config.port)
             .parse()
             .map_err(|e| TransportError::Config(format!("Invalid address: {}", e)))?;
-        
-        let listener = tokio::net::TcpListener::bind(addr).await
-            .map_err(|e| TransportError::Connection(format!("Failed to bind to {}: {}", addr, e)))?;
-        
+
+        let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+            TransportError::Connection(format!("Failed to bind to {}: {}", addr, e))
+        })?;
+
         info!("HTTP transport listening on {}", addr);
         info!("Endpoints:");
         info!("  POST   http://{}/messages   - MCP messages", addr);
         info!("  GET    http://{}/sse        - Server-Sent Events", addr);
         info!("  GET    http://{}/health     - Health check", addr);
-        
+
         let server_handle = tokio::spawn(async move {
             if let Err(e) = axum::serve(listener, app).await {
                 error!("HTTP server error: {}", e);
             }
         });
-        
+
         self.state = Some(HttpState {
             handler: state.handler.clone(),
             config: state.config.clone(),
             sessions: state.sessions.clone(),
         });
         self.server_handle = Some(server_handle);
-        
+
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), TransportError> {
         info!("Stopping HTTP transport");
-        
+
         if let Some(handle) = self.server_handle.take() {
             handle.abort();
         }
-        
+
         self.state = None;
         Ok(())
     }
-    
+
     async fn health_check(&self) -> Result<(), TransportError> {
         if self.state.is_some() {
             Ok(())
         } else {
-            Err(TransportError::Connection("HTTP transport not running".to_string()))
+            Err(TransportError::Connection(
+                "HTTP transport not running".to_string(),
+            ))
         }
     }
 }
@@ -710,9 +765,11 @@ mod tests {
     use serde_json::json;
 
     // Mock handler for testing
-    fn mock_handler(request: mcp_protocol::Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = mcp_protocol::Response> + Send>> {
+    fn mock_handler(
+        request: pulseengine_mcp_protocol::Request,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = pulseengine_mcp_protocol::Response> + Send>> {
         Box::pin(async move {
-            mcp_protocol::Response {
+            pulseengine_mcp_protocol::Response {
                 jsonrpc: "2.0".to_string(),
                 id: request.id,
                 result: Some(json!({"echo": request.method})),
@@ -734,7 +791,7 @@ mod tests {
             require_auth: true,
             valid_tokens: vec!["test-token".to_string()],
         };
-        
+
         let transport = HttpTransport::with_config(config.clone());
         assert_eq!(transport.config.port, 8080);
         assert_eq!(transport.config.host, "0.0.0.0");
@@ -746,12 +803,12 @@ mod tests {
     fn test_validate_origin() {
         let mut config = HttpConfig::default();
         config.allowed_origins = Some(vec!["http://localhost:3000".to_string()]);
-        
+
         let mut headers = HeaderMap::new();
         headers.insert(ORIGIN, "http://localhost:3000".parse().unwrap());
-        
+
         assert!(HttpTransport::validate_origin(&config, &headers).is_ok());
-        
+
         headers.insert(ORIGIN, "http://evil.com".parse().unwrap());
         assert!(HttpTransport::validate_origin(&config, &headers).is_err());
     }
@@ -761,15 +818,15 @@ mod tests {
         let mut config = HttpConfig::default();
         config.require_auth = true;
         config.valid_tokens = vec!["valid-token".to_string()];
-        
+
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, "Bearer valid-token".parse().unwrap());
-        
+
         assert!(HttpTransport::validate_auth(&config, &headers).is_ok());
-        
+
         headers.insert(AUTHORIZATION, "Bearer invalid-token".parse().unwrap());
         assert!(HttpTransport::validate_auth(&config, &headers).is_err());
-        
+
         headers.remove(AUTHORIZATION);
         assert!(HttpTransport::validate_auth(&config, &headers).is_err());
     }
@@ -782,20 +839,20 @@ mod tests {
             config,
             sessions: Arc::new(RwLock::new(HashMap::new())),
         });
-        
+
         // Create session
         let session_id = HttpTransport::create_session(state.clone()).await;
         assert!(!session_id.is_empty());
-        
+
         // Verify session exists
         {
             let sessions = state.sessions.read().await;
             assert!(sessions.contains_key(&session_id));
         }
-        
+
         // Update activity
         HttpTransport::update_session_activity(state.clone(), &session_id).await;
-        
+
         // Cleanup (should not remove recent session)
         HttpTransport::cleanup_sessions(state.clone()).await;
         {

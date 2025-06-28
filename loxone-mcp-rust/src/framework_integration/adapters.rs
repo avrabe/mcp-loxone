@@ -8,7 +8,7 @@ use crate::{
     server::LoxoneMcpServer,
     tools::{ToolContext, ToolResponse},
 };
-use mcp_protocol::{CallToolRequestParam, Content, Tool};
+use pulseengine_mcp_protocol::{CallToolRequestParam, Content, Tool};
 use serde_json::Value;
 
 /// Helper to extract parameter from MCP request

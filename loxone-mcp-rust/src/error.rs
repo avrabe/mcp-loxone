@@ -933,7 +933,7 @@ impl From<regex::Error> for LoxoneError {
 }
 
 // Implement ErrorClassification trait for LoxoneError to work with mcp-logging
-impl mcp_logging::ErrorClassification for LoxoneError {
+impl pulseengine_mcp_logging::ErrorClassification for LoxoneError {
     fn error_type(&self) -> &str {
         match self {
             LoxoneError::Connection(_) => "connection_error",

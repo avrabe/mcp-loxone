@@ -4,8 +4,8 @@
 //! server implementation with the new MCP framework.
 
 use async_trait::async_trait;
-use mcp_protocol::*;
-use mcp_server::backend::{BackendError, McpBackend};
+use pulseengine_mcp_protocol::*;
+use pulseengine_mcp_server::backend::{BackendError, McpBackend};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 

@@ -4,8 +4,8 @@
 //! It supports both native and WASM32-WASIP2 compilation targets.
 
 use loxone_mcp_rust::{LoxoneBackend, LoxoneError, Result, ServerConfig};
-use mcp_server::{backend::McpBackend, GenericServerHandler};
-use mcp_transport::{http::HttpTransport, stdio::StdioTransport, Transport};
+use pulseengine_mcp_server::{backend::McpBackend, GenericServerHandler};
+use pulseengine_mcp_transport::{http::HttpTransport, stdio::StdioTransport, Transport};
 
 use clap::{Parser, Subcommand};
 use tracing::{error, info, warn};
@@ -120,8 +120,8 @@ async fn main() -> Result<()> {
 
 /// Run server with stdio transport (for Claude Desktop)
 async fn run_stdio_server(config: ServerConfig) -> Result<()> {
-    use mcp_auth::AuthenticationManager as FrameworkAuthManager;
-    use mcp_server::middleware::MiddlewareStack;
+    use pulseengine_mcp_auth::AuthenticationManager as FrameworkAuthManager;
+    use pulseengine_mcp_server::middleware::MiddlewareStack;
     use std::sync::Arc;
 
     info!("🚀 Starting Loxone MCP Server with new framework (stdio transport)");
@@ -131,7 +131,7 @@ async fn run_stdio_server(config: ServerConfig) -> Result<()> {
     info!("✅ Loxone backend initialized successfully");
 
     // Create authentication manager (minimal for stdio)
-    let auth_config = mcp_auth::AuthConfig::default();
+    let auth_config = pulseengine_mcp_auth::AuthConfig::default();
     let auth_manager = Arc::new(
         FrameworkAuthManager::new(auth_config)
             .await
@@ -154,11 +154,11 @@ async fn run_stdio_server(config: ServerConfig) -> Result<()> {
             Box::pin(async move {
                 handler.handle_request(req).await.unwrap_or_else(|e| {
                     tracing::error!("Request handling error: {}", e);
-                    mcp_protocol::Response {
+                    pulseengine_mcp_protocol::Response {
                         jsonrpc: "2.0".to_string(),
                         id: serde_json::Value::Null,
                         result: None,
-                        error: Some(mcp_protocol::Error::internal_error(e.to_string())),
+                        error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
                     }
                 })
             })
@@ -176,8 +176,8 @@ async fn run_http_server(
     _show_access_url: bool,
     _dev_mode: bool,
 ) -> Result<()> {
-    use mcp_auth::AuthenticationManager as FrameworkAuthManager;
-    use mcp_server::middleware::MiddlewareStack;
+    use pulseengine_mcp_auth::AuthenticationManager as FrameworkAuthManager;
+    use pulseengine_mcp_server::middleware::MiddlewareStack;
     use std::sync::Arc;
 
     info!("🚀 Starting Loxone MCP Server with framework-based HTTP/SSE transport");
@@ -187,7 +187,7 @@ async fn run_http_server(
     info!("✅ Loxone backend initialized successfully");
 
     // Create authentication manager
-    let auth_config = mcp_auth::AuthConfig::default();
+    let auth_config = pulseengine_mcp_auth::AuthConfig::default();
     let auth_manager = Arc::new(
         FrameworkAuthManager::new(auth_config)
             .await
@@ -210,11 +210,11 @@ async fn run_http_server(
             Box::pin(async move {
                 handler.handle_request(req).await.unwrap_or_else(|e| {
                     tracing::error!("Request handling error: {}", e);
-                    mcp_protocol::Response {
+                    pulseengine_mcp_protocol::Response {
                         jsonrpc: "2.0".to_string(),
                         id: serde_json::Value::Null,
                         result: None,
-                        error: Some(mcp_protocol::Error::internal_error(e.to_string())),
+                        error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
                     }
                 })
             })

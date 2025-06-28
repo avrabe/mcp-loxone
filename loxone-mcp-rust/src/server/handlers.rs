@@ -14,14 +14,14 @@ use super::{
 use crate::tools::sensors::SensorStateLogger;
 
 // Use framework types instead of legacy mcp_foundation
-use mcp_protocol::{CallToolResult, Content};
+use pulseengine_mcp_protocol::{CallToolResult, Content};
 use std::sync::Arc;
 use tracing::warn;
 
 
 impl LoxoneMcpServer {
     /// List all rooms in the Loxone system with device counts
-    pub async fn list_rooms(&self) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    pub async fn list_rooms(&self) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let rooms = self.context.rooms.read().await;
 
         let mut rooms_with_info = Vec::new();
@@ -47,7 +47,7 @@ impl LoxoneMcpServer {
     pub async fn get_room_devices(
         &self,
         room_name: String,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let devices = self.context.devices.read().await;
         let room_devices: Vec<String> = devices
             .values()
@@ -65,7 +65,7 @@ impl LoxoneMcpServer {
         &self,
         device_id: String,
         action: String,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         match self.client.send_command(&device_id, &action).await {
             Ok(_) => Ok(CallToolResult::success(vec![Content::text(format!(
                 "Successfully executed {} on device {}",
@@ -81,7 +81,7 @@ impl LoxoneMcpServer {
     /// Get overall system status
     pub async fn get_system_status(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         match self.client.health_check().await {
             Ok(true) => {
                 let capabilities = self.context.capabilities.read().await;
@@ -125,7 +125,7 @@ impl LoxoneMcpServer {
         &self,
         room_name: String,
         device_type_filter: Option<String>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -183,7 +183,7 @@ impl LoxoneMcpServer {
         device: String,
         action: String,
         room_hint: Option<String>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let devices = self.context.devices.read().await;
 
         // Try to find device by UUID first, then by name
@@ -242,7 +242,7 @@ impl LoxoneMcpServer {
         &self,
         devices: Vec<String>,
         action: String,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{devices::control_multiple_devices, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -276,7 +276,7 @@ impl LoxoneMcpServer {
         target: Option<String>,
         action: String,
         position: Option<u8>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         // Create tool context
         let tool_context = crate::tools::ToolContext::with_services(
             self.client.clone(),
@@ -303,7 +303,7 @@ impl LoxoneMcpServer {
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
-                Err(mcp_protocol::Error::invalid_params(error_msg))
+                Err(pulseengine_mcp_protocol::Error::invalid_params(error_msg))
             }
         }
     }
@@ -311,7 +311,7 @@ impl LoxoneMcpServer {
     /// Discover all rolladen/blinds capabilities in the system
     pub async fn discover_rolladen_capabilities(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         // Create tool context
         let tool_context = crate::tools::ToolContext::with_services(
             self.client.clone(),
@@ -332,7 +332,7 @@ impl LoxoneMcpServer {
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
-                Err(mcp_protocol::Error::invalid_params(error_msg))
+                Err(pulseengine_mcp_protocol::Error::invalid_params(error_msg))
             }
         }
     }
@@ -344,7 +344,7 @@ impl LoxoneMcpServer {
         target: Option<String>,
         action: String,
         brightness: Option<u8>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         // Create tool context
         let tool_context = crate::tools::ToolContext::with_services(
             self.client.clone(),
@@ -371,7 +371,7 @@ impl LoxoneMcpServer {
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
-                Err(mcp_protocol::Error::invalid_params(error_msg))
+                Err(pulseengine_mcp_protocol::Error::invalid_params(error_msg))
             }
         }
     }
@@ -379,7 +379,7 @@ impl LoxoneMcpServer {
     /// Discover all lighting capabilities in the system
     pub async fn discover_lighting_capabilities(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         // Create tool context
         let tool_context = crate::tools::ToolContext::with_services(
             self.client.clone(),
@@ -400,7 +400,7 @@ impl LoxoneMcpServer {
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
-                Err(mcp_protocol::Error::invalid_params(error_msg))
+                Err(pulseengine_mcp_protocol::Error::invalid_params(error_msg))
             }
         }
     }
@@ -410,7 +410,7 @@ impl LoxoneMcpServer {
         &self,
         uuid: String,
         _limit: Option<usize>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         // Create a sensor state logger (normally this would be persistent)
@@ -446,7 +446,7 @@ impl LoxoneMcpServer {
     pub async fn get_recent_sensor_changes(
         &self,
         limit: Option<usize>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         // Create a sensor state logger (normally this would be persistent)
@@ -481,7 +481,7 @@ impl LoxoneMcpServer {
     /// Discover all devices in the system
     pub async fn discover_all_devices(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
         let capabilities = self.context.capabilities.read().await;
@@ -525,7 +525,7 @@ impl LoxoneMcpServer {
     pub async fn get_devices_by_type(
         &self,
         device_type_filter: Option<String>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let devices = self.context.devices.read().await;
         let rooms = self.context.rooms.read().await;
 
@@ -592,7 +592,7 @@ impl LoxoneMcpServer {
         category: String,
         limit: Option<usize>,
         _include_state: bool,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{devices::get_devices_by_category, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -622,7 +622,7 @@ impl LoxoneMcpServer {
     /// Get available system capabilities
     pub async fn get_available_capabilities(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{devices::get_available_capabilities, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -652,7 +652,7 @@ impl LoxoneMcpServer {
     /// Get all categories overview
     pub async fn get_all_categories_overview(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{devices::get_all_categories_overview, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -682,7 +682,7 @@ impl LoxoneMcpServer {
     /// Get audio zones and their status
     pub async fn get_audio_zones(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -701,7 +701,7 @@ impl LoxoneMcpServer {
         zone_name: String,
         action: String,
         value: Option<f64>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -718,7 +718,7 @@ impl LoxoneMcpServer {
     /// Get available audio sources
     pub async fn get_audio_sources(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -736,7 +736,7 @@ impl LoxoneMcpServer {
         &self,
         zone_name: String,
         volume: f64,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -753,7 +753,7 @@ impl LoxoneMcpServer {
     pub async fn get_door_window_activity(
         &self,
         hours: Option<u32>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -770,7 +770,7 @@ impl LoxoneMcpServer {
     /// Get logging statistics
     pub async fn get_logging_statistics_tool(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         let context = crate::tools::ToolContext::with_services(
             self.client.clone(),
             self.context.clone(),
@@ -787,7 +787,7 @@ impl LoxoneMcpServer {
     /// Perform comprehensive health check
     pub async fn get_health_check(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         match self.health_checker.check_health().await {
             Ok(report) => {
                 // Add resource health information
@@ -833,7 +833,7 @@ impl LoxoneMcpServer {
     /// Get basic health status (lightweight)
     pub async fn get_health_status(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         // Quick health check using basic connectivity
         match self.client.health_check().await {
             Ok(is_healthy) => {
@@ -898,7 +898,7 @@ impl LoxoneMcpServer {
     /// Get all door/window sensors status
     pub async fn get_all_door_window_sensors(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -921,7 +921,7 @@ impl LoxoneMcpServer {
     /// Get all temperature sensors and readings
     pub async fn get_temperature_sensors(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -945,7 +945,7 @@ impl LoxoneMcpServer {
     pub async fn discover_new_sensors(
         &self,
         duration_seconds: Option<u64>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -970,7 +970,7 @@ impl LoxoneMcpServer {
         &self,
         sensor_type: Option<String>,
         room: Option<String>,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{sensors, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -1176,7 +1176,7 @@ impl LoxoneMcpServer {
     pub async fn create_workflow(
         &self,
         arguments: serde_json::Value,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -1188,7 +1188,7 @@ impl LoxoneMcpServer {
 
         let params: workflows::CreateWorkflowParams =
             serde_json::from_value(arguments).map_err(|e| {
-                mcp_protocol::Error::invalid_params(format!("Invalid parameters: {}", e))
+                pulseengine_mcp_protocol::Error::invalid_params(format!("Invalid parameters: {}", e))
             })?;
 
         let response = workflows::create_workflow(tool_context, params).await;
@@ -1212,7 +1212,7 @@ impl LoxoneMcpServer {
     pub async fn execute_workflow_demo(
         &self,
         arguments: serde_json::Value,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -1224,7 +1224,7 @@ impl LoxoneMcpServer {
 
         let params: workflows::ExecuteWorkflowParams =
             serde_json::from_value(arguments).map_err(|e| {
-                mcp_protocol::Error::invalid_params(format!("Invalid parameters: {}", e))
+                pulseengine_mcp_protocol::Error::invalid_params(format!("Invalid parameters: {}", e))
             })?;
 
         let response = workflows::execute_workflow_demo(tool_context, params).await;
@@ -1247,7 +1247,7 @@ impl LoxoneMcpServer {
     /// List predefined workflows
     pub async fn list_predefined_workflows(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::with_services(
@@ -1278,7 +1278,7 @@ impl LoxoneMcpServer {
     /// Get workflow examples
     pub async fn get_workflow_examples(
         &self,
-    ) -> std::result::Result<CallToolResult, mcp_protocol::Error> {
+    ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         use crate::tools::{workflows, ToolContext};
 
         let tool_context = ToolContext::with_services(
