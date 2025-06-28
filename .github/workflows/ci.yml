@@ -7,7 +7,7 @@ on:
     branches: [ main, master, develop ]
 
 env:
-  RUST_VERSION: "1.75"
+  RUST_VERSION: "stable"
 
 jobs:
 
@@ -190,7 +190,7 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: "1.78"
+          toolchain: ${{ env.RUST_VERSION }}
           targets: wasm32-wasip2
 
       - name: Cache Rust dependencies
