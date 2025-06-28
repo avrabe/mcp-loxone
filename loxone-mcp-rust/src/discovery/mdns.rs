@@ -19,7 +19,7 @@ pub async fn discover_via_mdns(timeout: Duration) -> Result<Vec<DiscoveredServer
 
     // Create the mDNS daemon
     let mdns = ServiceDaemon::new()
-        .map_err(|e| LoxoneError::discovery(format!("Failed to create mDNS daemon: {}", e)))?;
+        .map_err(|e| LoxoneError::discovery(format!("Failed to create mDNS daemon: {e}")))?;
 
     let mut servers = Vec::new();
     let mut discovered_hosts = HashMap::new();
@@ -40,7 +40,7 @@ pub async fn discover_via_mdns(timeout: Duration) -> Result<Vec<DiscoveredServer
 
         // Browse for services of this type
         let receiver = mdns.browse(service_type).map_err(|e| {
-            LoxoneError::discovery(format!("Failed to browse for {}: {}", service_type, e))
+            LoxoneError::discovery(format!("Failed to browse for {service_type}: {e}"))
         })?;
 
         let tx_clone = tx.clone();

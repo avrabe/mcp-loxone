@@ -318,13 +318,13 @@ impl SanitizationConfig {
 
         for pattern in self.whitelist_patterns.values() {
             Regex::new(pattern).map_err(|e| {
-                LoxoneError::invalid_input(format!("Invalid whitelist pattern: {}", e))
+                LoxoneError::invalid_input(format!("Invalid whitelist pattern: {e}"))
             })?;
         }
 
         for pattern in &self.blacklist_patterns {
             Regex::new(pattern).map_err(|e| {
-                LoxoneError::invalid_input(format!("Invalid blacklist pattern: {}", e))
+                LoxoneError::invalid_input(format!("Invalid blacklist pattern: {e}"))
             })?;
         }
 
@@ -454,18 +454,18 @@ impl InputSanitizer {
                 }
 
                 for (i, item) in arr.iter().enumerate() {
-                    self.check_structure_limits(item, &format!("{}[{}]", path, i), issues);
+                    self.check_structure_limits(item, &format!("{path}[{i}]"), issues);
                 }
             }
             Value::Object(obj) => {
                 if obj.len() > self.config.max_object_properties {
+                    let obj_len = obj.len();
+                    let max_props = self.config.max_object_properties;
                     issues.push(SanitizationIssue {
                         issue_type: SanitizationIssueType::ExcessiveLength,
                         field_path: path.to_string(),
                         description: format!(
-                            "Object properties {} exceeds maximum {}",
-                            obj.len(),
-                            self.config.max_object_properties
+                            "Object properties {obj_len} exceeds maximum {max_props}"
                         ),
                         severity: SanitizationSeverity::Medium,
                         action_taken: "Limited".to_string(),
@@ -476,7 +476,7 @@ impl InputSanitizer {
                     let new_path = if path.is_empty() {
                         key.clone()
                     } else {
-                        format!("{}.{}", path, key)
+                        format!("{path}.{key}")
                     };
                     self.check_structure_limits(val, &new_path, issues);
                 }
@@ -504,7 +504,7 @@ impl InputSanitizer {
                 }
 
                 for (i, item) in arr.iter_mut().enumerate() {
-                    self.sanitize_value(item, &format!("{}[{}]", path, i), issues, warnings);
+                    self.sanitize_value(item, &format!("{path}[{i}]"), issues, warnings);
                 }
             }
             Value::Object(ref mut obj) => {
@@ -524,7 +524,7 @@ impl InputSanitizer {
                     let new_path = if path.is_empty() {
                         key.clone()
                     } else {
-                        format!("{}.{}", path, key)
+                        format!("{path}.{key}")
                     };
                     self.sanitize_value(val, &new_path, issues, warnings);
                 }
@@ -593,7 +593,7 @@ impl InputSanitizer {
         }
 
         if *s != original {
-            warnings.push(format!("Content modified in field: {}", path));
+            warnings.push(format!("Content modified in field: {path}"));
         }
     }
 
@@ -622,7 +622,7 @@ impl InputSanitizer {
                                 SanitizationAction::Reject => "Request rejected".to_string(),
                                 SanitizationAction::Remove => "Content removed".to_string(),
                                 SanitizationAction::Replace(replacement) => {
-                                    format!("Replaced with: {}", replacement)
+                                    format!("Replaced with: {replacement}")
                                 }
                                 SanitizationAction::Log => "Logged violation".to_string(),
                                 SanitizationAction::Encode => "Content encoded".to_string(),
@@ -653,7 +653,7 @@ impl InputSanitizer {
                         issues.push(SanitizationIssue {
                             issue_type: SanitizationIssueType::ExcessiveLength,
                             field_path: path.to_string(),
-                            description: format!("Field length exceeded maximum: {}", max_len),
+                            description: format!("Field length exceeded maximum: {max_len}"),
                             severity: SanitizationSeverity::Low,
                             action_taken: "Truncated".to_string(),
                         });
@@ -680,12 +680,12 @@ impl InputSanitizer {
         ];
 
         for pattern in &xss_patterns {
-            if let Ok(regex) = Regex::new(&format!("(?i){}", pattern)) {
+            if let Ok(regex) = Regex::new(&format!("(?i){pattern}")) {
                 if regex.is_match(s) {
                     issues.push(SanitizationIssue {
                         issue_type: SanitizationIssueType::XssAttempt,
                         field_path: path.to_string(),
-                        description: format!("Potential XSS attempt detected: {}", pattern),
+                        description: format!("Potential XSS attempt detected: {pattern}"),
                         severity: SanitizationSeverity::High,
                         action_taken: "Content sanitized".to_string(),
                     });
@@ -737,7 +737,7 @@ impl InputSanitizer {
                     issues.push(SanitizationIssue {
                         issue_type: SanitizationIssueType::SqlInjection,
                         field_path: path.to_string(),
-                        description: format!("Potential SQL injection detected: {}", pattern),
+                        description: format!("Potential SQL injection detected: {pattern}"),
                         severity: SanitizationSeverity::Critical,
                         action_taken: "Content sanitized".to_string(),
                     });
@@ -758,12 +758,12 @@ impl InputSanitizer {
         let traversal_patterns = [r"\.\.\/", r"\.\.\\", r"%2e%2e%2f", r"%2e%2e%5c"];
 
         for pattern in &traversal_patterns {
-            if let Ok(regex) = Regex::new(&format!("(?i){}", pattern)) {
+            if let Ok(regex) = Regex::new(&format!("(?i){pattern}")) {
                 if regex.is_match(s) {
                     issues.push(SanitizationIssue {
                         issue_type: SanitizationIssueType::PathTraversal,
                         field_path: path.to_string(),
-                        description: format!("Path traversal attempt detected: {}", pattern),
+                        description: format!("Path traversal attempt detected: {pattern}"),
                         severity: SanitizationSeverity::High,
                         action_taken: "Content sanitized".to_string(),
                     });

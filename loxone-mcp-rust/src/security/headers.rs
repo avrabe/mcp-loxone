@@ -465,7 +465,7 @@ impl SecurityHeadersConfig {
         }
 
         if let Some(report_uri) = &self.csp.report_uri {
-            directives.push(format!("report-uri {}", report_uri));
+            directives.push(format!("report-uri {report_uri}"));
         }
 
         directives.join("; ")
@@ -477,12 +477,12 @@ impl SecurityHeadersConfig {
 
         for (feature, directive) in &self.permissions_policy.features {
             let policy_value = match directive {
-                PermissionDirective::All => format!("{}=*", feature),
-                PermissionDirective::Self_ => format!("{}=(self)", feature),
+                PermissionDirective::All => format!("{feature}=*"),
+                PermissionDirective::Self_ => format!("{feature}=(self)"),
                 PermissionDirective::Origins(origins) => {
                     format!("{}=({})", feature, origins.join(" "))
                 }
-                PermissionDirective::None => format!("{}=()", feature),
+                PermissionDirective::None => format!("{feature}=()"),
             };
             policies.push(policy_value);
         }
