@@ -146,7 +146,7 @@ impl ApiKey {
         let timestamp = Utc::now().timestamp_millis() % 100000; // Last 5 digits
         let random = &Uuid::new_v4().to_string().replace('-', "")[..8];
 
-        format!("lmcp_{}_{:05}_{}", role_prefix, timestamp, random)
+        format!("lmcp_{role_prefix}_{timestamp:05}_{random}")
     }
 
     /// Generate a cryptographically secure secret token
@@ -160,7 +160,7 @@ impl ApiKey {
         };
 
         let random_part = Uuid::new_v4().to_string().replace('-', "");
-        format!("lmcp_{}_{}", role_prefix, random_part)
+        format!("lmcp_{role_prefix}_{random_part}")
     }
 
     /// Check if this API key is currently valid
@@ -432,7 +432,7 @@ impl AuditEvent {
     pub fn key_created(key_id: String, creator: String, role: Role) -> Self {
         let mut details = HashMap::new();
         details.insert("creator".to_string(), creator);
-        details.insert("role".to_string(), format!("{:?}", role));
+        details.insert("role".to_string(), format!("{role:?}"));
 
         Self {
             timestamp: Utc::now(),

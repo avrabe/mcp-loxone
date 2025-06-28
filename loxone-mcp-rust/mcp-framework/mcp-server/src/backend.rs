@@ -56,7 +56,7 @@ impl From<BackendError> for Error {
             BackendError::NotInitialized => Error::internal_error("Backend not initialized"),
             BackendError::Configuration(msg) => Error::invalid_params(msg),
             BackendError::Connection(msg) => {
-                Error::internal_error(format!("Connection failed: {}", msg))
+                Error::internal_error(format!("Connection failed: {msg}"))
             }
             BackendError::NotSupported(msg) => Error::method_not_found(msg),
             BackendError::Internal(msg) => Error::internal_error(msg),
@@ -232,7 +232,7 @@ pub trait McpBackend: Send + Sync + Clone {
         params: serde_json::Value,
     ) -> std::result::Result<serde_json::Value, Self::Error> {
         let _ = (method, params);
-        Err(BackendError::not_supported(format!("Custom method not supported: {}", method)).into())
+        Err(BackendError::not_supported(format!("Custom method not supported: {method}")).into())
     }
 }
 

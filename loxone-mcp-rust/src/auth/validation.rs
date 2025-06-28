@@ -217,7 +217,7 @@ impl Validator {
 
         // Check IP whitelist
         if self.config.strict_ip_validation && !key.is_ip_allowed(client_ip) {
-            return Err(format!("IP address {} not allowed for this key", client_ip));
+            return Err(format!("IP address {client_ip} not allowed for this key"));
         }
 
         Ok(())

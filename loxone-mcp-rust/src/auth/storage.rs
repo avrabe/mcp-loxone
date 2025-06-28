@@ -116,9 +116,9 @@ impl FileStorage {
                     fix_command,
                 } => {
                     warn!("⚠️  SECURITY WARNING:");
-                    warn!("Permissions {:o} for '{}' are too open.", current, path);
+                    warn!("Permissions {current:o} for '{path}' are too open.");
                     warn!("It is recommended that your credential files are NOT accessible by others.");
-                    warn!("Run: {}", fix_command);
+                    warn!("Run: {fix_command}");
                     has_insecure = true;
                 }
                 SecurityCheck::Unchecked { reason } => {
@@ -156,11 +156,11 @@ impl FileStorage {
             // Write initial empty content
             let empty_keys = HashMap::<String, ApiKey>::new();
             let json = serde_json::to_string_pretty(&empty_keys).map_err(|e| {
-                crate::error::LoxoneError::config(format!("Failed to serialize empty keys: {}", e))
+                crate::error::LoxoneError::config(format!("Failed to serialize empty keys: {e}"))
             })?;
 
             fs::write(&self.keys_file, json).await.map_err(|e| {
-                crate::error::LoxoneError::config(format!("Failed to initialize keys file: {}", e))
+                crate::error::LoxoneError::config(format!("Failed to initialize keys file: {e}"))
             })?;
 
             info!(
@@ -186,7 +186,7 @@ impl FileStorage {
 impl StorageBackend for FileStorage {
     async fn load_keys(&self) -> Result<HashMap<String, ApiKey>> {
         let content = fs::read_to_string(&self.keys_file).await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to read keys file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to read keys file: {e}"))
         })?;
 
         if content.trim().is_empty() {
@@ -194,7 +194,7 @@ impl StorageBackend for FileStorage {
         }
 
         let keys: HashMap<String, ApiKey> = serde_json::from_str(&content).map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to parse keys file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to parse keys file: {e}"))
         })?;
 
         debug!("Loaded {} API keys from file", keys.len());
@@ -220,7 +220,7 @@ impl StorageBackend for FileStorage {
 
     async fn save_all_keys(&self, keys: &HashMap<String, ApiKey>) -> Result<()> {
         let json = serde_json::to_string_pretty(keys).map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to serialize keys: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to serialize keys: {e}"))
         })?;
 
         // Write to temporary file first with secure permissions, then move (atomic operation)
@@ -231,12 +231,12 @@ impl StorageBackend for FileStorage {
 
         // Now write the content
         fs::write(&temp_file, json).await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to write temp keys file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to write temp keys file: {e}"))
         })?;
 
         // Rename preserves permissions
         fs::rename(&temp_file, &self.keys_file).await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to move temp keys file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to move temp keys file: {e}"))
         })?;
 
         debug!("Saved {} API keys to file", keys.len());
@@ -245,10 +245,10 @@ impl StorageBackend for FileStorage {
 
     async fn log_audit_event(&self, event: &AuditEvent) -> Result<()> {
         let json = serde_json::to_string(event).map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to serialize audit event: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to serialize audit event: {e}"))
         })?;
 
-        let line = format!("{}\n", json);
+        let line = format!("{json}\n");
 
         // Append to audit log file
         use tokio::io::AsyncWriteExt;
@@ -258,15 +258,15 @@ impl StorageBackend for FileStorage {
             .open(&self.audit_file)
             .await
             .map_err(|e| {
-                crate::error::LoxoneError::config(format!("Failed to open audit file: {}", e))
+                crate::error::LoxoneError::config(format!("Failed to open audit file: {e}"))
             })?;
 
         file.write_all(line.as_bytes()).await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to write audit event: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to write audit event: {e}"))
         })?;
 
         file.flush().await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to flush audit file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to flush audit file: {e}"))
         })?;
 
         debug!("Logged audit event: {}", event.event_type);
@@ -279,7 +279,7 @@ impl StorageBackend for FileStorage {
         }
 
         let content = fs::read_to_string(&self.audit_file).await.map_err(|e| {
-            crate::error::LoxoneError::config(format!("Failed to read audit file: {}", e))
+            crate::error::LoxoneError::config(format!("Failed to read audit file: {e}"))
         })?;
 
         let mut events = Vec::new();
@@ -290,7 +290,7 @@ impl StorageBackend for FileStorage {
 
             match serde_json::from_str::<AuditEvent>(line) {
                 Ok(event) => events.push(event),
-                Err(e) => warn!("Failed to parse audit line: {} - {}", e, line),
+                Err(e) => warn!("Failed to parse audit line: {e} - {line}"),
             }
         }
 
@@ -326,8 +326,8 @@ impl StorageBackend for EnvironmentStorage {
 
                 let keys: HashMap<String, ApiKey> = serde_json::from_str(&json).map_err(|e| {
                     crate::error::LoxoneError::config(format!(
-                        "Failed to parse keys from env var {}: {}",
-                        self.keys_var, e
+                        "Failed to parse keys from env var {}: {e}",
+                        self.keys_var
                     ))
                 })?;
 
@@ -358,10 +358,7 @@ impl StorageBackend for EnvironmentStorage {
 
     async fn save_all_keys(&self, keys: &HashMap<String, ApiKey>) -> Result<()> {
         let json = serde_json::to_string(keys).map_err(|e| {
-            crate::error::LoxoneError::config(format!(
-                "Failed to serialize keys for env var: {}",
-                e
-            ))
+            crate::error::LoxoneError::config(format!("Failed to serialize keys for env var: {e}"))
         })?;
 
         std::env::set_var(&self.keys_var, json);

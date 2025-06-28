@@ -706,9 +706,9 @@ impl Transport for HttpTransport {
             .parse()
             .map_err(|e| TransportError::Config(format!("Invalid address: {e}")))?;
 
-        let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
-            TransportError::Connection(format!("Failed to bind to {addr}: {e}"))
-        })?;
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
+            .map_err(|e| TransportError::Connection(format!("Failed to bind to {addr}: {e}")))?;
 
         info!("HTTP transport listening on {}", addr);
         info!("Endpoints:");

@@ -158,7 +158,7 @@ impl McpBackend for HelloWorldBackend {
                 self.greeting_count
                     .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
-                let message = format!("{}, {}! 👋", greeting, name);
+                let message = format!("{greeting}, {name}! 👋");
 
                 info!(
                     tool = "say_hello",
@@ -185,7 +185,7 @@ impl McpBackend for HelloWorldBackend {
                 );
 
                 Ok(CallToolResult {
-                    content: vec![Content::text(format!("Total greetings sent: {}", count))],
+                    content: vec![Content::text(format!("Total greetings sent: {count}"))],
                     is_error: Some(false),
                 })
             }

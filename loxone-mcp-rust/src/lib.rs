@@ -36,8 +36,8 @@ pub mod shared_styles;
 pub mod tools;
 pub mod validation;
 
-// Test support modules
-#[cfg(test)]
+// Test support modules - available for both unit tests and integration tests
+#[cfg(any(test, feature = "test-utils"))]
 pub mod mock;
 
 // Re-export main types for convenience

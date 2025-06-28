@@ -97,13 +97,13 @@ impl LoxoneAuth {
 
                 // Parse DER-encoded public key
                 let rsa_key = Rsa::public_key_from_der(public_key_der).map_err(|e| {
-                    LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {}", e))
+                    LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {e}"))
                 })?;
 
-                self.public_key =
-                    Some(PKey::from_rsa(rsa_key).map_err(|e| {
-                        LoxoneError::crypto(format!("Failed to create PKey: {}", e))
-                    })?);
+                self.public_key = Some(
+                    PKey::from_rsa(rsa_key)
+                        .map_err(|e| LoxoneError::crypto(format!("Failed to create PKey: {e}")))?,
+                );
 
                 return Ok(());
             }
@@ -122,7 +122,7 @@ impl LoxoneAuth {
 
         let key_bytes = general_purpose::STANDARD
             .decode(&pem_data)
-            .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {e}")))?;
 
         // Try different RSA key formats
         let rsa_key = if let Ok(key) = Rsa::public_key_from_der(&key_bytes) {
@@ -132,13 +132,13 @@ impl LoxoneAuth {
         } else {
             // Last resort: try as raw RSA public key in PKCS#1 format
             Rsa::public_key_from_der_pkcs1(&key_bytes).map_err(|e| {
-                LoxoneError::crypto(format!("Failed to parse raw RSA public key: {}", e))
+                LoxoneError::crypto(format!("Failed to parse raw RSA public key: {e}"))
             })?
         };
 
         self.public_key = Some(
             PKey::from_rsa(rsa_key)
-                .map_err(|e| LoxoneError::crypto(format!("Failed to create PKey: {}", e)))?,
+                .map_err(|e| LoxoneError::crypto(format!("Failed to create PKey: {e}")))?,
         );
 
         Ok(())
@@ -153,12 +153,12 @@ impl LoxoneAuth {
 
         let rsa_key = public_key
             .rsa()
-            .map_err(|e| LoxoneError::crypto(format!("Failed to get RSA key: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to get RSA key: {e}")))?;
 
         let mut encrypted = vec![0u8; rsa_key.size() as usize];
         let encrypted_len = rsa_key
             .public_encrypt(credentials.as_bytes(), &mut encrypted, Padding::PKCS1)
-            .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {e}")))?;
 
         encrypted.truncate(encrypted_len);
         Ok(general_purpose::STANDARD.encode(&encrypted))
@@ -227,7 +227,7 @@ pub fn get_public_key_from_certificate(certificate_pem: &str) -> Result<LoxonePu
 
             // Parse DER-encoded RSA public key
             let rsa_key = Rsa::public_key_from_der(public_key_der).map_err(|e| {
-                LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {}", e))
+                LoxoneError::crypto(format!("Failed to parse RSA key from certificate: {e}"))
             })?;
 
             // Extract n and e components
@@ -258,7 +258,7 @@ pub fn get_public_key_from_certificate(certificate_pem: &str) -> Result<LoxonePu
 
     let key_bytes = general_purpose::STANDARD
         .decode(&pem_data)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode base64 key: {e}")))?;
 
     // Try different RSA key formats
     let rsa_key = if let Ok(key) = Rsa::public_key_from_der(&key_bytes) {
@@ -267,9 +267,8 @@ pub fn get_public_key_from_certificate(certificate_pem: &str) -> Result<LoxonePu
         key
     } else {
         // Last resort: try as raw RSA public key in PKCS#1 format
-        Rsa::public_key_from_der_pkcs1(&key_bytes).map_err(|e| {
-            LoxoneError::crypto(format!("Failed to parse raw RSA public key: {}", e))
-        })?
+        Rsa::public_key_from_der_pkcs1(&key_bytes)
+            .map_err(|e| LoxoneError::crypto(format!("Failed to parse raw RSA public key: {e}")))?
     };
 
     // Extract n and e components
@@ -292,25 +291,25 @@ pub fn encrypt_credentials(public_key: &LoxonePublicKey, credentials: &str) -> R
     // Decode n and e from base64
     let n_bytes = general_purpose::STANDARD
         .decode(&public_key.n)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to decode n: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode n: {e}")))?;
     let e_bytes = general_purpose::STANDARD
         .decode(&public_key.e)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to decode e: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to decode e: {e}")))?;
 
     // Create RSA public key from components
     let n = openssl::bn::BigNum::from_slice(&n_bytes)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for n: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for n: {e}")))?;
     let e = openssl::bn::BigNum::from_slice(&e_bytes)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for e: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create BigNum for e: {e}")))?;
 
     let rsa_key = Rsa::from_public_components(n, e)
-        .map_err(|e| LoxoneError::crypto(format!("Failed to create RSA key: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to create RSA key: {e}")))?;
 
     // Encrypt using OAEP padding
     let mut encrypted = vec![0u8; rsa_key.size() as usize];
     let encrypted_len = rsa_key
         .public_encrypt(credentials.as_bytes(), &mut encrypted, Padding::PKCS1)
-        .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Encryption failed: {e}")))?;
 
     encrypted.truncate(encrypted_len);
     Ok(general_purpose::STANDARD.encode(&encrypted))
@@ -387,13 +386,13 @@ impl TokenAuthClient {
         let hash_alg = salt_obj["hashAlg"].as_str().unwrap_or("SHA1");
 
         // Step 3: Create password hash (using the algorithm specified by server)
-        let pwd_salt = format!("{}:{}", password, salt);
+        let pwd_salt = format!("{password}:{salt}");
         let pwd_hash = if hash_alg == "SHA256" {
             hash(MessageDigest::sha256(), pwd_salt.as_bytes())
         } else {
             hash(MessageDigest::sha1(), pwd_salt.as_bytes())
         }
-        .map_err(|e| LoxoneError::crypto(format!("Failed to hash password: {}", e)))?;
+        .map_err(|e| LoxoneError::crypto(format!("Failed to hash password: {e}")))?;
         let pwd_hash_hex = hex::encode(pwd_hash).to_uppercase();
 
         // Note: Unlike the original documentation, the Python implementation
@@ -404,24 +403,24 @@ impl TokenAuthClient {
 
         // HMAC: key from server is the key, username:password_hash is the data
         let hmac_key_bytes = hex::decode(key)
-            .map_err(|e| LoxoneError::crypto(format!("Failed to decode key: {}", e)))?;
-        let hmac_data = format!("{}:{}", username, pwd_hash_hex);
+            .map_err(|e| LoxoneError::crypto(format!("Failed to decode key: {e}")))?;
+        let hmac_data = format!("{username}:{pwd_hash_hex}");
 
         let pkey = PKey::hmac(&hmac_key_bytes)
-            .map_err(|e| LoxoneError::crypto(format!("Failed to create HMAC key: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to create HMAC key: {e}")))?;
         let digest = if hash_alg == "SHA256" {
             MessageDigest::sha256()
         } else {
             MessageDigest::sha1()
         };
         let mut signer = Signer::new(digest, &pkey)
-            .map_err(|e| LoxoneError::crypto(format!("Failed to create signer: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to create signer: {e}")))?;
         signer
             .update(hmac_data.as_bytes())
-            .map_err(|e| LoxoneError::crypto(format!("Failed to update signer: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to update signer: {e}")))?;
         let hmac_result = signer
             .sign_to_vec()
-            .map_err(|e| LoxoneError::crypto(format!("Failed to sign: {}", e)))?;
+            .map_err(|e| LoxoneError::crypto(format!("Failed to sign: {e}")))?;
         let hmac_hex = hex::encode(hmac_result).to_uppercase();
 
         // Step 7: Request JWT token (not gettoken!)

@@ -252,6 +252,7 @@ mdns = ["mdns-sd"] # Feature gate for mDNS functionality (restored with mdns-sd 
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
 wasm = []  # Feature flag for WASM compilation
+test-utils = []  # Enables mock utilities for integration tests
 
 
 [profile.release]
@@ -286,5 +287,10 @@ pulseengine-mcp-server = { path = "mcp-framework/mcp-server" }
 tokio-test = "0.4"
 tempfile = "3.8"
 futures = "0.3"
+
+# Enable test-utils feature for integration tests
+[[test]]
+name = "loxone_stats_tests"
+required-features = ["test-utils"]
 
 

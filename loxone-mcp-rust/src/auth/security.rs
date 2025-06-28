@@ -54,7 +54,7 @@ pub fn check_secure_directory(dir_path: &Path) -> Result<SecurityCheck> {
     }
 
     let metadata = fs::metadata(dir_path)
-        .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {}", e)))?;
+        .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {e}")))?;
 
     if !metadata.is_dir() {
         return Err(LoxoneError::config("Path is not a directory"));
@@ -109,7 +109,7 @@ pub fn check_secure_file(file_path: &Path) -> Result<SecurityCheck> {
     }
 
     let metadata = fs::metadata(file_path)
-        .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {}", e)))?;
+        .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {e}")))?;
 
     #[cfg(unix)]
     {
@@ -156,17 +156,17 @@ pub fn check_secure_file(file_path: &Path) -> Result<SecurityCheck> {
 pub fn create_secure_directory(dir_path: &Path) -> Result<()> {
     // Create directory if it doesn't exist
     fs::create_dir_all(dir_path)
-        .map_err(|e| LoxoneError::config(format!("Failed to create directory: {}", e)))?;
+        .map_err(|e| LoxoneError::config(format!("Failed to create directory: {e}")))?;
 
     #[cfg(unix)]
     {
         // Set directory permissions to 700 (owner only)
         let mut perms = fs::metadata(dir_path)
-            .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {}", e)))?
+            .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {e}")))?
             .permissions();
         perms.set_mode(permissions::SECURE_DIR);
         fs::set_permissions(dir_path, perms).map_err(|e| {
-            LoxoneError::config(format!("Failed to set directory permissions: {}", e))
+            LoxoneError::config(format!("Failed to set directory permissions: {e}"))
         })?;
 
         info!(
@@ -204,7 +204,7 @@ pub fn create_secure_file(file_path: &Path) -> Result<()> {
             .truncate(true)
             .mode(permissions::SECURE_FILE) // Owner read/write only
             .open(file_path)
-            .map_err(|e| LoxoneError::config(format!("Failed to create secure file: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to create secure file: {e}")))?;
 
         info!(
             "Created secure file {} with permissions 600",
@@ -220,15 +220,15 @@ pub fn create_secure_file(file_path: &Path) -> Result<()> {
             .write(true)
             .truncate(true)
             .open(file_path)
-            .map_err(|e| LoxoneError::config(format!("Failed to create file: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to create file: {e}")))?;
 
         // Make file not read-only
         let mut perms = fs::metadata(file_path)
-            .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {}", e)))?
+            .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {e}")))?
             .permissions();
         perms.set_readonly(false);
         fs::set_permissions(file_path, perms)
-            .map_err(|e| LoxoneError::config(format!("Failed to set file permissions: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to set file permissions: {e}")))?;
 
         info!(
             "Created file {} (Windows: manual permission setup recommended)",
@@ -255,12 +255,12 @@ pub async fn write_secure_file(file_path: &Path, content: &str) -> Result<()> {
     // Write content to temp file
     fs::write(&temp_file, content)
         .await
-        .map_err(|e| LoxoneError::config(format!("Failed to write secure file: {}", e)))?;
+        .map_err(|e| LoxoneError::config(format!("Failed to write secure file: {e}")))?;
 
     // Atomic rename (preserves permissions)
     fs::rename(&temp_file, file_path)
         .await
-        .map_err(|e| LoxoneError::config(format!("Failed to rename secure file: {}", e)))?;
+        .map_err(|e| LoxoneError::config(format!("Failed to rename secure file: {e}")))?;
 
     debug!("Securely wrote to file: {}", file_path.display());
     Ok(())
@@ -271,11 +271,11 @@ pub fn fix_directory_permissions(dir_path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         let mut perms = fs::metadata(dir_path)
-            .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {}", e)))?
+            .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {e}")))?
             .permissions();
         perms.set_mode(permissions::SECURE_DIR);
         fs::set_permissions(dir_path, perms).map_err(|e| {
-            LoxoneError::config(format!("Failed to fix directory permissions: {}", e))
+            LoxoneError::config(format!("Failed to fix directory permissions: {e}"))
         })?;
 
         info!(
@@ -297,11 +297,11 @@ pub fn fix_file_permissions(file_path: &Path) -> Result<()> {
     #[cfg(unix)]
     {
         let mut perms = fs::metadata(file_path)
-            .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {}", e)))?
+            .map_err(|e| LoxoneError::config(format!("Cannot read file metadata: {e}")))?
             .permissions();
         perms.set_mode(permissions::SECURE_FILE);
         fs::set_permissions(file_path, perms)
-            .map_err(|e| LoxoneError::config(format!("Failed to fix file permissions: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to fix file permissions: {e}")))?;
 
         info!("Fixed file permissions for {} to 600", file_path.display());
         Ok(())
@@ -343,11 +343,11 @@ pub fn print_security_warnings(checks: &[SecurityCheck]) {
                 fix_command,
             } => {
                 eprintln!("⚠️  SECURITY WARNING:");
-                eprintln!("Permissions {:o} for '{}' are too open.", current, path);
+                eprintln!("Permissions {current:o} for '{path}' are too open.");
                 eprintln!(
                     "It is recommended that your credential files are NOT accessible by others."
                 );
-                eprintln!("Run: {}", fix_command);
+                eprintln!("Run: {fix_command}");
                 eprintln!();
             }
             SecurityCheck::Unchecked { reason } => {

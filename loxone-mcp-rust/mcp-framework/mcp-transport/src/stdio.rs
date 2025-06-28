@@ -111,9 +111,7 @@ impl StdioTransport {
 
             // For invalid structure, we can't reliably extract ID, use null
             let error_response = create_error_response(
-                pulseengine_mcp_protocol::Error::invalid_request(format!(
-                    "Invalid JSON-RPC: {e}"
-                )),
+                pulseengine_mcp_protocol::Error::invalid_request(format!("Invalid JSON-RPC: {e}")),
                 serde_json::Value::Null,
             );
 
@@ -159,9 +157,8 @@ impl StdioTransport {
         stdout: &mut tokio::io::Stdout,
         response: &Response,
     ) -> Result<(), TransportError> {
-        let response_json = serde_json::to_string(response).map_err(|e| {
-            TransportError::Protocol(format!("Failed to serialize response: {e}"))
-        })?;
+        let response_json = serde_json::to_string(response)
+            .map_err(|e| TransportError::Protocol(format!("Failed to serialize response: {e}")))?;
 
         self.send_line(stdout, &response_json).await
     }
