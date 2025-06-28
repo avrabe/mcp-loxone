@@ -275,29 +275,29 @@ impl RateLimitMiddleware {
 
     /// Check rate limit based on IP address
     pub async fn check_ip(&self, ip: &str) -> RateLimitResult {
-        self.limiter.check_request(&format!("ip:{}", ip)).await
+        self.limiter.check_request(&format!("ip:{ip}")).await
     }
 
     /// Check rate limit based on user agent
     pub async fn check_user_agent(&self, user_agent: &str) -> RateLimitResult {
         let normalized_ua = self.normalize_user_agent(user_agent);
         self.limiter
-            .check_request(&format!("ua:{}", normalized_ua))
+            .check_request(&format!("ua:{normalized_ua}"))
             .await
     }
 
     /// Check rate limit based on tool name (per-tool limiting)
     pub async fn check_tool(&self, client_id: &str, tool_name: &str) -> RateLimitResult {
         self.limiter
-            .check_request(&format!("tool:{}:{}", client_id, tool_name))
+            .check_request(&format!("tool:{client_id}:{tool_name}"))
             .await
     }
 
     /// Check rate limit with composite key
     pub async fn check_composite(&self, ip: &str, user_agent: Option<&str>) -> RateLimitResult {
         let key = match user_agent {
-            Some(ua) => format!("composite:{}:{}", ip, self.normalize_user_agent(ua)),
-            None => format!("composite:{}", ip),
+            Some(ua) => format!("composite:{ip}:{}", self.normalize_user_agent(ua)),
+            None => format!("composite:{ip}"),
         };
         self.limiter.check_request(&key).await
     }

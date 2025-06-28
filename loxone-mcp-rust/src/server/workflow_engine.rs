@@ -293,7 +293,7 @@ impl WorkflowEngine {
 
         // Record step result
         let step_result = WorkflowStepResult {
-            step_name: format!("tool:{}", tool_name),
+            step_name: format!("tool:{tool_name}"),
             result: result
                 .as_ref()
                 .map(|v| v.clone())
@@ -584,7 +584,7 @@ impl WorkflowEngine {
         let mut substituted = params_str;
 
         for (key, value) in variables {
-            let placeholder = format!("${{{}}}", key);
+            let placeholder = format!("${{{key}}}");
             let replacement = match value {
                 serde_json::Value::String(s) => s.clone(),
                 _ => value.to_string(),

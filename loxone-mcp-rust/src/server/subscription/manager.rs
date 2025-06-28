@@ -347,8 +347,7 @@ impl ResourceSubscriptionManager {
     fn validate_resource_uri(&self, uri: &str) -> Result<()> {
         if !uri.starts_with("loxone://") {
             return Err(LoxoneError::invalid_input(format!(
-                "Invalid resource URI scheme: {}. Must start with 'loxone://'",
-                uri
+                "Invalid resource URI scheme: {uri}. Must start with 'loxone://'"
             )));
         }
 

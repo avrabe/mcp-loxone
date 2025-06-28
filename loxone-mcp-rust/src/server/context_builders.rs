@@ -590,7 +590,7 @@ impl LlmContext {
     /// Convert to JSON for LLM consumption
     pub fn to_json(&self) -> Result<Value> {
         serde_json::to_value(self)
-            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {}", e)))
+            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {e}")))
     }
 
     /// Get a summary suitable for LLM prompts

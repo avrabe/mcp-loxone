@@ -394,8 +394,7 @@ impl HealthChecker {
             status,
             response_time,
             format!(
-                "Performance test: {}/{} requests successful, avg {}ms",
-                successful_requests, test_count, avg_request_time
+                "Performance test: {successful_requests}/{test_count} requests successful, avg {avg_request_time}ms"
             ),
         )
         .with_metadata(

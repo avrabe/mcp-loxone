@@ -374,7 +374,7 @@ impl ResourceMonitor {
         let memory_percent = if let Some(max_memory) = self.limits.max_memory_bytes {
             let percent = (usage.memory_bytes as f32 / max_memory as f32) * 100.0;
             if percent > self.limits.memory_warning_threshold * 100.0 {
-                warnings.push(format!("Memory usage high: {:.1}%", percent));
+                warnings.push(format!("Memory usage high: {percent:.1}%"));
             }
             percent
         } else {
@@ -384,14 +384,14 @@ impl ResourceMonitor {
         let cpu_percent = usage.cpu_percent;
         if let Some(max_cpu) = self.limits.max_cpu_percent {
             if cpu_percent > max_cpu * self.limits.cpu_warning_threshold {
-                warnings.push(format!("CPU usage high: {:.1}%", cpu_percent));
+                warnings.push(format!("CPU usage high: {cpu_percent:.1}%"));
             }
         }
 
         let request_utilization =
             (usage.active_requests as f32 / self.limits.max_concurrent_requests as f32) * 100.0;
         if request_utilization > 80.0 {
-            warnings.push(format!("Request queue high: {:.1}%", request_utilization));
+            warnings.push(format!("Request queue high: {request_utilization:.1}%"));
         }
 
         ResourceHealth {

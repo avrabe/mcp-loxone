@@ -47,7 +47,7 @@ impl SchemaConstraint {
         required: bool,
     ) -> Result<Self> {
         let regex = Regex::new(pattern.as_ref())
-            .map_err(|e| LoxoneError::config(format!("Invalid regex pattern: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Invalid regex pattern: {e}")))?;
 
         Ok(Self {
             field: field.as_ref().to_string(),
@@ -465,8 +465,7 @@ impl SchemaValidator {
             Some(obj) => obj,
             None => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Tool '{}' parameters must be an object",
-                    tool_name_str
+                    "Tool '{tool_name_str}' parameters must be an object"
                 )));
             }
         };
@@ -477,8 +476,7 @@ impl SchemaValidator {
 
             if let Err(e) = constraint.validate(field_value) {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Tool '{}': {}",
-                    tool_name_str, e
+                    "Tool '{tool_name_str}': {e}"
                 )));
             }
         }

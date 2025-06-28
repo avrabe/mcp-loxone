@@ -555,9 +555,9 @@ impl ResourceManager {
         }
 
         // Find exact matching resource (no templating)
-        let _matching_resource = self.get_resource(uri_path).ok_or_else(|| {
-            LoxoneError::invalid_input(format!("Resource not found: {}", uri_path))
-        })?;
+        let _matching_resource = self
+            .get_resource(uri_path)
+            .ok_or_else(|| LoxoneError::invalid_input(format!("Resource not found: {uri_path}")))?;
 
         Ok(ResourceContext {
             uri: uri.to_string(),
@@ -602,8 +602,7 @@ impl ResourceManager {
         for char in invalid_chars {
             if uri.contains(char) {
                 return Err(LoxoneError::invalid_input(format!(
-                    "URI contains invalid character: '{}'",
-                    char
+                    "URI contains invalid character: '{char}'"
                 )));
             }
         }
@@ -680,8 +679,7 @@ impl ResourceManager {
                 let decoded_key = urlencoding::decode(key)
                     .map_err(|e| {
                         LoxoneError::invalid_input(format!(
-                            "Invalid URL encoding in key '{}': {}",
-                            key, e
+                            "Invalid URL encoding in key '{key}': {e}"
                         ))
                     })?
                     .to_string();
@@ -689,8 +687,7 @@ impl ResourceManager {
                 let decoded_value = urlencoding::decode(value)
                     .map_err(|e| {
                         LoxoneError::invalid_input(format!(
-                            "Invalid URL encoding in value '{}': {}",
-                            value, e
+                            "Invalid URL encoding in value '{value}': {e}"
                         ))
                     })?
                     .to_string();
@@ -704,8 +701,7 @@ impl ResourceManager {
                 let decoded_key = urlencoding::decode(pair)
                     .map_err(|e| {
                         LoxoneError::invalid_input(format!(
-                            "Invalid URL encoding in parameter '{}': {}",
-                            pair, e
+                            "Invalid URL encoding in parameter '{pair}': {e}"
                         ))
                     })?
                     .to_string();
@@ -800,8 +796,7 @@ impl ResourceManager {
         }
 
         Err(LoxoneError::invalid_input(format!(
-            "No matching resource found for URI path: {}",
-            uri_path
+            "No matching resource found for URI path: {uri_path}"
         )))
     }
 
@@ -864,8 +859,7 @@ impl ResourceManager {
         for char in dangerous_chars {
             if room_name.contains(char) {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Room name contains invalid character: '{}'",
-                    char
+                    "Room name contains invalid character: '{char}'"
                 )));
             }
         }
@@ -1037,7 +1031,7 @@ impl ResourceManager {
 
             key.push_str("?path=");
             for (k, v) in path_params {
-                key.push_str(&format!("{}:{},", k, v));
+                key.push_str(&format!("{k}:{v},"));
             }
         }
 
@@ -1056,7 +1050,7 @@ impl ResourceManager {
             if !query_params.is_empty() {
                 key.push_str("&query=");
                 for (k, v) in query_params {
-                    key.push_str(&format!("{}:{},", k, v));
+                    key.push_str(&format!("{k}:{v},"));
                 }
             }
         }
@@ -1212,8 +1206,7 @@ impl ResourceHandler for LoxoneMcpServer {
             }
             _ => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Unknown resource URI: {}. Available resources: loxone://rooms, loxone://devices/*, loxone://system/*, loxone://audio/*, loxone://sensors/*, loxone://weather/*, loxone://security/*, loxone://energy/*",
-                    uri
+                    "Unknown resource URI: {uri}. Available resources: loxone://rooms, loxone://devices/*, loxone://system/*, loxone://audio/*, loxone://sensors/*, loxone://weather/*, loxone://security/*, loxone://energy/*"
                 )));
             }
             });
@@ -1902,8 +1895,7 @@ impl LoxoneMcpServer {
             Ok(devices) => devices,
             Err(e) => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Failed to get blinds devices: {}",
-                    e
+                    "Failed to get blinds devices: {e}"
                 )));
             }
         };
@@ -2006,7 +1998,7 @@ impl LoxoneMcpServer {
                 ("open".to_string(), Some(100), "open")
             } else {
                 let percent = (position_value * 100.0).round() as i32;
-                (format!("{}% open", percent), Some(percent), "partial")
+                (format!("{percent}% open"), Some(percent), "partial")
             };
 
             // Check for moving state
@@ -2087,7 +2079,7 @@ impl LoxoneMcpServer {
                 "partial": partial_count,
                 "unknown": unknown_count,
                 "problem": if unknown_count > 0 {
-                    format!("{} devices have unknown status because the current API implementation returns '0' for all position states", unknown_count)
+                    format!("{unknown_count} devices have unknown status because the current API implementation returns '0' for all position states")
                 } else {
                     "All devices have known status".to_string()
                 }
@@ -2109,8 +2101,7 @@ impl LoxoneMcpServer {
             Ok(devices) => devices,
             Err(e) => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Failed to get lighting devices: {}",
-                    e
+                    "Failed to get lighting devices: {e}"
                 )));
             }
         };
@@ -2163,8 +2154,7 @@ impl LoxoneMcpServer {
             Ok(devices) => devices,
             Err(e) => {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Failed to get climate devices: {}",
-                    e
+                    "Failed to get climate devices: {e}"
                 )));
             }
         };

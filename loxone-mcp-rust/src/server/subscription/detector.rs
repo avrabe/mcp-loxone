@@ -254,7 +254,7 @@ impl ResourceChangeDetector {
                 // Map room to loxone://rooms/{roomName}/devices
                 mapping.insert(
                     room_uuid.clone(),
-                    format!("loxone://rooms/{}/devices", room_name),
+                    format!("loxone://rooms/{room_name}/devices"),
                 );
 
                 // Map devices in the room
@@ -262,7 +262,7 @@ impl ResourceChangeDetector {
                     for (device_uuid, _device_data) in controls {
                         mapping.insert(
                             device_uuid.clone(),
-                            format!("loxone://rooms/{}/devices", room_name),
+                            format!("loxone://rooms/{room_name}/devices"),
                         );
 
                         // Also map to general device resources

@@ -365,7 +365,7 @@ impl NotificationDispatcher {
 
         // For now, simulate successful delivery
         let _serialized = serde_json::to_string(notification)
-            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {}", e)))?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {e}")))?;
 
         // TODO: Integrate with actual stdio transport
         debug!("📨 Stdio notification sent to {}", client.id);
@@ -428,7 +428,7 @@ impl NotificationDispatcher {
 
         // WebSocket support is a future extension
         let _serialized = serde_json::to_string(notification)
-            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {}", e)))?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Serialization error: {e}")))?;
 
         // TODO: Implement WebSocket transport
         debug!(
