@@ -16,7 +16,15 @@ echo " ✓ Health check passed"
 
 # Test 2: SSE connection
 echo "2. Testing SSE connection..."
-timeout 5 curl -s -N -H "Accept: text/event-stream" -H "X-API-Key: $API_KEY" "$SERVER_URL/sse" | head -5 | grep -q "endpoint" || (echo "SSE test failed" && exit 1)
+# Use gtimeout on macOS, timeout on Linux, or fallback without timeout
+if command -v timeout >/dev/null 2>&1; then
+    timeout 5 curl -s -N -H "Accept: text/event-stream" -H "X-API-Key: $API_KEY" "$SERVER_URL/sse" | head -5 | grep -q "endpoint" || (echo "SSE test failed" && exit 1)
+elif command -v gtimeout >/dev/null 2>&1; then
+    gtimeout 5 curl -s -N -H "Accept: text/event-stream" -H "X-API-Key: $API_KEY" "$SERVER_URL/sse" | head -5 | grep -q "endpoint" || (echo "SSE test failed" && exit 1)
+else
+    echo "⚠️ No timeout command available, running without timeout..."
+    curl -s -N -H "Accept: text/event-stream" -H "X-API-Key: $API_KEY" "$SERVER_URL/sse" | head -5 | grep -q "endpoint" || (echo "SSE test failed" && exit 1)
+fi
 echo " ✓ SSE connection established"
 
 # Test 3: Streamable HTTP initialize

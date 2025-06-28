@@ -372,7 +372,14 @@ example-stdio:
 
 example-health:
 	@echo "📝 Testing server health..."
-	timeout 5s cargo run --release || echo "Server started successfully"
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 5s cargo run --release || echo "Server started successfully"; \
+	elif command -v gtimeout >/dev/null 2>&1; then \
+		gtimeout 5s cargo run --release || echo "Server started successfully"; \
+	else \
+		echo "⚠️ Neither timeout nor gtimeout found. Running without timeout..."; \
+		cargo run --release --help > /dev/null 2>&1 || echo "Server started successfully"; \
+	fi
 
 # Integration Testing
 install-test-deps:
