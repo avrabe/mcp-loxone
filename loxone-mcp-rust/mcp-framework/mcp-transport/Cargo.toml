@@ -10,7 +10,7 @@ keywords = ["mcp", "transport", "http", "websocket", "stdio"]
 categories = ["web-programming::http-server", "network-programming"]
 
 [dependencies]
-pulseengine-mcp-protocol = { path = "../mcp-protocol" }
+pulseengine-mcp-protocol = "0.1.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }

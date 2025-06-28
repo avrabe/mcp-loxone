@@ -10,7 +10,7 @@ keywords = ["mcp", "authentication", "authorization", "security"]
 categories = ["authentication", "web-programming"]
 
 [dependencies]
-pulseengine-mcp-protocol = { path = "../mcp-protocol" }
+pulseengine-mcp-protocol = "0.1.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }
