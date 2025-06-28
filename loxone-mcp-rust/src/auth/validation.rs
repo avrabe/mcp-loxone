@@ -376,7 +376,7 @@ mod tests {
                 AuthResult::RateLimited { .. } if i == 5 => {
                     // Expected for 5th attempt
                 }
-                _ => panic!("Unexpected result for attempt {}: {:?}", i, result),
+                _ => panic!("Unexpected result for attempt {i}: {result:?}"),
             }
         }
     }
@@ -404,7 +404,7 @@ mod tests {
                 assert_eq!(auth_success.key.secret, secret);
                 assert_eq!(auth_success.context.client_ip, "192.168.1.1");
             }
-            _ => panic!("Expected successful authentication, got: {:?}", result),
+            _ => panic!("Expected successful authentication, got: {result:?}"),
         }
     }
 

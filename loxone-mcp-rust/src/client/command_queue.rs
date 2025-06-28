@@ -407,7 +407,7 @@ impl CommandQueue {
             stats.current_queue_size = current_size + 1;
             *stats
                 .commands_by_priority
-                .entry(format!("{:?}", priority))
+                .entry(format!("{priority:?}"))
                 .or_insert(0) += 1;
             stats.queue_utilization =
                 (stats.current_queue_size as f32 / self.config.max_queue_size as f32) * 100.0;

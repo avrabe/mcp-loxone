@@ -16,7 +16,7 @@ impl SecurityKeychain {
             .args(["find-generic-password", "-s", service, "-a", account, "-w"])
             .output()
             .map_err(|e| {
-                LoxoneError::credentials(format!("Failed to run security command: {}", e))
+                LoxoneError::credentials(format!("Failed to run security command: {e}"))
             })?;
 
         if !output.status.success() {
@@ -27,7 +27,7 @@ impl SecurityKeychain {
         }
 
         let password = String::from_utf8(output.stdout)
-            .map_err(|e| LoxoneError::credentials(format!("Invalid UTF-8 in password: {}", e)))?
+            .map_err(|e| LoxoneError::credentials(format!("Invalid UTF-8 in password: {e}")))?
             .trim()
             .to_string();
 

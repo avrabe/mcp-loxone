@@ -491,7 +491,7 @@ impl LoxoneHttpClient {
         debug!("Attempting to get state value for UUID: {}", state_uuid);
 
         // Method 1: Try status endpoint first (this is what works for state UUIDs)
-        let status_url = self.build_url(&format!("jdev/sps/status/{}", state_uuid))?;
+        let status_url = self.build_url(&format!("jdev/sps/status/{state_uuid}"))?;
         if let Ok(response) = self.execute_request(status_url).await {
             if let Ok(text) = response.text().await {
                 let loxone_response = Self::parse_loxone_response(&text);
@@ -532,7 +532,7 @@ impl LoxoneHttpClient {
         }
 
         // Method 4: Try value endpoint
-        let value_url = self.build_url(&format!("jdev/sps/value/{}", state_uuid))?;
+        let value_url = self.build_url(&format!("jdev/sps/value/{state_uuid}"))?;
         if let Ok(response) = self.execute_request(value_url).await {
             if let Ok(text) = response.text().await {
                 let loxone_response = Self::parse_loxone_response(&text);
@@ -547,8 +547,7 @@ impl LoxoneHttpClient {
         }
 
         Err(LoxoneError::device_control(format!(
-            "Could not retrieve state value for UUID: {}",
-            state_uuid
+            "Could not retrieve state value for UUID: {state_uuid}"
         )))
     }
 

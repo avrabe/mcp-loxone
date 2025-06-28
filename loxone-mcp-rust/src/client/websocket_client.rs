@@ -106,7 +106,7 @@ impl std::fmt::Display for LoxoneEventType {
             LoxoneEventType::Alarm => write!(f, "alarm"),
             LoxoneEventType::System => write!(f, "system"),
             LoxoneEventType::Sensor => write!(f, "sensor"),
-            LoxoneEventType::Unknown(s) => write!(f, "unknown({})", s),
+            LoxoneEventType::Unknown(s) => write!(f, "unknown({s})"),
         }
     }
 }

@@ -85,7 +85,7 @@ impl InfisicalClient {
         let base_url = host
             .unwrap_or_else(|| "https://app.infisical.com".to_string())
             .parse()
-            .map_err(|e| LoxoneError::credentials(format!("Invalid Infisical host: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Invalid Infisical host: {e}")))?;
 
         let client = Client::new();
 
@@ -103,7 +103,7 @@ impl InfisicalClient {
         let auth_url = self
             .base_url
             .join("/api/v1/auth/universal-auth/login")
-            .map_err(|e| LoxoneError::credentials(format!("Failed to build auth URL: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to build auth URL: {e}")))?;
 
         let request = UniversalAuthRequest {
             client_id: client_id.to_string(),
@@ -116,9 +116,7 @@ impl InfisicalClient {
             .json(&request)
             .send()
             .await
-            .map_err(|e| {
-                LoxoneError::credentials(format!("Authentication request failed: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::credentials(format!("Authentication request failed: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -138,9 +136,10 @@ impl InfisicalClient {
             )));
         }
 
-        let auth_response: AuthResponse = response.json().await.map_err(|e| {
-            LoxoneError::credentials(format!("Failed to parse auth response: {}", e))
-        })?;
+        let auth_response: AuthResponse = response
+            .json()
+            .await
+            .map_err(|e| LoxoneError::credentials(format!("Failed to parse auth response: {e}")))?;
 
         self.access_token = Some(auth_response.access_token);
         tracing::debug!("Successfully authenticated with Infisical");
@@ -158,7 +157,7 @@ impl InfisicalClient {
                 "/api/v3/secrets/raw/{}?environment={}&workspaceId={}&secretPath=/",
                 secret_name, self.environment, self.project_id
             ))
-            .map_err(|e| LoxoneError::credentials(format!("Failed to build secret URL: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to build secret URL: {e}")))?;
 
         let response = self
             .client
@@ -166,7 +165,7 @@ impl InfisicalClient {
             .bearer_auth(self.access_token.as_ref().unwrap())
             .send()
             .await
-            .map_err(|e| LoxoneError::credentials(format!("Failed to get secret: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to get secret: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -187,7 +186,7 @@ impl InfisicalClient {
         }
 
         let secret_response: SecretResponse = response.json().await.map_err(|e| {
-            LoxoneError::credentials(format!("Failed to parse secret response: {}", e))
+            LoxoneError::credentials(format!("Failed to parse secret response: {e}"))
         })?;
 
         Ok(secret_response.secret.secret_value)
@@ -203,7 +202,7 @@ impl InfisicalClient {
                 "/api/v3/secrets/raw/{}?environment={}&workspaceId={}",
                 secret_name, self.environment, self.project_id
             ))
-            .map_err(|e| LoxoneError::credentials(format!("Failed to build secrets URL: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to build secrets URL: {e}")))?;
 
         let request = SecretRequest {
             secret_name: secret_name.to_string(),
@@ -220,7 +219,7 @@ impl InfisicalClient {
             .json(&request)
             .send()
             .await
-            .map_err(|e| LoxoneError::credentials(format!("Failed to update secret: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to update secret: {e}")))?;
 
         if response.status() == 404 {
             // Secret doesn't exist, create it
@@ -231,7 +230,7 @@ impl InfisicalClient {
                     self.environment, self.project_id
                 ))
                 .map_err(|e| {
-                    LoxoneError::credentials(format!("Failed to build create URL: {}", e))
+                    LoxoneError::credentials(format!("Failed to build create URL: {e}"))
                 })?;
 
             response = self
@@ -241,7 +240,7 @@ impl InfisicalClient {
                 .json(&request)
                 .send()
                 .await
-                .map_err(|e| LoxoneError::credentials(format!("Failed to create secret: {}", e)))?;
+                .map_err(|e| LoxoneError::credentials(format!("Failed to create secret: {e}")))?;
         }
 
         if !response.status().is_success() {
@@ -270,7 +269,7 @@ impl InfisicalClient {
                 "/api/v3/secrets/raw/{}?environment={}&workspaceId={}&secretPath=/",
                 secret_name, self.environment, self.project_id
             ))
-            .map_err(|e| LoxoneError::credentials(format!("Failed to build secret URL: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to build secret URL: {e}")))?;
 
         let response = self
             .client
@@ -278,7 +277,7 @@ impl InfisicalClient {
             .bearer_auth(self.access_token.as_ref().unwrap())
             .send()
             .await
-            .map_err(|e| LoxoneError::credentials(format!("Failed to delete secret: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to delete secret: {e}")))?;
 
         if !response.status().is_success() && response.status() != 404 {
             let status = response.status();
@@ -306,7 +305,7 @@ impl InfisicalClient {
                 "/api/v3/secrets/raw?environment={}&workspaceId={}&secretPath=/",
                 self.environment, self.project_id
             ))
-            .map_err(|e| LoxoneError::credentials(format!("Failed to build secrets URL: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to build secrets URL: {e}")))?;
 
         let response = self
             .client
@@ -314,7 +313,7 @@ impl InfisicalClient {
             .bearer_auth(self.access_token.as_ref().unwrap())
             .send()
             .await
-            .map_err(|e| LoxoneError::credentials(format!("Failed to list secrets: {}", e)))?;
+            .map_err(|e| LoxoneError::credentials(format!("Failed to list secrets: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -328,9 +327,10 @@ impl InfisicalClient {
             )));
         }
 
-        let secrets_response: ListSecretsResponse = response.json().await.map_err(|e| {
-            LoxoneError::credentials(format!("Failed to parse secrets list: {}", e))
-        })?;
+        let secrets_response: ListSecretsResponse = response
+            .json()
+            .await
+            .map_err(|e| LoxoneError::credentials(format!("Failed to parse secrets list: {e}")))?;
 
         Ok(secrets_response
             .secrets

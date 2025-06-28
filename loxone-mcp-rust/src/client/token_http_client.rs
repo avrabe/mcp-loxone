@@ -174,9 +174,9 @@ impl TokenHttpClient {
 
             // Add auth params to URL
             let auth_url = if url.as_str().contains('?') {
-                format!("{}&{}", url, auth_params)
+                format!("{url}&{auth_params}")
             } else {
-                format!("{}?{}", url, auth_params)
+                format!("{url}?{auth_params}")
             };
 
             let request = self.client.get(&auth_url);
@@ -712,7 +712,7 @@ impl TokenHttpClient {
         debug!("Attempting to get state value for UUID: {}", state_uuid);
 
         // Method 1: Try status endpoint first (this is what works for state UUIDs)
-        let status_url = self.build_url(&format!("jdev/sps/status/{}", state_uuid))?;
+        let status_url = self.build_url(&format!("jdev/sps/status/{state_uuid}"))?;
         if let Ok(response) = self.execute_request(status_url).await {
             if let Ok(text) = response.text().await {
                 let loxone_response = Self::parse_loxone_response(&text);
@@ -753,7 +753,7 @@ impl TokenHttpClient {
         }
 
         // Method 4: Try value endpoint
-        let value_url = self.build_url(&format!("jdev/sps/value/{}", state_uuid))?;
+        let value_url = self.build_url(&format!("jdev/sps/value/{state_uuid}"))?;
         if let Ok(response) = self.execute_request(value_url).await {
             if let Ok(text) = response.text().await {
                 let loxone_response = Self::parse_loxone_response(&text);
@@ -768,8 +768,7 @@ impl TokenHttpClient {
         }
 
         Err(LoxoneError::device_control(format!(
-            "Could not retrieve state value for UUID: {}",
-            state_uuid
+            "Could not retrieve state value for UUID: {state_uuid}"
         )))
     }
 

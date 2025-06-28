@@ -347,7 +347,7 @@ impl CredentialManager {
 
         // Store credentials as JSON
         let creds_json = serde_json::to_string(credentials).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to serialize credentials: {}", e))
+            LoxoneError::credentials(format!("Failed to serialize credentials: {e}"))
         })?;
 
         storage
@@ -403,11 +403,11 @@ impl CredentialManager {
         use std::fs;
 
         let creds_json = serde_json::to_string_pretty(credentials).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to serialize credentials: {}", e))
+            LoxoneError::credentials(format!("Failed to serialize credentials: {e}"))
         })?;
 
         fs::write(path, creds_json).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to write credentials file: {}", e))
+            LoxoneError::credentials(format!("Failed to write credentials file: {e}"))
         })?;
 
         Ok(())
@@ -417,11 +417,11 @@ impl CredentialManager {
         use std::fs;
 
         let creds_json = fs::read_to_string(path).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to read credentials file: {}", e))
+            LoxoneError::credentials(format!("Failed to read credentials file: {e}"))
         })?;
 
         let credentials: LoxoneCredentials = serde_json::from_str(&creds_json).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to parse credentials file: {}", e))
+            LoxoneError::credentials(format!("Failed to parse credentials file: {e}"))
         })?;
 
         Ok(credentials)
@@ -431,7 +431,7 @@ impl CredentialManager {
         use std::fs;
 
         fs::remove_file(path).map_err(|e| {
-            LoxoneError::credentials(format!("Failed to remove credentials file: {}", e))
+            LoxoneError::credentials(format!("Failed to remove credentials file: {e}"))
         })?;
 
         Ok(())
@@ -479,12 +479,12 @@ impl CredentialManager {
 
         // Get username
         let username = client.get_secret(Self::USERNAME_KEY).await.map_err(|e| {
-            LoxoneError::credentials(format!("Failed to get username from Infisical: {}", e))
+            LoxoneError::credentials(format!("Failed to get username from Infisical: {e}"))
         })?;
 
         // Get password
         let password = client.get_secret(Self::PASSWORD_KEY).await.map_err(|e| {
-            LoxoneError::credentials(format!("Failed to get password from Infisical: {}", e))
+            LoxoneError::credentials(format!("Failed to get password from Infisical: {e}"))
         })?;
 
         // Get API key (optional)
@@ -602,8 +602,7 @@ impl MultiBackendCredentialManager {
                 .collect::<Vec<_>>()
                 .join("; ");
             return Err(LoxoneError::credentials(format!(
-                "Failed to store credentials in any backend: {}",
-                error_msg
+                "Failed to store credentials in any backend: {error_msg}"
             )));
         }
 
