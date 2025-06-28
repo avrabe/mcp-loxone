@@ -75,8 +75,7 @@ impl StdioTransport {
                 let request_id = extract_id_from_malformed(line);
                 let error_response = create_error_response(
                     pulseengine_mcp_protocol::Error::invalid_request(format!(
-                        "Message validation failed: {}",
-                        e
+                        "Message validation failed: {e}"
                     )),
                     request_id,
                 );
@@ -97,7 +96,7 @@ impl StdioTransport {
                 // Try to extract ID for error response
                 let request_id = extract_id_from_malformed(line);
                 let error_response = create_error_response(
-                    pulseengine_mcp_protocol::Error::parse_error(format!("Invalid JSON: {}", e)),
+                    pulseengine_mcp_protocol::Error::parse_error(format!("Invalid JSON: {e}")),
                     request_id,
                 );
 
@@ -113,8 +112,7 @@ impl StdioTransport {
             // For invalid structure, we can't reliably extract ID, use null
             let error_response = create_error_response(
                 pulseengine_mcp_protocol::Error::invalid_request(format!(
-                    "Invalid JSON-RPC: {}",
-                    e
+                    "Invalid JSON-RPC: {e}"
                 )),
                 serde_json::Value::Null,
             );
@@ -128,7 +126,7 @@ impl StdioTransport {
             Ok(Some(response_message)) => {
                 // Send response(s)
                 let response_json = response_message.to_string().map_err(|e| {
-                    TransportError::Protocol(format!("Failed to serialize response: {}", e))
+                    TransportError::Protocol(format!("Failed to serialize response: {e}"))
                 })?;
 
                 self.send_line(stdout, &response_json).await?;
@@ -143,8 +141,7 @@ impl StdioTransport {
                 // Send generic error response
                 let error_response = create_error_response(
                     pulseengine_mcp_protocol::Error::internal_error(format!(
-                        "Processing failed: {}",
-                        e
+                        "Processing failed: {e}"
                     )),
                     serde_json::Value::Null,
                 );
@@ -163,7 +160,7 @@ impl StdioTransport {
         response: &Response,
     ) -> Result<(), TransportError> {
         let response_json = serde_json::to_string(response).map_err(|e| {
-            TransportError::Protocol(format!("Failed to serialize response: {}", e))
+            TransportError::Protocol(format!("Failed to serialize response: {e}"))
         })?;
 
         self.send_line(stdout, &response_json).await

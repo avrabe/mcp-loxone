@@ -704,10 +704,10 @@ impl Transport for HttpTransport {
         // Start server
         let addr: SocketAddr = format!("{}:{}", self.config.host, self.config.port)
             .parse()
-            .map_err(|e| TransportError::Config(format!("Invalid address: {}", e)))?;
+            .map_err(|e| TransportError::Config(format!("Invalid address: {e}")))?;
 
         let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
-            TransportError::Connection(format!("Failed to bind to {}: {}", addr, e))
+            TransportError::Connection(format!("Failed to bind to {addr}: {e}"))
         })?;
 
         info!("HTTP transport listening on {}", addr);
