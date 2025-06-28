@@ -131,7 +131,7 @@ pub trait McpBackend: Send + Sync + Clone {
         let _ = request;
         Ok(ListResourceTemplatesResult {
             resource_templates: vec![],
-            next_cursor: None,
+            next_cursor: String::new(),
         })
     }
     
