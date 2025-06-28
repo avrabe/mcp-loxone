@@ -31,8 +31,7 @@ impl MetricsCollector {
     }
 
     pub async fn start_collection(&self) {
-        if !self.config.enabled {
-        }
+        if !self.config.enabled {}
 
         // TODO: Start background metrics collection task
     }

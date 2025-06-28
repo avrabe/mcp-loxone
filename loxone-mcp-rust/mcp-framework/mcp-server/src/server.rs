@@ -110,8 +110,9 @@ impl<B: McpBackend + 'static> McpServer<B> {
         );
 
         // Initialize transport
-        let transport = pulseengine_mcp_transport::create_transport(config.transport_config.clone())
-            .map_err(|e| ServerError::Transport(e.to_string()))?;
+        let transport =
+            pulseengine_mcp_transport::create_transport(config.transport_config.clone())
+                .map_err(|e| ServerError::Transport(e.to_string()))?;
 
         // Initialize security middleware
         let security_middleware = SecurityMiddleware::new(config.security_config.clone());

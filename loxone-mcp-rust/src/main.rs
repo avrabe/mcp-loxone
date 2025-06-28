@@ -158,7 +158,9 @@ async fn run_stdio_server(config: ServerConfig) -> Result<()> {
                         jsonrpc: "2.0".to_string(),
                         id: serde_json::Value::Null,
                         result: None,
-                        error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
+                        error: Some(pulseengine_mcp_protocol::Error::internal_error(
+                            e.to_string(),
+                        )),
                     }
                 })
             })
@@ -214,7 +216,9 @@ async fn run_http_server(
                         jsonrpc: "2.0".to_string(),
                         id: serde_json::Value::Null,
                         result: None,
-                        error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
+                        error: Some(pulseengine_mcp_protocol::Error::internal_error(
+                            e.to_string(),
+                        )),
                     }
                 })
             })

@@ -112,7 +112,10 @@ impl StdioTransport {
 
             // For invalid structure, we can't reliably extract ID, use null
             let error_response = create_error_response(
-                pulseengine_mcp_protocol::Error::invalid_request(format!("Invalid JSON-RPC: {}", e)),
+                pulseengine_mcp_protocol::Error::invalid_request(format!(
+                    "Invalid JSON-RPC: {}",
+                    e
+                )),
                 serde_json::Value::Null,
             );
 
@@ -139,7 +142,10 @@ impl StdioTransport {
 
                 // Send generic error response
                 let error_response = create_error_response(
-                    pulseengine_mcp_protocol::Error::internal_error(format!("Processing failed: {}", e)),
+                    pulseengine_mcp_protocol::Error::internal_error(format!(
+                        "Processing failed: {}",
+                        e
+                    )),
                     serde_json::Value::Null,
                 );
 

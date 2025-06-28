@@ -1,7 +1,7 @@
 //! Unified MCP server that handles both SSE and streamable-http clients
 
-use pulseengine_mcp_protocol::{Request, Response};
 use mcp_transport::{http::HttpTransport, RequestHandler, Transport};
+use pulseengine_mcp_protocol::{Request, Response};
 use serde_json::json;
 use tracing::{debug, info};
 
@@ -109,7 +109,9 @@ fn mcp_handler(
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
                     result: None,
-                    error: Some(pulseengine_mcp_protocol::Error::method_not_found(&request.method)),
+                    error: Some(pulseengine_mcp_protocol::Error::method_not_found(
+                        &request.method,
+                    )),
                 }
             }
         }

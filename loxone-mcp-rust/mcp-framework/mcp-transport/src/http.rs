@@ -14,7 +14,8 @@ use axum::{
         HeaderMap, StatusCode,
     },
     response::{IntoResponse, Response as AxumResponse, Sse},
-    routing::{get, post}, Router,
+    routing::{get, post},
+    Router,
 };
 // futures_util used for async_stream
 // mcp_protocol types are imported via batch module
@@ -467,7 +468,9 @@ async fn handle_post(
                 jsonrpc: "2.0".to_string(),
                 id: serde_json::Value::Null,
                 result: None,
-                error: Some(pulseengine_mcp_protocol::Error::internal_error(e.to_string())),
+                error: Some(pulseengine_mcp_protocol::Error::internal_error(
+                    e.to_string(),
+                )),
             };
 
             if let Ok(error_json) = serde_json::to_string(&error_response) {
@@ -767,7 +770,9 @@ mod tests {
     // Mock handler for testing
     fn mock_handler(
         request: pulseengine_mcp_protocol::Request,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = pulseengine_mcp_protocol::Response> + Send>> {
+    ) -> std::pin::Pin<
+        Box<dyn std::future::Future<Output = pulseengine_mcp_protocol::Response> + Send>,
+    > {
         Box::pin(async move {
             pulseengine_mcp_protocol::Response {
                 jsonrpc: "2.0".to_string(),

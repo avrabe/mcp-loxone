@@ -3,8 +3,8 @@
 //! This demonstrates a minimal MCP server using the framework.
 //! It shows the basic structure without overwhelming complexity.
 
-use pulseengine_mcp_server::{McpServer, ServerConfig, McpBackend, BackendError};
 use pulseengine_mcp_protocol::*;
+use pulseengine_mcp_server::{BackendError, McpBackend, McpServer, ServerConfig};
 use pulseengine_mcp_transport::TransportConfig;
 
 use async_trait::async_trait;
@@ -85,7 +85,9 @@ impl McpBackend for HelloWorldBackend {
                 name: "Hello World MCP Server".to_string(),
                 version: "1.0.0".to_string(),
             },
-            instructions: Some("A simple demonstration server with basic greeting functionality".to_string()),
+            instructions: Some(
+                "A simple demonstration server with basic greeting functionality".to_string(),
+            ),
         }
     }
 
@@ -93,7 +95,10 @@ impl McpBackend for HelloWorldBackend {
         Ok(())
     }
 
-    async fn list_tools(&self, _request: PaginatedRequestParam) -> std::result::Result<ListToolsResult, Self::Error> {
+    async fn list_tools(
+        &self,
+        _request: PaginatedRequestParam,
+    ) -> std::result::Result<ListToolsResult, Self::Error> {
         let tools = vec![
             Tool {
                 name: "say_hello".to_string(),
@@ -130,15 +135,19 @@ impl McpBackend for HelloWorldBackend {
         })
     }
 
-    async fn call_tool(&self, request: CallToolRequestParam) -> std::result::Result<CallToolResult, Self::Error> {
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParam,
+    ) -> std::result::Result<CallToolResult, Self::Error> {
         match request.name.as_str() {
             "say_hello" => {
-                let args = request.arguments.unwrap_or(serde_json::Value::Object(Default::default()));
+                let args = request
+                    .arguments
+                    .unwrap_or(serde_json::Value::Object(Default::default()));
 
-                let name = args
-                    .get("name")
-                    .and_then(|v| v.as_str())
-                    .ok_or_else(|| HelloWorldError::InvalidParameter("name is required".to_string()))?;
+                let name = args.get("name").and_then(|v| v.as_str()).ok_or_else(|| {
+                    HelloWorldError::InvalidParameter("name is required".to_string())
+                })?;
 
                 let greeting = args
                     .get("greeting")
@@ -146,11 +155,17 @@ impl McpBackend for HelloWorldBackend {
                     .unwrap_or("Hello");
 
                 // Increment greeting counter
-                self.greeting_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                self.greeting_count
+                    .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
                 let message = format!("{}, {}! 👋", greeting, name);
 
-                info!(tool = "say_hello", name = name, greeting = greeting, "Generated greeting");
+                info!(
+                    tool = "say_hello",
+                    name = name,
+                    greeting = greeting,
+                    "Generated greeting"
+                );
 
                 Ok(CallToolResult {
                     content: vec![Content::text(message)],
@@ -159,9 +174,15 @@ impl McpBackend for HelloWorldBackend {
             }
 
             "count_greetings" => {
-                let count = self.greeting_count.load(std::sync::atomic::Ordering::Relaxed);
+                let count = self
+                    .greeting_count
+                    .load(std::sync::atomic::Ordering::Relaxed);
 
-                info!(tool = "count_greetings", count = count, "Retrieved greeting count");
+                info!(
+                    tool = "count_greetings",
+                    count = count,
+                    "Retrieved greeting count"
+                );
 
                 Ok(CallToolResult {
                     content: vec![Content::text(format!("Total greetings sent: {}", count))],
@@ -171,32 +192,53 @@ impl McpBackend for HelloWorldBackend {
 
             _ => {
                 warn!(tool = request.name, "Unknown tool requested");
-                Err(HelloWorldError::InvalidParameter(format!("Unknown tool: {}", request.name)))
+                Err(HelloWorldError::InvalidParameter(format!(
+                    "Unknown tool: {}",
+                    request.name
+                )))
             }
         }
     }
 
     // Simple implementations for unused features
-    async fn list_resources(&self, _request: PaginatedRequestParam) -> std::result::Result<ListResourcesResult, Self::Error> {
+    async fn list_resources(
+        &self,
+        _request: PaginatedRequestParam,
+    ) -> std::result::Result<ListResourcesResult, Self::Error> {
         Ok(ListResourcesResult {
             resources: vec![],
             next_cursor: None,
         })
     }
 
-    async fn read_resource(&self, request: ReadResourceRequestParam) -> std::result::Result<ReadResourceResult, Self::Error> {
-        Err(HelloWorldError::InvalidParameter(format!("Resource not found: {}", request.uri)))
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParam,
+    ) -> std::result::Result<ReadResourceResult, Self::Error> {
+        Err(HelloWorldError::InvalidParameter(format!(
+            "Resource not found: {}",
+            request.uri
+        )))
     }
 
-    async fn list_prompts(&self, _request: PaginatedRequestParam) -> std::result::Result<ListPromptsResult, Self::Error> {
+    async fn list_prompts(
+        &self,
+        _request: PaginatedRequestParam,
+    ) -> std::result::Result<ListPromptsResult, Self::Error> {
         Ok(ListPromptsResult {
             prompts: vec![],
             next_cursor: None,
         })
     }
 
-    async fn get_prompt(&self, request: GetPromptRequestParam) -> std::result::Result<GetPromptResult, Self::Error> {
-        Err(HelloWorldError::InvalidParameter(format!("Prompt not found: {}", request.name)))
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParam,
+    ) -> std::result::Result<GetPromptResult, Self::Error> {
+        Err(HelloWorldError::InvalidParameter(format!(
+            "Prompt not found: {}",
+            request.name
+        )))
     }
 }
 
@@ -206,7 +248,7 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("hello_world_mcp=debug,mcp_server=debug"))
+                .unwrap_or_else(|_| EnvFilter::new("hello_world_mcp=debug,mcp_server=debug")),
         )
         .init();
 

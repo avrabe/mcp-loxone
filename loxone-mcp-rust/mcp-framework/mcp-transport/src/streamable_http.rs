@@ -141,24 +141,25 @@ async fn handle_messages(
     };
 
     // Convert to MCP Request
-    let mcp_request: pulseengine_mcp_protocol::Request = match serde_json::from_value(request.clone()) {
-        Ok(r) => r,
-        Err(e) => {
-            warn!("Invalid request format: {}", e);
-            return (
-                StatusCode::BAD_REQUEST,
-                Json(serde_json::json!({
-                    "jsonrpc": "2.0",
-                    "error": {
-                        "code": -32600,
-                        "message": "Invalid request"
-                    },
-                    "id": request.get("id").cloned().unwrap_or(Value::Null)
-                })),
-            )
-                .into_response();
-        }
-    };
+    let mcp_request: pulseengine_mcp_protocol::Request =
+        match serde_json::from_value(request.clone()) {
+            Ok(r) => r,
+            Err(e) => {
+                warn!("Invalid request format: {}", e);
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "jsonrpc": "2.0",
+                        "error": {
+                            "code": -32600,
+                            "message": "Invalid request"
+                        },
+                        "id": request.get("id").cloned().unwrap_or(Value::Null)
+                    })),
+                )
+                    .into_response();
+            }
+        };
 
     // Process through handler
     let response = (state.handler)(mcp_request).await;

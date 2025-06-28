@@ -204,7 +204,10 @@ pub async fn process_batch(
 }
 
 /// Create an error response for a malformed request
-pub fn create_error_response(error: pulseengine_mcp_protocol::Error, request_id: Value) -> Response {
+pub fn create_error_response(
+    error: pulseengine_mcp_protocol::Error,
+    request_id: Value,
+) -> Response {
     Response {
         jsonrpc: "2.0".to_string(),
         id: request_id,
