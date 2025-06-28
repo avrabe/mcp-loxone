@@ -11,7 +11,7 @@ pub mod monitoring;
 // Re-export types from diagnostics
 pub use diagnostics::{DiagnosticSnapshot, DiagnosticTrends, DiagnosticsCollector, TrendDirection};
 
-use crate::error::{LoxoneError, Result};
+use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -372,7 +372,7 @@ pub struct DependencyStatus {
 }
 
 /// Type of dependency
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum DependencyType {
     /// Loxone Miniserver
     LoxoneMiniserver,
@@ -583,13 +583,13 @@ impl HealthChecker {
                         result
                     }
                     Ok(Err(e)) => {
-                        let duration = start_time.elapsed().as_millis() as u64;
+                        let _duration = start_time.elapsed().as_millis() as u64;
                         HealthCheckResult::unhealthy(&name, "Check failed", Some(e.to_string()))
                             .with_duration(start_time.elapsed())
                             .with_metadata("timeout", false)
                     }
                     Err(_) => {
-                        let duration = start_time.elapsed().as_millis() as u64;
+                        let _duration = start_time.elapsed().as_millis() as u64;
                         HealthCheckResult::unhealthy(&name, "Check timed out", None)
                             .with_duration(start_time.elapsed())
                             .with_metadata("timeout", true)

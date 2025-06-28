@@ -251,9 +251,7 @@ impl Transport for StdioTransport {
                 }
                 Err(e) => {
                     error!("Failed to read from stdin: {}", e);
-                    return Err(TransportError::Connection(format!(
-                        "Stdin read error: {e}"
-                    )));
+                    return Err(TransportError::Connection(format!("Stdin read error: {e}")));
                 }
             }
         }

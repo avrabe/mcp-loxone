@@ -254,6 +254,27 @@ wasm-strip target/wasm32-wasip2/release/loxone-mcp-server.wasm
 
 ## 🤝 Contributing
 
+### Before Committing Changes
+**IMPORTANT**: Always run these checks before adding files to git:
+```bash
+# Format all code
+cargo fmt --all
+
+# Run clippy with CI settings
+cargo clippy --all --all-features -- -D warnings
+
+# Run tests
+cargo test --lib --verbose
+
+# Security audit
+cargo audit
+```
+
+Alternatively, run all checks at once:
+```bash
+make check
+```
+
 ### Before Submitting Changes
 1. Run full test suite: `cargo test`
 2. Check formatting: `cargo fmt --check`

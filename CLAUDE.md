@@ -73,6 +73,22 @@ uv run python validate_mcp.py
 ```
 
 ### Code Quality
+**IMPORTANT**: Always run these checks before adding files to git:
+```bash
+# Format all code
+uv run ruff format src/ tests/
+
+# Run linting with fix
+uv run ruff check src/ tests/ --fix
+
+# Type checking
+uv run mypy src/
+
+# Run all checks before committing
+make check
+```
+
+Individual commands:
 ```bash
 # Run linting
 uv run ruff check src/ tests/
@@ -91,9 +107,6 @@ make type-check
 
 # Security checks
 make security
-
-# Run all checks before committing
-make check
 ```
 
 ### Building & Publishing

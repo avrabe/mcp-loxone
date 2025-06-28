@@ -142,7 +142,7 @@ pub struct ToolContext {
 impl ToolContext {
     /// Create new tool context (legacy - use with_services instead)
     #[deprecated(note = "Use with_services for service-layer architecture")]
-    pub fn new(_client: Arc<dyn LoxoneClient>, context: Arc<ClientContext>) -> Self {
+    pub fn new(_client: Arc<dyn LoxoneClient>, _context: Arc<ClientContext>) -> Self {
         // This will panic in debug builds to encourage migration
         #[cfg(debug_assertions)]
         panic!("Use ToolContext::with_services instead of ::new");

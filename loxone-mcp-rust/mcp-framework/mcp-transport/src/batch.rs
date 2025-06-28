@@ -184,9 +184,8 @@ pub async fn process_batch(
     // Return appropriate response format
     let response_message = if responses.len() == 1 && !matches!(message, JsonRpcMessage::Batch(_)) {
         // Single request, single response
-        let response_value = serde_json::to_value(&responses[0]).map_err(|e| {
-            TransportError::Protocol(format!("Failed to serialize response: {e}"))
-        })?;
+        let response_value = serde_json::to_value(&responses[0])
+            .map_err(|e| TransportError::Protocol(format!("Failed to serialize response: {e}")))?;
         JsonRpcMessage::Single(response_value)
     } else {
         // Batch response
