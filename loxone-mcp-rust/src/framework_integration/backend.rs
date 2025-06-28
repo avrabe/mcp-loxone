@@ -191,7 +191,7 @@ impl McpBackend for LoxoneBackend {
 
         Ok(ListToolsResult {
             tools,
-            next_cursor: None,
+            next_cursor: String::new(),  // Empty string instead of None
         })
     }
 
@@ -584,27 +584,23 @@ impl McpBackend for LoxoneBackend {
         info!("📋 Listing Loxone resource templates");
         
         let resource_templates = vec![
-            Resource {
-                uri: "loxone://devices/{room_name}".to_string(),
+            ResourceTemplate {
+                uri_template: "loxone://devices/{room_name}".to_string(),
                 name: "Room Devices".to_string(),
                 description: Some("All devices in a specific room".to_string()),
                 mime_type: Some("application/json".to_string()),
-                annotations: None,
-                raw: None,
             },
-            Resource {
-                uri: "loxone://sensors/{sensor_type}".to_string(),
+            ResourceTemplate {
+                uri_template: "loxone://sensors/{sensor_type}".to_string(),
                 name: "Sensor Data".to_string(),
                 description: Some("Sensor readings by type".to_string()),
                 mime_type: Some("application/json".to_string()),
-                annotations: None,
-                raw: None,
             },
         ];
 
         Ok(ListResourceTemplatesResult {
             resource_templates,
-            next_cursor: None,
+            next_cursor: String::new(),  // Empty string instead of None
         })
     }
 
@@ -637,13 +633,13 @@ impl McpBackend for LoxoneBackend {
             Prompt {
                 name: "security_report".to_string(),
                 description: Some("Generate a security status report with recommendations".to_string()),
-                arguments: None,
+                arguments: Some(vec![]),  // Empty array instead of None
             },
         ];
 
         Ok(ListPromptsResult {
             prompts,
-            next_cursor: None,
+            next_cursor: Some(String::new()),  // Empty string instead of None
         })
     }
 
