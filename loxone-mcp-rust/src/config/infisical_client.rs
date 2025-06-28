@@ -131,8 +131,7 @@ impl InfisicalClient {
                 )));
             }
             return Err(LoxoneError::credentials(format!(
-                "Authentication failed with status {}: {}",
-                status, error_text
+                "Authentication failed with status {status}: {error_text}"
             )));
         }
 
@@ -171,8 +170,7 @@ impl InfisicalClient {
             let status = response.status();
             if status == 404 {
                 return Err(LoxoneError::credentials(format!(
-                    "Secret '{}' not found in Infisical",
-                    secret_name
+                    "Secret '{secret_name}' not found in Infisical"
                 )));
             }
             let error_text = response
@@ -180,8 +178,7 @@ impl InfisicalClient {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LoxoneError::credentials(format!(
-                "Failed to get secret '{}': {} - {}",
-                secret_name, status, error_text
+                "Failed to get secret '{secret_name}': {status} - {error_text}"
             )));
         }
 
@@ -250,8 +247,7 @@ impl InfisicalClient {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LoxoneError::credentials(format!(
-                "Failed to set secret '{}': {} - {}",
-                secret_name, status, error_text
+                "Failed to set secret '{secret_name}': {status} - {error_text}"
             )));
         }
 
@@ -286,8 +282,7 @@ impl InfisicalClient {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LoxoneError::credentials(format!(
-                "Failed to delete secret '{}': {} - {}",
-                secret_name, status, error_text
+                "Failed to delete secret '{secret_name}': {status} - {error_text}"
             )));
         }
 
@@ -322,8 +317,7 @@ impl InfisicalClient {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LoxoneError::credentials(format!(
-                "Failed to list secrets: {} - {}",
-                status, error_text
+                "Failed to list secrets: {status} - {error_text}"
             )));
         }
 

@@ -928,7 +928,7 @@ impl From<tokio_tungstenite::tungstenite::Error> for LoxoneError {
 
 impl From<regex::Error> for LoxoneError {
     fn from(err: regex::Error) -> Self {
-        LoxoneError::InvalidInput(format!("Regex pattern error: {}", err))
+        LoxoneError::InvalidInput(format!("Regex pattern error: {err}"))
     }
 }
 

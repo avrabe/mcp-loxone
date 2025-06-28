@@ -493,17 +493,17 @@ impl ServerConfig {
         if let Ok(url) = env::var("LOXONE_URL") {
             config.loxone.url = url
                 .parse()
-                .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_URL: {}", e)))?;
+                .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_URL: {e}")))?;
         } else if let Ok(host) = env::var("LOXONE_HOST") {
             // Convert LOXONE_HOST to URL format (add http:// if missing)
             let url_str = if host.starts_with("http://") || host.starts_with("https://") {
                 host
             } else {
-                format!("http://{}", host)
+                format!("http://{host}")
             };
             config.loxone.url = url_str
                 .parse()
-                .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_HOST: {}", e)))?;
+                .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_HOST: {e}")))?;
         }
 
         if let Ok(username) = env::var("LOXONE_USERNAME") {
@@ -514,7 +514,7 @@ impl ServerConfig {
             config.loxone.timeout = Duration::from_secs(
                 timeout
                     .parse()
-                    .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_TIMEOUT: {}", e)))?,
+                    .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_TIMEOUT: {e}")))?,
             );
         }
 
@@ -525,8 +525,7 @@ impl ServerConfig {
                 "token" => AuthMethod::Token,
                 _ => {
                     return Err(LoxoneError::config(format!(
-                        "Invalid LOXONE_AUTH_METHOD: {}. Use 'basic' or 'token'",
-                        auth_method
+                        "Invalid LOXONE_AUTH_METHOD: {auth_method}. Use 'basic' or 'token'"
                     )));
                 }
             };
@@ -545,7 +544,7 @@ impl ServerConfig {
         if let Ok(port) = env::var("MCP_PORT") {
             config.mcp.transport.port = Some(
                 port.parse()
-                    .map_err(|e| LoxoneError::config(format!("Invalid MCP_PORT: {}", e)))?,
+                    .map_err(|e| LoxoneError::config(format!("Invalid MCP_PORT: {e}")))?,
             );
         }
 

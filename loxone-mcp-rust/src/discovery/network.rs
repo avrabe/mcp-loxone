@@ -153,7 +153,7 @@ impl NetworkDiscovery {
 
         for port in &ports_env {
             for message in &discovery_messages {
-                let broadcast_addr = format!("{}:{}", broadcast_base, port);
+                let broadcast_addr = format!("{broadcast_base}:{port}");
                 if let Ok(addr) = broadcast_addr.parse::<SocketAddr>() {
                     let _ = socket.send_to(message, addr);
                 }
@@ -216,7 +216,7 @@ impl NetworkDiscovery {
 
         // Check priority IPs first
         for &ip in &priority_ips {
-            let ip_addr = format!("{}.{}", network_prefix, ip);
+            let ip_addr = format!("{network_prefix}.{ip}");
             let task = check_loxone_http(&client, ip_addr);
             tasks.push(task);
         }
@@ -224,7 +224,7 @@ impl NetworkDiscovery {
         // Then scan broader range
         for ip in 3..255 {
             if !priority_ips.contains(&ip) {
-                let ip_addr = format!("{}.{}", network_prefix, ip);
+                let ip_addr = format!("{network_prefix}.{ip}");
                 let task = check_loxone_http(&client, ip_addr);
                 tasks.push(task);
             }
@@ -256,7 +256,7 @@ impl NetworkDiscovery {
             .timeout(Duration::from_secs(5))
             .build()?;
 
-        let url = format!("http://{}/data/LoxAPP3.json", host);
+        let url = format!("http://{host}/data/LoxAPP3.json");
         let response = client
             .get(&url)
             .basic_auth(username, Some(password))
@@ -305,7 +305,7 @@ async fn check_loxone_http(
     client: &reqwest::Client,
     ip: String,
 ) -> Result<Option<DiscoveredServer>> {
-    let url = format!("http://{}/", ip);
+    let url = format!("http://{ip}/");
 
     match client.get(&url).send().await {
         Ok(response) if response.status() == 401 || response.status().is_success() => {
@@ -315,7 +315,7 @@ async fn check_loxone_http(
 
             // Try to get version info without auth
             if let Ok(version_response) = client
-                .get(format!("http://{}/jdev/sys/getversion", ip))
+                .get(format!("http://{ip}/jdev/sys/getversion"))
                 .send()
                 .await
             {
@@ -333,11 +333,7 @@ async fn check_loxone_http(
             }
 
             // Try to get project name (might require auth)
-            if let Ok(cfg_response) = client
-                .get(format!("http://{}/jdev/cfg/api", ip))
-                .send()
-                .await
-            {
+            if let Ok(cfg_response) = client.get(format!("http://{ip}/jdev/cfg/api")).send().await {
                 if cfg_response.status().is_success() {
                     if let Ok(data) = cfg_response.json::<serde_json::Value>().await {
                         if let Some(project_name) = data
@@ -353,7 +349,7 @@ async fn check_loxone_http(
             }
 
             let display_name = if version != "Unknown" {
-                format!("{} (v{})", name, version)
+                format!("{name} (v{version})")
             } else {
                 name
             };
@@ -383,7 +379,7 @@ fn get_local_ip() -> Result<String> {
         .ok()
         .and_then(|p| p.parse().ok())
         .unwrap_or(80);
-    let connect_addr = format!("{}:{}", dns_server, dns_port);
+    let connect_addr = format!("{dns_server}:{dns_port}");
 
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
     socket.connect(&connect_addr.parse::<SocketAddr>().unwrap().into())?;

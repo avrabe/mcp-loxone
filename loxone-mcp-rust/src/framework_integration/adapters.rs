@@ -18,7 +18,7 @@ pub fn extract_string_param(params: &Option<Value>, name: &str) -> Result<String
         .and_then(|p| p.get(name))
         .and_then(|v| v.as_str())
         .map(|s| s.to_string())
-        .ok_or_else(|| LoxoneError::validation(format!("Missing required parameter: {}", name)))
+        .ok_or_else(|| LoxoneError::validation(format!("Missing required parameter: {name}")))
 }
 
 /// Helper to extract optional parameter from MCP request

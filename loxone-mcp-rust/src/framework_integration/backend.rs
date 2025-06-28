@@ -45,17 +45,17 @@ impl From<LoxoneError> for Error {
     fn from(val: LoxoneError) -> Self {
         match val {
             LoxoneError::Connection(msg) => {
-                Error::internal_error(format!("Connection error: {}", msg))
+                Error::internal_error(format!("Connection error: {msg}"))
             }
             LoxoneError::Authentication(msg) => {
-                Error::invalid_params(format!("Authentication error: {}", msg))
+                Error::invalid_params(format!("Authentication error: {msg}"))
             }
             LoxoneError::Config(msg) => {
-                Error::invalid_params(format!("Configuration error: {}", msg))
+                Error::invalid_params(format!("Configuration error: {msg}"))
             }
             LoxoneError::InvalidInput(msg) => Error::invalid_params(msg),
             LoxoneError::NotFound(msg) => Error::method_not_found(msg),
-            LoxoneError::Timeout(msg) => Error::internal_error(format!("Timeout: {}", msg)),
+            LoxoneError::Timeout(msg) => Error::internal_error(format!("Timeout: {msg}")),
             _ => Error::internal_error(val.to_string()),
         }
     }
@@ -722,7 +722,7 @@ impl McpBackend for LoxoneBackend {
                     vec![
                         PromptMessage::new_text(
                             PromptMessageRole::System,
-                            format!("You are an energy efficiency expert analyzing Loxone home automation data for the {} period.", period)
+                            format!("You are an energy efficiency expert analyzing Loxone home automation data for the {period} period.")
                         ),
                         PromptMessage::new_text(
                             PromptMessageRole::User,
@@ -749,7 +749,7 @@ impl McpBackend for LoxoneBackend {
                     vec![
                         PromptMessage::new_text(
                             PromptMessageRole::System,
-                            format!("You are a smart home assistant. {}", system_context)
+                            format!("You are a smart home assistant. {system_context}")
                         ),
                         PromptMessage::new_text(
                             PromptMessageRole::User,
