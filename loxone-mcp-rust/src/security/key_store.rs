@@ -308,10 +308,10 @@ impl KeyStore {
         let mut keys = self.keys.write().await;
 
         if keys.remove(key_id).is_none() {
-            return Err(LoxoneError::not_found(format!("Key {} not found", key_id)));
+            return Err(LoxoneError::not_found(format!("Key {key_id} not found")));
         }
 
-        info!("Removed API key: {}", key_id);
+        info!("Removed API key: {key_id}");
         drop(keys);
 
         self.save().await?;

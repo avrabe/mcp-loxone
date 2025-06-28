@@ -284,22 +284,19 @@ impl RateLimitConfig {
     fn validate_limits(&self, limits: &RateLimits, context: &str) -> Result<()> {
         if limits.requests_per_minute == 0 {
             return Err(LoxoneError::invalid_input(format!(
-                "Requests per minute cannot be 0 for {}",
-                context
+                "Requests per minute cannot be 0 for {context}"
             )));
         }
 
         if limits.burst_capacity == 0 {
             return Err(LoxoneError::invalid_input(format!(
-                "Burst capacity cannot be 0 for {}",
-                context
+                "Burst capacity cannot be 0 for {context}"
             )));
         }
 
         if limits.recovery_rate <= 0.0 {
             return Err(LoxoneError::invalid_input(format!(
-                "Recovery rate must be positive for {}",
-                context
+                "Recovery rate must be positive for {context}"
             )));
         }
 
@@ -307,8 +304,7 @@ impl RateLimitConfig {
         if let Some(per_hour) = limits.requests_per_hour {
             if per_hour < limits.requests_per_minute {
                 return Err(LoxoneError::invalid_input(format!(
-                    "Hourly limit cannot be less than per-minute limit for {}",
-                    context
+                    "Hourly limit cannot be less than per-minute limit for {context}"
                 )));
             }
         }
@@ -317,8 +313,7 @@ impl RateLimitConfig {
             if let Some(per_hour) = limits.requests_per_hour {
                 if per_day < per_hour {
                     return Err(LoxoneError::invalid_input(format!(
-                        "Daily limit cannot be less than hourly limit for {}",
-                        context
+                        "Daily limit cannot be less than hourly limit for {context}"
                     )));
                 }
             }

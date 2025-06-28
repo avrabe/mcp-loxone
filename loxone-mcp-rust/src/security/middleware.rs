@@ -108,7 +108,7 @@ impl SecurityMiddleware {
 
         // Get or create rate limit bucket
         let mut buckets = self.rate_limit_buckets.write().await;
-        let bucket_key = format!("{}:{}:{}", client_id, endpoint, method);
+        let bucket_key = format!("{client_id}:{endpoint}:{method}");
         let bucket = buckets
             .entry(bucket_key)
             .or_insert_with(|| RateLimitBucket::new(effective_limits.burst_capacity as f64));
@@ -125,7 +125,7 @@ impl SecurityMiddleware {
         }
 
         if let Some(api_key) = headers.get("x-api-key").and_then(|v| v.to_str().ok()) {
-            return format!("api:{}", api_key);
+            return format!("api:{api_key}");
         }
 
         if let Some(auth) = headers.get("authorization").and_then(|v| v.to_str().ok()) {
@@ -142,7 +142,7 @@ impl SecurityMiddleware {
         }
 
         if let Some(real_ip) = headers.get("x-real-ip").and_then(|v| v.to_str().ok()) {
-            return format!("ip:{}", real_ip);
+            return format!("ip:{real_ip}");
         }
 
         "unknown".to_string()
