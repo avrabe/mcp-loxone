@@ -451,7 +451,7 @@ fn human_readable_state(value: &serde_json::Value, sensor_type: Option<&SensorTy
                 "NO_MOTION".to_string()
             }
         }
-        _ => format!("{}", value),
+        _ => format!("{value}"),
     }
 }
 
@@ -675,7 +675,7 @@ pub async fn discover_new_sensors(
 
     let devices = match context.context.get_devices_by_category("sensors").await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get sensor devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get sensor devices: {e}")),
     };
 
     let mut discovered_sensors = Vec::new();
@@ -813,7 +813,7 @@ pub async fn list_discovered_sensors(
             )
         }
         (Some(stype), None) => {
-            format!("Found {} {} sensors", discovered_sensors.len(), stype)
+            format!("Found {} {stype} sensors", discovered_sensors.len())
         }
         (None, Some(room)) => {
             format!(
@@ -845,7 +845,7 @@ pub async fn get_sensor_details(
 
     // Check if it's a sensor
     if device.category != "sensors" {
-        return ToolResponse::error(format!("Device '{}' is not a sensor", sensor_id));
+        return ToolResponse::error(format!("Device '{sensor_id}' is not a sensor"));
     }
 
     let sensor_type = classify_sensor_type(&device);

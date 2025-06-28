@@ -106,21 +106,21 @@ pub fn format_sensor_value_display(value: &ToolValue) -> String {
         }
         Some(SensorType::Temperature { .. }) => {
             if let Some(num) = value.numeric_value {
-                format!("{:.1}°C", num)
+                format!("{num:.1}°C")
             } else {
                 value.display_value.clone()
             }
         }
         Some(SensorType::Humidity { .. }) => {
             if let Some(num) = value.numeric_value {
-                format!("{:.0}%", num)
+                format!("{num:.0}%")
             } else {
                 value.display_value.clone()
             }
         }
         Some(SensorType::Illuminance { .. }) => {
             if let Some(num) = value.numeric_value {
-                format!("{:.0} Lx", num)
+                format!("{num:.0} Lx")
             } else {
                 value.display_value.clone()
             }
@@ -141,7 +141,7 @@ pub fn create_sensor_json_from_resolved(
         "type": device.device_type,
         "category": device.category,
         "sensor_type": value.sensor_type.as_ref().map(|t| {
-            let type_str = format!("{:?}", t);
+            let type_str = format!("{t:?}");
             type_str.split('{').next().unwrap_or("Unknown").to_string()
         }),
         "value": value.numeric_value,
@@ -165,7 +165,7 @@ pub fn create_sensor_json(device: &LoxoneDevice, value: &ToolValue) -> Value {
         "type": device.device_type,
         "category": device.category,
         "sensor_type": value.sensor_type.as_ref().map(|t| {
-            let type_str = format!("{:?}", t);
+            let type_str = format!("{t:?}");
             type_str.split('{').next().unwrap_or("Unknown").to_string()
         }),
         "value": value.numeric_value,
@@ -184,7 +184,7 @@ fn fallback_parse_value(device: &LoxoneDevice, raw_state: Option<&Value>) -> Too
         if let Some(numeric) = extract_numeric_from_value(state) {
             return ToolValue {
                 numeric_value: Some(numeric),
-                display_value: format!("{:.1}", numeric),
+                display_value: format!("{numeric:.1}"),
                 unit: extract_unit_from_value(state),
                 sensor_type: None,
                 confidence: 0.5,
@@ -198,7 +198,7 @@ fn fallback_parse_value(device: &LoxoneDevice, raw_state: Option<&Value>) -> Too
         if let Some(numeric) = extract_numeric_from_value(value_state) {
             return ToolValue {
                 numeric_value: Some(numeric),
-                display_value: format!("{:.1}", numeric),
+                display_value: format!("{numeric:.1}"),
                 unit: device
                     .states
                     .get("unit")

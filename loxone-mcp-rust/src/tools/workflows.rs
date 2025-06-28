@@ -242,8 +242,7 @@ pub async fn execute_workflow_demo(
                 }))
             }
             _ => Err(LoxoneError::not_found(format!(
-                "Demo tool not found: {}",
-                tool_name
+                "Demo tool not found: {tool_name}"
             ))),
         }
     };

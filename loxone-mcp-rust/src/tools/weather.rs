@@ -234,7 +234,7 @@ pub async fn get_weather_forecast_daily(
 
     ToolResponse::success_with_message(
         response_data,
-        format!("{}-day weather forecast", forecast_days),
+        format!("{forecast_days}-day weather forecast"),
     )
 }
 
@@ -276,7 +276,7 @@ pub async fn get_weather_forecast_hourly(
 
     ToolResponse::success_with_message(
         response_data,
-        format!("{}-hour weather forecast", forecast_hours),
+        format!("{forecast_hours}-hour weather forecast"),
     )
 }
 
@@ -285,22 +285,22 @@ fn generate_weather_summary(weather: &WeatherData) -> String {
     let mut summary_parts = Vec::new();
 
     if let Some(temp) = weather.temperature {
-        summary_parts.push(format!("{:.1}°C", temp));
+        summary_parts.push(format!("{temp:.1}°C"));
     }
 
     if let Some(humidity) = weather.humidity {
-        summary_parts.push(format!("{:.0}% humidity", humidity));
+        summary_parts.push(format!("{humidity:.0}% humidity"));
     }
 
     if let Some(wind) = weather.wind_speed {
         if wind > 0.0 {
-            summary_parts.push(format!("{:.1} km/h wind", wind));
+            summary_parts.push(format!("{wind:.1} km/h wind"));
         }
     }
 
     if let Some(rain) = weather.precipitation {
         if rain > 0.0 {
-            summary_parts.push(format!("{:.1}mm rain", rain));
+            summary_parts.push(format!("{rain:.1}mm rain"));
         }
     }
 

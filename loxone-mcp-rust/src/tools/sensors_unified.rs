@@ -10,13 +10,13 @@ use serde_json::json;
 pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for temperature sensors
@@ -50,7 +50,7 @@ pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolRespon
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut sensor_data = Vec::new();
@@ -102,13 +102,13 @@ pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolRespon
 pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for energy meters and power sensors
@@ -157,7 +157,7 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
     // Batch resolve all meter values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve meter values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve meter values: {e}")),
     };
 
     let mut meter_data = Vec::new();
@@ -260,13 +260,13 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
 pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for door/window sensors
@@ -302,7 +302,7 @@ pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolRespon
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut sensors = Vec::new();
@@ -359,13 +359,13 @@ pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolRespon
 pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for motion sensors
@@ -409,7 +409,7 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut sensors = Vec::new();
@@ -475,13 +475,13 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
 pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for air quality sensors
@@ -532,7 +532,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut sensor_data = Vec::new();
@@ -706,13 +706,13 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
 pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for presence detectors
@@ -765,7 +765,7 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
     // Batch resolve all detector values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve detector values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve detector values: {e}")),
     };
 
     let mut detector_data = Vec::new();
@@ -901,13 +901,13 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
 pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for weather station sensors
@@ -971,7 +971,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut sensor_data = Vec::new();
@@ -1150,7 +1150,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
             .map(|w| if w > 10.0 { "Windy" } else { "Calm" })
             .unwrap_or("Unknown");
 
-        format!("{}, {}, {}", temp_status, rain_status, wind_status)
+        format!("{temp_status}, {rain_status}, {wind_status}")
     } else {
         "No Data".to_string()
     };
@@ -1176,13 +1176,13 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
 pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Get all devices using context helper
     let all_devices = match context.get_devices(None).await {
         Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(format!("Failed to get devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get devices: {e}")),
     };
 
     // Filter for potential sensor devices
@@ -1239,7 +1239,7 @@ pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve sensor values: {e}")),
     };
 
     let mut discovered_sensors = Vec::new();
@@ -1604,7 +1604,7 @@ fn generate_sensor_recommendations(
     if *unknown_count > 0 {
         recommendations.push(json!({
             "type": "improve_naming",
-            "message": format!("{} sensors could not be classified. Consider using descriptive names like 'Living Room Temperature' or 'Front Door Contact'.", unknown_count),
+            "message": format!("{unknown_count} sensors could not be classified. Consider using descriptive names like 'Living Room Temperature' or 'Front Door Contact'."),
             "priority": "medium"
         }));
     }
