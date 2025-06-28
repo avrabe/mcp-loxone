@@ -116,11 +116,11 @@ async fn main() -> Result<()> {
         select_credential_backend_interactive()?
     };
 
-    println!("\n💡 Selected Credential Backend: {:?}", selected_backend);
+    println!("\n💡 Selected Credential Backend: {selected_backend:?}");
 
     // Handle server discovery/host selection
     let host = if let Some(host) = args.host {
-        println!("📍 Using provided host: {}", host);
+        println!("📍 Using provided host: {host}");
         host
     } else if args.no_discovery {
         println!("🚫 Server discovery disabled");
@@ -200,7 +200,7 @@ async fn main() -> Result<()> {
                     }
                 }
                 Err(e) => {
-                    eprintln!("Warning: Discovery failed: {}", e);
+                    eprintln!("Warning: Discovery failed: {e}");
                     if args.non_interactive {
                         error!("❌ Error: --host required when discovery fails");
                         std::process::exit(1);
@@ -244,12 +244,12 @@ async fn main() -> Result<()> {
             .is_ok();
 
         if is_running {
-            println!("✅ Mock Server already running on {}", host);
+            println!("✅ Mock Server already running on {host}");
             None
         } else if !args.non_interactive {
             let use_mock = get_manual_input("Start Mock Server automatically? [Y/n]: ")?;
             if use_mock.to_lowercase() != "n" {
-                println!("🚀 Starting Mock Server on {}...", mock_host);
+                println!("🚀 Starting Mock Server on {mock_host}...");
 
                 // Start mock server in background
                 let child_result = Command::new("cargo")
@@ -334,10 +334,10 @@ async fn main() -> Result<()> {
         Ok(info) => {
             println!("\n✅ Successfully connected to Loxone Miniserver!");
             if let Some(name) = info.get("name") {
-                println!("   Miniserver: {}", name);
+                println!("   Miniserver: {name}");
             }
             if let Some(version) = info.get("version") {
-                println!("   Version: {}", version);
+                println!("   Version: {version}");
             }
         }
         Err(e) => {
@@ -358,9 +358,9 @@ async fn main() -> Result<()> {
     } else if args.non_interactive {
         // Auto-generate API key in non-interactive mode
         let generated_key = generate_api_key();
-        println!("🔑 Auto-generated SSE API key: {}", generated_key);
+        println!("🔑 Auto-generated SSE API key: {generated_key}");
         println!("📋 Use this for web integrations:");
-        println!("   Authorization: Bearer {}", generated_key);
+        println!("   Authorization: Bearer {generated_key}");
         Some(generated_key)
     } else {
         // Interactive SSE setup
@@ -383,11 +383,11 @@ async fn main() -> Result<()> {
         println!("────────────────────────────────");
         println!("\nCopy and run these commands to set up your environment:\n");
         println!("```bash");
-        println!("export LOXONE_USERNAME=\"{}\"", username);
-        println!("export LOXONE_PASSWORD=\"{}\"", password);
-        println!("export LOXONE_HOST=\"{}\"", host);
+        println!("export LOXONE_USERNAME=\"{username}\"");
+        println!("export LOXONE_PASSWORD=\"{password}\"");
+        println!("export LOXONE_HOST=\"{host}\"");
         if let Some(api_key) = &credentials.api_key {
-            println!("export LOXONE_API_KEY=\"{}\"", api_key);
+            println!("export LOXONE_API_KEY=\"{api_key}\"");
         }
         println!("```");
         println!("\n💡 To make these permanent, add them to your shell profile (~/.bashrc, ~/.zshrc, etc.)");
@@ -395,11 +395,11 @@ async fn main() -> Result<()> {
         println!("```bash");
         println!("# Save to file");
         println!("cat > loxone-env.sh << 'EOF'");
-        println!("export LOXONE_USERNAME=\"{}\"", username);
-        println!("export LOXONE_PASSWORD=\"{}\"", password);
-        println!("export LOXONE_HOST=\"{}\"", host);
+        println!("export LOXONE_USERNAME=\"{username}\"");
+        println!("export LOXONE_PASSWORD=\"{password}\"");
+        println!("export LOXONE_HOST=\"{host}\"");
         if let Some(api_key) = &credentials.api_key {
-            println!("export LOXONE_API_KEY=\"{}\"", api_key);
+            println!("export LOXONE_API_KEY=\"{api_key}\"");
         }
         println!("EOF");
         println!("\n# Then source it when needed");
@@ -415,12 +415,9 @@ async fn main() -> Result<()> {
         );
         credential_manager.store_credentials(&credentials).await?;
 
-        println!(
-            "\n✅ Credentials stored successfully in {:?}!",
-            selected_backend
-        );
-        println!("   Host: {}", host);
-        println!("   User: {}", username);
+        println!("\n✅ Credentials stored successfully in {selected_backend:?}!");
+        println!("   Host: {host}");
+        println!("   User: {username}");
         println!("   Pass: {}", "*".repeat(8));
         if credentials.api_key.is_some() {
             println!("   API Key: {}", "*".repeat(8));
@@ -507,10 +504,10 @@ fn setup_sse_api_key_interactive() -> Result<Option<String>> {
                 // Generate API key
                 let api_key = generate_api_key();
                 println!("\n🔑 Generated SSE API key!");
-                println!("   API Key: {}", api_key);
+                println!("   API Key: {api_key}");
                 println!("\n📋 Use this for web integrations:");
-                println!("   Authorization: Bearer {}", api_key);
-                println!("   OR X-API-Key: {}", api_key);
+                println!("   Authorization: Bearer {api_key}");
+                println!("   OR X-API-Key: {api_key}");
                 return Ok(Some(api_key));
             }
             "2" => {
@@ -528,7 +525,7 @@ fn setup_sse_api_key_interactive() -> Result<Option<String>> {
                     }
                 }
                 println!("\n✅ Custom API key accepted!");
-                println!("   API Key: {}", api_key);
+                println!("   API Key: {api_key}");
                 return Ok(Some(api_key));
             }
             "3" => {
@@ -548,7 +545,7 @@ fn setup_sse_api_key_interactive() -> Result<Option<String>> {
 
 /// Get manual input from user
 fn get_manual_input(prompt: &str) -> Result<String> {
-    print!("{}", prompt);
+    print!("{prompt}");
     io::stdout().flush()?;
     let mut input = String::new();
     io::stdin().read_line(&mut input)?;
@@ -853,19 +850,19 @@ fn show_environment_variables(
 
             if export_format {
                 println!("\n# Kopiere diese Befehle:");
-                println!("export LOXONE_USER=\"{}\"", username);
+                println!("export LOXONE_USER=\"{username}\"");
                 println!("export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("export LOXONE_HOST=\"{}\"", host);
+                println!("export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("export LOXONE_API_KEY=\"{}\"", api_key);
+                    println!("export LOXONE_API_KEY=\"{api_key}\"");
                 }
             } else {
                 println!("\n```bash");
-                println!("export LOXONE_USER=\"{}\"", username);
+                println!("export LOXONE_USER=\"{username}\"");
                 println!("export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("export LOXONE_HOST=\"{}\"", host);
+                println!("export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("export LOXONE_API_KEY=\"{}\"", api_key);
+                    println!("export LOXONE_API_KEY=\"{api_key}\"");
                 }
                 println!("```");
             }
@@ -882,24 +879,24 @@ fn show_environment_variables(
             if export_format {
                 println!("\n# Infisical Konfiguration:");
                 if let Ok(project_id) = std::env::var("INFISICAL_PROJECT_ID") {
-                    println!("export INFISICAL_PROJECT_ID=\"{}\"", project_id);
+                    println!("export INFISICAL_PROJECT_ID=\"{project_id}\"");
                 }
                 if let Ok(client_id) = std::env::var("INFISICAL_CLIENT_ID") {
-                    println!("export INFISICAL_CLIENT_ID=\"{}\"", client_id);
+                    println!("export INFISICAL_CLIENT_ID=\"{client_id}\"");
                 }
                 if let Ok(client_secret) = std::env::var("INFISICAL_CLIENT_SECRET") {
-                    println!("export INFISICAL_CLIENT_SECRET=\"{}\"", client_secret);
+                    println!("export INFISICAL_CLIENT_SECRET=\"{client_secret}\"");
                 }
                 if let Ok(environment) = std::env::var("INFISICAL_ENVIRONMENT") {
-                    println!("export INFISICAL_ENVIRONMENT=\"{}\"", environment);
+                    println!("export INFISICAL_ENVIRONMENT=\"{environment}\"");
                 } else {
                     println!("export INFISICAL_ENVIRONMENT=\"dev\"");
                 }
                 if is_custom_host {
-                    println!("export INFISICAL_HOST=\"{}\"", infisical_host);
+                    println!("export INFISICAL_HOST=\"{infisical_host}\"");
                 }
                 println!();
-                println!("# Infisical URL: {}", infisical_host);
+                println!("# Infisical URL: {infisical_host}");
                 if is_custom_host {
                     println!("# (Custom/Self-hosted Instanz)");
                 } else {
@@ -909,10 +906,10 @@ fn show_environment_variables(
                 println!("\n```bash");
                 println!("# Diese sollten bereits gesetzt sein:");
                 if let Ok(project_id) = std::env::var("INFISICAL_PROJECT_ID") {
-                    println!("export INFISICAL_PROJECT_ID=\"{}\"", project_id);
+                    println!("export INFISICAL_PROJECT_ID=\"{project_id}\"");
                 }
                 if let Ok(client_id) = std::env::var("INFISICAL_CLIENT_ID") {
-                    println!("export INFISICAL_CLIENT_ID=\"{}\"", client_id);
+                    println!("export INFISICAL_CLIENT_ID=\"{client_id}\"");
                 }
                 if let Ok(client_secret) = std::env::var("INFISICAL_CLIENT_SECRET") {
                     println!(
@@ -921,16 +918,16 @@ fn show_environment_variables(
                     );
                 }
                 if let Ok(environment) = std::env::var("INFISICAL_ENVIRONMENT") {
-                    println!("export INFISICAL_ENVIRONMENT=\"{}\"", environment);
+                    println!("export INFISICAL_ENVIRONMENT=\"{environment}\"");
                 } else {
                     println!("export INFISICAL_ENVIRONMENT=\"dev\"");
                 }
                 if is_custom_host {
-                    println!("export INFISICAL_HOST=\"{}\"", infisical_host);
+                    println!("export INFISICAL_HOST=\"{infisical_host}\"");
                 }
                 println!("```");
                 println!();
-                println!("🌐 Infisical URL: {}", infisical_host);
+                println!("🌐 Infisical URL: {infisical_host}");
                 if is_custom_host {
                     println!("   (Custom/Self-hosted Instanz)");
                 } else {
@@ -952,7 +949,7 @@ fn show_environment_variables(
             );
             if export_format {
                 println!("\n# Optional (overrides Keychain):");
-                println!("# export LOXONE_USER=\"{}\"", username);
+                println!("# export LOXONE_USER=\"{username}\"");
                 println!("# export LOXONE_PASS=\"{}\"", credentials.password);
                 println!("# export LOXONE_HOST=\"{}\"", host);
                 if let Some(ref api_key) = credentials.api_key {
@@ -961,7 +958,7 @@ fn show_environment_variables(
             } else {
                 println!("\n```bash");
                 println!("# Optional (überschreibt Keychain):");
-                println!("# export LOXONE_USER=\"{}\"", username);
+                println!("# export LOXONE_USER=\"{username}\"");
                 println!("# export LOXONE_PASS=\"{}\"", credentials.password);
                 println!("# export LOXONE_HOST=\"{}\"", host);
                 if let Some(ref api_key) = credentials.api_key {

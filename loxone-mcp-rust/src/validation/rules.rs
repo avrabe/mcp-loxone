@@ -193,15 +193,15 @@ impl ValidationRule for AuthorizationRule {
                     method, required_auth, auth_level
                 ),
                 code: ValidationErrorCode::SecurityViolation,
-                expected: Some(format!("{:?} authentication", required_auth)),
-                actual: Some(format!("{:?} authentication", auth_level)),
+                expected: Some(format!("{required_auth:?} authentication")),
+                actual: Some(format!("{auth_level:?} authentication")),
                 suggestion: Some("Authenticate with higher privileges".to_string()),
             }]));
         }
 
         Ok(ValidationResult::success()
-            .with_metadata("auth_level", format!("{:?}", auth_level))
-            .with_metadata("required_auth", format!("{:?}", required_auth))
+            .with_metadata("auth_level", format!("{auth_level:?}"))
+            .with_metadata("required_auth", format!("{required_auth:?}"))
             .with_metadata("method", method))
     }
 
@@ -355,7 +355,7 @@ impl ValidationRule for ResourceAccessRule {
                             message: format!("Access denied to resource: {}", uri),
                             code: ValidationErrorCode::SecurityViolation,
                             expected: Some("Sufficient privileges for resource".to_string()),
-                            actual: Some(format!("{:?} authentication", auth_level)),
+                            actual: Some(format!("{auth_level:?} authentication")),
                             suggestion: Some(
                                 "Request access or authenticate with higher privileges".to_string(),
                             ),
