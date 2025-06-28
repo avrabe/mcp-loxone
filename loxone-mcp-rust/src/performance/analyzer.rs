@@ -826,7 +826,7 @@ impl PerformanceAnalyzer {
                 issues.push(crate::performance::PerformanceIssue {
                     severity: crate::performance::PerformanceIssueSeverity::Critical,
                     issue_type: crate::performance::PerformanceIssueType::HighLatency,
-                    description: format!("Critical response time: {:?}", duration),
+                    description: format!("Critical response time: {duration:?}"),
                     recommendation: Some("Immediate investigation required".to_string()),
                     metric_value: Some(duration.as_millis() as f64),
                     threshold: Some(
@@ -841,7 +841,7 @@ impl PerformanceAnalyzer {
                 issues.push(crate::performance::PerformanceIssue {
                     severity: crate::performance::PerformanceIssueSeverity::Warning,
                     issue_type: crate::performance::PerformanceIssueType::HighLatency,
-                    description: format!("High response time: {:?}", duration),
+                    description: format!("High response time: {duration:?}"),
                     recommendation: Some("Monitor closely and optimize if persistent".to_string()),
                     metric_value: Some(duration.as_millis() as f64),
                     threshold: Some(
@@ -867,7 +867,7 @@ impl PerformanceAnalyzer {
                 issues.push(crate::performance::PerformanceIssue {
                     severity: crate::performance::PerformanceIssueSeverity::Critical,
                     issue_type: crate::performance::PerformanceIssueType::HighCpuUsage,
-                    description: format!("Critical CPU usage: {:.1}%", cpu),
+                    description: format!("Critical CPU usage: {cpu:.1}%"),
                     recommendation: Some(
                         "Scale resources or optimize CPU-intensive operations".to_string(),
                     ),
@@ -893,7 +893,7 @@ impl PerformanceAnalyzer {
                 issues.push(crate::performance::PerformanceIssue {
                     severity: crate::performance::PerformanceIssueSeverity::Critical,
                     issue_type: crate::performance::PerformanceIssueType::HighMemoryUsage,
-                    description: format!("Critical memory usage: {} bytes", memory),
+                    description: format!("Critical memory usage: {memory} bytes"),
                     recommendation: Some(
                         "Investigate memory leaks or scale memory resources".to_string(),
                     ),

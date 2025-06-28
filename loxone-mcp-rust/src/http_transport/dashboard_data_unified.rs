@@ -450,7 +450,7 @@ fn build_device_json(
                                     (
                                         "On".to_string(),
                                         "green".to_string(),
-                                        format!("On ({}%)", brightness),
+                                        format!("On ({brightness}%)"),
                                         numeric,
                                     )
                                 } else {
@@ -477,7 +477,7 @@ fn build_device_json(
                                     (
                                         "Closed".to_string(),
                                         "blue".to_string(),
-                                        format!("{}%", position),
+                                        format!("{position}%"),
                                         numeric,
                                     )
                                 } else {
@@ -720,7 +720,7 @@ fn build_device_json(
         "device_type": device.device_type,
         "type": device.device_type,
         "sensor_type": resolved.and_then(|r| r.sensor_type.as_ref()).map(|t| {
-            let type_str = format!("{:?}", t);
+            let type_str = format!("{t:?}");
             type_str.split('{').next().unwrap_or("Unknown").to_string()
         }),
         "room": device.room,

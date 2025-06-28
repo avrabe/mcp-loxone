@@ -17,7 +17,7 @@ pub async fn control_lights_unified(
 ) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // Validate action using ActionAliases for multi-language support
@@ -28,8 +28,7 @@ pub async fn control_lights_unified(
         "bright" | "hell" => "bright",
         _ => {
             return ToolResponse::error(format!(
-                "Invalid action '{}'. Supported actions: on, off, dim, bright",
-                action
+                "Invalid action '{action}'. Supported actions: on, off, dim, bright"
             ));
         }
     };
@@ -55,7 +54,7 @@ pub async fn control_lights_unified(
             match get_lighting_device_by_id(&context, device_id).await {
                 Ok(devices) => devices,
                 Err(e) => {
-                    return ToolResponse::error(format!("Failed to get lighting device: {}", e))
+                    return ToolResponse::error(format!("Failed to get lighting device: {e}"))
                 }
             }
         }
@@ -67,17 +66,14 @@ pub async fn control_lights_unified(
             match get_room_lighting_devices(&context, room_name).await {
                 Ok(devices) => devices,
                 Err(e) => {
-                    return ToolResponse::error(format!(
-                        "Failed to get room lighting devices: {}",
-                        e
-                    ))
+                    return ToolResponse::error(format!("Failed to get room lighting devices: {e}"))
                 }
             }
         }
         "system" | "all" => match get_all_lighting_devices(&context).await {
             Ok(devices) => devices,
             Err(e) => {
-                return ToolResponse::error(format!("Failed to get all lighting devices: {}", e))
+                return ToolResponse::error(format!("Failed to get all lighting devices: {e}"))
             }
         },
         _ => {
@@ -299,7 +295,7 @@ async fn execute_lighting_commands(
 pub async fn discover_lighting_capabilities(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     let lighting_devices = match get_all_lighting_devices(&context).await {
@@ -370,7 +366,7 @@ pub async fn discover_lighting_capabilities(context: ToolContext) -> ToolRespons
 pub async fn get_lighting_scenes(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
-        return ToolResponse::error(format!("Connection error: {}", e));
+        return ToolResponse::error(format!("Connection error: {e}"));
     }
 
     // This is a placeholder for scene functionality

@@ -203,8 +203,7 @@ impl InfluxManager {
                 Err(e) => {
                     error!("Failed to ensure bucket: {}", e);
                     return Err(LoxoneError::connection(format!(
-                        "InfluxDB bucket setup failed: {}",
-                        e
+                        "InfluxDB bucket setup failed: {e}"
                     )));
                 }
             }
@@ -231,7 +230,7 @@ impl InfluxManager {
         let test_point = DataPoint::builder("test")
             .field("value", 1)
             .build()
-            .map_err(|e| LoxoneError::config(format!("Failed to build test point: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to build test point: {e}")))?;
 
         match client
             .write(&config.bucket, stream::once(async { test_point }))
@@ -297,7 +296,8 @@ impl InfluxManager {
 
     /// Write sensor data
     pub async fn write_sensor_data(&self, data: LoxoneSensorData) -> Result<()> {
-        let mut point = DataPoint::builder(format!("sensor_{}", data.sensor_type))
+        let sensor_name = &data.sensor_type;
+        let mut point = DataPoint::builder(format!("sensor_{sensor_name}"))
             .tag("uuid", data.uuid)
             .tag("name", data.name)
             .tag("type", data.sensor_type)
@@ -311,9 +311,7 @@ impl InfluxManager {
         let point = point
             .timestamp(data.timestamp.timestamp_millis())
             .build()
-            .map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to build data point: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Failed to build data point: {e}")))?;
 
         self.buffer.write().await.add_point(point);
         Ok(())
@@ -338,9 +336,7 @@ impl InfluxManager {
         let point = point
             .timestamp(data.timestamp.timestamp_millis())
             .build()
-            .map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to build data point: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Failed to build data point: {e}")))?;
 
         self.buffer.write().await.add_point(point);
         Ok(())
@@ -357,9 +353,7 @@ impl InfluxManager {
             .field("memory_usage_mb", metrics.memory_usage_mb)
             .timestamp(metrics.timestamp.timestamp_millis())
             .build()
-            .map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to build data point: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Failed to build data point: {e}")))?;
 
         self.buffer.write().await.add_point(point);
         Ok(())
@@ -375,9 +369,7 @@ impl InfluxManager {
             .field("active_api_keys", metrics.active_api_keys as i64)
             .timestamp(metrics.timestamp.timestamp_millis())
             .build()
-            .map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to build data point: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Failed to build data point: {e}")))?;
 
         self.buffer.write().await.add_point(point);
         Ok(())
@@ -392,9 +384,7 @@ impl InfluxManager {
             .field("penalized_clients", metrics.penalized_clients as i64)
             .timestamp(metrics.timestamp.timestamp_millis())
             .build()
-            .map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to build data point: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Failed to build data point: {e}")))?;
 
         self.buffer.write().await.add_point(point);
         Ok(())
@@ -413,7 +403,7 @@ impl InfluxManager {
                     TimestampPrecision::Milliseconds,
                 )
                 .await
-                .map_err(|e| LoxoneError::invalid_input(format!("InfluxDB write failed: {}", e)))?;
+                .map_err(|e| LoxoneError::invalid_input(format!("InfluxDB write failed: {e}")))?;
         }
 
         Ok(())

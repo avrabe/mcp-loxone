@@ -167,7 +167,7 @@ pub async fn create_key(
         Err(e) => {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to create key: {}", e),
+                format!("Failed to create key: {e}"),
             )
                 .into_response();
         }
@@ -179,7 +179,7 @@ pub async fn create_key(
         if let Err(e) = auth_manager.update_key(key.clone()).await {
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                format!("Failed to update key: {}", e),
+                format!("Failed to update key: {e}"),
             )
                 .into_response();
         }
@@ -232,7 +232,7 @@ pub async fn update_key(
             if let Err(e) = auth_manager.update_key(key.clone()).await {
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
-                    format!("Failed to update key: {}", e),
+                    format!("Failed to update key: {e}"),
                 )
                     .into_response();
             }
@@ -268,7 +268,7 @@ pub async fn delete_key(
         }
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to delete key: {}", e),
+            format!("Failed to delete key: {e}"),
         )
             .into_response(),
     }
@@ -301,7 +301,7 @@ pub async fn get_audit_events(
         .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            format!("Failed to get audit events: {}", e),
+            format!("Failed to get audit events: {e}"),
         )
             .into_response(),
     }

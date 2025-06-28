@@ -574,7 +574,7 @@ impl PerformanceProfiler {
                 bottlenecks.push(Bottleneck {
                     bottleneck_type: BottleneckType::HighLatency,
                     severity: self.get_latency_severity(duration),
-                    description: format!("High latency detected: {:?}", duration),
+                    description: format!("High latency detected: {duration:?}"),
                     location: context.operation_type.clone(),
                     trigger_value: duration.as_millis() as f64,
                     threshold: self

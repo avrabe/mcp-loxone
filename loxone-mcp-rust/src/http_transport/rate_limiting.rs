@@ -292,7 +292,7 @@ impl EnhancedRateLimiter {
             .tier_counts
             .entry(tier)
             .or_insert_with(RequestWindow::new);
-        self.check_window_limit(window, config, load_factor, format!("{:?}", tier))
+        self.check_window_limit(window, config, load_factor, format!("{tier:?}"))
             .await
     }
 
@@ -417,10 +417,7 @@ impl EnhancedRateLimiter {
         let penalty = PenaltyInfo {
             start_time: Instant::now(),
             duration: penalty_duration,
-            reason: format!(
-                "Rate limit violation on {} (violation #{})",
-                method, violation_count
-            ),
+            reason: format!("Rate limit violation on {method} (violation #{violation_count})"),
             violation_count,
         };
 
@@ -492,20 +489,22 @@ impl EnhancedRateLimiter {
         if let Some(api_key) = headers.get("authorization") {
             if let Ok(auth_str) = api_key.to_str() {
                 if let Some(stripped) = auth_str.strip_prefix("Bearer ") {
-                    return format!("api_key_{}", &stripped.chars().take(8).collect::<String>());
+                    let prefix: String = stripped.chars().take(8).collect();
+                    return format!("api_key_{prefix}");
                 }
             }
         }
 
         if let Some(forwarded_for) = headers.get("x-forwarded-for") {
             if let Ok(ip) = forwarded_for.to_str() {
-                return format!("ip_{}", ip.split(',').next().unwrap_or(ip).trim());
+                let clean_ip = ip.split(',').next().unwrap_or(ip).trim();
+                return format!("ip_{clean_ip}");
             }
         }
 
         if let Some(real_ip) = headers.get("x-real-ip") {
             if let Ok(ip) = real_ip.to_str() {
-                return format!("ip_{}", ip);
+                return format!("ip_{ip}");
             }
         }
 

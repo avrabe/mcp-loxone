@@ -113,11 +113,11 @@ impl PerformanceMiddleware {
 
         // Add performance metrics if available
         if let Some(cpu) = measurement.resource_usage.cpu_usage {
-            headers.insert("X-CPU-Usage", format!("{:.1}", cpu).parse().unwrap());
+            headers.insert("X-CPU-Usage", format!("{cpu:.1}").parse().unwrap());
         }
 
         if let Some(memory) = measurement.resource_usage.memory_usage {
-            headers.insert("X-Memory-Usage", format!("{}", memory).parse().unwrap());
+            headers.insert("X-Memory-Usage", format!("{memory}").parse().unwrap());
         }
 
         // Add performance score if issues detected

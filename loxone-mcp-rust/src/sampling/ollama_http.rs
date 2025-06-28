@@ -87,7 +87,7 @@ impl OllamaHttpClient {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(120)) // 2 minutes timeout for LLM responses
             .build()
-            .map_err(|e| LoxoneError::connection(format!("Failed to create HTTP client: {}", e)))?;
+            .map_err(|e| LoxoneError::connection(format!("Failed to create HTTP client: {e}")))?;
 
         Ok(Self {
             base_url,
@@ -129,19 +129,19 @@ impl OllamaHttpClient {
             .get(&url)
             .send()
             .await
-            .map_err(|e| LoxoneError::connection(format!("Failed to list models: {}", e)))?;
+            .map_err(|e| LoxoneError::connection(format!("Failed to list models: {e}")))?;
 
         if !response.status().is_success() {
+            let status = response.status();
             return Err(LoxoneError::connection(format!(
-                "Failed to list models: HTTP {}",
-                response.status()
+                "Failed to list models: HTTP {status}"
             )));
         }
 
         let models_response: OllamaModelsResponse = response
             .json()
             .await
-            .map_err(|e| LoxoneError::config(format!("Failed to parse models response: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to parse models response: {e}")))?;
 
         Ok(models_response.models.into_iter().map(|m| m.name).collect())
     }
@@ -183,9 +183,7 @@ impl OllamaHttpClient {
             .json(&ollama_request)
             .send()
             .await
-            .map_err(|e| {
-                LoxoneError::connection(format!("Failed to send Ollama request: {}", e))
-            })?;
+            .map_err(|e| LoxoneError::connection(format!("Failed to send Ollama request: {e}")))?;
 
         if !response.status().is_success() {
             let status = response.status();
@@ -194,15 +192,14 @@ impl OllamaHttpClient {
                 .await
                 .unwrap_or_else(|_| "Unknown error".to_string());
             return Err(LoxoneError::connection(format!(
-                "Ollama request failed: HTTP {} - {}",
-                status, error_text
+                "Ollama request failed: HTTP {status} - {error_text}"
             )));
         }
 
         let ollama_response: OllamaGenerateResponse = response
             .json()
             .await
-            .map_err(|e| LoxoneError::config(format!("Failed to parse Ollama response: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to parse Ollama response: {e}")))?;
 
         info!(
             "✅ Received Ollama response ({}ms total, {} tokens)",
@@ -236,7 +233,7 @@ impl OllamaHttpClient {
             };
 
             if let Some(text) = &message.content.text {
-                parts.push(format!("{}: {}", role_prefix, text));
+                parts.push(format!("{role_prefix}: {text}"));
             }
         }
 

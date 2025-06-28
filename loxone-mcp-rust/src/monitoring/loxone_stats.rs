@@ -865,21 +865,21 @@ fn human_readable_state(value: &serde_json::Value, sensor_type: Option<&SensorTy
         }
         Some(SensorType::Temperature) => {
             if let Some(temp) = value.as_f64() {
-                format!("{:.1}°C", temp)
+                format!("{temp:.1}°C")
             } else {
                 "Unknown".to_string()
             }
         }
         Some(SensorType::Analog) => {
             if let Some(val) = value.as_f64() {
-                format!("{:.1}", val)
+                format!("{val:.1}")
             } else {
                 "Unknown".to_string()
             }
         }
         Some(SensorType::Light) => {
             if let Some(lux) = value.as_f64() {
-                format!("{:.0} lux", lux)
+                format!("{lux:.0} lux")
             } else {
                 "Unknown".to_string()
             }

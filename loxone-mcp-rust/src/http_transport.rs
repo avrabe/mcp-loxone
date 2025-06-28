@@ -118,10 +118,9 @@ impl SseConnectionManager {
         match self.notification_sender.send(event) {
             Ok(_) => Ok(()),
             Err(e) => {
-                warn!("Failed to send SSE notification: {}", e);
+                warn!("Failed to send SSE notification: {e}");
                 Err(LoxoneError::connection(format!(
-                    "SSE notification failed: {}",
-                    e
+                    "SSE notification failed: {e}"
                 )))
             }
         }
@@ -156,18 +155,16 @@ impl SseConnectionManager {
             match sender.send(response) {
                 Ok(_) => Ok(()),
                 Err(e) => {
-                    warn!("Failed to send session response for {}: {}", session_id, e);
+                    warn!("Failed to send session response for {session_id}: {e}");
                     Err(LoxoneError::connection(format!(
-                        "Session response failed: {}",
-                        e
+                        "Session response failed: {e}"
                     )))
                 }
             }
         } else {
-            warn!("Session {} not found for response routing", session_id);
+            warn!("Session {session_id} not found for response routing");
             Err(LoxoneError::connection(format!(
-                "Session {} not found",
-                session_id
+                "Session {session_id} not found"
             )))
         }
     }
@@ -439,7 +436,7 @@ impl HttpTransportServer {
 
         axum::serve(listener, app)
             .await
-            .map_err(|e| LoxoneError::connection(format!("HTTP server error: {}", e)))?;
+            .map_err(|e| LoxoneError::connection(format!("HTTP server error: {e}")))?;
 
         Ok(())
     }
@@ -866,7 +863,7 @@ async fn create_mcp_sse_stream(
     // For SSE transport, send endpoint with session_id for bidirectional communication
     let endpoint_event = Event::default()
         .event("endpoint")
-        .data(format!("/message?session_id={}", client_id_owned));
+        .data(format!("/message?session_id={client_id_owned}"));
 
     // Create notification stream from SSE manager
     let notification_receiver = sse_manager.create_receiver();

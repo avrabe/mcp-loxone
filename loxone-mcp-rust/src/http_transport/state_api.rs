@@ -228,8 +228,7 @@ pub async fn device_state_stream(
 ) -> Result<String, String> {
     if server.get_state_manager().is_some() {
         Ok(format!(
-            "Device state streaming for {} not yet implemented - use polling endpoint",
-            device_uuid
+            "Device state streaming for {device_uuid} not yet implemented - use polling endpoint"
         ))
     } else {
         Err("State manager not available".to_string())
@@ -243,8 +242,7 @@ pub async fn room_state_stream(
 ) -> Result<String, String> {
     if server.get_state_manager().is_some() {
         Ok(format!(
-            "Room state streaming for {} not yet implemented - use polling endpoint",
-            room_name
+            "Room state streaming for {room_name} not yet implemented - use polling endpoint"
         ))
     } else {
         Err("State manager not available".to_string())

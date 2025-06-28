@@ -127,8 +127,7 @@ async fn api_sensor_history(
                 return Json(data).into_response();
             }
             Err(e) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e))
-                    .into_response();
+                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {e}")).into_response();
             }
         }
     }
@@ -180,8 +179,7 @@ async fn api_historical_metrics(
         match query_historical_metrics(influx, start_time, end_time).await {
             Ok(data) => return Json(data).into_response(),
             Err(e) => {
-                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {}", e))
-                    .into_response();
+                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Error: {e}")).into_response();
             }
         }
     }

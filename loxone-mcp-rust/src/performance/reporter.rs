@@ -916,7 +916,7 @@ impl PerformanceReporter {
                     id: uuid::Uuid::new_v4().to_string(),
                     alert_type: AlertType::CpuUsage,
                     severity: AlertSeverity::Critical,
-                    message: format!("High CPU usage: {:.1}%", cpu),
+                    message: format!("High CPU usage: {cpu:.1}%"),
                     metric_value: cpu,
                     threshold: self.config.alerting.thresholds.cpu_usage_percent,
                     triggered_at: SystemTime::now()

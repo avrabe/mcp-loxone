@@ -344,7 +344,7 @@ impl CommandExtractor {
                 if text.to_lowercase().contains('f') || text.to_lowercase().contains("fahrenheit") {
                     if let Ok(f) = temp_str.parse::<f32>() {
                         let c = (f - 32.0) * 5.0 / 9.0;
-                        return Some(format!("{:.1}", c));
+                        return Some(format!("{c:.1}"));
                     }
                 }
 

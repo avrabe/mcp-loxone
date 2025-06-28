@@ -317,15 +317,15 @@ impl AutomationSamplingBuilder {
     ) -> Result<SamplingRequest> {
         let context_text = self.build_context_text()?;
 
-        let mut event_description = format!("I'm preparing for a {}", event_type);
+        let mut event_description = format!("I'm preparing for a {event_type}");
         if let Some(room) = room {
-            event_description.push_str(&format!(" in the {}", room));
+            event_description.push_str(&format!(" in the {room}"));
         }
         if let Some(duration) = duration {
-            event_description.push_str(&format!(" lasting {}", duration));
+            event_description.push_str(&format!(" lasting {duration}"));
         }
         if let Some(guest_count) = guest_count {
-            event_description.push_str(&format!(" with {} guests", guest_count));
+            event_description.push_str(&format!(" with {guest_count} guests"));
         }
 
         let user_message = SamplingMessage::user(format!(

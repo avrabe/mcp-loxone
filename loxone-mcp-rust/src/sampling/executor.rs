@@ -239,7 +239,7 @@ impl CommandExecutor {
                 return ExecutionResult {
                     command,
                     success: false,
-                    message: format!("Failed to resolve device: {}", e),
+                    message: format!("Failed to resolve device: {e}"),
                     device_uuid: None,
                     execution_time_ms: start_time.elapsed().as_millis() as u64,
                     required_approval: false,
@@ -457,10 +457,7 @@ impl CommandExecutor {
         // self.loxone_client.send_command(device_uuid, command).await?;
 
         info!("Light {} turned {}", device_uuid, action);
-        Ok(format!(
-            "Light {} successfully turned {}",
-            device_uuid, action
-        ))
+        Ok(format!("Light {device_uuid} successfully turned {action}"))
     }
 
     /// Execute blind control command
@@ -483,10 +480,7 @@ impl CommandExecutor {
         // self.loxone_client.send_command(device_uuid, command).await?;
 
         info!("Blind {} moved {}", device_uuid, action);
-        Ok(format!(
-            "Blind {} successfully moved {}",
-            device_uuid, action
-        ))
+        Ok(format!("Blind {device_uuid} successfully moved {action}"))
     }
 
     /// Execute climate control command
@@ -521,8 +515,7 @@ impl CommandExecutor {
 
         info!("Temperature set to {}°C on {}", temperature, device_uuid);
         Ok(format!(
-            "Temperature successfully set to {}°C on {}",
-            temperature, device_uuid
+            "Temperature successfully set to {temperature}°C on {device_uuid}"
         ))
     }
 
@@ -541,15 +534,15 @@ impl CommandExecutor {
         match action {
             "play" => {
                 // In real implementation: self.loxone_client.audio_play(device_uuid).await?;
-                Ok(format!("Audio playback started on {}", device_uuid))
+                Ok(format!("Audio playback started on {device_uuid}"))
             }
             "stop" => {
                 // In real implementation: self.loxone_client.audio_stop(device_uuid).await?;
-                Ok(format!("Audio playback stopped on {}", device_uuid))
+                Ok(format!("Audio playback stopped on {device_uuid}"))
             }
             "pause" => {
                 // In real implementation: self.loxone_client.audio_pause(device_uuid).await?;
-                Ok(format!("Audio playback paused on {}", device_uuid))
+                Ok(format!("Audio playback paused on {device_uuid}"))
             }
             "volume" => {
                 let volume = value
@@ -569,7 +562,7 @@ impl CommandExecutor {
                 }
 
                 // In real implementation: self.loxone_client.set_volume(device_uuid, volume).await?;
-                Ok(format!("Volume set to {}% on {}", volume, device_uuid))
+                Ok(format!("Volume set to {volume}% on {device_uuid}"))
             }
             _ => Err(LoxoneError::Generic(anyhow::anyhow!(
                 "Invalid audio action: {}",
@@ -589,7 +582,8 @@ impl CommandExecutor {
 
             // Also cache variations
             if let Some(ref room) = device.room {
-                let room_device_name = format!("{} {}", room, device.device_type);
+                let device_type = &device.device_type;
+                let room_device_name = format!("{room} {device_type}");
                 cache.insert(room_device_name, uuid.clone());
             }
         }

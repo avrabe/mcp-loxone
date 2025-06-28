@@ -461,14 +461,14 @@ impl ConsentManager {
     /// Get operation key for caching and comparison
     pub fn get_operation_key(&self, operation: &OperationType) -> String {
         match operation {
-            OperationType::DeviceControl { command, .. } => format!("device_control:{}", command),
+            OperationType::DeviceControl { command, .. } => format!("device_control:{command}"),
             OperationType::BulkDeviceControl { operation_type, .. } => {
-                format!("bulk_control:{}", operation_type)
+                format!("bulk_control:{operation_type}")
             }
-            OperationType::SecurityControl { action, .. } => format!("security:{}", action),
-            OperationType::SystemConfiguration { setting, .. } => format!("config:{}", setting),
-            OperationType::DataExport { data_type, .. } => format!("export:{}", data_type),
-            OperationType::ConnectionManagement { action, .. } => format!("connection:{}", action),
+            OperationType::SecurityControl { action, .. } => format!("security:{action}"),
+            OperationType::SystemConfiguration { setting, .. } => format!("config:{setting}"),
+            OperationType::DataExport { data_type, .. } => format!("export:{data_type}"),
+            OperationType::ConnectionManagement { action, .. } => format!("connection:{action}"),
         }
     }
 
@@ -534,8 +534,8 @@ impl ConsentManager {
                 command,
                 ..
             } => {
-                let description = format!("Control device: {}", device_name);
-                let details = format!("Execute command '{}' on device '{}'", command, device_name);
+                let description = format!("Control device: {device_name}");
+                let details = format!("Execute command '{command}' on device '{device_name}'");
                 let risks = vec![
                     "Device state will change".to_string(),
                     "May affect comfort or convenience".to_string(),
@@ -549,22 +549,19 @@ impl ConsentManager {
                 operation_type,
             } => {
                 let room_str = room_name.as_deref().unwrap_or("multiple rooms");
-                let description = format!("Bulk control: {} devices in {}", device_count, room_str);
-                let details = format!("Execute '{}' on {} devices", operation_type, device_count);
+                let description = format!("Bulk control: {device_count} devices in {room_str}");
+                let details = format!("Execute '{operation_type}' on {device_count} devices");
                 let risks = vec![
                     "Multiple devices will change state".to_string(),
                     "May significantly affect environment".to_string(),
                     "Difficult to undo quickly".to_string(),
                 ];
-                let impact = format!("{} devices affected", device_count);
+                let impact = format!("{device_count} devices affected");
                 (description, details, risks, impact)
             }
             OperationType::SecurityControl { action, scope } => {
-                let description = format!("Security operation: {}", action);
-                let details = format!(
-                    "Execute security action '{}' with scope '{}'",
-                    action, scope
-                );
+                let description = format!("Security operation: {action}");
+                let details = format!("Execute security action '{action}' with scope '{scope}'");
                 let risks = vec![
                     "Security settings will change".to_string(),
                     "May affect safety and security".to_string(),
@@ -576,8 +573,8 @@ impl ConsentManager {
             OperationType::SystemConfiguration {
                 setting, new_value, ..
             } => {
-                let description = format!("System configuration: {}", setting);
-                let details = format!("Change setting '{}' to '{}'", setting, new_value);
+                let description = format!("System configuration: {setting}");
+                let details = format!("Change setting '{setting}' to '{new_value}'");
                 let risks = vec![
                     "System behavior will change".to_string(),
                     "May affect all connected devices".to_string(),
@@ -586,8 +583,8 @@ impl ConsentManager {
                 (description, details, risks, impact)
             }
             OperationType::DataExport { data_type, scope } => {
-                let description = format!("Data export: {}", data_type);
-                let details = format!("Export {} data with scope '{}'", data_type, scope);
+                let description = format!("Data export: {data_type}");
+                let details = format!("Export {data_type} data with scope '{scope}'");
                 let risks = vec![
                     "Sensitive data will be exported".to_string(),
                     "Privacy implications".to_string(),
@@ -596,8 +593,8 @@ impl ConsentManager {
                 (description, details, risks, impact)
             }
             OperationType::ConnectionManagement { action, target } => {
-                let description = format!("Connection: {}", action);
-                let details = format!("Execute '{}' on connection to '{}'", action, target);
+                let description = format!("Connection: {action}");
+                let details = format!("Execute '{action}' on connection to '{target}'");
                 let risks = vec!["Connection state will change".to_string()];
                 let impact = "Connection affected".to_string();
                 (description, details, risks, impact)

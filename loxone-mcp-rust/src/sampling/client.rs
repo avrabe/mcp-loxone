@@ -482,7 +482,7 @@ impl SamplingClientManager {
             } else if self.config.anthropic.enabled {
                 "anthropic"
             } else {
-                &format!("fallback_{}", i)
+                &format!("fallback_{i}")
             };
 
             let healthy =

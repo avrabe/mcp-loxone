@@ -156,12 +156,12 @@ pub async fn get_climate_control(context: ToolContext) -> ToolResponse {
         statistics,
     };
 
+    let room_count = overview.room_controllers.len();
+    let sensor_count = overview.temperature_sensors.len();
+    let hvac_count = overview.hvac_devices.len();
     let message = format!(
-        "Climate system: {} devices ({} room controllers, {} sensors, {} HVAC devices)",
-        overview.total_devices,
-        overview.room_controllers.len(),
-        overview.temperature_sensors.len(),
-        overview.hvac_devices.len()
+        "Climate system: {} devices ({room_count} room controllers, {sensor_count} sensors, {hvac_count} HVAC devices)",
+        overview.total_devices
     );
 
     ToolResponse::success_with_message(serde_json::to_value(overview).unwrap(), message)
@@ -188,7 +188,7 @@ pub async fn get_room_climate(context: ToolContext, room_name: String) -> ToolRe
         .collect();
 
     if room_devices.is_empty() {
-        return ToolResponse::error(format!("No climate devices found in room '{}'", room_name));
+        return ToolResponse::error(format!("No climate devices found in room '{room_name}'"));
     }
 
     // Parse climate devices
@@ -218,22 +218,15 @@ pub async fn get_room_climate(context: ToolContext, room_name: String) -> ToolRe
 
     let message = if let Some(ref controller) = room_controller {
         let temp_info = if let Some(temp) = controller.current_temperature {
-            format!(" (current: {:.1}°C)", temp)
+            format!(" (current: {temp:.1}°C)")
         } else {
             String::new()
         };
-        format!(
-            "Room '{}' climate: 1 controller, {} sensors{}",
-            room_name,
-            sensors.len(),
-            temp_info
-        )
+        let sensor_count = sensors.len();
+        format!("Room '{room_name}' climate: 1 controller, {sensor_count} sensors{temp_info}")
     } else {
-        format!(
-            "Room '{}' climate: {} sensors (no controller)",
-            room_name,
-            sensors.len()
-        )
+        let sensor_count = sensors.len();
+        format!("Room '{room_name}' climate: {sensor_count} sensors (no controller)")
     };
 
     ToolResponse::success_with_message(response_data, message)
@@ -250,8 +243,7 @@ pub async fn set_room_temperature(
     // Validate temperature range
     if !(5.0..=35.0).contains(&temperature) {
         return ToolResponse::error(format!(
-            "Invalid temperature {}°C. Must be between 5°C and 35°C",
-            temperature
+            "Invalid temperature {temperature}°C. Must be between 5°C and 35°C"
         ));
     }
 
@@ -275,12 +267,12 @@ pub async fn set_room_temperature(
     let controller = match room_controller {
         Some(device) => device,
         None => {
-            return ToolResponse::error(format!("No room controller found in room '{}'", room_name))
+            return ToolResponse::error(format!("No room controller found in room '{room_name}'"))
         }
     };
 
     // Send temperature set command
-    let command = format!("setpoint/{}", temperature);
+    let command = format!("setpoint/{temperature}");
 
     let result = match context
         .client
@@ -304,15 +296,12 @@ pub async fn set_room_temperature(
                 ));
             }
         }
-        Err(e) => return ToolResponse::error(format!("Failed to send command: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to send command: {e}")),
     };
 
     ToolResponse::success_with_message(
         result,
-        format!(
-            "Set target temperature to {:.1}°C for room '{}'",
-            temperature, room_name
-        ),
+        format!("Set target temperature to {temperature:.1}°C for room '{room_name}'"),
     )
 }
 
@@ -444,7 +433,7 @@ pub async fn set_room_mode(
     let controller = match room_controller {
         Some(device) => device,
         None => {
-            return ToolResponse::error(format!("No room controller found in room '{}'", room_name))
+            return ToolResponse::error(format!("No room controller found in room '{room_name}'"))
         }
     };
 
@@ -473,7 +462,7 @@ pub async fn set_room_mode(
                 ));
             }
         }
-        Err(e) => return ToolResponse::error(format!("Failed to send command: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to send command: {e}")),
     };
 
     ToolResponse::success_with_message(

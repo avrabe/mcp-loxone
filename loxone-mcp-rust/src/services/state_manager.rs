@@ -214,7 +214,7 @@ impl StateManager {
                 .as_ref()
                 .map(|r| {
                     if let Some(sensor_type) = &r.sensor_type {
-                        format!("{:?}", sensor_type)
+                        format!("{sensor_type:?}")
                     } else {
                         "Unknown".to_string()
                     }
@@ -433,7 +433,7 @@ impl StateManager {
                 if old
                     .sensor_type
                     .as_ref()
-                    .map(|t| format!("{:?}", t))
+                    .map(|t| format!("{t:?}"))
                     .unwrap_or_default()
                     .contains("Temperature")
                 {

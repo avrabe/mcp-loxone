@@ -299,17 +299,11 @@ pub async fn control_multiple_devices(
     });
 
     let message = if failed == 0 {
-        format!(
-            "Successfully controlled {} devices with action '{}'",
-            successful, normalized_action
-        )
+        format!("Successfully controlled {successful} devices with action '{normalized_action}'")
     } else {
+        let total_devices = device_infos.len();
         format!(
-            "Controlled {}/{} devices with action '{}' ({} failed)",
-            successful,
-            device_infos.len(),
-            normalized_action,
-            failed
+            "Controlled {successful}/{total_devices} devices with action '{normalized_action}' ({failed} failed)"
         )
     };
 
@@ -331,7 +325,7 @@ pub async fn get_devices_by_category(
     };
 
     if devices.is_empty() {
-        return ToolResponse::empty_with_context(&format!("devices in category '{}'", category));
+        return ToolResponse::empty_with_context(&format!("devices in category '{category}'"));
     }
 
     // Apply limit
@@ -616,7 +610,7 @@ pub async fn get_devices_by_type(
     };
 
     if devices.is_empty() {
-        return ToolResponse::empty_with_context(&format!("devices of type '{}'", device_type));
+        return ToolResponse::empty_with_context(&format!("devices of type '{device_type}'"));
     }
 
     let stats = DeviceStats::from_devices(&devices);

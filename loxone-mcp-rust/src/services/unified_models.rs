@@ -352,7 +352,7 @@ impl UnifiedValue {
         Self {
             numeric: Some(value),
             display_text: if let Some(ref unit) = unit {
-                format!("{} {}", value, unit)
+                format!("{value} {unit}")
             } else {
                 value.to_string()
             },
@@ -392,7 +392,7 @@ impl UnifiedValue {
     pub fn temperature(celsius: f64) -> Self {
         Self {
             numeric: Some(celsius),
-            display_text: format!("{:.1}°C", celsius),
+            display_text: format!("{celsius:.1}°C"),
             unit: Some("°C".to_string()),
             sensor_type: Some(SensorType::Temperature {
                 unit: crate::services::sensor_registry::TemperatureUnit::Celsius,

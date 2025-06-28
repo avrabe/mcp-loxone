@@ -685,7 +685,7 @@ impl SensorInventory {
         };
 
         // Group by type
-        let type_key = format!("{:?}", sensor_type)
+        let type_key = format!("{sensor_type:?}")
             .split('{')
             .next()
             .unwrap_or("Unknown")

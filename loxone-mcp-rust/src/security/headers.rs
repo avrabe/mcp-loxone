@@ -391,7 +391,7 @@ impl SecurityHeadersConfig {
             FramePolicy::SameOrigin => "SAMEORIGIN".to_string(),
             FramePolicy::AllowFrom => {
                 if let Some(origin) = self.frame_options.allowed_origins.first() {
-                    format!("ALLOW-FROM {}", origin)
+                    format!("ALLOW-FROM {origin}")
                 } else {
                     "DENY".to_string()
                 }
@@ -411,7 +411,7 @@ impl SecurityHeadersConfig {
                 xss_value.push_str("; mode=block");
             }
             if let Some(report_uri) = &self.xss_protection.report_uri {
-                xss_value.push_str(&format!("; report={}", report_uri));
+                xss_value.push_str(&format!("; report={report_uri}"));
             }
             headers.insert("X-XSS-Protection".to_string(), xss_value);
         }

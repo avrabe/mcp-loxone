@@ -133,8 +133,7 @@ pub async fn control_audio_zone(
         Some(device) => device,
         None => {
             return ToolResponse::error(format!(
-                "Audio zone '{}' not found. Use get_audio_zones to see available zones",
-                zone_name
+                "Audio zone '{zone_name}' not found. Use get_audio_zones to see available zones"
             ));
         }
     };
@@ -144,7 +143,7 @@ pub async fn control_audio_zone(
 
     // Execute the command
     let command = if let Some(val) = value {
-        format!("{}/{}", normalized_action, val)
+        format!("{normalized_action}/{val}")
     } else {
         normalized_action
     };
@@ -216,8 +215,7 @@ pub async fn set_audio_volume(
     // Validate volume range
     if !(0.0..=100.0).contains(&volume) {
         return ToolResponse::error(format!(
-            "Invalid volume level: {}. Valid range is 0-100",
-            volume
+            "Invalid volume level: {volume}. Valid range is 0-100"
         ));
     }
 

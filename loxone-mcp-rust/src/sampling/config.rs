@@ -210,10 +210,10 @@ impl LlmConfig {
     /// Load configuration from file
     pub fn load_from_file(path: &PathBuf) -> Result<Self> {
         let content = std::fs::read_to_string(path)
-            .map_err(|e| LoxoneError::config(format!("Failed to read config file: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to read config file: {e}")))?;
 
         let config: Self = toml::from_str(&content)
-            .map_err(|e| LoxoneError::config(format!("Failed to parse config: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to parse config: {e}")))?;
 
         config.validate()?;
         Ok(config)
@@ -224,10 +224,10 @@ impl LlmConfig {
         self.validate()?;
 
         let content = toml::to_string_pretty(self)
-            .map_err(|e| LoxoneError::config(format!("Failed to serialize config: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to serialize config: {e}")))?;
 
         std::fs::write(path, content)
-            .map_err(|e| LoxoneError::config(format!("Failed to write config file: {}", e)))?;
+            .map_err(|e| LoxoneError::config(format!("Failed to write config file: {e}")))?;
 
         Ok(())
     }
@@ -549,10 +549,7 @@ impl LlmConfigManager {
             self.save()?;
             Ok(())
         } else {
-            Err(LoxoneError::config(format!(
-                "Unknown provider: {}",
-                provider
-            )))
+            Err(LoxoneError::config(format!("Unknown provider: {provider}")))
         }
     }
 
@@ -564,10 +561,7 @@ impl LlmConfigManager {
             self.save()?;
             Ok(())
         } else {
-            Err(LoxoneError::config(format!(
-                "Unknown provider: {}",
-                provider
-            )))
+            Err(LoxoneError::config(format!("Unknown provider: {provider}")))
         }
     }
 

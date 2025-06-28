@@ -187,8 +187,9 @@ impl MetricsCollector {
         self.increment_counter("mcp_requests_total", 1).await;
 
         // Update status counter
-        let status_family = format!("{}xx", timing.status_code / 100);
-        self.increment_counter(&format!("mcp_requests_by_status_{}", status_family), 1)
+        let status_code_family = timing.status_code / 100;
+        let status_family = format!("{status_code_family}xx");
+        self.increment_counter(&format!("mcp_requests_by_status_{status_family}"), 1)
             .await;
 
         // Update response time histogram
@@ -224,7 +225,7 @@ impl MetricsCollector {
         if !metrics.contains_key(name) {
             let metadata = MetricMetadata {
                 name: name.to_string(),
-                help: format!("Histogram for {}", name),
+                help: format!("Histogram for {name}"),
                 metric_type: MetricType::Histogram,
                 labels: HashMap::new(),
             };
@@ -361,9 +362,10 @@ impl MetricsCollector {
                 let labels: Vec<String> = metadata
                     .labels
                     .iter()
-                    .map(|(k, v)| format!("{}=\"{}\"", k, v))
+                    .map(|(k, v)| format!("{k}=\"{v}\""))
                     .collect();
-                format!("{{{}}}", labels.join(","))
+                let label_string = labels.join(",");
+                format!("{{{label_string}}}")
             };
 
             match &metric.value {
@@ -524,8 +526,8 @@ impl MetricsCollector {
         // Status code metrics
         for status in ["2xx", "3xx", "4xx", "5xx"] {
             self.register_counter(
-                &format!("mcp_requests_by_status_{}", status),
-                &format!("Requests with {} status", status),
+                &format!("mcp_requests_by_status_{status}"),
+                &format!("Requests with {status} status"),
                 HashMap::new(),
             )
             .await;

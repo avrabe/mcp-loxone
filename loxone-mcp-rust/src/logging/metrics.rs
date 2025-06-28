@@ -387,7 +387,7 @@ impl MetricsCollector {
         // Add to recent errors (keep last 10)
         let error_record = ErrorRecord {
             timestamp: current_timestamp(),
-            error_type: format!("{:?}", error),
+            error_type: format!("{error:?}"),
             error_message: error.to_string(),
             tool_name: tool_name.to_string(),
             request_id: request_id.to_string(),
