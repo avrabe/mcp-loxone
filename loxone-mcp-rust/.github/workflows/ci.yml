@@ -149,8 +149,10 @@ jobs:
           path: ~/.cargo/registry
           key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
       
-      - name: Build for WASM
-        run: cargo build --target wasm32-wasip2 --features wasm --no-default-features
+      - name: Build MCP protocol for WASM (wasip2)
+        run: |
+          cd mcp-framework/mcp-protocol
+          cargo build --target wasm32-wasip2 --no-default-features
 
   # Documentation build
   docs:

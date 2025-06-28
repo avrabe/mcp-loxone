@@ -13,6 +13,9 @@ members = [
 
 resolver = "2"
 
+[workspace.package]
+rust-version = "1.79"
+
 [workspace.dependencies]
 # Core dependencies
 tokio = { version = "1.40", features = ["full"] }
@@ -248,6 +251,7 @@ discovery = ["socket2", "mdns-sd"] # Network discovery with modern mDNS implemen
 mdns = ["mdns-sd"] # Feature gate for mDNS functionality (restored with mdns-sd crate)
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
+wasm = []  # Feature flag for WASM compilation
 
 
 [profile.release]
