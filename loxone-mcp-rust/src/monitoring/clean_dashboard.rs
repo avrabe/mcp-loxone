@@ -16,11 +16,11 @@ pub fn generate_clean_dashboard_html() -> String {
         /* Clean Dashboard Specific Styles */
         .dashboard-container {{
             min-height: 100vh;
-            background: linear-gradient(135deg, 
-                hsla(220, 30%, 95%, 1) 0%, 
+            background: linear-gradient(135deg,
+                hsla(220, 30%, 95%, 1) 0%,
                 hsla(240, 25%, 98%, 1) 100%);
         }}
-        
+
         .main-grid {{
             display: grid;
             grid-template-columns: 1fr;
@@ -29,13 +29,13 @@ pub fn generate_clean_dashboard_html() -> String {
             margin: 0 auto;
             padding: 2rem;
         }}
-        
+
         @media (min-width: 768px) {{
             .main-grid {{
                 grid-template-columns: 300px 1fr;
             }}
         }}
-        
+
         /* Sidebar */
         .sidebar {{
             background: white;
@@ -46,7 +46,7 @@ pub fn generate_clean_dashboard_html() -> String {
             position: sticky;
             top: 2rem;
         }}
-        
+
         .system-status {{
             text-align: center;
             margin-bottom: 2rem;
@@ -55,7 +55,7 @@ pub fn generate_clean_dashboard_html() -> String {
             border-radius: 12px;
             color: white;
         }}
-        
+
         .status-indicator {{
             width: 12px;
             height: 12px;
@@ -63,11 +63,11 @@ pub fn generate_clean_dashboard_html() -> String {
             display: inline-block;
             margin-right: 8px;
         }}
-        
+
         .status-connected {{ background: #10B981; }}
         .status-disconnected {{ background: #EF4444; }}
         .status-warning {{ background: #F59E0B; }}
-        
+
         .stat-item {{
             display: flex;
             justify-content: space-between;
@@ -75,35 +75,35 @@ pub fn generate_clean_dashboard_html() -> String {
             padding: 1rem 0;
             border-bottom: 1px solid #F3F4F6;
         }}
-        
+
         .stat-item:last-child {{
             border-bottom: none;
         }}
-        
+
         .stat-label {{
             font-weight: 500;
             color: #6B7280;
         }}
-        
+
         .stat-value {{
             font-weight: 700;
             color: #1F2937;
             font-size: 1.1rem;
         }}
-        
+
         /* Main Content */
         .main-content {{
             display: flex;
             flex-direction: column;
             gap: 2rem;
         }}
-        
+
         .rooms-grid {{
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
             gap: 1.5rem;
         }}
-        
+
         .room-card {{
             background: white;
             border-radius: 16px;
@@ -111,42 +111,42 @@ pub fn generate_clean_dashboard_html() -> String {
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
             transition: all 0.3s ease;
         }}
-        
+
         .room-card:hover {{
             transform: translateY(-4px);
             box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
         }}
-        
+
         .room-header {{
             background: linear-gradient(135deg, #667EEA, #764BA2);
             color: white;
             padding: 1.5rem;
             text-align: center;
         }}
-        
+
         .room-name {{
             font-size: 1.25rem;
             font-weight: 700;
             margin: 0 0 0.5rem 0;
         }}
-        
+
         .room-info {{
             font-size: 0.9rem;
             opacity: 0.9;
         }}
-        
+
         .room-body {{
             padding: 1.5rem;
         }}
-        
+
         .device-category {{
             margin-bottom: 1.5rem;
         }}
-        
+
         .device-category:last-child {{
             margin-bottom: 0;
         }}
-        
+
         .category-header {{
             display: flex;
             align-items: center;
@@ -156,16 +156,16 @@ pub fn generate_clean_dashboard_html() -> String {
             font-size: 0.9rem;
             color: #374151;
         }}
-        
+
         .category-icon {{
             font-size: 1.2rem;
         }}
-        
+
         .devices-list {{
             display: grid;
             gap: 0.75rem;
         }}
-        
+
         .device-item {{
             display: flex;
             justify-content: space-between;
@@ -175,56 +175,56 @@ pub fn generate_clean_dashboard_html() -> String {
             border-radius: 8px;
             transition: all 0.2s ease;
         }}
-        
+
         .device-item:hover {{
             background: #F3F4F6;
         }}
-        
+
         .device-item.active {{
             background: linear-gradient(135deg, #ECFDF5, #D1FAE5);
             border-left: 3px solid #10B981;
         }}
-        
+
         .device-name {{
             font-weight: 500;
             color: #1F2937;
             font-size: 0.9rem;
         }}
-        
+
         .device-status {{
             font-size: 0.8rem;
             font-weight: 600;
             padding: 0.25rem 0.5rem;
             border-radius: 4px;
         }}
-        
+
         .status-on {{
             background: #ECFDF5;
             color: #059669;
         }}
-        
+
         .status-off {{
             background: #F3F4F6;
             color: #6B7280;
         }}
-        
+
         .status-partial {{
             background: #FEF3C7;
             color: #D97706;
         }}
-        
+
         .empty-state {{
             text-align: center;
             padding: 3rem;
             color: #6B7280;
         }}
-        
+
         .loading {{
             text-align: center;
             padding: 2rem;
             color: #6B7280;
         }}
-        
+
         .error {{
             text-align: center;
             padding: 2rem;
@@ -233,19 +233,19 @@ pub fn generate_clean_dashboard_html() -> String {
             border-radius: 8px;
             margin: 1rem 0;
         }}
-        
+
         /* Responsive */
         @media (max-width: 767px) {{
             .main-grid {{
                 padding: 1rem;
                 gap: 1rem;
             }}
-            
+
             .sidebar {{
                 position: static;
                 order: 2;
             }}
-            
+
             .rooms-grid {{
                 grid-template-columns: 1fr;
             }}
@@ -254,7 +254,7 @@ pub fn generate_clean_dashboard_html() -> String {
 </head>
 <body>
     {nav_header}
-    
+
     <div class="dashboard-container">
         <div class="main-grid">
             <!-- Sidebar -->
@@ -268,7 +268,7 @@ pub fn generate_clean_dashboard_html() -> String {
                         Loxone MCP Dashboard
                     </div>
                 </div>
-                
+
                 <div id="systemStats">
                     <div class="stat-item">
                         <span class="stat-label">Räume</span>
@@ -287,7 +287,7 @@ pub fn generate_clean_dashboard_html() -> String {
                         <span class="stat-value" id="lastUpdate">-</span>
                     </div>
                 </div>
-                
+
                 <!-- Server Performance Metrics -->
                 <div style="margin-top: 2rem; padding-top: 2rem; border-top: 1px solid #E5E7EB;">
                     <h3 style="margin: 0 0 1rem 0; color: #374151; font-size: 1rem;">Server Performance</h3>
@@ -319,7 +319,7 @@ pub fn generate_clean_dashboard_html() -> String {
                     </div>
                 </div>
             </aside>
-            
+
             <!-- Main Content -->
             <main class="main-content">
                 <div id="roomsContainer">
@@ -330,7 +330,7 @@ pub fn generate_clean_dashboard_html() -> String {
             </main>
         </div>
     </div>
-    
+
     <script>
         class CleanDashboard {{
             constructor() {{
@@ -339,23 +339,23 @@ pub fn generate_clean_dashboard_html() -> String {
                 this.maxReconnectAttempts = 5;
                 this.reconnectInterval = 3000;
                 this.lastValidData = null; // Store last valid data to prevent flicker
-                
+
                 this.init();
             }}
-            
+
             async init() {{
                 await this.loadInitialData();
                 this.connectWebSocket();
-                
+
                 // Auto-refresh disabled - using WebSocket for real-time updates
                 // setInterval(() => this.loadInitialData(), 90000);
             }}
-            
+
             async loadInitialData() {{
                 try {{
                     const response = await fetch('/dashboard/api/data');
                     if (!response.ok) throw new Error(`HTTP ${{response.status}}`);
-                    
+
                     const data = await response.json();
                     console.log('Initial dashboard data loaded:', data);
                     console.log('Operational section:', data.operational);
@@ -375,15 +375,15 @@ pub fn generate_clean_dashboard_html() -> String {
                     }}
                 }}
             }}
-            
+
             updateDashboard(data) {{
                 console.log('Dashboard data received:', data);
-                
+
                 // Robust data extraction
                 let connectionStatus = 'Disconnected';
                 let deviceMatrix = [];
                 let stats = {{}};
-                
+
                 // Try multiple data structure formats
                 if (data) {{
                     // Format 1: New nested format
@@ -406,16 +406,16 @@ pub fn generate_clean_dashboard_html() -> String {
                         console.log('Using direct array format');
                     }}
                 }}
-                
-                console.log('Extracted data:', {{ 
-                    connectionStatus, 
+
+                console.log('Extracted data:', {{
+                    connectionStatus,
                     deviceMatrixLength: deviceMatrix.length,
-                    stats 
+                    stats
                 }});
-                
+
                 // Update connection status immediately
                 this.updateConnectionStatus(connectionStatus);
-                
+
                 // Only update rooms/devices if we have valid data, otherwise preserve existing data
                 if (deviceMatrix && deviceMatrix.length > 0) {{
                     this.updateStats({{ statistics: stats, device_matrix: deviceMatrix, operational: data.operational }});
@@ -433,13 +433,13 @@ pub fn generate_clean_dashboard_html() -> String {
                     }}
                 }}
             }}
-            
+
             updateConnectionStatus(status) {{
                 const statusEl = document.getElementById('connectionStatus');
                 const indicator = statusEl.querySelector('.status-indicator');
-                
+
                 indicator.className = 'status-indicator';
-                
+
                 if (status === 'Connected') {{
                     indicator.classList.add('status-connected');
                     statusEl.innerHTML = '<span class="status-indicator status-connected"></span>Verbunden';
@@ -448,54 +448,54 @@ pub fn generate_clean_dashboard_html() -> String {
                     statusEl.innerHTML = '<span class="status-indicator status-disconnected"></span>Getrennt';
                 }}
             }}
-            
+
             updateStats(data) {{
                 document.getElementById('totalRooms').textContent = data.device_matrix?.length || 0;
                 document.getElementById('totalDevices').textContent = data.statistics?.total_devices || 0;
                 document.getElementById('activeDevices').textContent = data.statistics?.active_devices || 0;
                 document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('de-DE');
-                
+
                 // Update server performance metrics
                 this.updateServerMetrics(data);
             }}
-            
+
             updateServerMetrics(data) {{
                 // Debug: log the full data structure to understand format
                 console.log('Full dashboard data structure:', data);
                 console.log('Operational section:', data.operational);
-                
+
                 // Extract server metrics from the operational section
                 const performance = data.operational?.performance || {{}};
                 const network = data.operational?.network || {{}};
                 const uptime = data.operational?.uptime || {{}};
                 const mcp = data.operational?.mcp || {{}};
-                
+
                 console.log('Extracted sections:', {{ performance, network, uptime, mcp }});
-                
+
                 // Update CPU usage
                 const cpuUsage = performance.cpu_usage || 0;
                 document.getElementById('cpuUsage').textContent = `${{cpuUsage.toFixed(1)}}%`;
-                
+
                 // Update memory usage (check both possible field names)
                 const memoryUsage = performance.memory_usage || performance.memory_usage_percent || 0;
                 document.getElementById('memoryUsage').textContent = `${{memoryUsage.toFixed(1)}}%`;
-                
+
                 // Update requests per minute
                 const requestsPerMin = network.requests_per_minute || 0;
                 document.getElementById('requestsPerMin').textContent = Math.round(requestsPerMin);
-                
+
                 // Update average response time (check both possible field names)
                 const avgResponseTime = network.response_time || network.average_response_time_ms || 0;
                 document.getElementById('avgResponseTime').textContent = `${{avgResponseTime.toFixed(0)}}ms`;
-                
+
                 // Update uptime
                 const uptimeFormatted = uptime.uptime_formatted || 'Unknown';
                 document.getElementById('uptime').textContent = uptimeFormatted;
-                
+
                 // Update tools executed
                 const toolsExecuted = mcp.tools_executed || 0;
                 document.getElementById('toolsExecuted').textContent = toolsExecuted;
-                
+
                 // Debug log to console
                 console.log('Server metrics updated:', {{
                     cpu: cpuUsage,
@@ -506,10 +506,10 @@ pub fn generate_clean_dashboard_html() -> String {
                     tools: toolsExecuted
                 }});
             }}
-            
+
             updateRooms(deviceMatrix) {{
                 const container = document.getElementById('roomsContainer');
-                
+
                 if (!deviceMatrix || deviceMatrix.length === 0) {{
                     // Only show empty state if container doesn't already have content
                     if (!container.innerHTML || container.innerHTML.includes('loading')) {{
@@ -517,14 +517,14 @@ pub fn generate_clean_dashboard_html() -> String {
                     }}
                     return;
                 }}
-                
+
                 const roomsHtml = deviceMatrix.map(room => {{
                     const devices = room.devices || [];
-                    const activeDevices = devices.filter(d => 
-                        d.status_color === 'green' || 
+                    const activeDevices = devices.filter(d =>
+                        d.status_color === 'green' ||
                         (d.states?.active && d.states.active > 0)
                     ).length;
-                    
+
                     // Group devices by category
                     const categories = {{}};
                     devices.forEach(device => {{
@@ -534,15 +534,15 @@ pub fn generate_clean_dashboard_html() -> String {
                         }}
                         categories[category].push(device);
                     }});
-                    
+
                     const categoriesHtml = Object.entries(categories).map(([categoryName, categoryDevices]) => {{
                         const icon = this.getCategoryIcon(categoryName);
                         const devicesHtml = categoryDevices.map(device => {{
-                            const isActive = device.status_color === 'green' || 
+                            const isActive = device.status_color === 'green' ||
                                            (device.states?.active && device.states.active > 0);
                             const statusClass = isActive ? 'status-on' : 'status-off';
                             const statusText = device.state_display || (isActive ? 'Ein' : 'Aus');
-                            
+
                             return `
                                 <div class="device-item ${{isActive ? 'active' : ''}}">
                                     <span class="device-name">${{device.name}}</span>
@@ -550,7 +550,7 @@ pub fn generate_clean_dashboard_html() -> String {
                                 </div>
                             `;
                         }}).join('');
-                        
+
                         return `
                             <div class="device-category">
                                 <div class="category-header">
@@ -563,7 +563,7 @@ pub fn generate_clean_dashboard_html() -> String {
                             </div>
                         `;
                     }}).join('');
-                    
+
                     return `
                         <div class="room-card">
                             <div class="room-header">
@@ -578,13 +578,13 @@ pub fn generate_clean_dashboard_html() -> String {
                         </div>
                     `;
                 }}).join('');
-                
+
                 container.innerHTML = `<div class="rooms-grid">${{roomsHtml}}</div>`;
             }}
-            
+
             getDeviceCategory(deviceType) {{
                 if (!deviceType) return 'Sonstiges';
-                
+
                 const type = deviceType.toLowerCase();
                 if (type.includes('light') || type.includes('dimmer')) return 'Beleuchtung';
                 if (type.includes('jalousie') || type.includes('blind')) return 'Beschattung';
@@ -594,7 +594,7 @@ pub fn generate_clean_dashboard_html() -> String {
                 if (type.includes('alarm') || type.includes('smoke')) return 'Sicherheit';
                 return 'Sonstiges';
             }}
-            
+
             getCategoryIcon(category) {{
                 const icons = {{
                     'Beleuchtung': '💡',
@@ -607,37 +607,37 @@ pub fn generate_clean_dashboard_html() -> String {
                 }};
                 return icons[category] || '⚙️';
             }}
-            
+
             connectWebSocket() {{
                 // Enable WebSocket for real-time updates
                 console.log('Connecting to WebSocket for real-time updates...');
-                
+
                 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-                
+
                 // Extract API key from current URL parameters
                 const urlParams = new URLSearchParams(window.location.search);
                 const apiKey = urlParams.get('api_key');
-                
+
                 // Build WebSocket URL with API key authentication
                 let wsUrl = `${{protocol}}//${{window.location.host}}/dashboard/ws`;
                 if (apiKey) {{
                     wsUrl += `?api_key=${{encodeURIComponent(apiKey)}}`;
                 }}
-                
+
                 try {{
                     console.log('Attempting WebSocket connection to:', wsUrl);
                     this.ws = new WebSocket(wsUrl);
-                    
+
                     this.ws.onopen = () => {{
                         console.log('✅ WebSocket connected successfully');
                         this.reconnectAttempts = 0;
                     }};
-                    
+
                     this.ws.onmessage = (event) => {{
                         try {{
                             const message = JSON.parse(event.data);
                             console.log('WebSocket message received:', message);
-                            
+
                             // Handle different message types
                             if (message.update_type === 'FullRefresh' && message.data) {{
                                 // Full dashboard refresh with nested data
@@ -653,7 +653,7 @@ pub fn generate_clean_dashboard_html() -> String {
                             console.error('WebSocket message error:', error);
                         }}
                     }};
-                    
+
                     this.ws.onclose = (event) => {{
                         if (event.code === 1006) {{
                             console.error('❌ WebSocket connection failed - likely authentication error');
@@ -663,7 +663,7 @@ pub fn generate_clean_dashboard_html() -> String {
                         }}
                         this.scheduleReconnect();
                     }};
-                    
+
                     this.ws.onerror = (error) => {{
                         console.error('❌ WebSocket error:', error);
                     }};
@@ -674,7 +674,7 @@ pub fn generate_clean_dashboard_html() -> String {
                     }}
                 }}
             }}
-            
+
             scheduleReconnect() {{
                 if (this.reconnectAttempts < this.maxReconnectAttempts) {{
                     setTimeout(() => {{
@@ -683,13 +683,13 @@ pub fn generate_clean_dashboard_html() -> String {
                     }}, this.reconnectInterval);
                 }}
             }}
-            
+
             showError(message) {{
                 const container = document.getElementById('roomsContainer');
                 container.innerHTML = `<div class="error">${{message}}</div>`;
             }}
         }}
-        
+
         // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', () => {{
             new CleanDashboard();

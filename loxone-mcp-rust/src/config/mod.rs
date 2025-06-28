@@ -8,7 +8,6 @@ pub mod security_keychain;
 #[cfg(feature = "infisical")]
 pub mod infisical_client;
 
-
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
 use std::{env, time::Duration};
@@ -117,7 +116,7 @@ pub struct TransportConfig {
     /// Port for HTTP transport (if applicable)
     pub port: Option<u16>,
 
-    /// Host for HTTP transport (if applicable)  
+    /// Host for HTTP transport (if applicable)
     pub host: Option<String>,
 }
 
@@ -249,7 +248,6 @@ pub enum CredentialStore {
         client_secret: String,
         host: Option<String>, // For self-hosted instances
     },
-
 }
 
 /// Logging configuration
@@ -450,7 +448,7 @@ impl ServerConfig {
     /// Create a minimal configuration for development mode
     pub fn dev_mode() -> Self {
         let mut config = Self::default();
-        
+
         // Override with minimal Loxone config for dev mode
         config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
         config.loxone.username = "dev".to_string();
@@ -459,18 +457,18 @@ impl ServerConfig {
         config.loxone.verify_ssl = false;
         config.loxone.max_connections = Some(1);
         config.loxone.auth_method = AuthMethod::Basic; // Simple auth for dev mode
-        
+
         // Disable features that require real Loxone connection
         config.features.enable_websocket = false;
         config.features.enable_caching = false;
-        
+
         config
     }
 
     /// Create configuration for offline mode (when credentials are missing)
     pub fn offline_mode() -> Self {
         let mut config = Self::default();
-        
+
         // Set dummy Loxone config to allow server to start
         config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
         config.loxone.username = "offline".to_string();
@@ -479,11 +477,11 @@ impl ServerConfig {
         config.loxone.verify_ssl = false;
         config.loxone.max_connections = Some(1);
         config.loxone.auth_method = AuthMethod::Basic;
-        
+
         // Disable features that require Loxone connection
         config.features.enable_websocket = false;
         config.features.enable_caching = false;
-        
+
         config
     }
 

@@ -46,7 +46,7 @@ pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolRespon
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = temperature_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -60,13 +60,13 @@ pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolRespon
     for device in &temperature_sensors {
         if let Some(resolved) = resolved_values.get(&device.uuid) {
             let sensor_json = create_sensor_json_from_resolved(device, resolved);
-            
+
             // Track temperature for averaging
             if let Some(temp) = resolved.numeric_value {
                 total_temperature += temp;
                 valid_readings += 1;
             }
-            
+
             sensor_data.push(sensor_json);
         } else {
             // Device found but no resolved value
@@ -117,7 +117,7 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Energy meter patterns
             type_lower.contains("powermeter")
                 || type_lower.contains("energymeter")
@@ -130,11 +130,10 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
                 || name_lower.contains("stromzähler")
                 || name_lower.contains("kwh")
                 || name_lower.contains("watt")
-                || device.device_type == "InfoOnlyAnalog" && (
-                    name_lower.contains("power") || 
-                    name_lower.contains("energy") ||
-                    name_lower.contains("consumption")
-                )
+                || device.device_type == "InfoOnlyAnalog"
+                    && (name_lower.contains("power")
+                        || name_lower.contains("energy")
+                        || name_lower.contains("consumption"))
         })
         .collect();
 
@@ -154,7 +153,7 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = energy_meters.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all meter values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -170,7 +169,7 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
     for device in &energy_meters {
         if let Some(resolved) = resolved_values.get(&device.uuid) {
             let mut meter_json = create_sensor_json_from_resolved(device, resolved);
-            
+
             // Determine meter type and accumulate totals
             if let Some(unit) = &resolved.unit {
                 match unit.as_str() {
@@ -217,13 +216,16 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
                 let name_lower = device.name.to_lowercase();
                 if name_lower.contains("power") || name_lower.contains("leistung") {
                     meter_json["meter_type"] = json!("power");
-                } else if name_lower.contains("energy") || name_lower.contains("energie") || name_lower.contains("kwh") {
+                } else if name_lower.contains("energy")
+                    || name_lower.contains("energie")
+                    || name_lower.contains("kwh")
+                {
                     meter_json["meter_type"] = json!("energy");
                 } else {
                     meter_json["meter_type"] = json!("unknown");
                 }
             }
-            
+
             meter_data.push(meter_json);
         } else {
             // Device found but no resolved value
@@ -296,7 +298,7 @@ pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolRespon
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = door_window_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -327,7 +329,7 @@ pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolRespon
             let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
             // Add door-specific status
             sensor_json["status"] = json!(if is_open { "OPEN" } else { "CLOSED" });
-            
+
             sensors.push(sensor_json);
         } else {
             // Device found but no resolved value
@@ -372,7 +374,7 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Motion sensor patterns
             name_lower.contains("motion")
                 || name_lower.contains("bewegung")
@@ -403,7 +405,7 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = motion_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -422,7 +424,10 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
             } else {
                 // Check formatted value for motion status
                 let formatted = resolved.formatted_value.to_lowercase();
-                formatted.contains("detected") || formatted.contains("on") || formatted.contains("1") || formatted.contains("active")
+                formatted.contains("detected")
+                    || formatted.contains("on")
+                    || formatted.contains("1")
+                    || formatted.contains("active")
             };
 
             if motion_detected {
@@ -434,8 +439,12 @@ pub async fn get_motion_sensors_unified(context: ToolContext) -> ToolResponse {
             let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
             // Add motion-specific status
             sensor_json["motion_detected"] = json!(motion_detected);
-            sensor_json["status"] = json!(if motion_detected { "Motion Detected" } else { "No Motion" });
-            
+            sensor_json["status"] = json!(if motion_detected {
+                "Motion Detected"
+            } else {
+                "No Motion"
+            });
+
             sensors.push(sensor_json);
         } else {
             // Device found but no resolved value
@@ -481,7 +490,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Air quality sensor patterns
             name_lower.contains("air quality")
                 || name_lower.contains("luftqualität")
@@ -496,11 +505,10 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                 || type_lower.contains("co2")
                 || type_lower.contains("voc")
                 || type_lower.contains("humidity")
-                || (device.device_type == "InfoOnlyAnalog" && (
-                    name_lower.contains("air") || 
-                    name_lower.contains("co2") ||
-                    name_lower.contains("humidity")
-                ))
+                || (device.device_type == "InfoOnlyAnalog"
+                    && (name_lower.contains("air")
+                        || name_lower.contains("co2")
+                        || name_lower.contains("humidity")))
         })
         .collect();
 
@@ -520,7 +528,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = air_quality_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -539,7 +547,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
     for device in &air_quality_sensors {
         if let Some(resolved) = resolved_values.get(&device.uuid) {
             let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
-            
+
             // Determine sensor type and calculate averages
             if let Some(unit) = &resolved.unit {
                 match unit.as_str() {
@@ -550,7 +558,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                                 co2_count += 1;
                                 sensor_json["sensor_type"] = json!("co2");
                                 sensor_json["co2_ppm"] = json!(value);
-                                
+
                                 // Assess CO2 level
                                 let quality = if value < 800.0 {
                                     "Good"
@@ -562,9 +570,12 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                                     "Very Poor"
                                 };
                                 sensor_json["air_quality"] = json!(quality);
-                                
+
                                 // Update worst quality
-                                if quality == "Very Poor" || (worst_air_quality != "Very Poor" && quality == "Poor") || (worst_air_quality == "Good" && quality == "Moderate") {
+                                if quality == "Very Poor"
+                                    || (worst_air_quality != "Very Poor" && quality == "Poor")
+                                    || (worst_air_quality == "Good" && quality == "Moderate")
+                                {
                                     worst_air_quality = quality;
                                 }
                             } else if device.name.to_lowercase().contains("voc") {
@@ -577,12 +588,14 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                     }
                     "%" => {
                         if let Some(value) = resolved.numeric_value {
-                            if device.name.to_lowercase().contains("humid") || device.name.to_lowercase().contains("feucht") {
+                            if device.name.to_lowercase().contains("humid")
+                                || device.name.to_lowercase().contains("feucht")
+                            {
                                 humidity_total += value;
                                 humidity_count += 1;
                                 sensor_json["sensor_type"] = json!("humidity");
                                 sensor_json["humidity_percent"] = json!(value);
-                                
+
                                 // Assess humidity level
                                 let comfort = if (30.0..=60.0).contains(&value) {
                                     "Comfortable"
@@ -597,10 +610,12 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                     }
                     "μg/m³" | "ug/m3" => {
                         if let Some(value) = resolved.numeric_value {
-                            if device.name.to_lowercase().contains("pm2.5") || device.name.to_lowercase().contains("pm25") {
+                            if device.name.to_lowercase().contains("pm2.5")
+                                || device.name.to_lowercase().contains("pm25")
+                            {
                                 sensor_json["sensor_type"] = json!("pm2.5");
                                 sensor_json["pm25_ugm3"] = json!(value);
-                                
+
                                 // WHO guidelines for PM2.5
                                 let quality = if value < 15.0 {
                                     "Good"
@@ -637,7 +652,7 @@ pub async fn get_air_quality_sensors_unified(context: ToolContext) -> ToolRespon
                     sensor_json["sensor_type"] = json!("air_quality");
                 }
             }
-            
+
             sensor_data.push(sensor_json);
         } else {
             // Device found but no resolved value
@@ -706,7 +721,7 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Presence detector patterns
             name_lower.contains("presence")
                 || name_lower.contains("präsenz")
@@ -723,11 +738,10 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
                 || type_lower.contains("occupancy")
                 || type_lower.contains("radar")
                 || type_lower.contains("ultrasonic")
-                || (type_lower.contains("digital") && (
-                    name_lower.contains("presence") || 
-                    name_lower.contains("occupancy") ||
-                    name_lower.contains("person")
-                ))
+                || (type_lower.contains("digital")
+                    && (name_lower.contains("presence")
+                        || name_lower.contains("occupancy")
+                        || name_lower.contains("person")))
         })
         .collect();
 
@@ -747,7 +761,7 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = presence_detectors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all detector values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -767,10 +781,14 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
             } else {
                 // Check formatted value for presence status
                 let formatted = resolved.formatted_value.to_lowercase();
-                formatted.contains("present") || formatted.contains("occupied") || 
-                formatted.contains("detected") || formatted.contains("on") || 
-                formatted.contains("1") || formatted.contains("true") ||
-                formatted.contains("anwesend") || formatted.contains("belegt")
+                formatted.contains("present")
+                    || formatted.contains("occupied")
+                    || formatted.contains("detected")
+                    || formatted.contains("on")
+                    || formatted.contains("1")
+                    || formatted.contains("true")
+                    || formatted.contains("anwesend")
+                    || formatted.contains("belegt")
             };
 
             if presence_detected {
@@ -785,22 +803,29 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
             room_occupancy.insert(room_name, *current_occupancy || presence_detected);
 
             let mut detector_json = create_sensor_json_from_resolved(device, resolved);
-            
+
             // Add presence-specific fields
             detector_json["presence_detected"] = json!(presence_detected);
-            detector_json["occupancy_status"] = json!(if presence_detected { "Occupied" } else { "Vacant" });
-            detector_json["detector_type"] = json!(if device.name.to_lowercase().contains("radar") {
-                "radar"
-            } else if device.name.to_lowercase().contains("ultrasonic") || device.name.to_lowercase().contains("ultraschall") {
-                "ultrasonic"
-            } else if device.name.to_lowercase().contains("microwave") {
-                "microwave"
-            } else if device.name.to_lowercase().contains("pir") {
-                "pir"
+            detector_json["occupancy_status"] = json!(if presence_detected {
+                "Occupied"
             } else {
-                "presence"
+                "Vacant"
             });
-            
+            detector_json["detector_type"] =
+                json!(if device.name.to_lowercase().contains("radar") {
+                    "radar"
+                } else if device.name.to_lowercase().contains("ultrasonic")
+                    || device.name.to_lowercase().contains("ultraschall")
+                {
+                    "ultrasonic"
+                } else if device.name.to_lowercase().contains("microwave") {
+                    "microwave"
+                } else if device.name.to_lowercase().contains("pir") {
+                    "pir"
+                } else {
+                    "presence"
+                });
+
             // Add confidence level based on detector type and value
             if let Some(numeric) = resolved.numeric_value {
                 let confidence = if numeric >= 0.8 {
@@ -814,7 +839,7 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
                 };
                 detector_json["detection_confidence"] = json!(confidence);
             }
-            
+
             detector_data.push(detector_json);
         } else {
             // Device found but no resolved value
@@ -833,7 +858,10 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
     }
 
     // Calculate room-level statistics
-    let occupied_rooms = room_occupancy.values().filter(|&&occupied| occupied).count();
+    let occupied_rooms = room_occupancy
+        .values()
+        .filter(|&&occupied| occupied)
+        .count();
     let total_rooms = room_occupancy.len();
     let occupancy_rate = if total_rooms > 0 {
         occupied_rooms as f64 / total_rooms as f64
@@ -844,11 +872,13 @@ pub async fn get_presence_detectors_unified(context: ToolContext) -> ToolRespons
     // Create room occupancy summary
     let room_summary: Vec<_> = room_occupancy
         .iter()
-        .map(|(room, &occupied)| json!({
-            "room": room,
-            "occupied": occupied,
-            "status": if occupied { "Occupied" } else { "Vacant" }
-        }))
+        .map(|(room, &occupied)| {
+            json!({
+                "room": room,
+                "occupied": occupied,
+                "status": if occupied { "Occupied" } else { "Vacant" }
+            })
+        })
         .collect();
 
     ToolResponse::success(json!({
@@ -886,7 +916,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Weather station patterns
             name_lower.contains("weather")
                 || name_lower.contains("wetter")
@@ -909,13 +939,12 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                 || type_lower.contains("weather")
                 || type_lower.contains("windspeed")
                 || type_lower.contains("rainfall")
-                || (device.device_type == "InfoOnlyAnalog" && (
-                    name_lower.contains("wind") || 
-                    name_lower.contains("rain") ||
-                    name_lower.contains("pressure") ||
-                    name_lower.contains("outdoor") ||
-                    name_lower.contains("solar")
-                ))
+                || (device.device_type == "InfoOnlyAnalog"
+                    && (name_lower.contains("wind")
+                        || name_lower.contains("rain")
+                        || name_lower.contains("pressure")
+                        || name_lower.contains("outdoor")
+                        || name_lower.contains("solar")))
         })
         .collect();
 
@@ -938,7 +967,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = weather_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -958,10 +987,12 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
     for device in &weather_sensors {
         if let Some(resolved) = resolved_values.get(&device.uuid) {
             let mut sensor_json = create_sensor_json_from_resolved(device, resolved);
-            
+
             // Determine sensor type based on name and unit
             let name_lower = device.name.to_lowercase();
-            let sensor_type = if name_lower.contains("temp") && (name_lower.contains("outdoor") || name_lower.contains("außen")) {
+            let sensor_type = if name_lower.contains("temp")
+                && (name_lower.contains("outdoor") || name_lower.contains("außen"))
+            {
                 "outdoor_temperature"
             } else if name_lower.contains("wind") {
                 "wind_speed"
@@ -969,13 +1000,18 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                 "rainfall"
             } else if name_lower.contains("pressure") || name_lower.contains("druck") {
                 "atmospheric_pressure"
-            } else if name_lower.contains("humid") && (name_lower.contains("outdoor") || name_lower.contains("außen")) {
+            } else if name_lower.contains("humid")
+                && (name_lower.contains("outdoor") || name_lower.contains("außen"))
+            {
                 "outdoor_humidity"
             } else if name_lower.contains("solar") {
                 "solar_radiation"
             } else if name_lower.contains("uv") {
                 "uv_index"
-            } else if name_lower.contains("brightness") || name_lower.contains("helligkeit") || name_lower.contains("lux") {
+            } else if name_lower.contains("brightness")
+                || name_lower.contains("helligkeit")
+                || name_lower.contains("lux")
+            {
                 "brightness"
             } else {
                 "weather_sensor"
@@ -993,7 +1029,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                     "wind_speed" => {
                         wind_speed = Some(value);
                         sensor_json["wind_speed_ms"] = json!(value);
-                        
+
                         // Add wind condition assessment
                         let condition = if value < 1.0 {
                             "Calm"
@@ -1011,7 +1047,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                     "rainfall" => {
                         rainfall = Some(value);
                         sensor_json["rainfall_mm"] = json!(value);
-                        
+
                         // Add rain intensity
                         let intensity = if value == 0.0 {
                             "No rain"
@@ -1027,7 +1063,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                     "atmospheric_pressure" => {
                         pressure = Some(value);
                         sensor_json["pressure_hpa"] = json!(value);
-                        
+
                         // Add pressure trend indication
                         let trend = if value > 1020.0 {
                             "High pressure"
@@ -1049,7 +1085,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                     "uv_index" => {
                         uv_index = Some(value);
                         sensor_json["uv_index"] = json!(value);
-                        
+
                         // Add UV risk level
                         let risk = if value < 3.0 {
                             "Low"
@@ -1071,7 +1107,7 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
                     _ => {}
                 }
             }
-            
+
             sensor_data.push(sensor_json);
         } else {
             // Device found but no resolved value
@@ -1090,21 +1126,29 @@ pub async fn get_weather_station_sensors_unified(context: ToolContext) -> ToolRe
 
     // Determine overall weather status
     let weather_status = if outdoor_temp.is_some() || wind_speed.is_some() || rainfall.is_some() {
-        let temp_status = outdoor_temp.map(|t| {
-            if t < 0.0 { "Freezing" }
-            else if t < 10.0 { "Cold" }
-            else if t < 20.0 { "Cool" }
-            else if t < 30.0 { "Warm" }
-            else { "Hot" }
-        }).unwrap_or("Unknown");
+        let temp_status = outdoor_temp
+            .map(|t| {
+                if t < 0.0 {
+                    "Freezing"
+                } else if t < 10.0 {
+                    "Cold"
+                } else if t < 20.0 {
+                    "Cool"
+                } else if t < 30.0 {
+                    "Warm"
+                } else {
+                    "Hot"
+                }
+            })
+            .unwrap_or("Unknown");
 
-        let rain_status = rainfall.map(|r| {
-            if r > 0.0 { "Rainy" } else { "Dry" }
-        }).unwrap_or("Unknown");
+        let rain_status = rainfall
+            .map(|r| if r > 0.0 { "Rainy" } else { "Dry" })
+            .unwrap_or("Unknown");
 
-        let wind_status = wind_speed.map(|w| {
-            if w > 10.0 { "Windy" } else { "Calm" }
-        }).unwrap_or("Unknown");
+        let wind_status = wind_speed
+            .map(|w| if w > 10.0 { "Windy" } else { "Calm" })
+            .unwrap_or("Unknown");
 
         format!("{}, {}, {}", temp_status, rain_status, wind_status)
     } else {
@@ -1147,32 +1191,32 @@ pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse
         .filter(|device| {
             let name_lower = device.name.to_lowercase();
             let type_lower = device.device_type.to_lowercase();
-            
+
             // Include devices that might be sensors based on type or name patterns
-            type_lower.contains("analog") ||
-            type_lower.contains("digital") ||
-            type_lower.contains("sensor") ||
-            type_lower.contains("temp") ||
-            type_lower.contains("gate") ||
-            type_lower.contains("contact") ||
-            type_lower.contains("motion") ||
-            type_lower.contains("presence") ||
-            type_lower.contains("weather") ||
-            name_lower.contains("sensor") ||
-            name_lower.contains("temp") ||
-            name_lower.contains("humid") ||
-            name_lower.contains("pressure") ||
-            name_lower.contains("wind") ||
-            name_lower.contains("rain") ||
-            name_lower.contains("motion") ||
-            name_lower.contains("door") ||
-            name_lower.contains("window") ||
-            name_lower.contains("presence") ||
-            name_lower.contains("co2") ||
-            name_lower.contains("air") ||
-            name_lower.contains("energy") ||
-            name_lower.contains("power") ||
-            name_lower.contains("meter")
+            type_lower.contains("analog")
+                || type_lower.contains("digital")
+                || type_lower.contains("sensor")
+                || type_lower.contains("temp")
+                || type_lower.contains("gate")
+                || type_lower.contains("contact")
+                || type_lower.contains("motion")
+                || type_lower.contains("presence")
+                || type_lower.contains("weather")
+                || name_lower.contains("sensor")
+                || name_lower.contains("temp")
+                || name_lower.contains("humid")
+                || name_lower.contains("pressure")
+                || name_lower.contains("wind")
+                || name_lower.contains("rain")
+                || name_lower.contains("motion")
+                || name_lower.contains("door")
+                || name_lower.contains("window")
+                || name_lower.contains("presence")
+                || name_lower.contains("co2")
+                || name_lower.contains("air")
+                || name_lower.contains("energy")
+                || name_lower.contains("power")
+                || name_lower.contains("meter")
         })
         .collect();
 
@@ -1191,7 +1235,7 @@ pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse
     // Use unified value resolver for consistent value parsing
     let resolver = &context.value_resolver;
     let uuids: Vec<String> = potential_sensors.iter().map(|d| d.uuid.clone()).collect();
-    
+
     // Batch resolve all sensor values efficiently
     let resolved_values = match resolver.resolve_batch_values(&uuids).await {
         Ok(values) => values,
@@ -1213,38 +1257,47 @@ pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse
 
         if let Some(resolved) = resolved_values.get(&device.uuid) {
             // Behavioral analysis based on value patterns and characteristics
-            let (sensor_type, confidence, characteristics) = classify_sensor_behavior(device, resolved);
-            
+            let (sensor_type, confidence, characteristics) =
+                classify_sensor_behavior(device, resolved);
+
             sensor_classification["detected_sensor_type"] = json!(sensor_type);
             sensor_classification["confidence"] = json!(confidence);
             sensor_classification["behavioral_characteristics"] = json!(characteristics);
             sensor_classification["raw_value"] = json!(resolved.numeric_value);
             sensor_classification["formatted_value"] = json!(resolved.formatted_value);
             sensor_classification["unit"] = json!(resolved.unit);
-            
+
             // Track classification statistics
-            *classification_counts.entry(sensor_type.clone()).or_insert(0) += 1;
+            *classification_counts
+                .entry(sensor_type.clone())
+                .or_insert(0) += 1;
             let confidence_bucket = match confidence {
                 conf if conf >= 0.8 => "high",
-                conf if conf >= 0.6 => "medium", 
+                conf if conf >= 0.6 => "medium",
                 conf if conf >= 0.4 => "low",
-                _ => "very_low"
+                _ => "very_low",
             };
-            *confidence_distribution.entry(confidence_bucket.to_string()).or_insert(0) += 1;
+            *confidence_distribution
+                .entry(confidence_bucket.to_string())
+                .or_insert(0) += 1;
         } else {
             // No value available - classify based on name/type only
             let (sensor_type, confidence, characteristics) = classify_sensor_by_metadata(device);
-            
+
             sensor_classification["detected_sensor_type"] = json!(sensor_type);
             sensor_classification["confidence"] = json!(confidence);
             sensor_classification["behavioral_characteristics"] = json!(characteristics);
             sensor_classification["raw_value"] = json!(null);
             sensor_classification["status"] = json!("No Data Available");
-            
-            *classification_counts.entry(sensor_type.clone()).or_insert(0) += 1;
-            *confidence_distribution.entry("metadata_only".to_string()).or_insert(0) += 1;
+
+            *classification_counts
+                .entry(sensor_type.clone())
+                .or_insert(0) += 1;
+            *confidence_distribution
+                .entry("metadata_only".to_string())
+                .or_insert(0) += 1;
         }
-        
+
         discovered_sensors.push(sensor_classification);
     }
 
@@ -1265,14 +1318,17 @@ pub async fn discover_sensor_types_unified(context: ToolContext) -> ToolResponse
 }
 
 /// Classify sensor behavior based on value characteristics and patterns
-fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &crate::services::ResolvedValue) -> (String, f64, serde_json::Value) {
+fn classify_sensor_behavior(
+    device: &crate::client::LoxoneDevice,
+    resolved: &crate::services::ResolvedValue,
+) -> (String, f64, serde_json::Value) {
     let name_lower = device.name.to_lowercase();
     let type_lower = device.device_type.to_lowercase();
-    
+
     let mut characteristics = json!({});
     #[allow(unused_assignments)]
     let mut confidence = 0.5; // Base confidence
-    
+
     // Temperature sensors
     if name_lower.contains("temp") || name_lower.contains("temperatur") {
         if let Some(value) = resolved.numeric_value {
@@ -1286,37 +1342,62 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.7;
         return ("temperature".to_string(), confidence, characteristics);
     }
-    
+
     // Door/Window sensors (binary)
-    if name_lower.contains("door") || name_lower.contains("window") || name_lower.contains("tür") || name_lower.contains("fenster") || type_lower.contains("gate") {
+    if name_lower.contains("door")
+        || name_lower.contains("window")
+        || name_lower.contains("tür")
+        || name_lower.contains("fenster")
+        || type_lower.contains("gate")
+    {
         if let Some(value) = resolved.numeric_value {
             if value == 0.0 || value == 1.0 {
                 confidence = 0.95;
                 characteristics["value_type"] = json!("binary");
-                characteristics["current_state"] = json!(if value > 0.0 { "open" } else { "closed" });
-                return ("door_window_contact".to_string(), confidence, characteristics);
+                characteristics["current_state"] =
+                    json!(if value > 0.0 { "open" } else { "closed" });
+                return (
+                    "door_window_contact".to_string(),
+                    confidence,
+                    characteristics,
+                );
             }
         }
         confidence = 0.8;
-        return ("door_window_contact".to_string(), confidence, characteristics);
+        return (
+            "door_window_contact".to_string(),
+            confidence,
+            characteristics,
+        );
     }
-    
+
     // Motion sensors (binary or presence detection)
-    if name_lower.contains("motion") || name_lower.contains("bewegung") || name_lower.contains("pir") {
+    if name_lower.contains("motion")
+        || name_lower.contains("bewegung")
+        || name_lower.contains("pir")
+    {
         if let Some(value) = resolved.numeric_value {
             if value == 0.0 || value == 1.0 {
                 confidence = 0.9;
                 characteristics["value_type"] = json!("binary");
-                characteristics["current_state"] = json!(if value > 0.0 { "motion_detected" } else { "no_motion" });
+                characteristics["current_state"] = json!(if value > 0.0 {
+                    "motion_detected"
+                } else {
+                    "no_motion"
+                });
                 return ("motion_sensor".to_string(), confidence, characteristics);
             }
         }
         confidence = 0.8;
         return ("motion_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Energy/Power meters
-    if name_lower.contains("power") || name_lower.contains("energy") || name_lower.contains("watt") || name_lower.contains("kwh") {
+    if name_lower.contains("power")
+        || name_lower.contains("energy")
+        || name_lower.contains("watt")
+        || name_lower.contains("kwh")
+    {
         if let Some(value) = resolved.numeric_value {
             if (0.0..100000.0).contains(&value) {
                 confidence = 0.85;
@@ -1335,7 +1416,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.7;
         return ("energy_meter".to_string(), confidence, characteristics);
     }
-    
+
     // Humidity sensors
     if name_lower.contains("humid") || name_lower.contains("feucht") {
         if let Some(value) = resolved.numeric_value {
@@ -1349,7 +1430,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.7;
         return ("humidity_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // CO2 sensors
     if name_lower.contains("co2") {
         if let Some(value) = resolved.numeric_value {
@@ -1363,7 +1444,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.8;
         return ("co2_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Pressure sensors
     if name_lower.contains("pressure") || name_lower.contains("druck") {
         if let Some(value) = resolved.numeric_value {
@@ -1377,7 +1458,7 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.7;
         return ("pressure_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Wind sensors
     if name_lower.contains("wind") {
         if let Some(value) = resolved.numeric_value {
@@ -1391,9 +1472,12 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.7;
         return ("wind_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Brightness/Light sensors
-    if name_lower.contains("brightness") || name_lower.contains("light") || name_lower.contains("lux") {
+    if name_lower.contains("brightness")
+        || name_lower.contains("light")
+        || name_lower.contains("lux")
+    {
         if let Some(value) = resolved.numeric_value {
             if (0.0..=100000.0).contains(&value) {
                 confidence = 0.8;
@@ -1405,26 +1489,26 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
         confidence = 0.6;
         return ("brightness_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Generic analog classification based on value patterns
     if type_lower.contains("analog") || type_lower.contains("infoonly") {
         if let Some(value) = resolved.numeric_value {
             characteristics["numeric_value"] = json!(value);
-            
+
             // Binary-like values
             if value == 0.0 || value == 1.0 {
                 confidence = 0.6;
                 characteristics["value_pattern"] = json!("binary");
                 return ("binary_sensor".to_string(), confidence, characteristics);
             }
-            
+
             // Percentage-like values
             if (0.0..=100.0).contains(&value) && value.fract() != 0.0 {
                 confidence = 0.5;
                 characteristics["value_pattern"] = json!("percentage_like");
                 return ("analog_sensor".to_string(), confidence, characteristics);
             }
-            
+
             // Large integer values (could be counters)
             if value > 1000.0 && value.fract() == 0.0 {
                 confidence = 0.4;
@@ -1432,19 +1516,19 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
                 return ("counter_sensor".to_string(), confidence, characteristics);
             }
         }
-        
+
         confidence = 0.3;
         characteristics["classification"] = json!("generic_analog");
         return ("analog_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Digital classification
     if type_lower.contains("digital") {
         confidence = 0.4;
         characteristics["classification"] = json!("generic_digital");
         return ("digital_sensor".to_string(), confidence, characteristics);
     }
-    
+
     // Fallback classification
     confidence = 0.1;
     characteristics["classification"] = json!("unclassified");
@@ -1452,42 +1536,71 @@ fn classify_sensor_behavior(device: &crate::client::LoxoneDevice, resolved: &cra
 }
 
 /// Classify sensor based on metadata only (when no value is available)
-fn classify_sensor_by_metadata(device: &crate::client::LoxoneDevice) -> (String, f64, serde_json::Value) {
+fn classify_sensor_by_metadata(
+    device: &crate::client::LoxoneDevice,
+) -> (String, f64, serde_json::Value) {
     let name_lower = device.name.to_lowercase();
     let type_lower = device.device_type.to_lowercase();
-    
+
     let characteristics = json!({
         "classification_method": "metadata_only",
         "device_type": device.device_type,
         "category": device.category
     });
-    
+
     // High confidence name-based classification
-    if name_lower.contains("temp") { return ("temperature".to_string(), 0.7, characteristics); }
-    if name_lower.contains("door") || name_lower.contains("window") { return ("door_window_contact".to_string(), 0.7, characteristics); }
-    if name_lower.contains("motion") || name_lower.contains("bewegung") { return ("motion_sensor".to_string(), 0.7, characteristics); }
-    if name_lower.contains("humid") { return ("humidity_sensor".to_string(), 0.7, characteristics); }
-    if name_lower.contains("co2") { return ("co2_sensor".to_string(), 0.7, characteristics); }
-    if name_lower.contains("pressure") { return ("pressure_sensor".to_string(), 0.6, characteristics); }
-    if name_lower.contains("power") || name_lower.contains("energy") { return ("energy_meter".to_string(), 0.6, characteristics); }
-    if name_lower.contains("wind") { return ("wind_sensor".to_string(), 0.6, characteristics); }
-    if name_lower.contains("rain") { return ("rain_sensor".to_string(), 0.6, characteristics); }
-    
+    if name_lower.contains("temp") {
+        return ("temperature".to_string(), 0.7, characteristics);
+    }
+    if name_lower.contains("door") || name_lower.contains("window") {
+        return ("door_window_contact".to_string(), 0.7, characteristics);
+    }
+    if name_lower.contains("motion") || name_lower.contains("bewegung") {
+        return ("motion_sensor".to_string(), 0.7, characteristics);
+    }
+    if name_lower.contains("humid") {
+        return ("humidity_sensor".to_string(), 0.7, characteristics);
+    }
+    if name_lower.contains("co2") {
+        return ("co2_sensor".to_string(), 0.7, characteristics);
+    }
+    if name_lower.contains("pressure") {
+        return ("pressure_sensor".to_string(), 0.6, characteristics);
+    }
+    if name_lower.contains("power") || name_lower.contains("energy") {
+        return ("energy_meter".to_string(), 0.6, characteristics);
+    }
+    if name_lower.contains("wind") {
+        return ("wind_sensor".to_string(), 0.6, characteristics);
+    }
+    if name_lower.contains("rain") {
+        return ("rain_sensor".to_string(), 0.6, characteristics);
+    }
+
     // Type-based classification
-    if type_lower.contains("gate") { return ("door_window_contact".to_string(), 0.6, characteristics); }
-    if type_lower.contains("analog") { return ("analog_sensor".to_string(), 0.3, characteristics); }
-    if type_lower.contains("digital") { return ("digital_sensor".to_string(), 0.3, characteristics); }
-    
+    if type_lower.contains("gate") {
+        return ("door_window_contact".to_string(), 0.6, characteristics);
+    }
+    if type_lower.contains("analog") {
+        return ("analog_sensor".to_string(), 0.3, characteristics);
+    }
+    if type_lower.contains("digital") {
+        return ("digital_sensor".to_string(), 0.3, characteristics);
+    }
+
     ("unknown".to_string(), 0.1, characteristics)
 }
 
 /// Generate recommendations for improving sensor classification
-fn generate_sensor_recommendations(classification_counts: &std::collections::HashMap<String, i32>, discovered_sensors: &[serde_json::Value]) -> serde_json::Value {
+fn generate_sensor_recommendations(
+    classification_counts: &std::collections::HashMap<String, i32>,
+    discovered_sensors: &[serde_json::Value],
+) -> serde_json::Value {
     let mut recommendations = Vec::new();
-    
+
     let unknown_count = classification_counts.get("unknown").unwrap_or(&0);
     let total_sensors = classification_counts.values().sum::<i32>();
-    
+
     if *unknown_count > 0 {
         recommendations.push(json!({
             "type": "improve_naming",
@@ -1495,15 +1608,19 @@ fn generate_sensor_recommendations(classification_counts: &std::collections::Has
             "priority": "medium"
         }));
     }
-    
+
     // Check for sensors with low confidence
     let low_confidence_sensors: Vec<_> = discovered_sensors
         .iter()
         .filter(|sensor| {
-            sensor.get("confidence").and_then(|c| c.as_f64()).unwrap_or(0.0) < 0.5
+            sensor
+                .get("confidence")
+                .and_then(|c| c.as_f64())
+                .unwrap_or(0.0)
+                < 0.5
         })
         .collect();
-    
+
     if !low_confidence_sensors.is_empty() {
         recommendations.push(json!({
             "type": "verify_classification",
@@ -1511,7 +1628,7 @@ fn generate_sensor_recommendations(classification_counts: &std::collections::Has
             "priority": "low"
         }));
     }
-    
+
     // Suggest sensor groups for better organization
     let sensor_types: Vec<String> = classification_counts.keys().cloned().collect();
     if sensor_types.len() > 5 {
@@ -1521,16 +1638,16 @@ fn generate_sensor_recommendations(classification_counts: &std::collections::Has
             "priority": "low"
         }));
     }
-    
+
     json!({
         "recommendations": recommendations,
         "classification_accuracy": {
             "total_sensors": total_sensors,
             "classified_sensors": total_sensors - unknown_count,
-            "accuracy_percentage": if total_sensors > 0 { 
-                ((total_sensors - unknown_count) as f64 / total_sensors as f64 * 100.0).round() 
-            } else { 
-                0.0 
+            "accuracy_percentage": if total_sensors > 0 {
+                ((total_sensors - unknown_count) as f64 / total_sensors as f64 * 100.0).round()
+            } else {
+                0.0
             }
         }
     })

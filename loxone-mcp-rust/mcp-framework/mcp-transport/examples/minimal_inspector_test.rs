@@ -18,25 +18,26 @@ struct AnyQuery {
     params: HashMap<String, String>,
 }
 
-async fn handle_any_sse(
-    uri: Uri,
-    Query(query): Query<AnyQuery>,
-    headers: HeaderMap,
-) -> Response {
+async fn handle_any_sse(uri: Uri, Query(query): Query<AnyQuery>, headers: HeaderMap) -> Response {
     info!("=== SSE REQUEST ===");
     info!("URI: {}", uri);
     info!("Query string: {:?}", uri.query());
     info!("Parsed params: {:?}", query.params);
     info!("Headers: {:?}", headers);
     info!("==================");
-    
+
     // Try different response formats
-    
+
     // 1. Simple JSON response (for streamable-http)
-    if headers.get("accept").map(|v| v.to_str().unwrap_or("")).unwrap_or("").contains("text/event-stream") {
+    if headers
+        .get("accept")
+        .map(|v| v.to_str().unwrap_or(""))
+        .unwrap_or("")
+        .contains("text/event-stream")
+    {
         info!("Client wants SSE, but returning JSON to test Inspector");
     }
-    
+
     let response = json!({
         "type": "connection",
         "status": "connected",
@@ -44,25 +45,21 @@ async fn handle_any_sse(
         "transport": "streamable-http",
         "server": "minimal-test"
     });
-    
+
     Json(response).into_response()
 }
 
-async fn handle_any_post(
-    uri: Uri,
-    headers: HeaderMap,
-    body: String,
-) -> Response {
+async fn handle_any_post(uri: Uri, headers: HeaderMap, body: String) -> Response {
     info!("=== POST REQUEST ===");
     info!("URI: {}", uri);
     info!("Headers: {:?}", headers);
     info!("Body: {}", body);
     info!("===================");
-    
+
     // Try to parse as JSON
     if let Ok(json_body) = serde_json::from_str::<serde_json::Value>(&body) {
         info!("Parsed JSON: {:?}", json_body);
-        
+
         // Simple echo response
         let response = json!({
             "jsonrpc": "2.0",
@@ -72,10 +69,10 @@ async fn handle_any_post(
                 "method": json_body.get("method")
             }
         });
-        
+
         return Json(response).into_response();
     }
-    
+
     StatusCode::BAD_REQUEST.into_response()
 }
 
@@ -100,10 +97,10 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3004")
         .await
         .unwrap();
-        
+
     info!("🔍 MCP Inspector Debug Server");
     info!("Running on: http://127.0.0.1:3004");
     info!("Point MCP Inspector to this URL and check logs");
-    
+
     axum::serve(listener, app).await.unwrap();
 }

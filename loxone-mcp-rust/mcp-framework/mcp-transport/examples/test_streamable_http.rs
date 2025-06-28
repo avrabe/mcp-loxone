@@ -1,15 +1,20 @@
 //! Test server for MCP Inspector using streamable-http transport
 
-use mcp_transport::{Transport, RequestHandler, streamable_http::StreamableHttpTransport};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_protocol::{Request, Response};
+use mcp_transport::{streamable_http::StreamableHttpTransport, RequestHandler, Transport};
 use serde_json::json;
 use tracing::info;
 
 // Handler for MCP Inspector
-fn inspector_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+fn inspector_handler(
+    request: Request,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
     Box::pin(async move {
-        info!("📥 Received: method={}, id={:?}", request.method, request.id);
-        
+        info!(
+            "📥 Received: method={}, id={:?}",
+            request.method, request.id
+        );
+
         match request.method.as_str() {
             "initialize" => {
                 info!("🚀 Handling initialize request");
@@ -69,11 +74,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create streamable HTTP transport
     let mut transport = StreamableHttpTransport::new(3001);
-    
+
     // Start the transport
     let handler: RequestHandler = Box::new(inspector_handler);
     transport.start(handler).await?;
-    
+
     info!("✅ Server ready at http://localhost:3001");
     info!("");
     info!("Connect MCP Inspector to: http://localhost:3001");
@@ -86,12 +91,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("4. Server responds with capabilities");
     info!("");
     info!("Press Ctrl+C to stop");
-    
+
     // Keep server running
     tokio::signal::ctrl_c().await?;
-    
+
     info!("Shutting down...");
     transport.stop().await?;
-    
+
     Ok(())
 }

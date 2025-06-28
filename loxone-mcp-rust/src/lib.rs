@@ -37,6 +37,6 @@ pub mod tools;
 pub mod validation;
 
 // Re-export main types for convenience
-pub use error::{LoxoneError, Result};
 pub use config::ServerConfig;
+pub use error::{LoxoneError, Result};
 pub use framework_integration::LoxoneBackend;

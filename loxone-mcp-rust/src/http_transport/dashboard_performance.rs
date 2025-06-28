@@ -67,7 +67,7 @@ impl PerformanceDashboard {
         Self {
             snapshot: Arc::new(RwLock::new(None)),
             refresh_interval: Duration::from_secs(5), // 5-second background refresh
-            max_age: Duration::from_secs(30), // Force refresh after 30 seconds
+            max_age: Duration::from_secs(30),         // Force refresh after 30 seconds
             metrics: Arc::new(RwLock::new(DashboardMetrics {
                 fastest_response_us: u64::MAX,
                 ..Default::default()
@@ -78,7 +78,7 @@ impl PerformanceDashboard {
     /// Get dashboard data with <100ms guarantee
     pub async fn get_dashboard_fast(&self, server: &LoxoneMcpServer) -> Value {
         let start = Instant::now();
-        
+
         // Try to serve from snapshot first (should be <1ms)
         if let Some(snapshot) = self.get_valid_snapshot().await {
             let elapsed = start.elapsed();
@@ -89,7 +89,7 @@ impl PerformanceDashboard {
         // Cache miss - generate new snapshot
         let data = self.generate_optimized_dashboard(server).await;
         let elapsed = start.elapsed();
-        
+
         // Store new snapshot
         let snapshot = DashboardSnapshot {
             data: data.clone(),
@@ -97,10 +97,10 @@ impl PerformanceDashboard {
             source: "live_generation".to_string(),
             cache_key: self.generate_cache_key().await,
         };
-        
+
         *self.snapshot.write().await = Some(snapshot);
         self.update_metrics(elapsed, false).await;
-        
+
         data
     }
 
@@ -109,13 +109,13 @@ impl PerformanceDashboard {
         let snapshot_ref = self.snapshot.clone();
         let refresh_interval = self.refresh_interval;
         let metrics_ref = self.metrics.clone();
-        
+
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(refresh_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 // Check if refresh is needed
                 let needs_refresh = {
                     let snapshot_guard = snapshot_ref.read().await;
@@ -124,13 +124,13 @@ impl PerformanceDashboard {
                         None => true,
                     }
                 };
-                
+
                 if needs_refresh {
                     let start = Instant::now();
-                    
+
                     // Generate fresh data in background
                     let data = Self::generate_optimized_dashboard_static(&server).await;
-                    
+
                     // Update snapshot
                     let new_snapshot = DashboardSnapshot {
                         data,
@@ -138,17 +138,20 @@ impl PerformanceDashboard {
                         source: "background_refresh".to_string(),
                         cache_key: Self::generate_cache_key_static().await,
                     };
-                    
+
                     *snapshot_ref.write().await = Some(new_snapshot);
-                    
+
                     // Update metrics
                     {
                         let mut metrics = metrics_ref.write().await;
                         metrics.background_refreshes += 1;
                         metrics.last_refresh_at = Some(Instant::now());
                     }
-                    
-                    tracing::debug!("Background dashboard refresh completed in {:?}", start.elapsed());
+
+                    tracing::debug!(
+                        "Background dashboard refresh completed in {:?}",
+                        start.elapsed()
+                    );
                 }
             }
         });
@@ -157,13 +160,13 @@ impl PerformanceDashboard {
     /// Get valid snapshot if available
     async fn get_valid_snapshot(&self) -> Option<DashboardSnapshot> {
         let snapshot_guard = self.snapshot.read().await;
-        
+
         if let Some(snapshot) = snapshot_guard.as_ref() {
             if snapshot.created_at.elapsed() < self.max_age {
                 return Some(snapshot.clone());
             }
         }
-        
+
         None
     }
 
@@ -178,17 +181,21 @@ impl PerformanceDashboard {
         let context = &server.context;
 
         // Use concurrent operations for maximum speed
-        let (devices, rooms, connection_status) = tokio::join!(
-            context.devices.read(),
-            context.rooms.read(),
-            async { *context.connected.read().await }
-        );
+        let (devices, rooms, connection_status) =
+            tokio::join!(context.devices.read(), context.rooms.read(), async {
+                *context.connected.read().await
+            });
 
         // Get device UUIDs and resolve values in batch (fastest method)
         let device_uuids: Vec<String> = devices.keys().cloned().collect();
-        
-        let resolved_values: std::collections::HashMap<String, crate::services::value_resolution::ResolvedValue> = 
-            resolver.resolve_batch_values(&device_uuids).await.unwrap_or_default();
+
+        let resolved_values: std::collections::HashMap<
+            String,
+            crate::services::value_resolution::ResolvedValue,
+        > = resolver
+            .resolve_batch_values(&device_uuids)
+            .await
+            .unwrap_or_default();
 
         // Pre-categorize devices for faster processing
         let mut categorized = CategorizedDevices::default();
@@ -238,25 +245,26 @@ impl PerformanceDashboard {
     /// Update performance metrics
     async fn update_metrics(&self, elapsed: Duration, was_cache_hit: bool) {
         let mut metrics = self.metrics.write().await;
-        
+
         metrics.total_requests += 1;
-        
+
         if was_cache_hit {
             metrics.cache_hits += 1;
         } else {
             metrics.cache_misses += 1;
         }
-        
+
         let elapsed_us = elapsed.as_micros() as u64;
-        
+
         // Update average response time
         if metrics.total_requests == 1 {
             metrics.avg_response_time_us = elapsed_us;
         } else {
-            metrics.avg_response_time_us = 
-                (metrics.avg_response_time_us * (metrics.total_requests - 1) + elapsed_us) / metrics.total_requests;
+            metrics.avg_response_time_us =
+                (metrics.avg_response_time_us * (metrics.total_requests - 1) + elapsed_us)
+                    / metrics.total_requests;
         }
-        
+
         // Update fastest response time
         if elapsed_us < metrics.fastest_response_us {
             metrics.fastest_response_us = elapsed_us;
@@ -291,7 +299,11 @@ struct CategorizedDevices {
 }
 
 impl CategorizedDevices {
-    fn add_device(&mut self, device: &crate::client::LoxoneDevice, resolved: &crate::services::value_resolution::ResolvedValue) {
+    fn add_device(
+        &mut self,
+        device: &crate::client::LoxoneDevice,
+        resolved: &crate::services::value_resolution::ResolvedValue,
+    ) {
         // Count active devices
         if resolved.numeric_value.unwrap_or(0.0) > 0.0 {
             self.active_count += 1;
@@ -307,7 +319,7 @@ impl CategorizedDevices {
                 } else {
                     self.climate.push(device.uuid.clone());
                 }
-            },
+            }
             _ => {
                 if resolved.sensor_type.is_some() {
                     self.sensors.push(device.uuid.clone());
@@ -325,17 +337,22 @@ impl CategorizedDevices {
 /// Performance-optimized dashboard endpoint
 pub async fn get_ultra_fast_dashboard(server: &LoxoneMcpServer) -> Value {
     // Static performance dashboard instance (created once)
-    static PERF_DASHBOARD: tokio::sync::OnceCell<PerformanceDashboard> = tokio::sync::OnceCell::const_new();
-    
-    let dashboard = PERF_DASHBOARD.get_or_init(|| async {
-        let dashboard = PerformanceDashboard::new();
-        
-        // Start background refresh
-        dashboard.start_background_refresh(Arc::new(server.clone())).await;
-        
-        dashboard
-    }).await;
-    
+    static PERF_DASHBOARD: tokio::sync::OnceCell<PerformanceDashboard> =
+        tokio::sync::OnceCell::const_new();
+
+    let dashboard = PERF_DASHBOARD
+        .get_or_init(|| async {
+            let dashboard = PerformanceDashboard::new();
+
+            // Start background refresh
+            dashboard
+                .start_background_refresh(Arc::new(server.clone()))
+                .await;
+
+            dashboard
+        })
+        .await;
+
     // This should complete in <100ms with caching
     dashboard.get_dashboard_fast(server).await
 }
@@ -343,13 +360,13 @@ pub async fn get_ultra_fast_dashboard(server: &LoxoneMcpServer) -> Value {
 /// Micro-optimized dashboard for absolute minimum latency
 pub async fn get_micro_dashboard(server: &LoxoneMcpServer) -> Value {
     let context = &server.context;
-    
+
     // Minimal data fetch - only essentials
-    let (device_count, connection_status) = tokio::join!(
-        async { context.devices.read().await.len() },
-        async { *context.connected.read().await }
-    );
-    
+    let (device_count, connection_status) =
+        tokio::join!(async { context.devices.read().await.len() }, async {
+            *context.connected.read().await
+        });
+
     json!({
         "status": if connection_status { "ok" } else { "disconnected" },
         "devices": device_count,
@@ -365,11 +382,15 @@ mod tests {
     #[tokio::test]
     async fn test_dashboard_metrics() {
         let dashboard = PerformanceDashboard::new();
-        
+
         // Simulate requests
-        dashboard.update_metrics(Duration::from_millis(50), true).await;
-        dashboard.update_metrics(Duration::from_millis(75), false).await;
-        
+        dashboard
+            .update_metrics(Duration::from_millis(50), true)
+            .await;
+        dashboard
+            .update_metrics(Duration::from_millis(75), false)
+            .await;
+
         let metrics = dashboard.get_metrics().await;
         assert_eq!(metrics.total_requests, 2);
         assert_eq!(metrics.cache_hits, 1);
@@ -380,7 +401,7 @@ mod tests {
     #[tokio::test]
     async fn test_snapshot_expiry() {
         let dashboard = PerformanceDashboard::new();
-        
+
         // Create expired snapshot
         let old_snapshot = DashboardSnapshot {
             data: json!({"test": "data"}),
@@ -388,9 +409,9 @@ mod tests {
             source: "test".to_string(),
             cache_key: "test_key".to_string(),
         };
-        
+
         *dashboard.snapshot.write().await = Some(old_snapshot);
-        
+
         // Should return None for expired snapshot
         assert!(dashboard.get_valid_snapshot().await.is_none());
     }

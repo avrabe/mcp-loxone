@@ -1,6 +1,6 @@
 //! Request validation utilities
 
-use mcp_protocol::{Request, Error};
+use pulseengine_mcp_protocol::{Error, Request};
 
 /// Request validator
 pub struct RequestValidator;
@@ -12,11 +12,11 @@ impl RequestValidator {
         if request.jsonrpc != "2.0" {
             return Err(Error::invalid_request("Invalid JSON-RPC version"));
         }
-        
+
         if request.method.is_empty() {
             return Err(Error::invalid_request("Method cannot be empty"));
         }
-        
+
         Ok(())
     }
 }

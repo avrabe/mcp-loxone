@@ -19,9 +19,9 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|_| EnvFilter::new("loxone_mcp=debug,mcp_server=debug,loxone_backend=debug"))
         )
         .init();
-    
+
     info!("🏠 Starting Loxone MCP Server");
-    
+
     // Load Loxone configuration
     let loxone_config = match LoxoneConfig::load().await {
         Ok(config) => {
@@ -38,25 +38,25 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
             std::process::exit(1);
         }
     };
-    
+
     // Create Loxone backend
     let backend = LoxoneBackend::initialize(loxone_config).await?;
     info!("✅ Loxone backend initialized");
-    
+
     // Create server configuration
     let mut auth_config = mcp_auth::default_config();
     auth_config.enabled = false; // Disable authentication for this example
-    
+
     let server_config = ServerConfig {
         server_info: backend.get_server_info(),
         auth_config,
         transport_config: TransportConfig::Stdio, // Use stdio transport for MCP clients
         ..Default::default()
     };
-    
+
     // Create and start server
     let mut server = McpServer::new(backend, server_config).await?;
-    
+
     info!("✅ Loxone MCP Server started successfully");
     info!("🏠 Available tools:");
     info!("   • control_lights_unified - Control lighting devices and rooms");
@@ -71,10 +71,10 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
     info!("   - 'Turn on the living room lights'");
     info!("   - 'List all rooms'");
     info!("   - 'Show me details for the kitchen'");
-    
+
     // Run server until shutdown
     server.run().await?;
-    
+
     info!("👋 Loxone MCP Server stopped");
     Ok(())
 }

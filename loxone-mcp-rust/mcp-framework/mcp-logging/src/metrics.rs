@@ -17,7 +17,7 @@ pub struct MetricsCollector {
     /// Request metrics
     request_metrics: Arc<RwLock<RequestMetrics>>,
 
-    /// System health metrics  
+    /// System health metrics
     health_metrics: Arc<RwLock<HealthMetrics>>,
 
     /// Business metrics
@@ -582,25 +582,35 @@ mod tests {
     #[tokio::test]
     async fn test_error_recording() {
         let collector = MetricsCollector::new();
-        
+
         // Create a mock error implementing ErrorClassification
         #[derive(Debug)]
         struct MockAuthError;
-        
+
         impl std::fmt::Display for MockAuthError {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "Test auth error")
             }
         }
-        
+
         impl std::error::Error for MockAuthError {}
-        
+
         impl crate::ErrorClassification for MockAuthError {
-            fn error_type(&self) -> &str { "auth_error" }
-            fn is_retryable(&self) -> bool { false }
-            fn is_timeout(&self) -> bool { false }
-            fn is_auth_error(&self) -> bool { true }
-            fn is_connection_error(&self) -> bool { false }
+            fn error_type(&self) -> &str {
+                "auth_error"
+            }
+            fn is_retryable(&self) -> bool {
+                false
+            }
+            fn is_timeout(&self) -> bool {
+                false
+            }
+            fn is_auth_error(&self) -> bool {
+                true
+            }
+            fn is_connection_error(&self) -> bool {
+                false
+            }
         }
 
         let error = MockAuthError;

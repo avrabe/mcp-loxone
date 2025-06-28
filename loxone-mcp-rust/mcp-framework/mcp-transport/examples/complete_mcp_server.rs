@@ -10,32 +10,43 @@
 //! - Ping
 //! - Error handling for unknown methods
 
-use mcp_transport::{Transport, RequestHandler, http::HttpTransport};
-use mcp_protocol::{Request, Response, Error};
+use pulseengine_mcp_protocol::{Error, Request, Response};
+use mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use serde_json::json;
-use tracing::{info, debug, warn};
+use tracing::{debug, info, warn};
 
 /// Complete MCP handler implementing all protocol methods
-fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+fn complete_mcp_handler(
+    request: Request,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
     Box::pin(async move {
         info!("📥 Request: {} (id: {:?})", request.method, request.id);
-        
+
         match request.method.as_str() {
             // === INITIALIZATION ===
             "initialize" => {
                 info!("🚀 Initializing MCP server");
-                
+
                 // Parse initialization parameters
-                let client_info = request.params.get("clientInfo")
+                let client_info = request
+                    .params
+                    .get("clientInfo")
                     .and_then(|v| v.as_object())
-                    .map(|obj| format!("{} v{}", 
-                        obj.get("name").and_then(|v| v.as_str()).unwrap_or("unknown"),
-                        obj.get("version").and_then(|v| v.as_str()).unwrap_or("unknown")
-                    ))
+                    .map(|obj| {
+                        format!(
+                            "{} v{}",
+                            obj.get("name")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown"),
+                            obj.get("version")
+                                .and_then(|v| v.as_str())
+                                .unwrap_or("unknown")
+                        )
+                    })
                     .unwrap_or_else(|| "Unknown Client".to_string());
-                
+
                 info!("🤝 Client: {}", client_info);
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -66,7 +77,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "initialized" => {
                 info!("✅ Client initialization complete");
                 // Notification - no response needed
@@ -77,15 +88,14 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === TOOLS ===
             "tools/list" => {
                 info!("🔧 Listing available tools");
-                
+
                 // Parse pagination parameters
-                let cursor = request.params.get("cursor")
-                    .and_then(|v| v.as_str());
-                
+                let cursor = request.params.get("cursor").and_then(|v| v.as_str());
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -106,7 +116,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                 }
                             },
                             {
-                                "name": "calculate", 
+                                "name": "calculate",
                                 "description": "Perform basic arithmetic calculations",
                                 "inputSchema": {
                                     "type": "object",
@@ -121,7 +131,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                             "description": "First operand"
                                         },
                                         "b": {
-                                            "type": "number", 
+                                            "type": "number",
                                             "description": "Second operand"
                                         }
                                     },
@@ -148,24 +158,26 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "tools/call" => {
-                let tool_name = request.params.get("name")
+                let tool_name = request
+                    .params
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .unwrap_or("unknown");
-                
+
                 info!("⚡ Calling tool: {}", tool_name);
-                
+
                 let default_args = serde_json::Value::Object(Default::default());
-                let arguments = request.params.get("arguments")
-                    .unwrap_or(&default_args);
-                
+                let arguments = request.params.get("arguments").unwrap_or(&default_args);
+
                 let result = match tool_name {
                     "echo" => {
-                        let message = arguments.get("message")
+                        let message = arguments
+                            .get("message")
                             .and_then(|v| v.as_str())
                             .unwrap_or("No message provided");
-                        
+
                         json!({
                             "content": [
                                 {
@@ -176,12 +188,15 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                             "isError": false
                         })
                     }
-                    
+
                     "calculate" => {
-                        let operation = arguments.get("operation").and_then(|v| v.as_str()).unwrap_or("add");
+                        let operation = arguments
+                            .get("operation")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("add");
                         let a = arguments.get("a").and_then(|v| v.as_f64()).unwrap_or(0.0);
                         let b = arguments.get("b").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        
+
                         let result = match operation {
                             "add" => a + b,
                             "subtract" => a - b,
@@ -211,11 +226,14 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                     jsonrpc: "2.0".to_string(),
                                     id: request.id,
                                     result: None,
-                                    error: Some(Error::invalid_params(format!("Unknown operation: {}", operation))),
+                                    error: Some(Error::invalid_params(format!(
+                                        "Unknown operation: {}",
+                                        operation
+                                    ))),
                                 };
                             }
                         };
-                        
+
                         json!({
                             "content": [
                                 {
@@ -226,18 +244,21 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                             "isError": false
                         })
                     }
-                    
+
                     "time" => {
-                        let format = arguments.get("format").and_then(|v| v.as_str()).unwrap_or("iso");
+                        let format = arguments
+                            .get("format")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("iso");
                         let now = chrono::Utc::now();
-                        
+
                         let time_str = match format {
                             "iso" => now.to_rfc3339(),
                             "timestamp" => now.timestamp().to_string(),
                             "human" => now.format("%Y-%m-%d %H:%M:%S UTC").to_string(),
                             _ => now.to_rfc3339(),
                         };
-                        
+
                         json!({
                             "content": [
                                 {
@@ -248,17 +269,20 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                             "isError": false
                         })
                     }
-                    
+
                     _ => {
                         return Response {
                             jsonrpc: "2.0".to_string(),
                             id: request.id,
                             result: None,
-                            error: Some(Error::method_not_found(&format!("Tool not found: {}", tool_name))),
+                            error: Some(Error::method_not_found(&format!(
+                                "Tool not found: {}",
+                                tool_name
+                            ))),
                         };
                     }
                 };
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -266,11 +290,11 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === RESOURCES ===
             "resources/list" => {
                 info!("📁 Listing available resources");
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -299,14 +323,16 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "resources/read" => {
-                let uri = request.params.get("uri")
+                let uri = request
+                    .params
+                    .get("uri")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 info!("📖 Reading resource: {}", uri);
-                
+
                 let (mime_type, content) = match uri {
                     "file://config.json" => (
                         "application/json",
@@ -321,7 +347,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                         "Server Status: RUNNING\nUptime: 1h 23m 45s\nConnections: 1 active\nRequests handled: 42".to_string()
                     ),
                     "file://logs.txt" => (
-                        "text/plain", 
+                        "text/plain",
                         "[INFO] Server started\n[INFO] Client connected\n[INFO] Processing requests\n[DEBUG] Tools listed\n[DEBUG] Resource accessed".to_string()
                     ),
                     _ => {
@@ -333,7 +359,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                         };
                     }
                 };
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -349,10 +375,10 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "resources/templates/list" => {
                 info!("📋 Listing resource templates");
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -365,7 +391,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                 "mimeType": "text/plain"
                             },
                             {
-                                "uriTemplate": "file://metrics/{metric}.json", 
+                                "uriTemplate": "file://metrics/{metric}.json",
                                 "name": "Metrics Data",
                                 "description": "Server metrics in JSON format",
                                 "mimeType": "application/json"
@@ -375,14 +401,16 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "resources/subscribe" => {
-                let uri = request.params.get("uri")
+                let uri = request
+                    .params
+                    .get("uri")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 info!("🔔 Subscribing to resource: {}", uri);
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -390,14 +418,16 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "resources/unsubscribe" => {
-                let uri = request.params.get("uri")
+                let uri = request
+                    .params
+                    .get("uri")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 info!("🔕 Unsubscribing from resource: {}", uri);
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -405,11 +435,11 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === PROMPTS ===
             "prompts/list" => {
                 info!("💬 Listing available prompts");
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -425,7 +455,7 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                         "required": true
                                     },
                                     {
-                                        "name": "context", 
+                                        "name": "context",
                                         "description": "Additional context for analysis",
                                         "required": false
                                     }
@@ -447,28 +477,34 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             "prompts/get" => {
-                let name = request.params.get("name")
+                let name = request
+                    .params
+                    .get("name")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
-                let arguments = request.params.get("arguments")
+
+                let arguments = request
+                    .params
+                    .get("arguments")
                     .and_then(|v| v.as_object())
                     .cloned()
                     .unwrap_or_default();
-                
+
                 info!("📝 Getting prompt: {} with args: {:?}", name, arguments);
-                
+
                 let (description, messages) = match name {
                     "analyze_data" => {
-                        let data_type = arguments.get("data_type")
+                        let data_type = arguments
+                            .get("data_type")
                             .and_then(|v| v.as_str())
                             .unwrap_or("unknown");
-                        let context = arguments.get("context")
+                        let context = arguments
+                            .get("context")
                             .and_then(|v| v.as_str())
                             .unwrap_or("");
-                        
+
                         (
                             "Data analysis prompt".to_string(),
                             vec![
@@ -480,21 +516,22 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                     }
                                 }),
                                 json!({
-                                    "role": "user", 
+                                    "role": "user",
                                     "content": {
                                         "type": "text",
                                         "text": "Please analyze the data and provide insights, trends, and recommendations."
                                     }
-                                })
-                            ]
+                                }),
+                            ],
                         )
                     }
-                    
+
                     "summarize" => {
-                        let length = arguments.get("length")
+                        let length = arguments
+                            .get("length")
                             .and_then(|v| v.as_str())
                             .unwrap_or("medium");
-                        
+
                         (
                             "Content summarization prompt".to_string(),
                             vec![
@@ -508,24 +545,27 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                                 json!({
                                     "role": "user",
                                     "content": {
-                                        "type": "text", 
+                                        "type": "text",
                                         "text": "Please summarize the content, highlighting the key points and main ideas."
                                     }
-                                })
-                            ]
+                                }),
+                            ],
                         )
                     }
-                    
+
                     _ => {
                         return Response {
                             jsonrpc: "2.0".to_string(),
                             id: request.id,
                             result: None,
-                            error: Some(Error::resource_not_found(&format!("Prompt not found: {}", name))),
+                            error: Some(Error::resource_not_found(&format!(
+                                "Prompt not found: {}",
+                                name
+                            ))),
                         };
                     }
                 };
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -536,22 +576,24 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === COMPLETION ===
             "completion/complete" => {
-                let ref_ = request.params.get("ref")
+                let ref_ = request
+                    .params
+                    .get("ref")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                
+
                 info!("🔍 Providing completion for: {}", ref_);
-                
+
                 let completions = match ref_ {
                     "tool_names" => vec!["echo", "calculate", "time"],
                     "operations" => vec!["add", "subtract", "multiply", "divide"],
                     "formats" => vec!["iso", "timestamp", "human"],
                     _ => vec!["unknown_completion"],
                 };
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -566,15 +608,17 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === LOGGING ===
             "logging/setLevel" => {
-                let level = request.params.get("level")
+                let level = request
+                    .params
+                    .get("level")
                     .and_then(|v| v.as_str())
                     .unwrap_or("info");
-                
+
                 info!("📊 Setting log level to: {}", level);
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -582,11 +626,11 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === PING ===
             "ping" => {
                 debug!("🏓 Ping received");
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -594,11 +638,11 @@ fn complete_mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::
                     error: None,
                 }
             }
-            
+
             // === UNKNOWN METHODS ===
             _ => {
                 warn!("❓ Unknown method: {}", request.method);
-                
+
                 Response {
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
@@ -623,11 +667,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create HTTP transport
     let mut transport = HttpTransport::new(3002);
-    
+
     // Start the transport
     let handler: RequestHandler = Box::new(complete_mcp_handler);
     transport.start(handler).await?;
-    
+
     info!("✅ Complete MCP Server ready at http://localhost:3002");
     info!("");
     info!("📋 Supported Methods:");
@@ -659,12 +703,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("    -d '{{\"jsonrpc\":\"2.0\",\"method\":\"tools/list\",\"id\":1}}'");
     info!("");
     info!("Press Ctrl+C to stop");
-    
+
     // Keep server running
     tokio::signal::ctrl_c().await?;
-    
+
     info!("Shutting down...");
     transport.stop().await?;
-    
+
     Ok(())
 }

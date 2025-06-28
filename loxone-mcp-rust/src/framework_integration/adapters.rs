@@ -3,13 +3,13 @@
 //! This module provides the bridge layer that allows existing Loxone tools
 //! to work with the new MCP framework without requiring immediate tool rewrites.
 
-use serde_json::Value;
-use mcp_protocol::{Tool, Content, CallToolRequestParam};
 use crate::{
+    error::LoxoneError,
     server::LoxoneMcpServer,
     tools::{ToolContext, ToolResponse},
-    error::LoxoneError,
 };
+use mcp_protocol::{CallToolRequestParam, Content, Tool};
+use serde_json::Value;
 
 /// Helper to extract parameter from MCP request
 pub fn extract_string_param(params: &Option<Value>, name: &str) -> Result<String, LoxoneError> {
@@ -58,16 +58,17 @@ pub fn tool_response_to_content(response: ToolResponse) -> Content {
         result["message"] = Value::String(message);
     }
 
-    Content::text(serde_json::to_string_pretty(&result).unwrap_or_else(|_| {
-        "Failed to serialize response".to_string()
-    }))
+    Content::text(
+        serde_json::to_string_pretty(&result)
+            .unwrap_or_else(|_| "Failed to serialize response".to_string()),
+    )
 }
 
 /// Create tool context from Loxone server
 pub fn create_tool_context(server: &LoxoneMcpServer) -> ToolContext {
     ToolContext {
         client: server.client.clone(),
-        context: server.context.clone(), 
+        context: server.context.clone(),
         value_resolver: server.value_resolver.clone(),
         state_manager: server.state_manager.clone(),
     }
@@ -114,7 +115,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["room_name"]
             }),
         },
-        
+
         // Device tools
         Tool {
             name: "discover_all_devices".to_string(),
@@ -165,7 +166,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["category"]
             }),
         },
-        
+
         // Rolladen/Blinds tools
         Tool {
             name: "control_rolladen_unified".to_string(),
@@ -289,7 +290,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["devices", "action"]
             }),
         },
-        
+
         // Audio tools
         Tool {
             name: "get_audio_zones".to_string(),
@@ -354,7 +355,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["zone_name", "volume"]
             }),
         },
-        
+
         // Lighting tools
         Tool {
             name: "control_lights_unified".to_string(),
@@ -386,7 +387,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["scope", "action"]
             }),
         },
-        
+
         // Sensor tools
         Tool {
             name: "get_all_door_window_sensors".to_string(),
@@ -406,7 +407,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
-        
+
         // Weather tools
         Tool {
             name: "get_weather_station_data".to_string(),
@@ -417,8 +418,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
-        
-        // Energy tools  
+
+        // Energy tools
         Tool {
             name: "get_energy_consumption".to_string(),
             description: "Get current energy consumption data".to_string(),
@@ -434,7 +435,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": []
             }),
         },
-        
+
         // Climate control tools
         Tool {
             name: "get_climate_control".to_string(),
@@ -507,7 +508,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["room_name", "mode"]
             }),
         },
-        
+
         // Security tools
         Tool {
             name: "get_alarm_status".to_string(),
@@ -543,7 +544,7 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "additionalProperties": false
             }),
         },
-        
+
         // Workflow tools
         Tool {
             name: "create_workflow".to_string(),
@@ -630,16 +631,16 @@ pub async fn handle_tool_call(
     params: &CallToolRequestParam,
 ) -> Result<Content, LoxoneError> {
     let context = create_tool_context(server);
-    
+
     let response = match params.name.as_str() {
         // Room tools
-        "list_rooms" => {
-            crate::tools::rooms::list_rooms(context).await
-        }
+        "list_rooms" => crate::tools::rooms::list_rooms(context).await,
         "get_room_devices" => {
             let room_name = extract_string_param(&params.arguments, "room_name")?;
             let category = extract_optional_string_param(&params.arguments, "category");
-            let limit = params.arguments.as_ref()
+            let limit = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("limit"))
                 .and_then(|v| v.as_u64())
                 .map(|n| n as usize);
@@ -649,12 +650,14 @@ pub async fn handle_tool_call(
             let room_name = extract_string_param(&params.arguments, "room_name")?;
             crate::tools::rooms::get_room_overview(context, room_name).await
         }
-        
+
         // Device tools
         "discover_all_devices" => {
             let category = extract_optional_string_param(&params.arguments, "category");
             let device_type = extract_optional_string_param(&params.arguments, "device_type");
-            let limit = params.arguments.as_ref()
+            let limit = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("limit"))
                 .and_then(|v| v.as_u64())
                 .map(|n| n as usize);
@@ -668,20 +671,25 @@ pub async fn handle_tool_call(
         }
         "get_devices_by_category" => {
             let category = extract_string_param(&params.arguments, "category")?;
-            let limit = params.arguments.as_ref()
+            let limit = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("limit"))
                 .and_then(|v| v.as_u64())
                 .map(|n| n as usize);
             crate::tools::devices::get_devices_by_category(context, category, limit).await
         }
-        
+
         // Rolladen/Blinds tools
         "control_rolladen_unified" => {
             let scope = extract_string_param(&params.arguments, "scope")?;
             let target = extract_optional_string_param(&params.arguments, "target");
             let action = extract_string_param(&params.arguments, "action")?;
             let position = extract_optional_u8_param(&params.arguments, "position");
-            crate::tools::rolladen::control_rolladen_unified(context, scope, target, action, position).await
+            crate::tools::rolladen::control_rolladen_unified(
+                context, scope, target, action, position,
+            )
+            .await
         }
         "discover_rolladen_capabilities" => {
             crate::tools::rolladen::discover_rolladen_capabilities(context).await
@@ -691,55 +699,63 @@ pub async fn handle_tool_call(
             let room = extract_string_param(&params.arguments, "room")?;
             let action = extract_string_param(&params.arguments, "action")?;
             crate::tools::rolladen::control_rolladen_unified(
-                context, 
-                "room".to_string(), 
-                Some(room), 
-                action, 
-                None
-            ).await
+                context,
+                "room".to_string(),
+                Some(room),
+                action,
+                None,
+            )
+            .await
         }
         "control_all_rolladen" => {
             // Legacy compatibility: redirect to unified rolladen control with system scope
             let action = extract_string_param(&params.arguments, "action")?;
             crate::tools::rolladen::control_rolladen_unified(
-                context, 
-                "all".to_string(), 
-                None, 
-                action, 
-                None
-            ).await
+                context,
+                "all".to_string(),
+                None,
+                action,
+                None,
+            )
+            .await
         }
         "control_room_lights" => {
             // Legacy compatibility: redirect to unified lighting control with room scope
             let room = extract_string_param(&params.arguments, "room")?;
             let action = extract_string_param(&params.arguments, "action")?;
             crate::tools::lighting::control_lights_unified(
-                context, 
-                "room".to_string(), 
-                Some(room), 
-                action, 
-                None
-            ).await
+                context,
+                "room".to_string(),
+                Some(room),
+                action,
+                None,
+            )
+            .await
         }
         "control_all_lights" => {
             // Legacy compatibility: redirect to unified lighting control with all scope
             let action = extract_string_param(&params.arguments, "action")?;
             crate::tools::lighting::control_lights_unified(
-                context, 
-                "all".to_string(), 
-                None, 
-                action, 
-                None
-            ).await
+                context,
+                "all".to_string(),
+                None,
+                action,
+                None,
+            )
+            .await
         }
         "control_multiple_devices" => {
             // Legacy compatibility: control multiple devices by UUID
-            let devices = params.arguments.as_ref()
+            let devices = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("devices"))
                 .and_then(|v| v.as_array())
-                .ok_or_else(|| LoxoneError::invalid_input("Missing or invalid devices parameter"))?;
+                .ok_or_else(|| {
+                    LoxoneError::invalid_input("Missing or invalid devices parameter")
+                })?;
             let action = extract_string_param(&params.arguments, "action")?;
-            
+
             // Execute commands in parallel for all devices
             let mut results = Vec::new();
             for device_uuid in devices {
@@ -754,11 +770,11 @@ pub async fn handle_tool_call(
                             "device": uuid,
                             "success": false,
                             "error": e.to_string()
-                        }))
+                        })),
                     }
                 }
             }
-            
+
             crate::tools::ToolResponse {
                 status: "success".to_string(),
                 data: serde_json::json!({
@@ -767,44 +783,51 @@ pub async fn handle_tool_call(
                     "total_devices": devices.len(),
                     "timestamp": chrono::Utc::now()
                 }),
-                message: Some(format!("Controlled {} devices with action '{}'", devices.len(), action)),
+                message: Some(format!(
+                    "Controlled {} devices with action '{}'",
+                    devices.len(),
+                    action
+                )),
                 timestamp: chrono::Utc::now(),
             }
         }
-        
+
         // Audio tools
-        "get_audio_zones" => {
-            crate::tools::audio::get_audio_zones(context).await
-        }
+        "get_audio_zones" => crate::tools::audio::get_audio_zones(context).await,
         "control_audio_zone" => {
             let zone_name = extract_string_param(&params.arguments, "zone_name")?;
             let action = extract_string_param(&params.arguments, "action")?;
-            let value = params.arguments.as_ref()
+            let value = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("value"))
                 .and_then(|v| v.as_f64());
             crate::tools::audio::control_audio_zone(context, zone_name, action, value).await
         }
-        "get_audio_sources" => {
-            crate::tools::audio::get_audio_sources(context).await
-        }
+        "get_audio_sources" => crate::tools::audio::get_audio_sources(context).await,
         "set_audio_volume" => {
             let zone_name = extract_string_param(&params.arguments, "zone_name")?;
-            let volume = params.arguments.as_ref()
+            let volume = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("volume"))
                 .and_then(|v| v.as_f64())
                 .ok_or_else(|| LoxoneError::invalid_input("Missing volume parameter"))?;
             crate::tools::audio::set_audio_volume(context, zone_name, volume).await
         }
-        
+
         // Lighting tools
         "control_lights_unified" => {
             let scope = extract_string_param(&params.arguments, "scope")?;
             let target = extract_optional_string_param(&params.arguments, "target");
             let action = extract_string_param(&params.arguments, "action")?;
             let brightness = extract_optional_u8_param(&params.arguments, "brightness");
-            crate::tools::lighting::control_lights_unified(context, scope, target, action, brightness).await
+            crate::tools::lighting::control_lights_unified(
+                context, scope, target, action, brightness,
+            )
+            .await
         }
-        
+
         // Sensor tools
         "get_all_door_window_sensors" => {
             crate::tools::sensors_unified::get_door_window_sensors_unified(context).await
@@ -812,19 +835,19 @@ pub async fn handle_tool_call(
         "get_temperature_sensors" => {
             crate::tools::sensors_unified::get_temperature_sensors_unified(context).await
         }
-        
-        // Weather tools  
-        "get_weather_station_data" => {
-            crate::tools::weather::get_weather_data(context).await
-        }
-        
+
+        // Weather tools
+        "get_weather_station_data" => crate::tools::weather::get_weather_data(context).await,
+
         // Energy tools (special handling for different return type)
         "get_energy_consumption" => {
             let _period = extract_optional_string_param(&params.arguments, "period");
             match crate::tools::energy::get_energy_consumption(
-                params.arguments.clone().unwrap_or_default(), 
-                std::sync::Arc::new(context)
-            ).await {
+                params.arguments.clone().unwrap_or_default(),
+                std::sync::Arc::new(context),
+            )
+            .await
+            {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
                     data: value,
@@ -839,18 +862,18 @@ pub async fn handle_tool_call(
                 },
             }
         }
-        
+
         // Climate control tools
-        "get_climate_control" => {
-            crate::tools::climate::get_climate_control(context).await
-        }
+        "get_climate_control" => crate::tools::climate::get_climate_control(context).await,
         "get_room_climate" => {
             let room_name = extract_string_param(&params.arguments, "room_name")?;
             crate::tools::climate::get_room_climate(context, room_name).await
         }
         "set_room_temperature" => {
             let room_name = extract_string_param(&params.arguments, "room_name")?;
-            let temperature = params.arguments.as_ref()
+            let temperature = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("temperature"))
                 .and_then(|v| v.as_f64())
                 .ok_or_else(|| LoxoneError::invalid_input("Missing temperature parameter"))?;
@@ -864,13 +887,15 @@ pub async fn handle_tool_call(
             let mode = extract_string_param(&params.arguments, "mode")?;
             crate::tools::climate::set_room_mode(context, room_name, mode).await
         }
-        
+
         // Security tools (adapted from legacy signature)
         "get_alarm_status" => {
             match crate::tools::security::get_alarm_status(
                 params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context)
-            ).await {
+                std::sync::Arc::new(context),
+            )
+            .await
+            {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
                     data: value,
@@ -888,8 +913,10 @@ pub async fn handle_tool_call(
         "arm_alarm" => {
             match crate::tools::security::arm_alarm(
                 params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context)
-            ).await {
+                std::sync::Arc::new(context),
+            )
+            .await
+            {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
                     data: value,
@@ -907,8 +934,10 @@ pub async fn handle_tool_call(
         "disarm_alarm" => {
             match crate::tools::security::disarm_alarm(
                 params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context)
-            ).await {
+                std::sync::Arc::new(context),
+            )
+            .await
+            {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
                     data: value,
@@ -923,24 +952,30 @@ pub async fn handle_tool_call(
                 },
             }
         }
-        
+
         // Workflow tools (adapted from legacy signature)
         "create_workflow" => {
             // Extract workflow parameters manually since they have a complex structure
             let name = extract_string_param(&params.arguments, "name")?;
             let description = extract_string_param(&params.arguments, "description")?;
-            let _steps = params.arguments.as_ref()
+            let _steps = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("steps"))
                 .and_then(|v| v.as_array())
                 .ok_or_else(|| LoxoneError::invalid_input("Missing or invalid steps parameter"))?;
-            let timeout_seconds = params.arguments.as_ref()
+            let timeout_seconds = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("timeout_seconds"))
                 .and_then(|v| v.as_u64());
-            let variables = params.arguments.as_ref()
+            let variables = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("variables"))
                 .and_then(|v| v.as_object())
                 .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-            
+
             let workflow_params = crate::tools::workflows::CreateWorkflowParams {
                 name,
                 description,
@@ -948,7 +983,7 @@ pub async fn handle_tool_call(
                 timeout_seconds,
                 variables,
             };
-            
+
             match crate::tools::workflows::create_workflow(context, workflow_params).await {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
@@ -966,16 +1001,18 @@ pub async fn handle_tool_call(
         }
         "execute_workflow_demo" => {
             let workflow_name = extract_string_param(&params.arguments, "workflow_name")?;
-            let variables = params.arguments.as_ref()
+            let variables = params
+                .arguments
+                .as_ref()
                 .and_then(|p| p.get("variables"))
                 .and_then(|v| v.as_object())
                 .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-            
+
             let execute_params = crate::tools::workflows::ExecuteWorkflowParams {
                 workflow_name,
                 variables,
             };
-            
+
             match crate::tools::workflows::execute_workflow_demo(context, execute_params).await {
                 Ok(value) => crate::tools::ToolResponse {
                     status: "success".to_string(),
@@ -1024,11 +1061,14 @@ pub async fn handle_tool_call(
                 },
             }
         }
-        
+
         _ => {
-            return Err(LoxoneError::validation(format!("Unknown tool: {}", params.name)));
+            return Err(LoxoneError::validation(format!(
+                "Unknown tool: {}",
+                params.name
+            )));
         }
     };
-    
+
     Ok(tool_response_to_content(response))
 }

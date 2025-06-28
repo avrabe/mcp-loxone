@@ -376,7 +376,9 @@ impl ResourceManager {
             LoxoneResource {
                 uri: "loxone://sensors/air-quality".to_string(),
                 name: "Air Quality Sensors".to_string(),
-                description: "All air quality sensors including CO2, VOC, humidity, and particulate matter".to_string(),
+                description:
+                    "All air quality sensors including CO2, VOC, humidity, and particulate matter"
+                        .to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Sensors,
@@ -386,7 +388,9 @@ impl ResourceManager {
             LoxoneResource {
                 uri: "loxone://sensors/presence".to_string(),
                 name: "Presence Detectors".to_string(),
-                description: "All presence and occupancy detectors with room-level occupancy analytics".to_string(),
+                description:
+                    "All presence and occupancy detectors with room-level occupancy analytics"
+                        .to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Sensors,
@@ -1156,14 +1160,14 @@ pub trait ResourceHandler {
 impl ResourceHandler for LoxoneMcpServer {
     async fn read_resource(&self, context: ResourceContext) -> Result<ResourceContent> {
         debug!("Reading resource: {}", context.uri);
-        
+
         // Add timeout to resource operations to prevent hanging
         use std::time::Duration;
         use tokio::time::timeout;
-        
+
         let resource_timeout = Duration::from_secs(15); // 15 second timeout for resource operations (increased for concurrent sensor processing)
         let uri = context.uri.clone(); // Clone URI for use in async block
-        
+
         let data = timeout(resource_timeout, async move {
             let result: Result<serde_json::Value> = Ok(match uri.as_str() {
             // Route to appropriate handler based on exact URI match
@@ -1235,7 +1239,7 @@ impl LoxoneMcpServer {
     /// Resource handlers - implement the actual data retrieval
     async fn read_rooms_resource(&self) -> Result<serde_json::Value> {
         let rooms = self.context.rooms.read().await;
-        
+
         // If cache is empty, return empty result quickly (don't block on refresh)
         if rooms.is_empty() {
             warn!("Rooms cache is empty - returning empty result (consider checking Loxone connection)");
@@ -1247,7 +1251,7 @@ impl LoxoneMcpServer {
                 "message": "No rooms data available - ensure Loxone client is connected and structure is loaded"
             }));
         }
-        
+
         let rooms_data: Vec<_> = rooms
             .iter()
             .map(|(uuid, room)| {
@@ -1268,7 +1272,7 @@ impl LoxoneMcpServer {
 
     async fn read_all_devices_resource(&self) -> Result<serde_json::Value> {
         let devices = self.context.devices.read().await;
-        
+
         // If cache is empty, return empty result quickly (don't block on refresh)
         if devices.is_empty() {
             warn!("Devices cache is empty - returning empty result (consider checking Loxone connection)");
@@ -1280,9 +1284,9 @@ impl LoxoneMcpServer {
                 "message": "No devices data available - ensure Loxone client is connected and structure is loaded"
             }));
         }
-        
+
         let rooms = self.context.rooms.read().await;
-        
+
         let device_list: Vec<_> = devices
             .values()
             .map(|device| {
@@ -2047,10 +2051,10 @@ impl LoxoneMcpServer {
                 },
                 "available_states": device.states.keys().cloned().collect::<Vec<String>>(),
                 "data_source": data_source,
-                "note": if resolved_state_values.is_empty() { 
-                    "Using fallback device states. State UUID resolution failed - may need WebSocket connection or different API endpoints." 
+                "note": if resolved_state_values.is_empty() {
+                    "Using fallback device states. State UUID resolution failed - may need WebSocket connection or different API endpoints."
                 } else {
-                    "Using resolved state UUID values for accurate position data." 
+                    "Using resolved state UUID values for accurate position data."
                 }
             }));
         }

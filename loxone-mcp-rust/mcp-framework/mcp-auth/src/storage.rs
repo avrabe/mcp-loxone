@@ -36,11 +36,11 @@ impl StorageBackend for FileStorage {
     async fn load_keys(&self) -> Result<HashMap<String, ApiKey>, StorageError> {
         Ok(HashMap::new())
     }
-    
+
     async fn save_key(&self, _key: &ApiKey) -> Result<(), StorageError> {
         Ok(())
     }
-    
+
     async fn delete_key(&self, _key_id: &str) -> Result<(), StorageError> {
         Ok(())
     }
@@ -63,11 +63,11 @@ impl StorageBackend for EnvironmentStorage {
     async fn load_keys(&self) -> Result<HashMap<String, ApiKey>, StorageError> {
         Ok(HashMap::new())
     }
-    
+
     async fn save_key(&self, _key: &ApiKey) -> Result<(), StorageError> {
         Ok(())
     }
-    
+
     async fn delete_key(&self, _key_id: &str) -> Result<(), StorageError> {
         Ok(())
     }

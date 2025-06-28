@@ -1,14 +1,16 @@
 //! Test HTTP/SSE transport implementation
 
-use mcp_transport::{Transport, TransportError, RequestHandler, http::HttpTransport};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_protocol::{Request, Response};
+use mcp_transport::{http::HttpTransport, RequestHandler, Transport, TransportError};
 use serde_json::json;
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tracing::{info, error};
+use tracing::{error, info};
 
 // Simple echo handler
-fn echo_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+fn echo_handler(
+    request: Request,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
     Box::pin(async move {
         info!("Received request: {:?}", request);
         Response {
@@ -34,19 +36,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create HTTP transport
     let mut transport = HttpTransport::new(3001);
-    
+
     // Start the transport
     let handler: RequestHandler = Box::new(echo_handler);
     transport.start(handler).await?;
-    
+
     info!("Server started on http://localhost:3001");
     info!("Endpoints:");
     info!("  POST http://localhost:3001/messages - Send messages");
     info!("  GET  http://localhost:3001/sse      - SSE stream");
-    
+
     // Keep server running
     info!("Server is running. Press Ctrl+C to stop.");
-    
+
     // Send periodic test messages
     let transport_clone = Arc::new(transport);
     tokio::spawn(async move {
@@ -61,8 +63,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "counter": counter,
                     "timestamp": chrono::Utc::now().to_rfc3339(),
                 }
-            }).to_string();
-            
+            })
+            .to_string();
+
             if let Err(e) = transport_clone.broadcast_message(&message).await {
                 error!("Failed to broadcast message: {}", e);
             } else {
@@ -70,7 +73,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
-    
+
     // Keep main thread alive
     loop {
         sleep(Duration::from_secs(60)).await;

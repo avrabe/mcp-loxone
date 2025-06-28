@@ -2,7 +2,7 @@
 //!
 //! This example shows how optimized responses provide better user experience
 //! by returning empty results instead of "not found" error messages.
-//! 
+//!
 //! NOTE: This example is temporarily disabled as the response_optimization module
 //! is being refactored as part of the framework migration.
 

@@ -21,7 +21,6 @@ pub struct UnifiedDataCollector {
     /// Loxone clients for different endpoints
     clients: HashMap<String, Arc<dyn LoxoneClient>>,
 
-
     /// Real-time data broadcast
     realtime_tx: broadcast::Sender<DashboardUpdate>,
 
@@ -528,10 +527,7 @@ pub struct ActivityEvent {
 
 impl UnifiedDataCollector {
     /// Create new unified data collector
-    pub fn new(
-        clients: HashMap<String, Arc<dyn LoxoneClient>>,
-        config: CollectorConfig,
-    ) -> Self {
+    pub fn new(clients: HashMap<String, Arc<dyn LoxoneClient>>, config: CollectorConfig) -> Self {
         let (realtime_tx, _) = broadcast::channel(1000);
 
         Self {
@@ -683,13 +679,7 @@ impl UnifiedDataCollector {
 
                 let start_time = Instant::now();
 
-                match Self::collect_data(
-                    &clients,
-                    &realtime_tx,
-                    &operational_metrics,
-                )
-                .await
-                {
+                match Self::collect_data(&clients, &realtime_tx, &operational_metrics).await {
                     Ok(dashboard_data) => {
                         let collection_time = start_time.elapsed().as_millis() as f64;
 

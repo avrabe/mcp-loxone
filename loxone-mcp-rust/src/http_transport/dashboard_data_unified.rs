@@ -748,17 +748,18 @@ fn build_device_json(
 /// Collect trend data from StateManager's historical data
 async fn collect_trend_data(
     state_manager: &std::sync::Arc<crate::services::state_manager::StateManager>,
-    devices: &std::sync::Arc<tokio::sync::RwLock<std::collections::HashMap<String, crate::client::LoxoneDevice>>>,
+    devices: &std::sync::Arc<
+        tokio::sync::RwLock<std::collections::HashMap<String, crate::client::LoxoneDevice>>,
+    >,
 ) -> serde_json::Value {
-    
     // Get change statistics
     let change_stats = state_manager.get_change_statistics().await;
-    tracing::info!("StateManager statistics: total_changes={}, change_rate_per_hour={}, most_active_devices={}", 
-        change_stats.total_changes, 
+    tracing::info!("StateManager statistics: total_changes={}, change_rate_per_hour={}, most_active_devices={}",
+        change_stats.total_changes,
         change_stats.change_rate_per_hour,
         change_stats.most_active_devices.len()
     );
-    
+
     // Collect device usage data (most active devices)
     let mut device_usage_data = Vec::new();
     for (device_uuid, change_count) in change_stats.most_active_devices.iter().take(10) {
@@ -772,7 +773,7 @@ async fn collect_trend_data(
             }));
         }
     }
-    
+
     // Collect daily activity patterns (changes by type)
     let mut daily_activity = Vec::new();
     for (change_type, count) in &change_stats.changes_by_type {
@@ -782,26 +783,35 @@ async fn collect_trend_data(
             "percentage": (*count as f64 / change_stats.total_changes as f64 * 100.0).round()
         }));
     }
-    
+
     // Sort by count descending
     daily_activity.sort_by(|a, b| {
-        b["count"].as_u64().unwrap_or(0).cmp(&a["count"].as_u64().unwrap_or(0))
+        b["count"]
+            .as_u64()
+            .unwrap_or(0)
+            .cmp(&a["count"].as_u64().unwrap_or(0))
     });
-    
+
     // Collect performance trends from recent device changes
     let mut performance_trends = Vec::new();
-    
+
     // Sample a few devices to show their recent history
     let device_list = devices.read().await;
     let sample_devices: Vec<_> = device_list.keys().take(5).cloned().collect();
     drop(device_list);
-    
+
     for device_uuid in sample_devices {
-        let history = state_manager.get_device_history(&device_uuid, Some(20)).await;
+        let history = state_manager
+            .get_device_history(&device_uuid, Some(20))
+            .await;
         if !history.is_empty() {
             // Get device info
-            let device_info = devices.read().await.get(&device_uuid).map(|d| (d.name.clone(), d.device_type.clone()));
-            
+            let device_info = devices
+                .read()
+                .await
+                .get(&device_uuid)
+                .map(|d| (d.name.clone(), d.device_type.clone()));
+
             if let Some((name, device_type)) = device_info {
                 // Collect value changes over time
                 let mut value_points = Vec::new();
@@ -817,7 +827,7 @@ async fn collect_trend_data(
                         }
                     }
                 }
-                
+
                 if !value_points.is_empty() {
                     performance_trends.push(json!({
                         "device_name": name,
@@ -828,7 +838,7 @@ async fn collect_trend_data(
             }
         }
     }
-    
+
     // Room activity analysis
     let mut room_activity = Vec::new();
     for (room, count) in &change_stats.changes_by_room {
@@ -839,44 +849,52 @@ async fn collect_trend_data(
         }));
     }
     room_activity.sort_by(|a, b| {
-        b["activity_count"].as_u64().unwrap_or(0).cmp(&a["activity_count"].as_u64().unwrap_or(0))
+        b["activity_count"]
+            .as_u64()
+            .unwrap_or(0)
+            .cmp(&a["activity_count"].as_u64().unwrap_or(0))
     });
-    
+
     // If we have no real data, provide some sample trends for demonstration
-    let (daily_activity, device_usage_data, performance_trends, room_activity) = 
-        if change_stats.total_changes == 0 {
-            tracing::info!("No historical data available, providing sample trends");
-            // Sample data for when no historical data exists yet
-            let sample_daily = vec![
-                json!({"type": "ValueChanged", "count": 15, "percentage": 60}),
-                json!({"type": "DeviceOnline", "count": 8, "percentage": 32}),
-                json!({"type": "FirstSeen", "count": 2, "percentage": 8})
-            ];
-            
-            let sample_usage = vec![
-                json!({"device_name": "Living Room Light", "device_type": "LightControllerV2", "room": "Living Room", "change_count": 12, "usage_level": "low"}),
-                json!({"device_name": "Kitchen Sensor", "device_type": "IntelligentRoomController", "room": "Kitchen", "change_count": 8, "usage_level": "low"})
-            ];
-            
-            let sample_trends = vec![
-                json!({
-                    "device_name": "Temperature Sensor", 
-                    "device_type": "AnalogInput",
-                    "data_points": [
-                        {"timestamp": chrono::Utc::now().to_rfc3339(), "value": 21.5, "formatted": "21.5°C", "significance": "Minor"}
-                    ]
-                })
-            ];
-            
-            let sample_rooms = vec![
-                json!({"room": "Living Room", "activity_count": 12, "activity_level": "quiet"}),
-                json!({"room": "Kitchen", "activity_count": 8, "activity_level": "quiet"})
-            ];
-            
-            (sample_daily, sample_usage, sample_trends, sample_rooms)
-        } else {
-            (daily_activity, device_usage_data, performance_trends, room_activity)
-        };
+    let (daily_activity, device_usage_data, performance_trends, room_activity) = if change_stats
+        .total_changes
+        == 0
+    {
+        tracing::info!("No historical data available, providing sample trends");
+        // Sample data for when no historical data exists yet
+        let sample_daily = vec![
+            json!({"type": "ValueChanged", "count": 15, "percentage": 60}),
+            json!({"type": "DeviceOnline", "count": 8, "percentage": 32}),
+            json!({"type": "FirstSeen", "count": 2, "percentage": 8}),
+        ];
+
+        let sample_usage = vec![
+            json!({"device_name": "Living Room Light", "device_type": "LightControllerV2", "room": "Living Room", "change_count": 12, "usage_level": "low"}),
+            json!({"device_name": "Kitchen Sensor", "device_type": "IntelligentRoomController", "room": "Kitchen", "change_count": 8, "usage_level": "low"}),
+        ];
+
+        let sample_trends = vec![json!({
+            "device_name": "Temperature Sensor",
+            "device_type": "AnalogInput",
+            "data_points": [
+                {"timestamp": chrono::Utc::now().to_rfc3339(), "value": 21.5, "formatted": "21.5°C", "significance": "Minor"}
+            ]
+        })];
+
+        let sample_rooms = vec![
+            json!({"room": "Living Room", "activity_count": 12, "activity_level": "quiet"}),
+            json!({"room": "Kitchen", "activity_count": 8, "activity_level": "quiet"}),
+        ];
+
+        (sample_daily, sample_usage, sample_trends, sample_rooms)
+    } else {
+        (
+            daily_activity,
+            device_usage_data,
+            performance_trends,
+            room_activity,
+        )
+    };
 
     json!({
         "daily_activity": daily_activity,

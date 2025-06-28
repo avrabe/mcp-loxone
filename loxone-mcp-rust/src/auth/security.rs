@@ -75,7 +75,11 @@ pub fn check_secure_directory(dir_path: &Path) -> Result<SecurityCheck> {
             });
         }
 
-        debug!("Directory {} has secure permissions: {:o}", dir_path.display(), dir_perms);
+        debug!(
+            "Directory {} has secure permissions: {:o}",
+            dir_path.display(),
+            dir_perms
+        );
         Ok(SecurityCheck::Secure)
     }
 
@@ -84,7 +88,7 @@ pub fn check_secure_directory(dir_path: &Path) -> Result<SecurityCheck> {
         // On Windows, we do basic checks since ACL checking requires external crates
         if metadata.permissions().readonly() {
             return Err(LoxoneError::config(
-                "Directory is read-only, cannot be used for credentials"
+                "Directory is read-only, cannot be used for credentials",
             ));
         }
 
@@ -122,7 +126,11 @@ pub fn check_secure_file(file_path: &Path) -> Result<SecurityCheck> {
             });
         }
 
-        debug!("File {} has secure permissions: {:o}", file_path.display(), file_perms);
+        debug!(
+            "File {} has secure permissions: {:o}",
+            file_path.display(),
+            file_perms
+        );
         Ok(SecurityCheck::Secure)
     }
 
@@ -130,7 +138,10 @@ pub fn check_secure_file(file_path: &Path) -> Result<SecurityCheck> {
     {
         // Basic check - ensure file is not read-only if we need to write to it
         if metadata.permissions().readonly() {
-            warn!("File {} is read-only, this may cause issues", file_path.display());
+            warn!(
+                "File {} is read-only, this may cause issues",
+                file_path.display()
+            );
         }
 
         // Windows doesn't have Unix-style permissions
@@ -154,15 +165,22 @@ pub fn create_secure_directory(dir_path: &Path) -> Result<()> {
             .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {}", e)))?
             .permissions();
         perms.set_mode(permissions::SECURE_DIR);
-        fs::set_permissions(dir_path, perms)
-            .map_err(|e| LoxoneError::config(format!("Failed to set directory permissions: {}", e)))?;
-        
-        info!("Created secure directory {} with permissions 700", dir_path.display());
+        fs::set_permissions(dir_path, perms).map_err(|e| {
+            LoxoneError::config(format!("Failed to set directory permissions: {}", e))
+        })?;
+
+        info!(
+            "Created secure directory {} with permissions 700",
+            dir_path.display()
+        );
     }
 
     #[cfg(windows)]
     {
-        info!("Created directory {} (Windows: manual permission setup recommended)", dir_path.display());
+        info!(
+            "Created directory {} (Windows: manual permission setup recommended)",
+            dir_path.display()
+        );
     }
 
     Ok(())
@@ -187,8 +205,11 @@ pub fn create_secure_file(file_path: &Path) -> Result<()> {
             .mode(permissions::SECURE_FILE) // Owner read/write only
             .open(file_path)
             .map_err(|e| LoxoneError::config(format!("Failed to create secure file: {}", e)))?;
-        
-        info!("Created secure file {} with permissions 600", file_path.display());
+
+        info!(
+            "Created secure file {} with permissions 600",
+            file_path.display()
+        );
     }
 
     #[cfg(windows)]
@@ -208,8 +229,11 @@ pub fn create_secure_file(file_path: &Path) -> Result<()> {
         perms.set_readonly(false);
         fs::set_permissions(file_path, perms)
             .map_err(|e| LoxoneError::config(format!("Failed to set file permissions: {}", e)))?;
-        
-        info!("Created file {} (Windows: manual permission setup recommended)", file_path.display());
+
+        info!(
+            "Created file {} (Windows: manual permission setup recommended)",
+            file_path.display()
+        );
     }
 
     Ok(())
@@ -218,24 +242,26 @@ pub fn create_secure_file(file_path: &Path) -> Result<()> {
 /// Write to a file while ensuring secure permissions (atomic write)
 pub async fn write_secure_file(file_path: &Path, content: &str) -> Result<()> {
     use tokio::fs;
-    
+
     // Ensure parent directory exists with secure permissions
     if let Some(parent) = file_path.parent() {
         create_secure_directory(parent)?;
     }
-    
+
     // Create temporary file with secure permissions
     let temp_file = file_path.with_extension("tmp");
     create_secure_file(&temp_file)?;
-    
+
     // Write content to temp file
-    fs::write(&temp_file, content).await
+    fs::write(&temp_file, content)
+        .await
         .map_err(|e| LoxoneError::config(format!("Failed to write secure file: {}", e)))?;
-    
+
     // Atomic rename (preserves permissions)
-    fs::rename(&temp_file, file_path).await
+    fs::rename(&temp_file, file_path)
+        .await
         .map_err(|e| LoxoneError::config(format!("Failed to rename secure file: {}", e)))?;
-    
+
     debug!("Securely wrote to file: {}", file_path.display());
     Ok(())
 }
@@ -248,10 +274,14 @@ pub fn fix_directory_permissions(dir_path: &Path) -> Result<()> {
             .map_err(|e| LoxoneError::config(format!("Cannot read directory metadata: {}", e)))?
             .permissions();
         perms.set_mode(permissions::SECURE_DIR);
-        fs::set_permissions(dir_path, perms)
-            .map_err(|e| LoxoneError::config(format!("Failed to fix directory permissions: {}", e)))?;
-        
-        info!("Fixed directory permissions for {} to 700", dir_path.display());
+        fs::set_permissions(dir_path, perms).map_err(|e| {
+            LoxoneError::config(format!("Failed to fix directory permissions: {}", e))
+        })?;
+
+        info!(
+            "Fixed directory permissions for {} to 700",
+            dir_path.display()
+        );
         Ok(())
     }
 
@@ -272,7 +302,7 @@ pub fn fix_file_permissions(file_path: &Path) -> Result<()> {
         perms.set_mode(permissions::SECURE_FILE);
         fs::set_permissions(file_path, perms)
             .map_err(|e| LoxoneError::config(format!("Failed to fix file permissions: {}", e)))?;
-        
+
         info!("Fixed file permissions for {} to 600", file_path.display());
         Ok(())
     }
@@ -285,7 +315,10 @@ pub fn fix_file_permissions(file_path: &Path) -> Result<()> {
 }
 
 /// Validate all security requirements for credential storage
-pub fn validate_credential_security(dir_path: &Path, file_paths: &[&Path]) -> Result<Vec<SecurityCheck>> {
+pub fn validate_credential_security(
+    dir_path: &Path,
+    file_paths: &[&Path],
+) -> Result<Vec<SecurityCheck>> {
     let mut results = Vec::new();
 
     // Check directory permissions
@@ -303,10 +336,17 @@ pub fn validate_credential_security(dir_path: &Path, file_paths: &[&Path]) -> Re
 pub fn print_security_warnings(checks: &[SecurityCheck]) {
     for check in checks {
         match check {
-            SecurityCheck::Insecure { current, required: _, path, fix_command } => {
+            SecurityCheck::Insecure {
+                current,
+                required: _,
+                path,
+                fix_command,
+            } => {
                 eprintln!("⚠️  SECURITY WARNING:");
                 eprintln!("Permissions {:o} for '{}' are too open.", current, path);
-                eprintln!("It is recommended that your credential files are NOT accessible by others.");
+                eprintln!(
+                    "It is recommended that your credential files are NOT accessible by others."
+                );
                 eprintln!("Run: {}", fix_command);
                 eprintln!();
             }
@@ -322,7 +362,8 @@ pub fn print_security_warnings(checks: &[SecurityCheck]) {
 
 /// Auto-fix insecure permissions with user consent
 pub fn auto_fix_permissions(checks: &[SecurityCheck], auto_fix: bool) -> Result<()> {
-    let insecure_items: Vec<_> = checks.iter()
+    let insecure_items: Vec<_> = checks
+        .iter()
         .filter_map(|check| match check {
             SecurityCheck::Insecure { path, .. } => Some(path),
             _ => None,
@@ -334,8 +375,11 @@ pub fn auto_fix_permissions(checks: &[SecurityCheck], auto_fix: bool) -> Result<
     }
 
     if auto_fix {
-        info!("Auto-fixing {} insecure permissions...", insecure_items.len());
-        
+        info!(
+            "Auto-fixing {} insecure permissions...",
+            insecure_items.len()
+        );
+
         for check in checks {
             if let SecurityCheck::Insecure { path, .. } = check {
                 let path = Path::new(path);
@@ -346,7 +390,7 @@ pub fn auto_fix_permissions(checks: &[SecurityCheck], auto_fix: bool) -> Result<
                 }
             }
         }
-        
+
         info!("✅ All permissions have been fixed");
     } else {
         warn!("❌ Found {} items with insecure permissions. Use --auto-fix to correct them automatically.", insecure_items.len());

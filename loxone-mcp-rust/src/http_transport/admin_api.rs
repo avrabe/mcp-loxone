@@ -3,7 +3,10 @@
 //! This module provides HTTP endpoints for managing API keys through
 //! the web interface, complementing the CLI tool.
 
-use crate::auth::{AuthenticationManager, models::{Role, ApiKey}};
+use crate::auth::{
+    models::{ApiKey, Role},
+    AuthenticationManager,
+};
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -123,7 +126,7 @@ pub async fn list_keys(
 ) -> impl IntoResponse {
     let keys = auth_manager.list_keys().await;
     let key_dtos: Vec<ApiKeyDto> = keys.into_iter().map(Into::into).collect();
-    
+
     Json(serde_json::json!({
         "keys": key_dtos,
         "total": key_dtos.len()
@@ -149,7 +152,7 @@ pub async fn create_key(
 ) -> impl IntoResponse {
     // TODO: Get the actual authenticated user from request context
     let created_by = "web_admin".to_string();
-    
+
     let key_result = auth_manager
         .create_key(
             request.name,
@@ -158,29 +161,37 @@ pub async fn create_key(
             request.expires_days,
         )
         .await;
-    
+
     let mut key = match key_result {
         Ok(k) => k,
         Err(e) => {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to create key: {}", e)).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to create key: {}", e),
+            )
+                .into_response();
         }
     };
-    
+
     // Set IP whitelist if provided
     if !request.ip_whitelist.is_empty() {
         key.ip_whitelist = request.ip_whitelist;
         if let Err(e) = auth_manager.update_key(key.clone()).await {
-            return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to update key: {}", e)).into_response();
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                format!("Failed to update key: {}", e),
+            )
+                .into_response();
         }
     }
-    
+
     info!("Created new API key via web interface: {}", key.id);
-    
+
     let response = ApiKeyCreatedDto {
         secret: key.secret.clone(),
         key: key.into(),
     };
-    
+
     (StatusCode::CREATED, Json(response)).into_response()
 }
 
@@ -192,17 +203,17 @@ pub async fn update_key(
 ) -> impl IntoResponse {
     if let Some(mut key) = auth_manager.get_key(&key_id).await {
         let mut updated = false;
-        
+
         if let Some(new_name) = request.name {
             key.name = new_name;
             updated = true;
         }
-        
+
         if let Some(is_active) = request.active {
             key.active = is_active;
             updated = true;
         }
-        
+
         if let Some(expires_days) = request.expires_days {
             key.expires_at = if expires_days == 0 {
                 None
@@ -211,22 +222,30 @@ pub async fn update_key(
             };
             updated = true;
         }
-        
+
         if let Some(ip_whitelist) = request.ip_whitelist {
             key.ip_whitelist = ip_whitelist;
             updated = true;
         }
-        
+
         if updated {
             if let Err(e) = auth_manager.update_key(key.clone()).await {
-                return (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to update key: {}", e)).into_response();
+                return (
+                    StatusCode::INTERNAL_SERVER_ERROR,
+                    format!("Failed to update key: {}", e),
+                )
+                    .into_response();
             }
             info!("Updated API key via web interface: {}", key_id);
             Json(ApiKeyDto::from(key)).into_response()
         } else {
-            (StatusCode::OK, Json(serde_json::json!({
-                "message": "No changes specified"
-            }))).into_response()
+            (
+                StatusCode::OK,
+                Json(serde_json::json!({
+                    "message": "No changes specified"
+                })),
+            )
+                .into_response()
         }
     } else {
         (StatusCode::NOT_FOUND, "API key not found").into_response()
@@ -247,9 +266,11 @@ pub async fn delete_key(
             warn!("Attempted to delete non-existent API key: {}", key_id);
             StatusCode::NOT_FOUND.into_response()
         }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to delete key: {}", e)).into_response()
-        }
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to delete key: {}", e),
+        )
+            .into_response(),
     }
 }
 
@@ -258,7 +279,7 @@ pub async fn get_auth_stats(
     State(auth_manager): State<Arc<AuthenticationManager>>,
 ) -> impl IntoResponse {
     let stats = auth_manager.get_auth_stats().await;
-    
+
     Json(serde_json::json!({
         "total_keys": stats.total_keys,
         "active_keys": stats.active_keys,
@@ -273,14 +294,15 @@ pub async fn get_audit_events(
     State(auth_manager): State<Arc<AuthenticationManager>>,
 ) -> impl IntoResponse {
     match auth_manager.get_audit_events(100).await {
-        Ok(events) => {
-            Json(serde_json::json!({
-                "events": events,
-                "total": events.len()
-            })).into_response()
-        }
-        Err(e) => {
-            (StatusCode::INTERNAL_SERVER_ERROR, format!("Failed to get audit events: {}", e)).into_response()
-        }
+        Ok(events) => Json(serde_json::json!({
+            "events": events,
+            "total": events.len()
+        }))
+        .into_response(),
+        Err(e) => (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            format!("Failed to get audit events: {}", e),
+        )
+            .into_response(),
     }
 }

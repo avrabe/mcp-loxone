@@ -1,5 +1,5 @@
 //! macOS-specific keychain access using Security Framework
-//! 
+//!
 //! This module provides direct access to the macOS Security Framework
 //! to minimize keychain password prompts by using proper API calls.
 
@@ -39,7 +39,7 @@ extern "C" {
         password_data: *mut *mut std::ffi::c_void,
         item_ref: *mut SecKeychainItem,
     ) -> std::os::raw::c_int;
-    
+
     fn SecKeychainItemFreeContent(
         attr_list: *mut std::ffi::c_void,
         data: *mut std::ffi::c_void,
@@ -124,7 +124,7 @@ impl MacOSKeychain {
     pub fn get_all_credentials() -> Result<(String, String, Option<String>, Option<String>)> {
         // This approach still requires multiple calls but we can batch them
         // to reduce the perceived number of prompts
-        
+
         let username = Self::get_password("LoxoneMCP", "LOXONE_USER")?;
         let password = Self::get_password("LoxoneMCP", "LOXONE_PASS")?;
         let host = Self::get_password("LoxoneMCP", "LOXONE_HOST").ok();

@@ -3,7 +3,7 @@
 //! This module combines all performance optimizations to achieve sub-100ms
 //! dashboard loads through aggressive caching, precomputation, and batching.
 
-use crate::http_transport::dashboard_performance::{get_ultra_fast_dashboard, get_micro_dashboard};
+use crate::http_transport::dashboard_performance::{get_micro_dashboard, get_ultra_fast_dashboard};
 use crate::server::LoxoneMcpServer;
 // use crate::services::connection_pool::{ConnectionPool, PoolConfig};
 use axum::{
@@ -90,29 +90,22 @@ pub async fn fast_dashboard_handler(
     headers: HeaderMap,
 ) -> Result<Json<DashboardResponse>, StatusCode> {
     let start = Instant::now();
-    
+
     // Determine performance mode
     let (data, optimization) = match params.mode.as_str() {
-        "micro" => {
-            (get_micro_dashboard(&server).await, "micro_optimized")
-        }
-        "fast" => {
-            (get_ultra_fast_dashboard(&server).await, "ultra_fast_cached")
-        }
-        "full" => {
-            (get_full_dashboard(&server, &params).await, "full_featured")
-        }
-        _ => {
-            (get_ultra_fast_dashboard(&server).await, "default_fast")
-        }
+        "micro" => (get_micro_dashboard(&server).await, "micro_optimized"),
+        "fast" => (get_ultra_fast_dashboard(&server).await, "ultra_fast_cached"),
+        "full" => (get_full_dashboard(&server, &params).await, "full_featured"),
+        _ => (get_ultra_fast_dashboard(&server).await, "default_fast"),
     };
-    
+
     let elapsed = start.elapsed();
     let response_time_ms = elapsed.as_micros() as f64 / 1000.0;
-    
+
     // Determine cache status from headers or data
     let cache_status = if headers.contains_key("x-cache") {
-        headers.get("x-cache")
+        headers
+            .get("x-cache")
             .and_then(|v| v.to_str().ok())
             .unwrap_or("unknown")
             .to_string()
@@ -121,7 +114,7 @@ pub async fn fast_dashboard_handler(
     } else {
         "miss".to_string()
     };
-    
+
     let response = DashboardResponse {
         data,
         performance: PerformanceMetrics {
@@ -138,7 +131,7 @@ pub async fn fast_dashboard_handler(
             features: get_enabled_features(&params),
         },
     };
-    
+
     Ok(Json(response))
 }
 
@@ -147,10 +140,10 @@ pub async fn micro_dashboard_handler(
     State(server): State<Arc<LoxoneMcpServer>>,
 ) -> Result<Json<Value>, StatusCode> {
     let start = Instant::now();
-    
+
     let data = get_micro_dashboard(&server).await;
     let elapsed = start.elapsed();
-    
+
     // Add performance metadata
     let mut response = data;
     response["_performance"] = json!({
@@ -158,7 +151,7 @@ pub async fn micro_dashboard_handler(
         "mode": "micro",
         "target_achieved": elapsed.as_millis() < 100
     });
-    
+
     Ok(Json(response))
 }
 
@@ -167,13 +160,13 @@ pub async fn health_fast_handler(
     State(server): State<Arc<LoxoneMcpServer>>,
 ) -> Result<Json<Value>, StatusCode> {
     let start = Instant::now();
-    
+
     // Ultra-minimal health check
     let connected = *server.context.connected.read().await;
     let device_count = server.context.devices.read().await.len();
-    
+
     let elapsed = start.elapsed();
-    
+
     Ok(Json(json!({
         "status": if connected { "healthy" } else { "degraded" },
         "connected": connected,
@@ -189,7 +182,7 @@ pub async fn performance_handler(
 ) -> Result<Json<Value>, StatusCode> {
     let metrics_collector = server.get_metrics_collector();
     let server_metrics = metrics_collector.get_metrics().await;
-    
+
     Ok(Json(json!({
         "performance": {
             "avg_response_time_ms": server_metrics.network.average_response_time_ms,
@@ -217,8 +210,9 @@ pub async fn performance_handler(
 /// Get full dashboard with all features
 async fn get_full_dashboard(server: &LoxoneMcpServer, params: &DashboardQuery) -> Value {
     // Use the existing unified dashboard but with performance enhancements
-    let mut data = crate::http_transport::dashboard_data_unified::get_unified_dashboard_data(server).await;
-    
+    let mut data =
+        crate::http_transport::dashboard_data_unified::get_unified_dashboard_data(server).await;
+
     // Add performance-specific metadata
     data["performance_mode"] = json!("full");
     data["optimizations"] = json!({
@@ -227,23 +221,23 @@ async fn get_full_dashboard(server: &LoxoneMcpServer, params: &DashboardQuery) -
         "smart_caching": true,
         "realtime_updates": params.realtime
     });
-    
+
     // Conditionally include expensive features
     if !params.devices {
         data["devices"]["device_matrix"] = json!([]);
     }
-    
+
     if !params.metrics {
         data["operational"] = json!({});
     }
-    
+
     data
 }
 
 /// Get enabled features for metadata
 fn get_enabled_features(params: &DashboardQuery) -> Vec<String> {
     let mut features = Vec::new();
-    
+
     if params.realtime {
         features.push("realtime".to_string());
     }
@@ -253,11 +247,11 @@ fn get_enabled_features(params: &DashboardQuery) -> Vec<String> {
     if params.metrics {
         features.push("metrics".to_string());
     }
-    
+
     features.push("performance_optimized".to_string());
     features.push("batch_processing".to_string());
     features.push("aggressive_caching".to_string());
-    
+
     features
 }
 
@@ -266,51 +260,61 @@ pub async fn benchmark_handler(
     State(server): State<Arc<LoxoneMcpServer>>,
     Query(params): Query<HashMap<String, String>>,
 ) -> Result<Json<Value>, StatusCode> {
-    let iterations = params.get("iterations")
+    let iterations = params
+        .get("iterations")
         .and_then(|s| s.parse::<usize>().ok())
         .unwrap_or(10);
-    
-    let mode = params.get("mode").cloned().unwrap_or_else(|| "fast".to_string());
-    
+
+    let mode = params
+        .get("mode")
+        .cloned()
+        .unwrap_or_else(|| "fast".to_string());
+
     let mut times = Vec::new();
     let mut total_time = std::time::Duration::ZERO;
-    
+
     // Run benchmark iterations
     for _ in 0..iterations {
         let start = Instant::now();
-        
+
         match mode.as_str() {
-            "micro" => { let _ = get_micro_dashboard(&server).await; }
-            "fast" => { let _ = get_ultra_fast_dashboard(&server).await; }
-            "full" => { 
+            "micro" => {
+                let _ = get_micro_dashboard(&server).await;
+            }
+            "fast" => {
+                let _ = get_ultra_fast_dashboard(&server).await;
+            }
+            "full" => {
                 let params = DashboardQuery {
                     mode: "full".to_string(),
                     realtime: true,
                     devices: true,
                     metrics: true,
                 };
-                let _ = get_full_dashboard(&server, &params).await; 
+                let _ = get_full_dashboard(&server, &params).await;
             }
-            _ => { let _ = get_ultra_fast_dashboard(&server).await; }
+            _ => {
+                let _ = get_ultra_fast_dashboard(&server).await;
+            }
         }
-        
+
         let elapsed = start.elapsed();
         times.push(elapsed.as_micros() as f64 / 1000.0);
         total_time += elapsed;
     }
-    
+
     // Calculate statistics
     let avg_time = times.iter().sum::<f64>() / times.len() as f64;
     let min_time = times.iter().fold(f64::INFINITY, |a, &b| a.min(b));
     let max_time = times.iter().fold(0.0f64, |a, &b| a.max(b));
-    
+
     // Calculate percentiles
     let mut sorted_times = times.clone();
     sorted_times.sort_by(|a, b| a.partial_cmp(b).unwrap());
     let p50 = sorted_times[iterations / 2];
     let p95 = sorted_times[(iterations * 95) / 100];
     let p99 = sorted_times[(iterations * 99) / 100];
-    
+
     Ok(Json(json!({
         "benchmark": {
             "mode": mode,
@@ -357,7 +361,7 @@ mod tests {
             devices: default_include_devices(),
             metrics: false,
         };
-        
+
         assert_eq!(query.mode, "fast");
         assert!(!query.realtime);
         assert!(query.devices);
@@ -372,7 +376,7 @@ mod tests {
             devices: true,
             metrics: false,
         };
-        
+
         let features = get_enabled_features(&params);
         assert!(features.contains(&"realtime".to_string()));
         assert!(features.contains(&"devices".to_string()));
@@ -385,10 +389,10 @@ mod tests {
         let times = [10.0, 15.0, 20.0, 25.0, 30.0];
         let avg = times.iter().sum::<f64>() / times.len() as f64;
         assert_eq!(avg, 20.0);
-        
+
         let min = times.iter().fold(f64::INFINITY, |a, &b| a.min(b));
         assert_eq!(min, 10.0);
-        
+
         let max = times.iter().fold(0.0f64, |a, &b| a.max(b));
         assert_eq!(max, 30.0);
     }

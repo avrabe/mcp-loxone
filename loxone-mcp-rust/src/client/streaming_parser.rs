@@ -492,7 +492,7 @@ impl StreamingStructureParser {
     fn estimated_structure_size(&self) -> usize {
         // Rough estimate of memory usage
         self.parsed_structure.controls.len() * 200 +  // ~200 bytes per control
-        self.parsed_structure.rooms.len() * 100 +     // ~100 bytes per room  
+        self.parsed_structure.rooms.len() * 100 +     // ~100 bytes per room
         self.parsed_structure.cats.len() * 50 +       // ~50 bytes per category
         self.parsed_structure.global_states.len() * 100 // ~100 bytes per state
     }

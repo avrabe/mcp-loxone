@@ -3,7 +3,7 @@
 //! This module provides the bridge between the Loxone-specific implementation
 //! and the generic MCP framework.
 
-pub mod backend;
 pub mod adapters;
+pub mod backend;
 
 pub use backend::LoxoneBackend;

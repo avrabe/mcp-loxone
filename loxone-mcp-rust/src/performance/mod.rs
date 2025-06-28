@@ -2,7 +2,7 @@
 //!
 //! This module provides comprehensive performance monitoring capabilities including:
 //! - Request latency tracking
-//! - Bottleneck identification  
+//! - Bottleneck identification
 //! - Resource utilization monitoring
 //! - Performance analytics and reporting
 

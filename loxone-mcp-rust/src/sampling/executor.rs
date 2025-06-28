@@ -37,7 +37,7 @@ pub struct BatchExecutionResult {
     pub results: Vec<ExecutionResult>,
     /// Overall success count
     pub success_count: usize,
-    /// Overall failure count  
+    /// Overall failure count
     pub failure_count: usize,
     /// Total execution time in milliseconds
     pub total_time_ms: u64,

@@ -60,13 +60,13 @@ impl UnifiedValueResolver {
     /// Create new resolver
     pub fn new(client: Arc<dyn LoxoneClient>, sensor_registry: Arc<SensorTypeRegistry>) -> Self {
         let cache_config = CacheConfig::default();
-        
+
         // Create a prefetch handler that uses the client
         let prefetch_client = client.clone();
         let prefetch_handler = Arc::new(ValueResolverPrefetchHandler {
             client: prefetch_client,
         });
-        
+
         Self {
             client,
             enhanced_cache: Arc::new(EnhancedCacheManager::with_prefetch_handler(
@@ -89,7 +89,7 @@ impl UnifiedValueResolver {
         let prefetch_handler = Arc::new(ValueResolverPrefetchHandler {
             client: prefetch_client,
         });
-        
+
         Self {
             client,
             enhanced_cache: Arc::new(EnhancedCacheManager::with_prefetch_handler(
@@ -105,8 +105,9 @@ impl UnifiedValueResolver {
     pub async fn resolve_device_value(&self, uuid: &str) -> Result<ResolvedValue> {
         // Use enhanced cache for single device resolution via batch method
         let results = self.resolve_batch_values(&[uuid.to_string()]).await?;
-        
-        results.into_iter()
+
+        results
+            .into_iter()
             .next()
             .map(|(_, value)| value)
             .ok_or_else(|| LoxoneError::not_found(format!("Device not found: {}", uuid)))
@@ -180,28 +181,34 @@ impl UnifiedValueResolver {
         let devices = context.devices.read().await;
 
         // Process value resolution concurrently
-        let futures: Vec<_> = uuids.iter().filter_map(|uuid| {
-            if let Some(device) = devices.get(uuid) {
-                let device = device.clone();
-                let uuid = uuid.clone();
-                let raw_state = device_states.get(&uuid).cloned();
-                Some(async move {
-                    match self.resolve_value_with_strategies(&device, raw_state.as_ref()).await {
-                        Ok(resolved) => Some((uuid, resolved)),
-                        Err(e) => {
-                            tracing::warn!("Failed to resolve value for {}: {}", uuid, e);
-                            None
+        let futures: Vec<_> = uuids
+            .iter()
+            .filter_map(|uuid| {
+                if let Some(device) = devices.get(uuid) {
+                    let device = device.clone();
+                    let uuid = uuid.clone();
+                    let raw_state = device_states.get(&uuid).cloned();
+                    Some(async move {
+                        match self
+                            .resolve_value_with_strategies(&device, raw_state.as_ref())
+                            .await
+                        {
+                            Ok(resolved) => Some((uuid, resolved)),
+                            Err(e) => {
+                                tracing::warn!("Failed to resolve value for {}: {}", uuid, e);
+                                None
+                            }
                         }
-                    }
-                })
-            } else {
-                None
-            }
-        }).collect();
+                    })
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         // Execute all value resolutions concurrently
         let resolution_results = futures_util::future::join_all(futures).await;
-        
+
         // Collect successful results
         for result in resolution_results {
             if let Some((uuid, resolved)) = result {
@@ -641,7 +648,6 @@ impl UnifiedValueResolver {
     }
 }
 
-
 impl ResolvedValue {
     pub fn is_stale(&self) -> bool {
         matches!(&self.validation_status, ValidationStatus::Stale { .. })
@@ -707,7 +713,10 @@ struct ValueResolverPrefetchHandler {
 
 #[async_trait::async_trait]
 impl PrefetchHandler for ValueResolverPrefetchHandler {
-    async fn prefetch_devices(&self, device_uuids: Vec<String>) -> Result<HashMap<String, serde_json::Value>> {
+    async fn prefetch_devices(
+        &self,
+        device_uuids: Vec<String>,
+    ) -> Result<HashMap<String, serde_json::Value>> {
         // Use the client's batch method to fetch device states
         self.client.get_device_states(&device_uuids).await
     }

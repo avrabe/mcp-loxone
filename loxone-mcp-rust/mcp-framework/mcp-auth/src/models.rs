@@ -1,7 +1,7 @@
 //! Authentication models
 
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 
 /// API key for authentication
 #[derive(Debug, Clone, Serialize, Deserialize)]

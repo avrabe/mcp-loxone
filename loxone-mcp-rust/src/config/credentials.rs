@@ -11,7 +11,6 @@ use std::env;
 #[cfg(feature = "infisical")]
 use crate::config::infisical_client::{create_authenticated_client, InfisicalClient};
 
-
 /// Loxone credentials
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoxoneCredentials {
@@ -35,7 +34,6 @@ pub struct CredentialManager {
 
     #[cfg(feature = "infisical")]
     infisical_client: Option<InfisicalClient>,
-
 }
 
 // Credential key constants (shared across all backends)
@@ -89,7 +87,6 @@ impl CredentialManager {
             }
 
             // WasiKeyValue support removed - feature not available
-
             _ => {}
         }
 
@@ -111,7 +108,6 @@ impl CredentialManager {
 
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.store_infisical(credentials).await,
-
             // WasiKeyValue support removed
         }
     }
@@ -131,7 +127,6 @@ impl CredentialManager {
 
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.get_infisical().await,
-
             // WasiKeyValue support removed
         }
     }
@@ -156,7 +151,6 @@ impl CredentialManager {
 
             #[cfg(feature = "infisical")]
             CredentialStore::Infisical { .. } => self.clear_infisical().await,
-
             // WasiKeyValue support removed
         }
     }
@@ -260,11 +254,9 @@ impl CredentialManager {
     pub async fn get_host_url(&self) -> Result<String> {
         match &self.store {
             #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => {
-                Err(LoxoneError::credentials(
-                    "Keyring storage is disabled due to unmaintained dependencies",
-                ))
-            }
+            CredentialStore::Keyring => Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            )),
             _ => Err(LoxoneError::credentials(
                 "Host URL only available from keyring",
             )),
@@ -275,11 +267,9 @@ impl CredentialManager {
     #[cfg(feature = "keyring-storage")]
     pub async fn store_host_url(&self, _host_url: &str) -> Result<()> {
         match &self.store {
-            CredentialStore::Keyring => {
-                Err(LoxoneError::credentials(
-                    "Keyring storage is disabled due to unmaintained dependencies",
-                ))
-            }
+            CredentialStore::Keyring => Err(LoxoneError::credentials(
+                "Keyring storage is disabled due to unmaintained dependencies",
+            )),
             _ => Err(LoxoneError::credentials(
                 "Host URL storage only available for keyring",
             )),

@@ -9,7 +9,7 @@ pub mod endpoints;
 pub mod monitoring;
 
 // Re-export types from diagnostics
-pub use diagnostics::{DiagnosticsCollector, DiagnosticSnapshot, DiagnosticTrends, TrendDirection};
+pub use diagnostics::{DiagnosticSnapshot, DiagnosticTrends, DiagnosticsCollector, TrendDirection};
 
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
@@ -41,13 +41,19 @@ impl HealthStatus {
             return HealthStatus::Unhealthy;
         }
 
-        if statuses.iter().any(|s| matches!(s, HealthStatus::Unhealthy)) {
+        if statuses
+            .iter()
+            .any(|s| matches!(s, HealthStatus::Unhealthy))
+        {
             HealthStatus::Unhealthy
         } else if statuses.iter().any(|s| matches!(s, HealthStatus::Degraded)) {
             HealthStatus::Degraded
         } else if statuses.iter().any(|s| matches!(s, HealthStatus::Warning)) {
             HealthStatus::Warning
-        } else if statuses.iter().any(|s| matches!(s, HealthStatus::Starting | HealthStatus::Stopping)) {
+        } else if statuses
+            .iter()
+            .any(|s| matches!(s, HealthStatus::Starting | HealthStatus::Stopping))
+        {
             HealthStatus::Starting // Use Starting for any transitional state
         } else {
             HealthStatus::Healthy
@@ -56,7 +62,10 @@ impl HealthStatus {
 
     /// Check if status indicates the system is operational
     pub fn is_operational(&self) -> bool {
-        matches!(self, HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Degraded)
+        matches!(
+            self,
+            HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Degraded
+        )
     }
 
     /// Get HTTP status code for this health status
@@ -101,7 +110,10 @@ impl HealthCheckResult {
             status: HealthStatus::Healthy,
             message: message.to_string(),
             duration_ms: 0,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             metadata: HashMap::new(),
             error: None,
             critical: false,
@@ -115,7 +127,10 @@ impl HealthCheckResult {
             status: HealthStatus::Warning,
             message: message.to_string(),
             duration_ms: 0,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             metadata: HashMap::new(),
             error: None,
             critical: false,
@@ -129,7 +144,10 @@ impl HealthCheckResult {
             status: HealthStatus::Unhealthy,
             message: message.to_string(),
             duration_ms: 0,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             metadata: HashMap::new(),
             error,
             critical: true,
@@ -189,7 +207,10 @@ impl HealthReport {
 
         Self {
             status: overall_status,
-            timestamp: SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs(),
+            timestamp: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
             checks,
             system_info,
             dependencies: Vec::new(),
@@ -212,13 +233,15 @@ impl HealthReport {
 
     /// Check if system is ready to serve traffic
     pub fn is_ready(&self) -> bool {
-        self.status.is_operational() && 
-        self.dependencies.iter().all(|d| d.status.is_operational())
+        self.status.is_operational() && self.dependencies.iter().all(|d| d.status.is_operational())
     }
 
     /// Check if system is alive (basic liveness check)
     pub fn is_alive(&self) -> bool {
-        !matches!(self.status, HealthStatus::Unhealthy | HealthStatus::Stopping)
+        !matches!(
+            self.status,
+            HealthStatus::Unhealthy | HealthStatus::Stopping
+        )
     }
 }
 
@@ -251,12 +274,14 @@ impl SystemInfo {
     /// Get current system information
     pub fn current() -> Self {
         let uptime = std::process::id(); // Simplified - in real implementation would track actual uptime
-        
+
         Self {
             version: env!("CARGO_PKG_VERSION").to_string(),
-            build_time: std::env::var("VERGEN_BUILD_TIMESTAMP").unwrap_or_else(|_| "unknown".to_string()),
+            build_time: std::env::var("VERGEN_BUILD_TIMESTAMP")
+                .unwrap_or_else(|_| "unknown".to_string()),
             git_commit: std::env::var("VERGEN_GIT_SHA").unwrap_or_else(|_| "unknown".to_string()),
-            rust_version: std::env::var("VERGEN_RUSTC_SEMVER").unwrap_or_else(|_| "unknown".to_string()),
+            rust_version: std::env::var("VERGEN_RUSTC_SEMVER")
+                .unwrap_or_else(|_| "unknown".to_string()),
             target_arch: std::env::consts::ARCH.to_string(),
             os: std::env::consts::OS.to_string(),
             pid: std::process::id(),
@@ -285,9 +310,9 @@ impl MemoryInfo {
     pub fn current() -> Self {
         // Simplified implementation - in production would use system calls
         Self {
-            used_bytes: 1024 * 1024 * 100, // 100MB
+            used_bytes: 1024 * 1024 * 100,      // 100MB
             available_bytes: 1024 * 1024 * 900, // 900MB
-            total_bytes: 1024 * 1024 * 1000, // 1GB
+            total_bytes: 1024 * 1024 * 1000,    // 1GB
             usage_percent: 10.0,
         }
     }
@@ -312,7 +337,9 @@ impl CpuInfo {
     /// Get current CPU information
     pub fn current() -> Self {
         Self {
-            cores: std::thread::available_parallelism().map(|p| p.get()).unwrap_or(1),
+            cores: std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(1),
             usage_percent: 5.0, // Simplified
             load_avg_1m: 0.5,
             load_avg_5m: 0.4,
@@ -419,7 +446,9 @@ impl Default for ThreadPoolMetrics {
     fn default() -> Self {
         Self {
             active_threads: 0,
-            total_threads: std::thread::available_parallelism().map(|p| p.get()).unwrap_or(1),
+            total_threads: std::thread::available_parallelism()
+                .map(|p| p.get())
+                .unwrap_or(1),
             queued_tasks: 0,
             completed_tasks: 0,
         }
@@ -449,18 +478,30 @@ impl HealthSummary {
     /// Create summary from health check results
     pub fn from_checks(checks: &[HealthCheckResult]) -> Self {
         let total_checks = checks.len();
-        let healthy_checks = checks.iter().filter(|c| matches!(c.status, HealthStatus::Healthy)).count();
-        let warning_checks = checks.iter().filter(|c| matches!(c.status, HealthStatus::Warning)).count();
-        let unhealthy_checks = checks.iter().filter(|c| matches!(c.status, HealthStatus::Unhealthy)).count();
-        let critical_failures = checks.iter().filter(|c| c.critical && !matches!(c.status, HealthStatus::Healthy)).count();
-        
+        let healthy_checks = checks
+            .iter()
+            .filter(|c| matches!(c.status, HealthStatus::Healthy))
+            .count();
+        let warning_checks = checks
+            .iter()
+            .filter(|c| matches!(c.status, HealthStatus::Warning))
+            .count();
+        let unhealthy_checks = checks
+            .iter()
+            .filter(|c| matches!(c.status, HealthStatus::Unhealthy))
+            .count();
+        let critical_failures = checks
+            .iter()
+            .filter(|c| c.critical && !matches!(c.status, HealthStatus::Healthy))
+            .count();
+
         let total_duration: u64 = checks.iter().map(|c| c.duration_ms).sum();
         let avg_check_duration_ms = if total_checks > 0 {
             total_duration as f64 / total_checks as f64
         } else {
             0.0
         };
-        
+
         let max_check_duration_ms = checks.iter().map(|c| c.duration_ms).max().unwrap_or(0);
 
         Self {
@@ -480,17 +521,17 @@ impl HealthSummary {
 pub trait HealthCheck: Send + Sync {
     /// Name of the health check
     fn name(&self) -> &str;
-    
+
     /// Whether this check is critical for system operation
     fn is_critical(&self) -> bool {
         false
     }
-    
+
     /// Timeout for this health check
     fn timeout(&self) -> Duration {
         Duration::from_secs(5)
     }
-    
+
     /// Execute the health check
     async fn check(&self) -> Result<HealthCheckResult>;
 }
@@ -525,33 +566,37 @@ impl HealthChecker {
     /// Run all health checks and generate a report
     pub async fn check_health(&self) -> HealthReport {
         debug!("Running {} health checks", self.checks.len());
-        
+
         let mut results = Vec::new();
-        
+
         // Run health checks in parallel
-        let check_futures: Vec<_> = self.checks.iter().map(|check| async {
-            let start_time = std::time::Instant::now();
-            let name = check.name().to_string();
-            
-            match tokio::time::timeout(check.timeout(), check.check()).await {
-                Ok(Ok(mut result)) => {
-                    result.duration_ms = start_time.elapsed().as_millis() as u64;
-                    result
+        let check_futures: Vec<_> = self
+            .checks
+            .iter()
+            .map(|check| async {
+                let start_time = std::time::Instant::now();
+                let name = check.name().to_string();
+
+                match tokio::time::timeout(check.timeout(), check.check()).await {
+                    Ok(Ok(mut result)) => {
+                        result.duration_ms = start_time.elapsed().as_millis() as u64;
+                        result
+                    }
+                    Ok(Err(e)) => {
+                        let duration = start_time.elapsed().as_millis() as u64;
+                        HealthCheckResult::unhealthy(&name, "Check failed", Some(e.to_string()))
+                            .with_duration(start_time.elapsed())
+                            .with_metadata("timeout", false)
+                    }
+                    Err(_) => {
+                        let duration = start_time.elapsed().as_millis() as u64;
+                        HealthCheckResult::unhealthy(&name, "Check timed out", None)
+                            .with_duration(start_time.elapsed())
+                            .with_metadata("timeout", true)
+                    }
                 }
-                Ok(Err(e)) => {
-                    let duration = start_time.elapsed().as_millis() as u64;
-                    HealthCheckResult::unhealthy(&name, "Check failed", Some(e.to_string()))
-                        .with_duration(start_time.elapsed())
-                        .with_metadata("timeout", false)
-                }
-                Err(_) => {
-                    let duration = start_time.elapsed().as_millis() as u64;
-                    HealthCheckResult::unhealthy(&name, "Check timed out", None)
-                        .with_duration(start_time.elapsed())
-                        .with_metadata("timeout", true)
-                }
-            }
-        }).collect();
+            })
+            .collect();
 
         results = futures::future::join_all(check_futures).await;
 
@@ -589,7 +634,7 @@ impl HealthChecker {
     pub async fn check_liveness(&self) -> HealthStatus {
         // Run only critical checks for liveness
         let critical_checks: Vec<_> = self.checks.iter().filter(|c| c.is_critical()).collect();
-        
+
         if critical_checks.is_empty() {
             return HealthStatus::Healthy;
         }
@@ -608,7 +653,7 @@ impl HealthChecker {
     /// Perform a readiness check (all dependencies must be available)
     pub async fn check_readiness(&self) -> HealthStatus {
         let mut dependency_statuses = Vec::new();
-        
+
         for dep_check in &self.dependency_checks {
             if dep_check.is_critical() {
                 match dep_check.check().await {
@@ -633,18 +678,18 @@ impl Default for HealthChecker {
 pub trait DependencyCheck: Send + Sync {
     /// Name of the dependency
     fn name(&self) -> &str;
-    
+
     /// Type of dependency
     fn dependency_type(&self) -> DependencyType;
-    
+
     /// Endpoint or connection string
     fn endpoint(&self) -> &str;
-    
+
     /// Whether this dependency is critical
     fn is_critical(&self) -> bool {
         true
     }
-    
+
     /// Check the dependency status
     async fn check(&self) -> Result<DependencyStatus>;
 }
@@ -659,17 +704,17 @@ mod tests {
             HealthStatus::combine(&[HealthStatus::Healthy, HealthStatus::Healthy]),
             HealthStatus::Healthy
         );
-        
+
         assert_eq!(
             HealthStatus::combine(&[HealthStatus::Healthy, HealthStatus::Warning]),
             HealthStatus::Warning
         );
-        
+
         assert_eq!(
             HealthStatus::combine(&[HealthStatus::Healthy, HealthStatus::Unhealthy]),
             HealthStatus::Unhealthy
         );
-        
+
         assert_eq!(
             HealthStatus::combine(&[HealthStatus::Warning, HealthStatus::Degraded]),
             HealthStatus::Degraded
@@ -681,7 +726,7 @@ mod tests {
         let result = HealthCheckResult::healthy("test", "All good")
             .with_metadata("version", "1.0")
             .critical();
-        
+
         assert_eq!(result.status, HealthStatus::Healthy);
         assert!(result.critical);
         assert_eq!(result.metadata.get("version").unwrap(), "1.0");
@@ -694,7 +739,7 @@ mod tests {
             HealthCheckResult::warning("check2", "Warning"),
             HealthCheckResult::unhealthy("check3", "Failed", None).critical(),
         ];
-        
+
         let summary = HealthSummary::from_checks(&checks);
         assert_eq!(summary.total_checks, 3);
         assert_eq!(summary.healthy_checks, 1);
@@ -716,7 +761,7 @@ mod tests {
     async fn test_health_checker() {
         let checker = HealthChecker::new();
         let report = checker.check_health().await;
-        
+
         assert_eq!(report.status, HealthStatus::Healthy); // No checks = healthy
         assert_eq!(report.checks.len(), 0);
         assert!(report.is_alive());

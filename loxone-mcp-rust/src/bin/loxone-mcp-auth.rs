@@ -5,7 +5,7 @@
 
 use clap::{Parser, Subcommand, ValueEnum};
 use loxone_mcp_rust::auth::{
-    manager::{AuthenticationManager, AuthManagerConfig},
+    manager::{AuthManagerConfig, AuthenticationManager},
     models::Role,
     storage::StorageBackendConfig,
 };
@@ -169,7 +169,6 @@ enum Commands {
         limit: usize,
     },
 
-
     /// Initialize authentication system
     Init {
         /// Create an initial admin key
@@ -198,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(log_level.parse().unwrap())
+                .add_directive(log_level.parse().unwrap()),
         )
         .init();
 
@@ -213,11 +212,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             });
             StorageBackendConfig::File { path }
         }
-        StorageType::Environment => {
-            StorageBackendConfig::Environment {
-                var_name: cli.env_var,
-            }
-        }
+        StorageType::Environment => StorageBackendConfig::Environment {
+            var_name: cli.env_var,
+        },
         StorageType::Memory => StorageBackendConfig::Memory,
     };
 
@@ -244,7 +241,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut api_role: Role = role.into();
 
             // Handle device role
-            if let Role::Device { ref mut allowed_devices } = api_role {
+            if let Role::Device {
+                ref mut allowed_devices,
+            } = api_role
+            {
                 if let Some(devices_str) = devices {
                     *allowed_devices = devices_str
                         .split(',')
@@ -257,12 +257,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             // Handle custom role
-            if let Role::Custom { permissions: ref mut role_permissions } = api_role {
+            if let Role::Custom {
+                permissions: ref mut role_permissions,
+            } = api_role
+            {
                 if let Some(perms_str) = permissions {
-                    *role_permissions = perms_str
-                        .split(',')
-                        .map(|s| s.trim().to_string())
-                        .collect();
+                    *role_permissions =
+                        perms_str.split(',').map(|s| s.trim().to_string()).collect();
                 } else {
                     eprintln!("Error: Custom role requires --permissions parameter");
                     std::process::exit(1);
@@ -299,8 +300,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
             println!("\n⚠️  SAVE THE SECRET - IT CANNOT BE RETRIEVED LATER!");
             println!("\n📝 Usage examples:");
-            println!("  curl -H \"Authorization: Bearer {}\" http://localhost:3001/health", key.secret);
-            println!("  curl \"http://localhost:3001/dashboard?api_key={}\"", key.secret);
+            println!(
+                "  curl -H \"Authorization: Bearer {}\" http://localhost:3001/health",
+                key.secret
+            );
+            println!(
+                "  curl \"http://localhost:3001/dashboard?api_key={}\"",
+                key.secret
+            );
             println!("\n🔧 Environment variable:");
             println!("  export LOXONE_API_KEY={}", key.secret);
         }
@@ -340,7 +347,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             Role::Admin => "Admin".to_string(),
                             Role::Operator => "Operator".to_string(),
                             Role::Monitor => "Monitor".to_string(),
-                            Role::Device { ref allowed_devices } => {
+                            Role::Device {
+                                ref allowed_devices,
+                            } => {
                                 format!("Device({})", allowed_devices.len())
                             }
                             Role::Custom { ref permissions } => {
@@ -369,9 +378,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  Name: {}", key.name);
                 println!("  Role: {:?}", key.role);
                 println!("  Created by: {}", key.created_by);
-                println!("  Created at: {}", key.created_at.format("%Y-%m-%d %H:%M:%S UTC"));
+                println!(
+                    "  Created at: {}",
+                    key.created_at.format("%Y-%m-%d %H:%M:%S UTC")
+                );
                 if let Some(expires_at) = key.expires_at {
-                    println!("  Expires at: {}", expires_at.format("%Y-%m-%d %H:%M:%S UTC"));
+                    println!(
+                        "  Expires at: {}",
+                        expires_at.format("%Y-%m-%d %H:%M:%S UTC")
+                    );
                 } else {
                     println!("  Expires: Never");
                 }
@@ -455,7 +470,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         Commands::Delete { key_id, yes } => {
             if !yes {
-                print!("Are you sure you want to delete API key '{}'? [y/N]: ", key_id);
+                print!(
+                    "Are you sure you want to delete API key '{}'? [y/N]: ",
+                    key_id
+                );
                 use std::io::{self, Write};
                 io::stdout().flush().unwrap();
 
@@ -494,8 +512,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     eprintln!("❌ Authentication forbidden: {}", reason);
                     std::process::exit(1);
                 }
-                loxone_mcp_rust::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
-                    eprintln!("❌ Rate limited. Retry after {} seconds", retry_after_seconds);
+                loxone_mcp_rust::auth::models::AuthResult::RateLimited {
+                    retry_after_seconds,
+                } => {
+                    eprintln!(
+                        "❌ Rate limited. Retry after {} seconds",
+                        retry_after_seconds
+                    );
                     std::process::exit(1);
                 }
             }
@@ -511,39 +534,39 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("  Failed attempts: {}", stats.total_failed_attempts);
         }
 
-        Commands::Audit { limit } => {
-            match auth_manager.get_audit_events(limit).await {
-                Ok(events) => {
-                    if events.is_empty() {
-                        println!("No audit events found.");
-                        return Ok(());
-                    }
-
-                    println!("Recent Audit Events:");
-                    println!("{:<20} {:<15} {:<25} {:<15} {:<8}", "Timestamp", "Event", "Key ID", "Client IP", "Success");
-                    println!("{}", "─".repeat(85));
-
-                    for event in events {
-                        let timestamp = event.timestamp.format("%Y-%m-%d %H:%M:%S").to_string();
-                        let key_id = event.key_id.as_deref().unwrap_or("-");
-                        
-                        println!(
-                            "{:<20} {:<15} {:<25} {:<15} {:<8}",
-                            timestamp,
-                            truncate(&event.event_type, 15),
-                            truncate(key_id, 25),
-                            truncate(&event.client_ip, 15),
-                            if event.success { "Yes" } else { "No" }
-                        );
-                    }
+        Commands::Audit { limit } => match auth_manager.get_audit_events(limit).await {
+            Ok(events) => {
+                if events.is_empty() {
+                    println!("No audit events found.");
+                    return Ok(());
                 }
-                Err(e) => {
-                    eprintln!("❌ Failed to retrieve audit events: {}", e);
-                    std::process::exit(1);
+
+                println!("Recent Audit Events:");
+                println!(
+                    "{:<20} {:<15} {:<25} {:<15} {:<8}",
+                    "Timestamp", "Event", "Key ID", "Client IP", "Success"
+                );
+                println!("{}", "─".repeat(85));
+
+                for event in events {
+                    let timestamp = event.timestamp.format("%Y-%m-%d %H:%M:%S").to_string();
+                    let key_id = event.key_id.as_deref().unwrap_or("-");
+
+                    println!(
+                        "{:<20} {:<15} {:<25} {:<15} {:<8}",
+                        timestamp,
+                        truncate(&event.event_type, 15),
+                        truncate(key_id, 25),
+                        truncate(&event.client_ip, 15),
+                        if event.success { "Yes" } else { "No" }
+                    );
                 }
             }
-        }
-
+            Err(e) => {
+                eprintln!("❌ Failed to retrieve audit events: {}", e);
+                std::process::exit(1);
+            }
+        },
 
         Commands::Init { admin_key } => {
             println!("🚀 Initializing Loxone MCP authentication system...");
@@ -574,59 +597,79 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
 
             println!("\n📚 Next steps:");
-            println!("   1. Create API keys: loxone-mcp-auth create --name \"My Key\" --role operator");
+            println!(
+                "   1. Create API keys: loxone-mcp-auth create --name \"My Key\" --role operator"
+            );
             println!("   2. List keys: loxone-mcp-auth list");
             println!("   3. Test a key: loxone-mcp-auth test <secret>");
         }
 
-        Commands::Security { check_only, auto_fix } => {
+        Commands::Security {
+            check_only,
+            auto_fix,
+        } => {
             use loxone_mcp_rust::auth::security::{self, SecurityCheck};
-            
+
             println!("🔐 Validating SSH-style security for credential files...");
-            
+
             // Get the default credential directory
             let cred_dir = dirs::home_dir()
                 .unwrap_or_else(|| std::path::PathBuf::from("."))
                 .join(".loxone-mcp");
-            
+
             let credentials_file = cred_dir.join("credentials.json");
             let audit_file = cred_dir.join("credentials.audit.jsonl");
-            
+
             // Check if files exist
             if !cred_dir.exists() {
-                println!("📁 Credential directory does not exist yet: {}", cred_dir.display());
+                println!(
+                    "📁 Credential directory does not exist yet: {}",
+                    cred_dir.display()
+                );
                 println!("   This is normal for a fresh installation.");
                 return Ok(());
             }
-            
+
             // Validate security
             let files_to_check = [&credentials_file, &audit_file];
-            let existing_files: Vec<_> = files_to_check.iter()
+            let existing_files: Vec<_> = files_to_check
+                .iter()
                 .filter(|f| f.exists())
                 .map(|f| f.as_path())
                 .collect();
-            
+
             if existing_files.is_empty() {
                 println!("📁 No credential files found in: {}", cred_dir.display());
                 println!("   This is normal for a fresh installation.");
                 return Ok(());
             }
-            
+
             match security::validate_credential_security(&cred_dir, &existing_files) {
                 Ok(checks) => {
                     let mut has_issues = false;
                     let mut secure_count = 0;
-                    
+
                     for check in &checks {
                         match check {
                             SecurityCheck::Secure => {
                                 secure_count += 1;
                             }
-                            SecurityCheck::Insecure { current, required, path, fix_command } => {
+                            SecurityCheck::Insecure {
+                                current,
+                                required,
+                                path,
+                                fix_command,
+                            } => {
                                 has_issues = true;
                                 println!("⚠️  SECURITY WARNING:");
-                                println!("   Permissions {:o} for '{}' are too open.", current, path);
-                                println!("   Required: {:o} (SSH-style secure permissions)", required);
+                                println!(
+                                    "   Permissions {:o} for '{}' are too open.",
+                                    current, path
+                                );
+                                println!(
+                                    "   Required: {:o} (SSH-style secure permissions)",
+                                    required
+                                );
                                 println!("   Fix: {}", fix_command);
                                 println!();
                             }
@@ -635,9 +678,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             }
                         }
                     }
-                    
+
                     if !has_issues {
-                        println!("✅ All credential files have secure permissions ({} files checked)", secure_count);
+                        println!(
+                            "✅ All credential files have secure permissions ({} files checked)",
+                            secure_count
+                        );
                         println!("   Directory: {} (700)", cred_dir.display());
                         for file in &existing_files {
                             println!("   File: {} (600)", file.display());

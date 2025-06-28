@@ -183,4 +183,3 @@ pub async fn get_room_overview(context: ToolContext, room_name: String) -> ToolR
         ),
     )
 }
-

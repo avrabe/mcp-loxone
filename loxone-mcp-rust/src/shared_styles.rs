@@ -8,13 +8,13 @@ pub fn get_shared_styles() -> &'static str {
     r#"
     <style>
         /* Use system fonts for better performance and CSP compliance */
-        
+
         /* CSS Variables for dynamic color scheme */
         :root {
             --primary-hue: 210;
             --secondary-hue: 30;
             --accent-hue: 150;
-            
+
             /* Light mode colors */
             --bg-primary: hsl(var(--primary-hue), 15%, 95%);
             --bg-secondary: hsl(var(--primary-hue), 20%, 98%);
@@ -22,26 +22,26 @@ pub fn get_shared_styles() -> &'static str {
             --text-secondary: hsl(var(--primary-hue), 20%, 40%);
             --border-color: hsl(var(--primary-hue), 15%, 85%);
             --shadow-color: hsla(var(--primary-hue), 20%, 20%, 0.1);
-            
+
             /* Accent colors */
             --accent-primary: hsl(var(--accent-hue), 70%, 50%);
             --accent-secondary: hsl(var(--secondary-hue), 70%, 50%);
             --success-color: hsl(145, 70%, 45%);
             --warning-color: hsl(35, 90%, 50%);
             --error-color: hsl(0, 70%, 50%);
-            
+
             /* Layout */
             --max-width: 1200px;
             --header-height: 60px;
             --border-radius: 12px;
             --spacing-unit: 8px;
-            
+
             /* Transitions */
             --transition-fast: 150ms ease;
             --transition-normal: 300ms ease;
             --transition-slow: 500ms ease;
         }
-        
+
         /* Dark mode support */
         @media (prefers-color-scheme: dark) {
             :root {
@@ -53,20 +53,20 @@ pub fn get_shared_styles() -> &'static str {
                 --shadow-color: hsla(var(--primary-hue), 30%, 5%, 0.3);
             }
         }
-        
+
         /* Base styles */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         html {
             font-size: 16px;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'SF Pro Display', 'SF Pro Text', Roboto, 'Helvetica Neue', Arial, sans-serif;
             background-color: var(--bg-primary);
@@ -74,14 +74,14 @@ pub fn get_shared_styles() -> &'static str {
             line-height: 1.6;
             transition: background-color var(--transition-slow);
         }
-        
+
         /* Container */
         .container {
             max-width: var(--max-width);
             margin: 0 auto;
             padding: calc(var(--spacing-unit) * 3);
         }
-        
+
         /* Header with navigation */
         .header-nav {
             position: sticky;
@@ -92,13 +92,13 @@ pub fn get_shared_styles() -> &'static str {
             backdrop-filter: blur(10px);
             background: hsla(var(--primary-hue), 20%, 98%, 0.9);
         }
-        
+
         @media (prefers-color-scheme: dark) {
             .header-nav {
                 background: hsla(var(--primary-hue), 25%, 15%, 0.9);
             }
         }
-        
+
         .header-nav-content {
             max-width: var(--max-width);
             margin: 0 auto;
@@ -108,13 +108,13 @@ pub fn get_shared_styles() -> &'static str {
             justify-content: space-between;
             min-height: var(--header-height);
         }
-        
+
         .header-nav h1 {
             font-size: 1.5rem;
             font-weight: 700;
             margin: 0;
         }
-        
+
         .nav-home-link {
             display: inline-flex;
             align-items: center;
@@ -127,16 +127,16 @@ pub fn get_shared_styles() -> &'static str {
             font-weight: 600;
             transition: all var(--transition-fast);
         }
-        
+
         .nav-home-link:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px var(--shadow-color);
         }
-        
+
         .nav-home-link:active {
             transform: translateY(0);
         }
-        
+
         /* Cards and sections */
         .card {
             background: var(--bg-secondary);
@@ -146,25 +146,25 @@ pub fn get_shared_styles() -> &'static str {
             box-shadow: 0 2px 10px var(--shadow-color);
             transition: transform var(--transition-fast), box-shadow var(--transition-fast);
         }
-        
+
         .card:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 20px var(--shadow-color);
         }
-        
+
         .card-header {
             display: flex;
             align-items: center;
             gap: calc(var(--spacing-unit) * 2);
             margin-bottom: calc(var(--spacing-unit) * 2);
         }
-        
+
         .card-title {
             font-size: 1.25rem;
             font-weight: 700;
             margin: 0;
         }
-        
+
         .card-icon {
             width: 32px;
             height: 32px;
@@ -176,7 +176,7 @@ pub fn get_shared_styles() -> &'static str {
             justify-content: center;
             font-size: 1.25rem;
         }
-        
+
         /* Status indicators */
         .status-badge {
             display: inline-flex;
@@ -187,22 +187,22 @@ pub fn get_shared_styles() -> &'static str {
             font-size: 0.875rem;
             font-weight: 600;
         }
-        
+
         .status-badge.success {
             background: hsla(145, 70%, 45%, 0.15);
             color: var(--success-color);
         }
-        
+
         .status-badge.warning {
             background: hsla(35, 90%, 50%, 0.15);
             color: var(--warning-color);
         }
-        
+
         .status-badge.error {
             background: hsla(0, 70%, 50%, 0.15);
             color: var(--error-color);
         }
-        
+
         /* Buttons */
         .button {
             display: inline-flex;
@@ -219,32 +219,32 @@ pub fn get_shared_styles() -> &'static str {
             cursor: pointer;
             transition: all var(--transition-fast);
         }
-        
+
         .button:hover {
             transform: translateY(-2px);
             box-shadow: 0 4px 12px var(--shadow-color);
         }
-        
+
         .button:active {
             transform: translateY(0);
         }
-        
+
         .button:disabled {
             opacity: 0.5;
             cursor: not-allowed;
             transform: none;
         }
-        
+
         .button.secondary {
             background: var(--border-color);
             color: var(--text-primary);
         }
-        
+
         /* Forms */
         .form-group {
             margin-bottom: calc(var(--spacing-unit) * 2);
         }
-        
+
         .form-label {
             display: block;
             margin-bottom: calc(var(--spacing-unit) * 0.5);
@@ -252,7 +252,7 @@ pub fn get_shared_styles() -> &'static str {
             color: var(--text-secondary);
             font-size: 0.875rem;
         }
-        
+
         .form-input {
             width: 100%;
             padding: calc(var(--spacing-unit) * 1.5);
@@ -263,37 +263,37 @@ pub fn get_shared_styles() -> &'static str {
             font-size: 1rem;
             transition: all var(--transition-fast);
         }
-        
+
         .form-input:focus {
             outline: none;
             border-color: var(--accent-primary);
             box-shadow: 0 0 0 3px hsla(var(--accent-hue), 70%, 50%, 0.1);
         }
-        
+
         /* Tables */
         .data-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: calc(var(--spacing-unit) * 2);
         }
-        
+
         .data-table th,
         .data-table td {
             padding: calc(var(--spacing-unit) * 1.5);
             text-align: left;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .data-table th {
             font-weight: 700;
             color: var(--text-secondary);
             background: var(--bg-primary);
         }
-        
+
         .data-table tr:hover {
             background: var(--bg-primary);
         }
-        
+
         /* Loading states */
         .loading {
             display: flex;
@@ -302,7 +302,7 @@ pub fn get_shared_styles() -> &'static str {
             padding: calc(var(--spacing-unit) * 4);
             color: var(--text-secondary);
         }
-        
+
         .loading::after {
             content: '';
             display: inline-block;
@@ -314,30 +314,30 @@ pub fn get_shared_styles() -> &'static str {
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
         /* Responsive */
         @media (max-width: 768px) {
             .container {
                 padding: calc(var(--spacing-unit) * 2);
             }
-            
+
             .header-nav-content {
                 padding: calc(var(--spacing-unit) * 1.5) calc(var(--spacing-unit) * 2);
             }
-            
+
             .card {
                 padding: calc(var(--spacing-unit) * 2);
             }
-            
+
             .data-table {
                 font-size: 0.875rem;
             }
         }
-        
+
         /* Color transition animation */
         @keyframes colorCycle {
             0% { --primary-hue: 210; --secondary-hue: 30; --accent-hue: 150; }
@@ -347,11 +347,11 @@ pub fn get_shared_styles() -> &'static str {
             80% { --primary-hue: 160; --secondary-hue: 340; --accent-hue: 100; }
             100% { --primary-hue: 210; --secondary-hue: 30; --accent-hue: 150; }
         }
-        
+
         body {
             animation: colorCycle 60s infinite linear;
         }
-        
+
         /* Utility classes */
         .text-center { text-align: center; }
         .text-right { text-align: right; }
@@ -377,11 +377,11 @@ pub fn get_api_key_preservation_script() -> &'static str {
         (function() {
             const urlParams = new URLSearchParams(window.location.search);
             const apiKey = urlParams.get('api_key');
-            
+
             if (apiKey) {
                 // Store in session storage for this tab
                 sessionStorage.setItem('api_key', apiKey);
-                
+
                 // Update all links on the page to include the API key
                 document.addEventListener('DOMContentLoaded', function() {
                     const links = document.querySelectorAll('a[href]');
@@ -392,7 +392,7 @@ pub fn get_api_key_preservation_script() -> &'static str {
                             link.setAttribute('href', href + separator + 'api_key=' + encodeURIComponent(apiKey));
                         }
                     });
-                    
+
                     // Also update form actions
                     const forms = document.querySelectorAll('form[action]');
                     forms.forEach(form => {
@@ -402,7 +402,7 @@ pub fn get_api_key_preservation_script() -> &'static str {
                             form.setAttribute('action', action + separator + 'api_key=' + encodeURIComponent(apiKey));
                         }
                     });
-                    
+
                     // Update fetch calls
                     const originalFetch = window.fetch;
                     window.fetch = function(url, options) {

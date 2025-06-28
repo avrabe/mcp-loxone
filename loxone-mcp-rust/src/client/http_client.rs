@@ -308,22 +308,25 @@ impl LoxoneClient for LoxoneHttpClient {
         let mut states = HashMap::new();
 
         // Process requests concurrently to avoid timeout issues
-        let futures: Vec<_> = uuids.iter().map(|uuid| {
-            let uuid = uuid.clone();
-            async move {
-                match self.send_command(&uuid, "state").await {
-                    Ok(response) => Some((uuid, response.value)),
-                    Err(e) => {
-                        warn!("Failed to get state for device {uuid}: {e}");
-                        None
+        let futures: Vec<_> = uuids
+            .iter()
+            .map(|uuid| {
+                let uuid = uuid.clone();
+                async move {
+                    match self.send_command(&uuid, "state").await {
+                        Ok(response) => Some((uuid, response.value)),
+                        Err(e) => {
+                            warn!("Failed to get state for device {uuid}: {e}");
+                            None
+                        }
                     }
                 }
-            }
-        }).collect();
+            })
+            .collect();
 
         // Execute all requests concurrently
         let results = futures_util::future::join_all(futures).await;
-        
+
         // Collect successful results
         for result in results {
             if let Some((uuid, value)) = result {
@@ -346,16 +349,15 @@ impl LoxoneClient for LoxoneHttpClient {
 
         // Try the batch endpoint first: /jdev/sps/io/all
         let batch_url = self.build_url("jdev/sps/io/all")?;
-        
+
         match self.execute_request(batch_url).await {
             Ok(response) => {
-                let text = response
-                    .text()
-                    .await
-                    .map_err(|e| LoxoneError::connection(format!("Failed to read batch response: {e}")))?;
-                
+                let text = response.text().await.map_err(|e| {
+                    LoxoneError::connection(format!("Failed to read batch response: {e}"))
+                })?;
+
                 let loxone_response = Self::parse_loxone_response(&text);
-                
+
                 if loxone_response.code == 200 {
                     // Parse the batch response
                     if let Some(states_obj) = loxone_response.value.as_object() {
@@ -363,7 +365,10 @@ impl LoxoneClient for LoxoneHttpClient {
                         for (uuid, value) in states_obj {
                             states.insert(uuid.clone(), value.clone());
                         }
-                        debug!("Batch request successful, got {} device states", states.len());
+                        debug!(
+                            "Batch request successful, got {} device states",
+                            states.len()
+                        );
                         return Ok(states);
                     }
                 }
@@ -456,22 +461,25 @@ impl LoxoneHttpClient {
         let mut state_values = HashMap::new();
 
         // Process requests concurrently to avoid timeout issues
-        let futures: Vec<_> = state_uuids.iter().map(|state_uuid| {
-            let state_uuid = state_uuid.clone();
-            async move {
-                match self.get_state_value_by_uuid(&state_uuid).await {
-                    Ok(value) => Some((state_uuid, value)),
-                    Err(e) => {
-                        warn!("Failed to get state value for UUID {state_uuid}: {e}");
-                        None
+        let futures: Vec<_> = state_uuids
+            .iter()
+            .map(|state_uuid| {
+                let state_uuid = state_uuid.clone();
+                async move {
+                    match self.get_state_value_by_uuid(&state_uuid).await {
+                        Ok(value) => Some((state_uuid, value)),
+                        Err(e) => {
+                            warn!("Failed to get state value for UUID {state_uuid}: {e}");
+                            None
+                        }
                     }
                 }
-            }
-        }).collect();
+            })
+            .collect();
 
         // Execute all requests concurrently
         let results = futures_util::future::join_all(futures).await;
-        
+
         // Collect successful results
         for result in results {
             if let Some((state_uuid, value)) = result {

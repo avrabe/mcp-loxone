@@ -1,8 +1,8 @@
 //! HTTP endpoints for health monitoring
 
 use super::{
-    HealthChecker, HealthReport, HealthStatus, DiagnosticsCollector, DiagnosticSnapshot,
-    DiagnosticTrends,
+    DiagnosticSnapshot, DiagnosticTrends, DiagnosticsCollector, HealthChecker, HealthReport,
+    HealthStatus,
 };
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
@@ -52,25 +52,32 @@ impl HealthEndpoints {
     /// Handle health check endpoint (GET /health)
     pub async fn handle_health(&self) -> Result<HealthResponse> {
         debug!("Processing health check request");
-        
+
         let report = self.health_checker.check_health().await;
         let http_status = report.status.http_status_code();
-        
-        info!("Health check completed: {:?} (HTTP {})", report.status, http_status);
-        
+
+        info!(
+            "Health check completed: {:?} (HTTP {})",
+            report.status, http_status
+        );
+
         Ok(HealthResponse {
             status: http_status,
             headers: self.create_health_headers(&report),
             body: serde_json::to_value(HealthCheckResult {
                 status: format!("{:?}", report.status),
                 timestamp: report.timestamp,
-                checks: report.checks.into_iter().map(|c| CheckSummary {
-                    name: c.name,
-                    status: format!("{:?}", c.status),
-                    message: c.message,
-                    duration_ms: c.duration_ms,
-                    critical: c.critical,
-                }).collect(),
+                checks: report
+                    .checks
+                    .into_iter()
+                    .map(|c| CheckSummary {
+                        name: c.name,
+                        status: format!("{:?}", c.status),
+                        message: c.message,
+                        duration_ms: c.duration_ms,
+                        critical: c.critical,
+                    })
+                    .collect(),
                 summary: HealthSummaryResponse {
                     total_checks: report.summary.total_checks,
                     healthy: report.summary.healthy_checks,
@@ -83,21 +90,27 @@ impl HealthEndpoints {
                 } else {
                     None
                 },
-            }).map_err(|e| LoxoneError::internal(format!("Failed to serialize health response: {}", e)))?,
+            })
+            .map_err(|e| {
+                LoxoneError::internal(format!("Failed to serialize health response: {}", e))
+            })?,
         })
     }
 
     /// Handle liveness check endpoint (GET /health/live)
     pub async fn handle_liveness(&self) -> Result<HealthResponse> {
         debug!("Processing liveness check request");
-        
+
         let status = self.health_checker.check_liveness().await;
-        let http_status = if matches!(status, HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Degraded) {
+        let http_status = if matches!(
+            status,
+            HealthStatus::Healthy | HealthStatus::Warning | HealthStatus::Degraded
+        ) {
             200
         } else {
             503
         };
-        
+
         Ok(HealthResponse {
             status: http_status,
             headers: HashMap::from([
@@ -118,14 +131,14 @@ impl HealthEndpoints {
     /// Handle readiness check endpoint (GET /health/ready)
     pub async fn handle_readiness(&self) -> Result<HealthResponse> {
         debug!("Processing readiness check request");
-        
+
         let status = self.health_checker.check_readiness().await;
         let http_status = if matches!(status, HealthStatus::Healthy | HealthStatus::Warning) {
             200
         } else {
             503
         };
-        
+
         Ok(HealthResponse {
             status: http_status,
             headers: HashMap::from([
@@ -146,7 +159,7 @@ impl HealthEndpoints {
     /// Handle detailed diagnostics endpoint (GET /health/diagnostics)
     pub async fn handle_diagnostics(&self) -> Result<HealthResponse> {
         debug!("Processing diagnostics request");
-        
+
         if !self.config.enable_diagnostics {
             return Ok(HealthResponse {
                 status: 404,
@@ -160,14 +173,17 @@ impl HealthEndpoints {
         let mut collector = self.diagnostics_collector.write().await;
         let snapshot = collector.collect_diagnostics().await?;
         let trends = collector.calculate_trends();
-        
+
         drop(collector);
-        
+
         Ok(HealthResponse {
             status: 200,
             headers: HashMap::from([
                 ("Content-Type".to_string(), "application/json".to_string()),
-                ("Cache-Control".to_string(), format!("max-age={}", self.config.diagnostics_cache_seconds)),
+                (
+                    "Cache-Control".to_string(),
+                    format!("max-age={}", self.config.diagnostics_cache_seconds),
+                ),
             ]),
             body: serde_json::to_value(DiagnosticsResponse {
                 snapshot,
@@ -176,14 +192,17 @@ impl HealthEndpoints {
                     interval_seconds: 60, // Default from collector
                     history_size: 100,    // Default from collector
                 },
-            }).map_err(|e| LoxoneError::internal(format!("Failed to serialize diagnostics: {}", e)))?,
+            })
+            .map_err(|e| {
+                LoxoneError::internal(format!("Failed to serialize diagnostics: {}", e))
+            })?,
         })
     }
 
     /// Handle metrics endpoint (GET /health/metrics)
     pub async fn handle_metrics(&self) -> Result<HealthResponse> {
         debug!("Processing metrics request");
-        
+
         if !self.config.enable_metrics {
             return Ok(HealthResponse {
                 status: 404,
@@ -197,24 +216,27 @@ impl HealthEndpoints {
         let report = self.health_checker.check_health().await;
         let collector = self.diagnostics_collector.read().await;
         let latest_snapshot = collector.get_latest();
-        
+
         let metrics = if self.config.prometheus_format {
             self.format_prometheus_metrics(&report, latest_snapshot)?
         } else {
             self.format_json_metrics(&report, latest_snapshot)?
         };
-        
+
         let content_type = if self.config.prometheus_format {
             "text/plain; version=0.0.4"
         } else {
             "application/json"
         };
-        
+
         Ok(HealthResponse {
             status: 200,
             headers: HashMap::from([
                 ("Content-Type".to_string(), content_type.to_string()),
-                ("Cache-Control".to_string(), format!("max-age={}", self.config.metrics_cache_seconds)),
+                (
+                    "Cache-Control".to_string(),
+                    format!("max-age={}", self.config.metrics_cache_seconds),
+                ),
             ]),
             body: metrics,
         })
@@ -223,11 +245,11 @@ impl HealthEndpoints {
     /// Handle startup probe endpoint (GET /health/startup)
     pub async fn handle_startup(&self) -> Result<HealthResponse> {
         debug!("Processing startup probe request");
-        
+
         let report = self.health_checker.check_health().await;
         let is_starting = matches!(report.status, HealthStatus::Starting);
         let is_ready = report.is_ready();
-        
+
         let http_status = if is_ready {
             200
         } else if is_starting {
@@ -235,7 +257,7 @@ impl HealthEndpoints {
         } else {
             500 // Failed to start
         };
-        
+
         Ok(HealthResponse {
             status: http_status,
             headers: HashMap::from([
@@ -256,34 +278,50 @@ impl HealthEndpoints {
     fn create_health_headers(&self, report: &HealthReport) -> HashMap<String, String> {
         let mut headers = HashMap::new();
         headers.insert("Content-Type".to_string(), "application/json".to_string());
-        headers.insert("X-Health-Status".to_string(), format!("{:?}", report.status));
-        headers.insert("X-Health-Timestamp".to_string(), report.timestamp.to_string());
-        headers.insert("X-Health-Checks".to_string(), report.checks.len().to_string());
-        
+        headers.insert(
+            "X-Health-Status".to_string(),
+            format!("{:?}", report.status),
+        );
+        headers.insert(
+            "X-Health-Timestamp".to_string(),
+            report.timestamp.to_string(),
+        );
+        headers.insert(
+            "X-Health-Checks".to_string(),
+            report.checks.len().to_string(),
+        );
+
         if !report.is_ready() {
             headers.insert("Retry-After".to_string(), "30".to_string());
         }
-        
+
         // Add cache control based on health status
         let cache_time = match report.status {
             HealthStatus::Healthy => self.config.healthy_cache_seconds,
             HealthStatus::Warning => self.config.warning_cache_seconds,
             _ => 0, // No cache for unhealthy states
         };
-        
+
         if cache_time > 0 {
-            headers.insert("Cache-Control".to_string(), format!("max-age={}", cache_time));
+            headers.insert(
+                "Cache-Control".to_string(),
+                format!("max-age={}", cache_time),
+            );
         } else {
             headers.insert("Cache-Control".to_string(), "no-cache".to_string());
         }
-        
+
         headers
     }
 
     /// Format metrics in Prometheus format
-    fn format_prometheus_metrics(&self, report: &HealthReport, snapshot: Option<&DiagnosticSnapshot>) -> Result<Value> {
+    fn format_prometheus_metrics(
+        &self,
+        report: &HealthReport,
+        snapshot: Option<&DiagnosticSnapshot>,
+    ) -> Result<Value> {
         let mut metrics = Vec::new();
-        
+
         // Health status metric
         metrics.push(format!(
             "# HELP loxone_health_status Current health status (0=unhealthy, 1=warning, 2=degraded, 3=healthy)\n\
@@ -298,14 +336,20 @@ impl HealthEndpoints {
                 HealthStatus::Stopping => 0,
             }
         ));
-        
+
         // Check metrics
         metrics.push("# HELP loxone_health_checks_total Total number of health checks\n# TYPE loxone_health_checks_total gauge\n".to_string());
-        metrics.push(format!("loxone_health_checks_total {}\n", report.checks.len()));
-        
+        metrics.push(format!(
+            "loxone_health_checks_total {}\n",
+            report.checks.len()
+        ));
+
         metrics.push("# HELP loxone_health_check_failures_total Total number of failed health checks\n# TYPE loxone_health_check_failures_total gauge\n".to_string());
-        metrics.push(format!("loxone_health_check_failures_total {}\n", report.summary.unhealthy_checks));
-        
+        metrics.push(format!(
+            "loxone_health_check_failures_total {}\n",
+            report.summary.unhealthy_checks
+        ));
+
         // System metrics from snapshot
         if let Some(snapshot) = snapshot {
             metrics.push(format!(
@@ -314,7 +358,7 @@ impl HealthEndpoints {
                  loxone_memory_usage_percent {}\n",
                 snapshot.system_info.memory.usage_percent
             ));
-            
+
             metrics.push(format!(
                 "# HELP loxone_cpu_usage_percent CPU usage percentage\n\
                  # TYPE loxone_cpu_usage_percent gauge\n\
@@ -322,50 +366,72 @@ impl HealthEndpoints {
                 snapshot.system_info.cpu.usage_percent
             ));
         }
-        
+
         Ok(Value::String(metrics.join("")))
     }
 
     /// Format metrics in JSON format
-    fn format_json_metrics(&self, report: &HealthReport, snapshot: Option<&DiagnosticSnapshot>) -> Result<Value> {
+    fn format_json_metrics(
+        &self,
+        report: &HealthReport,
+        snapshot: Option<&DiagnosticSnapshot>,
+    ) -> Result<Value> {
         let mut metrics = serde_json::Map::new();
-        
+
         // Health metrics
-        metrics.insert("health_status".to_string(), serde_json::json!({
-            "value": format!("{:?}", report.status),
-            "timestamp": report.timestamp
-        }));
-        
-        metrics.insert("health_checks_total".to_string(), serde_json::json!({
-            "value": report.checks.len(),
-            "timestamp": report.timestamp
-        }));
-        
-        metrics.insert("health_check_failures".to_string(), serde_json::json!({
-            "value": report.summary.unhealthy_checks,
-            "timestamp": report.timestamp
-        }));
-        
+        metrics.insert(
+            "health_status".to_string(),
+            serde_json::json!({
+                "value": format!("{:?}", report.status),
+                "timestamp": report.timestamp
+            }),
+        );
+
+        metrics.insert(
+            "health_checks_total".to_string(),
+            serde_json::json!({
+                "value": report.checks.len(),
+                "timestamp": report.timestamp
+            }),
+        );
+
+        metrics.insert(
+            "health_check_failures".to_string(),
+            serde_json::json!({
+                "value": report.summary.unhealthy_checks,
+                "timestamp": report.timestamp
+            }),
+        );
+
         // System metrics
         if let Some(snapshot) = snapshot {
-            metrics.insert("memory_usage_percent".to_string(), serde_json::json!({
-                "value": snapshot.system_info.memory.usage_percent,
-                "timestamp": snapshot.timestamp
-            }));
-            
-            metrics.insert("cpu_usage_percent".to_string(), serde_json::json!({
-                "value": snapshot.system_info.cpu.usage_percent,
-                "timestamp": snapshot.timestamp
-            }));
-            
-            metrics.insert("disk_usage_percent".to_string(), serde_json::json!({
-                "value": snapshot.disk_info.filesystems.get(0)
-                    .map(|fs| fs.usage_percent)
-                    .unwrap_or(0.0),
-                "timestamp": snapshot.timestamp
-            }));
+            metrics.insert(
+                "memory_usage_percent".to_string(),
+                serde_json::json!({
+                    "value": snapshot.system_info.memory.usage_percent,
+                    "timestamp": snapshot.timestamp
+                }),
+            );
+
+            metrics.insert(
+                "cpu_usage_percent".to_string(),
+                serde_json::json!({
+                    "value": snapshot.system_info.cpu.usage_percent,
+                    "timestamp": snapshot.timestamp
+                }),
+            );
+
+            metrics.insert(
+                "disk_usage_percent".to_string(),
+                serde_json::json!({
+                    "value": snapshot.disk_info.filesystems.get(0)
+                        .map(|fs| fs.usage_percent)
+                        .unwrap_or(0.0),
+                    "timestamp": snapshot.timestamp
+                }),
+            );
         }
-        
+
         Ok(Value::Object(metrics))
     }
 }
@@ -473,7 +539,7 @@ pub fn create_health_endpoints(
         health_checker,
         diagnostics_collector.clone(),
     ));
-    
+
     (endpoints, diagnostics_collector)
 }
 
@@ -484,13 +550,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_endpoint() {
-        let health_checker = Arc::new(
-            HealthChecker::new()
-                .add_check(Box::new(MemoryHealthCheck::default()))
-        );
+        let health_checker =
+            Arc::new(HealthChecker::new().add_check(Box::new(MemoryHealthCheck::default())));
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
         let endpoints = HealthEndpoints::new(health_checker, diagnostics_collector);
-        
+
         let response = endpoints.handle_health().await.unwrap();
         assert_eq!(response.status, 200);
         assert!(response.headers.contains_key("Content-Type"));
@@ -502,10 +566,10 @@ mod tests {
         let health_checker = Arc::new(HealthChecker::new());
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
         let endpoints = HealthEndpoints::new(health_checker, diagnostics_collector);
-        
+
         let response = endpoints.handle_liveness().await.unwrap();
         assert_eq!(response.status, 200);
-        
+
         let body = response.body.as_object().unwrap();
         assert!(body.contains_key("alive"));
         assert!(body.contains_key("status"));
@@ -516,10 +580,10 @@ mod tests {
         let health_checker = Arc::new(HealthChecker::new());
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
         let endpoints = HealthEndpoints::new(health_checker, diagnostics_collector);
-        
+
         let response = endpoints.handle_readiness().await.unwrap();
         assert_eq!(response.status, 200);
-        
+
         let body = response.body.as_object().unwrap();
         assert!(body.contains_key("ready"));
         assert!(body.contains_key("status"));
@@ -530,10 +594,10 @@ mod tests {
         let health_checker = Arc::new(HealthChecker::new());
         let diagnostics_collector = Arc::new(RwLock::new(DiagnosticsCollector::default()));
         let endpoints = HealthEndpoints::new(health_checker, diagnostics_collector);
-        
+
         let response = endpoints.handle_diagnostics().await.unwrap();
         assert_eq!(response.status, 200);
-        
+
         let body = response.body.as_object().unwrap();
         assert!(body.contains_key("snapshot"));
         assert!(body.contains_key("collection_info"));
@@ -546,10 +610,13 @@ mod tests {
         let mut config = HealthEndpointsConfig::default();
         config.prometheus_format = false;
         let endpoints = HealthEndpoints::with_config(health_checker, diagnostics_collector, config);
-        
+
         let response = endpoints.handle_metrics().await.unwrap();
         assert_eq!(response.status, 200);
-        assert_eq!(response.headers.get("Content-Type").unwrap(), "application/json");
+        assert_eq!(
+            response.headers.get("Content-Type").unwrap(),
+            "application/json"
+        );
         assert!(response.body.is_object());
     }
 
@@ -560,10 +627,13 @@ mod tests {
         let mut config = HealthEndpointsConfig::default();
         config.prometheus_format = true;
         let endpoints = HealthEndpoints::with_config(health_checker, diagnostics_collector, config);
-        
+
         let response = endpoints.handle_metrics().await.unwrap();
         assert_eq!(response.status, 200);
-        assert_eq!(response.headers.get("Content-Type").unwrap(), "text/plain; version=0.0.4");
+        assert_eq!(
+            response.headers.get("Content-Type").unwrap(),
+            "text/plain; version=0.0.4"
+        );
         assert!(response.body.is_string());
     }
 }

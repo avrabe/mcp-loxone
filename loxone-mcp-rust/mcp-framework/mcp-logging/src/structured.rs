@@ -556,26 +556,36 @@ mod tests {
         // Create a mock error implementing ErrorClassification
         #[derive(Debug)]
         struct MockError;
-        
+
         impl std::fmt::Display for MockError {
             fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, "Mock authentication error")
             }
         }
-        
+
         impl std::error::Error for MockError {}
-        
+
         impl crate::ErrorClassification for MockError {
-            fn error_type(&self) -> &str { "auth_error" }
-            fn is_retryable(&self) -> bool { false }
-            fn is_timeout(&self) -> bool { false }
-            fn is_auth_error(&self) -> bool { true }
-            fn is_connection_error(&self) -> bool { false }
+            fn error_type(&self) -> &str {
+                "auth_error"
+            }
+            fn is_retryable(&self) -> bool {
+                false
+            }
+            fn is_timeout(&self) -> bool {
+                false
+            }
+            fn is_auth_error(&self) -> bool {
+                true
+            }
+            fn is_connection_error(&self) -> bool {
+                false
+            }
         }
-        
+
         let mock_error = MockError;
         let error_class = ErrorClass::from_error(&mock_error);
-        
+
         matches!(error_class, ErrorClass::Auth { .. });
     }
 

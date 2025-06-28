@@ -497,7 +497,9 @@ pub async fn create_client(
         #[cfg(feature = "websocket")]
         AuthMethod::WebSocket => {
             tracing::info!("🔌 Initializing WebSocket client for real-time communication");
-            match websocket_client::LoxoneWebSocketClient::new(config.clone(), credentials.clone()).await {
+            match websocket_client::LoxoneWebSocketClient::new(config.clone(), credentials.clone())
+                .await
+            {
                 Ok(client) => {
                     tracing::info!("✅ WebSocket client initialized successfully");
                     Ok(Box::new(client))
@@ -506,7 +508,8 @@ pub async fn create_client(
                     tracing::warn!("⚠️ WebSocket client initialization failed: {}", e);
                     tracing::info!("🔄 Falling back to HTTP client for compatibility");
                     let client =
-                        http_client::LoxoneHttpClient::new(config.clone(), credentials.clone()).await?;
+                        http_client::LoxoneHttpClient::new(config.clone(), credentials.clone())
+                            .await?;
                     Ok(Box::new(client))
                 }
             }

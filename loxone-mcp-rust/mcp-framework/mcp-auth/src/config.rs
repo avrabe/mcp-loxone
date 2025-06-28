@@ -63,7 +63,7 @@ impl AuthConfig {
             ..Default::default()
         }
     }
-    
+
     /// Create a memory-only configuration (for testing)
     pub fn memory() -> Self {
         Self {

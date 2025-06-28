@@ -17,7 +17,7 @@ pub struct MetricsCollector {
     /// Request metrics
     request_metrics: Arc<RwLock<RequestMetrics>>,
 
-    /// System health metrics  
+    /// System health metrics
     health_metrics: Arc<RwLock<HealthMetrics>>,
 
     /// Business metrics

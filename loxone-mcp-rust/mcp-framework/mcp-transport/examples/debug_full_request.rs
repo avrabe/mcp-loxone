@@ -34,7 +34,7 @@ async fn debug_handler(
     info!("Headers: {:?}", request.headers());
     info!("Method: {}", request.method());
     info!("==========================");
-    
+
     Json(serde_json::json!({
         "uri": uri.to_string(),
         "query_string": uri.query(),
@@ -57,11 +57,11 @@ async fn main() {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:3003")
         .await
         .unwrap();
-        
+
     info!("Debug server running on http://127.0.0.1:3003");
     info!("Point MCP Inspector to: http://localhost:3003");
     info!("Or test manually:");
     info!("  curl 'http://127.0.0.1:3003/sse?url=test&transportType=sse'");
-    
+
     axum::serve(listener, app).await.unwrap();
 }

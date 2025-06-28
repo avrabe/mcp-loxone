@@ -146,7 +146,7 @@ impl ToolContext {
         // This will panic in debug builds to encourage migration
         #[cfg(debug_assertions)]
         panic!("Use ToolContext::with_services instead of ::new");
-        
+
         #[cfg(not(debug_assertions))]
         Self {
             client: _client,

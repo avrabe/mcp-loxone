@@ -130,7 +130,10 @@ pub fn format_sensor_value_display(value: &ToolValue) -> String {
 }
 
 /// Create standardized sensor JSON representation from ResolvedValue (service layer)
-pub fn create_sensor_json_from_resolved(device: &LoxoneDevice, value: &crate::services::value_resolution::ResolvedValue) -> Value {
+pub fn create_sensor_json_from_resolved(
+    device: &LoxoneDevice,
+    value: &crate::services::value_resolution::ResolvedValue,
+) -> Value {
     json!({
         "uuid": device.uuid,
         "name": device.name,

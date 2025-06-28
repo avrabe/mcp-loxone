@@ -1,9 +1,9 @@
 //! Streamable HTTP transport implementation for MCP
-//! 
+//!
 //! This implements the newer streamable-http transport that MCP Inspector expects,
 //! which replaces the deprecated SSE transport.
 
-use crate::{Transport, TransportError, RequestHandler};
+use crate::{RequestHandler, Transport, TransportError};
 use async_trait::async_trait;
 use axum::{
     extract::{Query, State},
@@ -14,11 +14,7 @@ use axum::{
 };
 use serde::Deserialize;
 use serde_json::Value;
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::Arc,
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc};
 use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use tower_http::cors::CorsLayer;
@@ -82,7 +78,7 @@ impl StreamableHttpTransport {
             server_handle: None,
         }
     }
-    
+
     /// Create or get session
     async fn ensure_session(state: &AppState, session_id: Option<String>) -> String {
         if let Some(id) = session_id {
@@ -92,18 +88,18 @@ impl StreamableHttpTransport {
                 return id;
             }
         }
-        
+
         // Create new session
         let id = Uuid::new_v4().to_string();
         let session = SessionInfo {
             id: id.clone(),
             created_at: std::time::Instant::now(),
         };
-        
+
         let mut sessions = state.sessions.write().await;
         sessions.insert(id.clone(), session);
         info!("Created new session: {}", id);
-        
+
         id
     }
 }
@@ -115,15 +111,15 @@ async fn handle_messages(
     body: String,
 ) -> impl IntoResponse {
     debug!("Received POST /messages: {}", body);
-    
+
     // Get or create session
     let session_id = headers
         .get("Mcp-Session-Id")
         .and_then(|v| v.to_str().ok())
         .map(|s| s.to_string());
-    
+
     let session_id = StreamableHttpTransport::ensure_session(&state, session_id).await;
-    
+
     // Parse the request
     let request: Value = match serde_json::from_str(&body) {
         Ok(v) => v,
@@ -138,13 +134,14 @@ async fn handle_messages(
                         "message": "Parse error"
                     },
                     "id": null
-                }))
-            ).into_response();
+                })),
+            )
+                .into_response();
         }
     };
-    
+
     // Convert to MCP Request
-    let mcp_request: mcp_protocol::Request = match serde_json::from_value(request.clone()) {
+    let mcp_request: pulseengine_mcp_protocol::Request = match serde_json::from_value(request.clone()) {
         Ok(r) => r,
         Err(e) => {
             warn!("Invalid request format: {}", e);
@@ -157,18 +154,19 @@ async fn handle_messages(
                         "message": "Invalid request"
                     },
                     "id": request.get("id").cloned().unwrap_or(Value::Null)
-                }))
-            ).into_response();
+                })),
+            )
+                .into_response();
         }
     };
-    
+
     // Process through handler
     let response = (state.handler)(mcp_request).await;
-    
+
     // Return JSON response with session header
     let mut headers = HeaderMap::new();
     headers.insert("Mcp-Session-Id", session_id.parse().unwrap());
-    
+
     (StatusCode::OK, headers, Json(response)).into_response()
 }
 
@@ -178,13 +176,13 @@ async fn handle_sse(
     Query(query): Query<StreamQuery>,
 ) -> impl IntoResponse {
     info!("SSE connection request: {:?}", query);
-    
+
     // For streamable-http, we need to handle this differently
     // The client expects an immediate response, not an SSE stream
-    
+
     // Get or create session
     let session_id = StreamableHttpTransport::ensure_session(&state, query.session_id).await;
-    
+
     // Return a simple response indicating the connection is established
     // This is what MCP Inspector expects for streamable-http
     let response = serde_json::json!({
@@ -193,65 +191,66 @@ async fn handle_sse(
         "sessionId": session_id,
         "transport": "streamable-http"
     });
-    
+
     Json(response)
 }
 
 #[async_trait]
 impl Transport for StreamableHttpTransport {
     async fn start(&mut self, handler: RequestHandler) -> Result<(), TransportError> {
-        info!("Starting Streamable HTTP transport on {}:{}", self.config.host, self.config.port);
-        
+        info!(
+            "Starting Streamable HTTP transport on {}:{}",
+            self.config.host, self.config.port
+        );
+
         let state = Arc::new(AppState {
             handler: Arc::new(handler),
             sessions: Arc::new(RwLock::new(HashMap::new())),
         });
-        
+
         // Build router
         let app = Router::new()
             .route("/messages", post(handle_messages))
             .route("/sse", get(handle_sse))
             .route("/", get(|| async { "MCP Streamable HTTP Server" }))
-            .layer(
-                ServiceBuilder::new()
-                    .layer(if self.config.enable_cors {
-                        CorsLayer::permissive()
-                    } else {
-                        CorsLayer::new()
-                    })
-            )
+            .layer(ServiceBuilder::new().layer(if self.config.enable_cors {
+                CorsLayer::permissive()
+            } else {
+                CorsLayer::new()
+            }))
             .with_state(state);
-        
+
         // Start server
         let addr: SocketAddr = format!("{}:{}", self.config.host, self.config.port)
             .parse()
             .map_err(|e| TransportError::Config(format!("Invalid address: {}", e)))?;
-        
-        let listener = tokio::net::TcpListener::bind(addr).await
+
+        let listener = tokio::net::TcpListener::bind(addr)
+            .await
             .map_err(|e| TransportError::Connection(format!("Failed to bind: {}", e)))?;
-        
+
         info!("Streamable HTTP transport listening on {}", addr);
         info!("Endpoints:");
         info!("  POST http://{}/messages - MCP messages", addr);
         info!("  GET  http://{}/sse      - Session establishment", addr);
-        
+
         let server_handle = tokio::spawn(async move {
             if let Err(e) = axum::serve(listener, app).await {
                 tracing::error!("Server error: {}", e);
             }
         });
-        
+
         self.server_handle = Some(server_handle);
         Ok(())
     }
-    
+
     async fn stop(&mut self) -> Result<(), TransportError> {
         if let Some(handle) = self.server_handle.take() {
             handle.abort();
         }
         Ok(())
     }
-    
+
     async fn health_check(&self) -> Result<(), TransportError> {
         if self.server_handle.is_some() {
             Ok(())

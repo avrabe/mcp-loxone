@@ -1,8 +1,8 @@
 //! MCP model types for protocol messages and data structures
 
+use crate::Error;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use crate::Error;
 
 /// JSON-RPC 2.0 Request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -177,7 +177,7 @@ pub struct Tool {
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {
     pub tools: Vec<Tool>,
-    pub next_cursor: String,  // Changed from Option<String> to String
+    pub next_cursor: String, // Changed from Option<String> to String
 }
 
 /// Pagination parameters
@@ -504,7 +504,7 @@ pub struct ListResourceTemplatesResult {
     #[serde(rename = "resourceTemplates")]
     pub resource_templates: Vec<ResourceTemplate>,
     #[serde(rename = "nextCursor")]
-    pub next_cursor: String,  // Changed from Option<String> to String
+    pub next_cursor: String, // Changed from Option<String> to String
 }
 
 /// Subscribe request parameters

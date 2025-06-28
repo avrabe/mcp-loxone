@@ -246,7 +246,7 @@ fn generate_mock_response_for_provider(
 
     // Determine the type of request
     if user_lower.contains("cozy") {
-        format!("{} Creating a Cozy Atmosphere ({} Mock Response)\n\nBased on your request, I recommend dimming lights to 30%, adjusting temperature to 22°C, and partially closing blinds for intimacy.\n\n*Note: This is a {} mock response. Configure actual {} credentials for real AI-powered suggestions.*", 
+        format!("{} Creating a Cozy Atmosphere ({} Mock Response)\n\nBased on your request, I recommend dimming lights to 30%, adjusting temperature to 22°C, and partially closing blinds for intimacy.\n\n*Note: This is a {} mock response. Configure actual {} credentials for real AI-powered suggestions.*",
             provider_icon, provider_name, provider_type, provider_type)
     } else if user_lower.contains("event") || user_lower.contains("party") {
         format!("{} Event Preparation ({} Mock Response)\n\nFor your event, I suggest bright entrance lighting, appropriate room temperature, and testing all critical systems.\n\n*Note: This is a {} mock response. Configure actual {} credentials for real AI-powered suggestions.*",

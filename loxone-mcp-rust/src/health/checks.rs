@@ -1,6 +1,8 @@
 //! Specific health check implementations
 
-use super::{HealthCheck, HealthCheckResult, HealthStatus, DependencyCheck, DependencyStatus, DependencyType};
+use super::{
+    DependencyCheck, DependencyStatus, DependencyType, HealthCheck, HealthCheckResult, HealthStatus,
+};
 use crate::client::ClientContext;
 use crate::error::Result;
 use std::sync::Arc;
@@ -70,11 +72,26 @@ impl HealthCheck for MemoryHealthCheck {
                 .unwrap()
                 .as_secs(),
             metadata: std::collections::HashMap::from([
-                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
-                ("used_bytes".to_string(), serde_json::Value::Number(memory_info.used_bytes.into())),
-                ("total_bytes".to_string(), serde_json::Value::Number(memory_info.total_bytes.into())),
-                ("warning_threshold".to_string(), serde_json::Value::from(self.warning_threshold)),
-                ("critical_threshold".to_string(), serde_json::Value::from(self.critical_threshold)),
+                (
+                    "usage_percent".to_string(),
+                    serde_json::Value::from(usage_percent),
+                ),
+                (
+                    "used_bytes".to_string(),
+                    serde_json::Value::Number(memory_info.used_bytes.into()),
+                ),
+                (
+                    "total_bytes".to_string(),
+                    serde_json::Value::Number(memory_info.total_bytes.into()),
+                ),
+                (
+                    "warning_threshold".to_string(),
+                    serde_json::Value::from(self.warning_threshold),
+                ),
+                (
+                    "critical_threshold".to_string(),
+                    serde_json::Value::from(self.critical_threshold),
+                ),
             ]),
             error: None,
             critical: self.is_critical(),
@@ -125,7 +142,10 @@ impl HealthCheck for DiskSpaceHealthCheck {
         let (status, message) = if usage_percent >= self.critical_threshold {
             (
                 HealthStatus::Unhealthy,
-                format!("Disk usage critical: {:.1}% on {}", usage_percent, self.path),
+                format!(
+                    "Disk usage critical: {:.1}% on {}",
+                    usage_percent, self.path
+                ),
             )
         } else if usage_percent >= self.warning_threshold {
             (
@@ -149,11 +169,26 @@ impl HealthCheck for DiskSpaceHealthCheck {
                 .unwrap()
                 .as_secs(),
             metadata: std::collections::HashMap::from([
-                ("path".to_string(), serde_json::Value::String(self.path.clone())),
-                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
-                ("used_bytes".to_string(), serde_json::Value::Number(used_bytes.into())),
-                ("available_bytes".to_string(), serde_json::Value::Number(available_bytes.into())),
-                ("total_bytes".to_string(), serde_json::Value::Number(total_bytes.into())),
+                (
+                    "path".to_string(),
+                    serde_json::Value::String(self.path.clone()),
+                ),
+                (
+                    "usage_percent".to_string(),
+                    serde_json::Value::from(usage_percent),
+                ),
+                (
+                    "used_bytes".to_string(),
+                    serde_json::Value::Number(used_bytes.into()),
+                ),
+                (
+                    "available_bytes".to_string(),
+                    serde_json::Value::Number(available_bytes.into()),
+                ),
+                (
+                    "total_bytes".to_string(),
+                    serde_json::Value::Number(total_bytes.into()),
+                ),
             ]),
             error: None,
             critical: self.is_critical(),
@@ -227,11 +262,26 @@ impl HealthCheck for ThreadPoolHealthCheck {
                 .unwrap()
                 .as_secs(),
             metadata: std::collections::HashMap::from([
-                ("usage_percent".to_string(), serde_json::Value::from(usage_percent)),
-                ("active_threads".to_string(), serde_json::Value::Number(thread_metrics.active_threads.into())),
-                ("total_threads".to_string(), serde_json::Value::Number(thread_metrics.total_threads.into())),
-                ("queued_tasks".to_string(), serde_json::Value::Number(thread_metrics.queued_tasks.into())),
-                ("completed_tasks".to_string(), serde_json::Value::Number(thread_metrics.completed_tasks.into())),
+                (
+                    "usage_percent".to_string(),
+                    serde_json::Value::from(usage_percent),
+                ),
+                (
+                    "active_threads".to_string(),
+                    serde_json::Value::Number(thread_metrics.active_threads.into()),
+                ),
+                (
+                    "total_threads".to_string(),
+                    serde_json::Value::Number(thread_metrics.total_threads.into()),
+                ),
+                (
+                    "queued_tasks".to_string(),
+                    serde_json::Value::Number(thread_metrics.queued_tasks.into()),
+                ),
+                (
+                    "completed_tasks".to_string(),
+                    serde_json::Value::Number(thread_metrics.completed_tasks.into()),
+                ),
             ]),
             error: None,
             critical: self.is_critical(),
@@ -271,37 +321,39 @@ impl HealthCheck for ConfigHealthCheck {
     async fn check(&self) -> Result<HealthCheckResult> {
         // Check if config file exists and is readable
         let config_exists = std::path::Path::new(&self.config_path).exists();
-        
+
         if !config_exists {
             return Ok(HealthCheckResult::unhealthy(
                 self.name(),
                 &format!("Configuration file not found: {}", self.config_path),
                 Some("File does not exist".to_string()),
-            ).critical());
+            )
+            .critical());
         }
 
         // Try to read the config file
         match std::fs::metadata(&self.config_path) {
             Ok(metadata) => {
                 let file_size = metadata.len();
-                let modified = metadata.modified()
+                let modified = metadata
+                    .modified()
                     .map(|t| t.duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
                     .unwrap_or(0);
 
                 Ok(HealthCheckResult::healthy(
                     self.name(),
                     &format!("Configuration file accessible: {}", self.config_path),
-                ).with_metadata("file_size", file_size)
-                 .with_metadata("last_modified", modified)
-                 .with_metadata("path", self.config_path.clone()))
+                )
+                .with_metadata("file_size", file_size)
+                .with_metadata("last_modified", modified)
+                .with_metadata("path", self.config_path.clone()))
             }
-            Err(e) => {
-                Ok(HealthCheckResult::unhealthy(
-                    self.name(),
-                    &format!("Cannot access configuration file: {}", self.config_path),
-                    Some(e.to_string()),
-                ).critical())
-            }
+            Err(e) => Ok(HealthCheckResult::unhealthy(
+                self.name(),
+                &format!("Cannot access configuration file: {}", self.config_path),
+                Some(e.to_string()),
+            )
+            .critical()),
         }
     }
 }
@@ -322,7 +374,7 @@ impl HealthCheck for CredentialsHealthCheck {
     async fn check(&self) -> Result<HealthCheckResult> {
         // Check if credentials are available
         // This is simplified - in production would check actual credential store
-        
+
         let has_username = std::env::var("LOXONE_USERNAME").is_ok();
         let has_password = std::env::var("LOXONE_PASSWORD").is_ok();
         let has_host = std::env::var("LOXONE_HOST").is_ok();
@@ -332,21 +384,28 @@ impl HealthCheck for CredentialsHealthCheck {
                 (!has_username).then_some("LOXONE_USERNAME"),
                 (!has_password).then_some("LOXONE_PASSWORD"),
                 (!has_host).then_some("LOXONE_HOST"),
-            ].into_iter().flatten().collect();
+            ]
+            .into_iter()
+            .flatten()
+            .collect();
 
             return Ok(HealthCheckResult::unhealthy(
                 self.name(),
                 "Missing required credentials",
-                Some(format!("Missing environment variables: {}", missing.join(", "))),
-            ).critical());
+                Some(format!(
+                    "Missing environment variables: {}",
+                    missing.join(", ")
+                )),
+            )
+            .critical());
         }
 
-        Ok(HealthCheckResult::healthy(
-            self.name(),
-            "All required credentials are available",
-        ).with_metadata("has_username", has_username)
-         .with_metadata("has_password", has_password)
-         .with_metadata("has_host", has_host))
+        Ok(
+            HealthCheckResult::healthy(self.name(), "All required credentials are available")
+                .with_metadata("has_username", has_username)
+                .with_metadata("has_password", has_password)
+                .with_metadata("has_host", has_host),
+        )
     }
 }
 
@@ -385,7 +444,7 @@ impl DependencyCheck for LoxoneMiniserverCheck {
 
     async fn check(&self) -> Result<DependencyStatus> {
         let start_time = std::time::Instant::now();
-        
+
         // Try to perform a simple request to the Miniserver
         // This is simplified - in production would use the actual client
         match tokio::time::timeout(Duration::from_secs(5), self.check_connection()).await {
@@ -445,15 +504,15 @@ impl LoxoneMiniserverCheck {
         // Simplified connection check
         // In production this would use the actual HTTP client to ping the Miniserver
         debug!("Checking Loxone Miniserver connection to {}", self.endpoint);
-        
+
         // Mock success for now
         tokio::time::sleep(Duration::from_millis(100)).await;
-        
+
         // Simulate occasional failures for testing
         if self.endpoint.contains("invalid") {
             return Err(crate::error::LoxoneError::connection("Invalid endpoint"));
         }
-        
+
         Ok(())
     }
 }
@@ -493,10 +552,10 @@ impl DependencyCheck for FileSystemCheck {
 
     async fn check(&self) -> Result<DependencyStatus> {
         let start_time = std::time::Instant::now();
-        
+
         // Check if path exists and is accessible
         let path = std::path::Path::new(&self.path);
-        
+
         if !path.exists() {
             let response_time = start_time.elapsed().as_millis() as u64;
             return Ok(DependencyStatus {
@@ -565,7 +624,7 @@ mod tests {
     async fn test_memory_health_check() {
         let check = MemoryHealthCheck::default();
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "memory_usage");
         assert!(result.critical);
         assert!(result.metadata.contains_key("usage_percent"));
@@ -575,7 +634,7 @@ mod tests {
     async fn test_disk_space_check() {
         let check = DiskSpaceHealthCheck::default();
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "disk_space");
         assert!(result.critical);
         assert!(result.metadata.contains_key("usage_percent"));
@@ -585,7 +644,7 @@ mod tests {
     async fn test_thread_pool_check() {
         let check = ThreadPoolHealthCheck::default();
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "thread_pool");
         assert!(result.critical);
         assert!(result.metadata.contains_key("active_threads"));
@@ -595,7 +654,7 @@ mod tests {
     async fn test_config_health_check() {
         let check = ConfigHealthCheck::new("Cargo.toml"); // Use existing file
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "configuration");
         assert_eq!(result.status, HealthStatus::Healthy);
     }
@@ -604,7 +663,7 @@ mod tests {
     async fn test_config_health_check_missing_file() {
         let check = ConfigHealthCheck::new("nonexistent.toml");
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "configuration");
         assert_eq!(result.status, HealthStatus::Unhealthy);
         assert!(result.error.is_some());
@@ -614,7 +673,7 @@ mod tests {
     async fn test_credentials_check() {
         let check = CredentialsHealthCheck;
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.name, "credentials");
         // Result depends on environment variables, but should not panic
     }
@@ -623,7 +682,7 @@ mod tests {
     async fn test_filesystem_check() {
         let check = FileSystemCheck::new("/tmp", false);
         let result = check.check().await.unwrap();
-        
+
         assert_eq!(result.dependency_type, DependencyType::FileSystem);
         // Should succeed on most systems
     }
@@ -631,11 +690,8 @@ mod tests {
     #[tokio::test]
     async fn test_loxone_miniserver_check() {
         let client_context = Arc::new(ClientContext::new());
-        let check = LoxoneMiniserverCheck::new(
-            client_context,
-            "http://localhost:8080".to_string(),
-        );
-        
+        let check = LoxoneMiniserverCheck::new(client_context, "http://localhost:8080".to_string());
+
         let result = check.check().await.unwrap();
         assert_eq!(result.name, "loxone_miniserver");
         assert_eq!(result.dependency_type, DependencyType::LoxoneMiniserver);

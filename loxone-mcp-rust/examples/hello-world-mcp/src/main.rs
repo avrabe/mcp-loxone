@@ -18,7 +18,7 @@ use tracing_subscriber::EnvFilter;
 pub enum HelloWorldError {
     #[error("Invalid parameter: {0}")]
     InvalidParameter(String),
-    
+
     #[error("Internal error: {0}")]
     Internal(String),
 }
@@ -62,14 +62,14 @@ impl Default for HelloWorldConfig {
 impl McpBackend for HelloWorldBackend {
     type Error = HelloWorldError;
     type Config = HelloWorldConfig;
-    
+
     async fn initialize(_config: Self::Config) -> std::result::Result<Self, Self::Error> {
         info!("Initializing Hello World backend");
         Ok(Self {
             greeting_count: std::sync::Arc::new(std::sync::atomic::AtomicU64::new(0)),
         })
     }
-    
+
     fn get_server_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::default(),
@@ -89,11 +89,11 @@ impl McpBackend for HelloWorldBackend {
             instructions: None,
         }
     }
-    
+
     async fn health_check(&self) -> std::result::Result<(), Self::Error> {
         Ok(())
     }
-    
+
     async fn list_tools(&self, _request: PaginatedRequestParam) -> std::result::Result<ListToolsResult, Self::Error> {
         let tools = vec![
             Tool {
@@ -107,7 +107,7 @@ impl McpBackend for HelloWorldBackend {
                             "description": "The name to greet"
                         },
                         "greeting": {
-                            "type": "string", 
+                            "type": "string",
                             "description": "Custom greeting (optional)",
                             "default": "Hello"
                         }
@@ -124,52 +124,52 @@ impl McpBackend for HelloWorldBackend {
                 }),
             },
         ];
-        
+
         Ok(ListToolsResult {
             tools,
             next_cursor: None,
         })
     }
-    
+
     async fn call_tool(&self, request: CallToolRequestParam) -> std::result::Result<CallToolResult, Self::Error> {
         match request.name.as_str() {
             "say_hello" => {
                 let args = request.arguments.unwrap_or(serde_json::Value::Object(Default::default()));
-                
+
                 let name = args
                     .get("name")
                     .and_then(|v| v.as_str())
                     .ok_or_else(|| HelloWorldError::InvalidParameter("name is required".to_string()))?;
-                
+
                 let greeting = args
                     .get("greeting")
                     .and_then(|v| v.as_str())
                     .unwrap_or("Hello");
-                
+
                 // Increment greeting counter
                 self.greeting_count.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                
+
                 let message = format!("{}, {}! 👋", greeting, name);
-                
+
                 Ok(CallToolResult {
                     content: vec![Content::text(message)],
                     is_error: None,
                 })
             }
-            
+
             "count_greetings" => {
                 let count = self.greeting_count.load(std::sync::atomic::Ordering::Relaxed);
-                
+
                 Ok(CallToolResult {
                     content: vec![Content::text(format!("Total greetings sent: {}", count))],
                     is_error: None,
                 })
             }
-            
+
             _ => Err(HelloWorldError::InvalidParameter(format!("Unknown tool: {}", request.name))),
         }
     }
-    
+
     // Use default implementations for resources and prompts
     async fn list_resources(&self, _request: PaginatedRequestParam) -> std::result::Result<ListResourcesResult, Self::Error> {
         Ok(ListResourcesResult {
@@ -177,18 +177,18 @@ impl McpBackend for HelloWorldBackend {
             next_cursor: None,
         })
     }
-    
+
     async fn read_resource(&self, request: ReadResourceRequestParam) -> std::result::Result<ReadResourceResult, Self::Error> {
         Err(HelloWorldError::InvalidParameter(format!("Resource not found: {}", request.uri)))
     }
-    
+
     async fn list_prompts(&self, _request: PaginatedRequestParam) -> std::result::Result<ListPromptsResult, Self::Error> {
         Ok(ListPromptsResult {
             prompts: vec![],
             next_cursor: None,
         })
     }
-    
+
     async fn get_prompt(&self, request: GetPromptRequestParam) -> std::result::Result<GetPromptResult, Self::Error> {
         Err(HelloWorldError::InvalidParameter(format!("Prompt not found: {}", request.name)))
     }
@@ -203,34 +203,34 @@ async fn main() -> std::result::Result<(), Box<dyn std::error::Error>> {
                 .unwrap_or_else(|_| EnvFilter::new("hello_world_mcp=debug,mcp_server=debug"))
         )
         .init();
-    
+
     info!("🚀 Starting Hello World MCP Server");
-    
+
     // Create backend
     let backend_config = HelloWorldConfig::default();
     let backend = HelloWorldBackend::initialize(backend_config).await?;
-    
+
     // Create server configuration
     let mut auth_config = mcp_auth::default_config();
     auth_config.enabled = false; // Disable authentication for this example
-    
+
     let server_config = ServerConfig {
         server_info: backend.get_server_info(),
         auth_config,
         transport_config: TransportConfig::Stdio, // Use stdio transport for MCP clients
         ..Default::default()
     };
-    
+
     // Create and start server
     let mut server = McpServer::new(backend, server_config).await?;
-    
+
     info!("✅ Hello World MCP Server started successfully");
     info!("💡 Available tools: say_hello, count_greetings");
     info!("🔗 Connect using any MCP client via stdio");
-    
+
     // Run server until shutdown
     server.run().await?;
-    
+
     info!("👋 Hello World MCP Server stopped");
     Ok(())
 }

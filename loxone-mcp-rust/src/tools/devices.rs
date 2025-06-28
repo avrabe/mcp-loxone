@@ -316,7 +316,6 @@ pub async fn control_multiple_devices(
     ToolResponse::success_with_message(response_data, message)
 }
 
-
 /// Get devices by category
 // #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_devices_by_category(

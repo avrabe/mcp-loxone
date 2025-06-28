@@ -423,7 +423,7 @@ const DASHBOARD_HTML: &str = r#"
     <div class="container mx-auto px-4 py-8">
         <div class="flex justify-between items-center mb-8">
             <h1 class="text-3xl font-bold text-gray-800">Loxone MCP Monitoring Dashboard</h1>
-            
+
             <!-- Time Range Controls -->
             <div class="flex items-center space-x-4">
                 <label class="text-sm font-medium text-gray-700">Time Range:</label>
@@ -438,24 +438,24 @@ const DASHBOARD_HTML: &str = r#"
                     <option value="30d">Last 30 days</option>
                     <option value="custom">Custom Range</option>
                 </select>
-                
+
                 <!-- Custom Range Inputs (hidden by default) -->
                 <div id="customRangeInputs" class="hidden flex items-center space-x-2">
                     <input type="datetime-local" id="startTime" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
                     <span class="text-gray-500">to</span>
                     <input type="datetime-local" id="endTime" class="border border-gray-300 rounded-md px-2 py-1 text-sm">
                 </div>
-                
+
                 <button id="refreshBtn" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                     Refresh
                 </button>
-                
+
                 <button id="pauseBtn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                     Pause
                 </button>
             </div>
         </div>
-        
+
         <!-- MCP Server Status Cards -->
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
             <div class="bg-white rounded-lg shadow p-6">
@@ -503,7 +503,7 @@ const DASHBOARD_HTML: &str = r#"
                 <p class="text-sm text-orange-600">total on time</p>
             </div>
         </div>
-        
+
         <!-- Charts -->
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Request Rate Chart -->
@@ -513,7 +513,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="requestChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- Response Time Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Response Times</h3>
@@ -521,7 +521,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="responseChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- System Resources Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">System Resources</h3>
@@ -529,7 +529,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="resourceChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- Error Rate Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Error Rate</h3>
@@ -548,7 +548,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="deviceActivityChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- Room Temperatures Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Room Temperatures</h3>
@@ -556,7 +556,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="temperatureChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- System Health Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">System Health</h3>
@@ -564,7 +564,7 @@ const DASHBOARD_HTML: &str = r#"
                     <canvas id="healthChart"></canvas>
                 </div>
             </div>
-            
+
             <!-- Energy Usage Chart -->
             <div class="bg-white rounded-lg shadow p-6">
                 <h3 class="text-lg font-semibold text-gray-800 mb-4">Device Runtime</h3>
@@ -573,7 +573,7 @@ const DASHBOARD_HTML: &str = r#"
                 </div>
             </div>
         </div>
-        
+
         <!-- Connection Status -->
         <div class="mt-8 text-center">
             <span id="connection-status" class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800">
@@ -582,7 +582,7 @@ const DASHBOARD_HTML: &str = r#"
             </span>
         </div>
     </div>
-    
+
     <script>
         // Chart configuration
         const chartOptions = {
@@ -599,7 +599,7 @@ const DASHBOARD_HTML: &str = r#"
                 }
             }
         };
-        
+
         // Initialize charts
         const requestChart = new Chart(document.getElementById('requestChart'), {
             type: 'line',
@@ -615,7 +615,7 @@ const DASHBOARD_HTML: &str = r#"
             },
             options: chartOptions
         });
-        
+
         const responseChart = new Chart(document.getElementById('responseChart'), {
             type: 'line',
             data: {
@@ -630,7 +630,7 @@ const DASHBOARD_HTML: &str = r#"
             },
             options: chartOptions
         });
-        
+
         const resourceChart = new Chart(document.getElementById('resourceChart'), {
             type: 'line',
             data: {
@@ -658,7 +658,7 @@ const DASHBOARD_HTML: &str = r#"
                 }
             }
         });
-        
+
         const errorChart = new Chart(document.getElementById('errorChart'), {
             type: 'bar',
             data: {
@@ -751,7 +751,7 @@ const DASHBOARD_HTML: &str = r#"
             },
             options: chartOptions
         });
-        
+
         // Data storage
         const maxDataPoints = 60;
         let requestData = [];
@@ -765,51 +765,51 @@ const DASHBOARD_HTML: &str = r#"
         let systemHealthData = [];
         let deviceRuntimeData = [];
         let temperatureData = {};
-        
+
         // Update charts with new data
         function updateCharts(data) {
             const now = new Date().toLocaleTimeString();
-            
+
             // Update labels
             labels.push(now);
             if (labels.length > maxDataPoints) {
                 labels.shift();
             }
-            
+
             // Update data arrays
             requestData.push(data.request_rate);
             responseData.push(data.avg_response_time);
             cpuData.push(data.cpu_usage);
             memoryData.push(data.memory_usage);
             errorData.push(data.error_rate);
-            
+
             // Update Loxone data arrays
             deviceActivityData.push(data.loxone_active_devices);
             systemHealthData.push(data.loxone_system_health);
             deviceRuntimeData.push(data.loxone_device_on_time / 3600); // Convert to hours
-            
+
             // Keep only last maxDataPoints
-            [requestData, responseData, cpuData, memoryData, errorData, 
+            [requestData, responseData, cpuData, memoryData, errorData,
              deviceActivityData, systemHealthData, deviceRuntimeData].forEach(arr => {
                 if (arr.length > maxDataPoints) {
                     arr.shift();
                 }
             });
-            
+
             // Update charts
             requestChart.data.labels = labels;
             requestChart.data.datasets[0].data = requestData;
             requestChart.update('none');
-            
+
             responseChart.data.labels = labels;
             responseChart.data.datasets[0].data = responseData;
             responseChart.update('none');
-            
+
             resourceChart.data.labels = labels;
             resourceChart.data.datasets[0].data = cpuData;
             resourceChart.data.datasets[1].data = memoryData;
             resourceChart.update('none');
-            
+
             errorChart.data.labels = labels.slice(-10); // Last 10 for bar chart
             errorChart.data.datasets[0].data = errorData.slice(-10);
             errorChart.update('none');
@@ -831,12 +831,12 @@ const DASHBOARD_HTML: &str = r#"
             if (data.loxone_room_temperatures && data.loxone_room_temperatures.length > 0) {
                 const roomLabels = data.loxone_room_temperatures.map(room => room.room);
                 const roomTemps = data.loxone_room_temperatures.map(room => room.temperature);
-                
+
                 temperatureChart.data.labels = roomLabels;
                 temperatureChart.data.datasets[0].data = roomTemps;
                 temperatureChart.update('none');
             }
-            
+
             // Update status cards
             document.getElementById('request-rate').textContent = data.request_rate.toFixed(0);
             document.getElementById('error-rate').textContent = (data.error_rate > 0 ? data.error_rate.toFixed(1) : 0) + '%';
@@ -849,13 +849,13 @@ const DASHBOARD_HTML: &str = r#"
             document.getElementById('loxone-power-cycles').textContent = data.loxone_device_power_cycles.toFixed(0);
             document.getElementById('loxone-device-time').textContent = (data.loxone_device_on_time / 3600).toFixed(1) + 'h';
         }
-        
+
         // Time range management
         let currentMode = 'live';
         let isLiveMode = true;
         let isPaused = false;
         let eventSource = null;
-        
+
         // Time range controls
         const timeRangeSelect = document.getElementById('timeRange');
         const customRangeInputs = document.getElementById('customRangeInputs');
@@ -863,11 +863,11 @@ const DASHBOARD_HTML: &str = r#"
         const endTimeInput = document.getElementById('endTime');
         const refreshBtn = document.getElementById('refreshBtn');
         const pauseBtn = document.getElementById('pauseBtn');
-        
+
         // Handle time range selection
         timeRangeSelect.addEventListener('change', function() {
             const selectedRange = this.value;
-            
+
             if (selectedRange === 'custom') {
                 customRangeInputs.classList.remove('hidden');
                 isLiveMode = false;
@@ -877,7 +877,7 @@ const DASHBOARD_HTML: &str = r#"
                 }
             } else {
                 customRangeInputs.classList.add('hidden');
-                
+
                 if (selectedRange === 'live') {
                     isLiveMode = true;
                     if (!isPaused) {
@@ -894,7 +894,7 @@ const DASHBOARD_HTML: &str = r#"
             }
             currentMode = selectedRange;
         });
-        
+
         // Handle refresh button
         refreshBtn.addEventListener('click', function() {
             if (currentMode === 'live' && !isPaused) {
@@ -915,11 +915,11 @@ const DASHBOARD_HTML: &str = r#"
                 loadHistoricalData(currentMode);
             }
         });
-        
+
         // Handle pause/resume button
         pauseBtn.addEventListener('click', function() {
             isPaused = !isPaused;
-            
+
             if (isPaused) {
                 if (eventSource) {
                     eventSource.close();
@@ -932,19 +932,19 @@ const DASHBOARD_HTML: &str = r#"
                 pauseBtn.textContent = 'Pause';
                 pauseBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
                 pauseBtn.classList.add('bg-gray-500', 'hover:bg-gray-600');
-                
+
                 if (isLiveMode) {
                     startLiveMode();
                 }
             }
         });
-        
+
         // Start live mode
         function startLiveMode() {
             if (eventSource) return; // Already connected
-            
+
             eventSource = new EventSource('/dashboard/metrics/live');
-            
+
             eventSource.onmessage = function(event) {
                 try {
                     const data = JSON.parse(event.data);
@@ -953,54 +953,54 @@ const DASHBOARD_HTML: &str = r#"
                     console.error('Failed to parse metrics:', e);
                 }
             };
-            
+
             eventSource.onerror = function(error) {
                 console.error('SSE error:', error);
                 updateConnectionStatus(false);
             };
-            
+
             eventSource.onopen = function() {
                 updateConnectionStatus(true);
             };
         }
-        
+
         // Load historical data
         async function loadHistoricalData(range) {
             try {
                 const response = await fetch(`/dashboard/api/historical?range=${range}`);
                 const historicalData = await response.json();
-                
+
                 // Clear current chart data
                 clearChartData();
-                
+
                 // Populate charts with historical data
                 updateChartsWithHistoricalData(historicalData);
-                
+
             } catch (error) {
                 console.error('Error loading historical data:', error);
             }
         }
-        
+
         // Load custom range data
         async function loadCustomRangeData(start, end) {
             try {
                 const startISO = new Date(start).toISOString();
                 const endISO = new Date(end).toISOString();
-                
+
                 const response = await fetch(`/dashboard/api/historical?start=${startISO}&end=${endISO}`);
                 const historicalData = await response.json();
-                
+
                 // Clear current chart data
                 clearChartData();
-                
+
                 // Populate charts with historical data
                 updateChartsWithHistoricalData(historicalData);
-                
+
             } catch (error) {
                 console.error('Error loading custom range data:', error);
             }
         }
-        
+
         // Clear chart data
         function clearChartData() {
             requestData = [];
@@ -1014,14 +1014,14 @@ const DASHBOARD_HTML: &str = r#"
             labels = [];
             temperatureData = {};
         }
-        
+
         // Update charts with historical data
         function updateChartsWithHistoricalData(historicalData) {
             const metrics = historicalData.metrics;
-            
+
             // Convert historical data to chart format
             if (metrics.request_rate.length > 0) {
-                labels = metrics.request_rate.map(point => 
+                labels = metrics.request_rate.map(point =>
                     new Date(point.timestamp).toLocaleTimeString()
                 );
                 requestData = metrics.request_rate.map(point => point.value);
@@ -1032,43 +1032,43 @@ const DASHBOARD_HTML: &str = r#"
                 deviceActivityData = metrics.active_devices.map(point => point.value);
                 systemHealthData = metrics.system_health.map(point => point.value);
             }
-            
+
             // Update all charts
             updateChartDisplay();
         }
-        
+
         // Update chart display
         function updateChartDisplay() {
             requestChart.data.labels = labels;
             requestChart.data.datasets[0].data = requestData;
             requestChart.update();
-            
+
             responseChart.data.labels = labels;
             responseChart.data.datasets[0].data = responseData;
             responseChart.update();
-            
+
             resourceChart.data.labels = labels;
             resourceChart.data.datasets[0].data = cpuData;
             resourceChart.data.datasets[1].data = memoryData;
             resourceChart.update();
-            
+
             errorChart.data.labels = labels.slice(-10);
             errorChart.data.datasets[0].data = errorData.slice(-10);
             errorChart.update();
-            
+
             deviceActivityChart.data.labels = labels;
             deviceActivityChart.data.datasets[0].data = deviceActivityData;
             deviceActivityChart.update();
-            
+
             healthChart.data.labels = labels;
             healthChart.data.datasets[0].data = systemHealthData;
             healthChart.update();
-            
+
             runtimeChart.data.labels = labels;
             runtimeChart.data.datasets[0].data = deviceRuntimeData;
             runtimeChart.update();
         }
-        
+
         // Update connection status
         function updateConnectionStatus(connected) {
             const statusElement = document.getElementById('connection-status');
@@ -1077,18 +1077,18 @@ const DASHBOARD_HTML: &str = r#"
                     <span class="w-2 h-2 bg-green-400 rounded-full mr-2"></span>
                     Connected
                 `;
-                statusElement.className = 
+                statusElement.className =
                     'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800';
             } else {
                 statusElement.innerHTML = `
                     <span class="w-2 h-2 bg-red-400 rounded-full mr-2"></span>
                     Disconnected
                 `;
-                statusElement.className = 
+                statusElement.className =
                     'inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800';
             }
         }
-        
+
         // Start in live mode by default
         startLiveMode();
     </script>

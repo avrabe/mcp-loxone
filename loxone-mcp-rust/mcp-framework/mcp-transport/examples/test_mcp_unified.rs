@@ -1,15 +1,17 @@
 //! Unified MCP server that handles both SSE and streamable-http clients
 
-use mcp_transport::{Transport, RequestHandler, http::HttpTransport};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_protocol::{Request, Response};
+use mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use serde_json::json;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 // Handler that properly responds to MCP protocol
-fn mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+fn mcp_handler(
+    request: Request,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
     Box::pin(async move {
         info!("📥 Request: {} (id: {:?})", request.method, request.id);
-        
+
         match request.method.as_str() {
             "initialize" => {
                 info!("🚀 Initializing MCP server");
@@ -107,7 +109,7 @@ fn mcp_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Ou
                     jsonrpc: "2.0".to_string(),
                     id: request.id,
                     result: None,
-                    error: Some(mcp_protocol::Error::method_not_found(&request.method)),
+                    error: Some(pulseengine_mcp_protocol::Error::method_not_found(&request.method)),
                 }
             }
         }
@@ -127,11 +129,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create HTTP transport with default configuration
     let mut transport = HttpTransport::new(3001);
-    
+
     // Start the transport
     let handler: RequestHandler = Box::new(mcp_handler);
     transport.start(handler).await?;
-    
+
     info!("✅ Server ready at http://localhost:3001");
     info!("");
     info!("Endpoints:");
@@ -143,12 +145,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("  - Pure SSE clients (returns event stream)");
     info!("");
     info!("Press Ctrl+C to stop");
-    
+
     // Keep server running
     tokio::signal::ctrl_c().await?;
-    
+
     info!("Shutting down...");
     transport.stop().await?;
-    
+
     Ok(())
 }

@@ -1,6 +1,6 @@
 //! WebSocket transport implementation (stub)
 
-use crate::{Transport, TransportError, RequestHandler};
+use crate::{RequestHandler, Transport, TransportError};
 use async_trait::async_trait;
 
 /// WebSocket transport for MCP protocol (stub)
@@ -19,13 +19,15 @@ impl WebSocketTransport {
 impl Transport for WebSocketTransport {
     async fn start(&mut self, _handler: RequestHandler) -> std::result::Result<(), TransportError> {
         // TODO: Implement WebSocket transport
-        Err(TransportError::Config("WebSocket transport not yet implemented".to_string()))
+        Err(TransportError::Config(
+            "WebSocket transport not yet implemented".to_string(),
+        ))
     }
-    
+
     async fn stop(&mut self) -> std::result::Result<(), TransportError> {
         Ok(())
     }
-    
+
     async fn health_check(&self) -> std::result::Result<(), TransportError> {
         Ok(())
     }

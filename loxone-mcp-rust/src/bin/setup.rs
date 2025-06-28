@@ -49,7 +49,7 @@ struct Args {
     #[arg(long)]
     username: Option<String>,
 
-    /// Password for Miniserver  
+    /// Password for Miniserver
     #[arg(long)]
     password: Option<String>,
 

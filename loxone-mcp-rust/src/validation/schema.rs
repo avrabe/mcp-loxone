@@ -13,7 +13,7 @@ use tracing::{debug, warn};
 pub struct SchemaValidator {
     /// MCP request schemas
     request_schemas: HashMap<String, Schema>,
-    /// MCP response schemas  
+    /// MCP response schemas
     response_schemas: HashMap<String, Schema>,
     /// Global schema definitions
     #[allow(dead_code)]

@@ -1,7 +1,7 @@
 //! Authentication manager implementation
 
 use crate::{config::AuthConfig, models::*};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_protocol::{Request, Response};
 use std::sync::Arc;
 use thiserror::Error;
 use tokio::sync::RwLock;
@@ -17,7 +17,7 @@ pub struct RequestContext {
 pub enum AuthError {
     #[error("Authentication failed: {0}")]
     Failed(String),
-    
+
     #[error("Configuration error: {0}")]
     Config(String),
 }
@@ -36,29 +36,37 @@ impl AuthenticationManager {
             api_keys: Arc::new(RwLock::new(std::collections::HashMap::new())),
         })
     }
-    
+
     pub async fn start_background_tasks(&self) -> Result<(), AuthError> {
         Ok(())
     }
-    
+
     pub async fn stop_background_tasks(&self) -> Result<(), AuthError> {
         Ok(())
     }
-    
+
     pub async fn health_check(&self) -> Result<(), AuthError> {
         Ok(())
     }
-    
-    pub async fn process_request(&self, request: Request, _context: &RequestContext) -> Result<Request, AuthError> {
+
+    pub async fn process_request(
+        &self,
+        request: Request,
+        _context: &RequestContext,
+    ) -> Result<Request, AuthError> {
         if !self.config.enabled {
             return Ok(request);
         }
-        
+
         // For now, just pass through - implement authentication logic later
         Ok(request)
     }
-    
-    pub async fn process_response(&self, response: Response, _context: &RequestContext) -> Result<Response, AuthError> {
+
+    pub async fn process_response(
+        &self,
+        response: Response,
+        _context: &RequestContext,
+    ) -> Result<Response, AuthError> {
         Ok(response)
     }
 }

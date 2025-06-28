@@ -140,7 +140,10 @@ impl<K: Clone + Eq + std::hash::Hash, V> LruCache<K, V> {
 #[async_trait::async_trait]
 pub trait PrefetchHandler {
     /// Prefetch device states in the background
-    async fn prefetch_devices(&self, device_uuids: Vec<String>) -> Result<HashMap<String, serde_json::Value>>;
+    async fn prefetch_devices(
+        &self,
+        device_uuids: Vec<String>,
+    ) -> Result<HashMap<String, serde_json::Value>>;
 }
 
 impl EnhancedCacheManager {
@@ -401,13 +404,13 @@ impl EnhancedCacheManager {
                         // This device is likely to be accessed soon
                         // Trigger background prefetch
                         tracing::debug!("Prefetching device: {}", device_uuid);
-                        
+
                         // Clone what we need for the async task
                         let device_uuid = device_uuid.to_string();
                         let handler = self.prefetch_handler.clone();
                         let device_cache = self.device_cache.clone();
                         let _config = self.config.clone();
-                        
+
                         // Spawn background prefetch task
                         if let Some(handler) = handler {
                             tokio::spawn(async move {
@@ -424,11 +427,18 @@ impl EnhancedCacheManager {
                                                     last_access: Utc::now(),
                                                 },
                                             );
-                                            tracing::debug!("Prefetched device {} successfully", device_uuid);
+                                            tracing::debug!(
+                                                "Prefetched device {} successfully",
+                                                device_uuid
+                                            );
                                         }
                                     }
                                     Err(e) => {
-                                        tracing::warn!("Failed to prefetch device {}: {}", device_uuid, e);
+                                        tracing::warn!(
+                                            "Failed to prefetch device {}: {}",
+                                            device_uuid,
+                                            e
+                                        );
                                     }
                                 }
                             });

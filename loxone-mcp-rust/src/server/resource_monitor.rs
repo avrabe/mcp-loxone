@@ -355,7 +355,7 @@ pub struct ResourceHealth {
     /// Memory usage percentage
     pub memory_percent: f32,
 
-    /// CPU usage percentage  
+    /// CPU usage percentage
     pub cpu_percent: f32,
 
     /// Request queue utilization

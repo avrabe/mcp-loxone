@@ -14,13 +14,13 @@ pub mod navigation_new;
 pub mod rate_limiting;
 pub mod state_api;
 
+use crate::auth::AuthenticationManager;
 use crate::error::{LoxoneError, Result};
 use crate::performance::{
     middleware::PerformanceMiddleware, PerformanceConfig, PerformanceMonitor,
 };
 use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
-use crate::auth::AuthenticationManager;
 // Legacy support removed - framework is now default
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
 
@@ -57,7 +57,6 @@ use tokio::sync::{broadcast, RwLock};
 // use tower::ServiceBuilder;
 // use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info, warn};
-
 
 /// Query parameters for SSE endpoint
 #[derive(Debug, Deserialize)]
@@ -134,26 +133,42 @@ impl SseConnectionManager {
     }
 
     /// Register a session for response routing (MCP Inspector compatibility)
-    pub async fn register_session(&self, session_id: &str) -> broadcast::Receiver<serde_json::Value> {
+    pub async fn register_session(
+        &self,
+        session_id: &str,
+    ) -> broadcast::Receiver<serde_json::Value> {
         let (sender, receiver) = broadcast::channel(100);
-        self.session_responses.write().await.insert(session_id.to_string(), sender);
+        self.session_responses
+            .write()
+            .await
+            .insert(session_id.to_string(), sender);
         receiver
     }
 
     /// Send response through session-specific channel
-    pub async fn send_session_response(&self, session_id: &str, response: serde_json::Value) -> Result<()> {
+    pub async fn send_session_response(
+        &self,
+        session_id: &str,
+        response: serde_json::Value,
+    ) -> Result<()> {
         let session_responses = self.session_responses.read().await;
         if let Some(sender) = session_responses.get(session_id) {
             match sender.send(response) {
                 Ok(_) => Ok(()),
                 Err(e) => {
                     warn!("Failed to send session response for {}: {}", session_id, e);
-                    Err(LoxoneError::connection(format!("Session response failed: {}", e)))
+                    Err(LoxoneError::connection(format!(
+                        "Session response failed: {}",
+                        e
+                    )))
                 }
             }
         } else {
             warn!("Session {} not found for response routing", session_id);
-            Err(LoxoneError::connection(format!("Session {} not found", session_id)))
+            Err(LoxoneError::connection(format!(
+                "Session {} not found",
+                session_id
+            )))
         }
     }
 
@@ -267,7 +282,6 @@ pub struct HttpTransportServer {
 impl HttpTransportServer {
     /// Create new HTTP transport server with configuration
     pub async fn new(mcp_server: LoxoneMcpServer, config: HttpServerConfig) -> Result<Self> {
-
         #[cfg(feature = "influxdb")]
         let (metrics_collector, influx_manager) = if let Some(influx_config) = config.influx_config
         {
@@ -287,7 +301,6 @@ impl HttpTransportServer {
 
         // Initialize unified authentication manager
         let auth_manager = crate::auth::initialize_auth_system().await?;
-
 
         // Initialize security middleware if configured
         let security_middleware = if let Some(security_config) = config.security_config {
@@ -322,7 +335,6 @@ impl HttpTransportServer {
             info!("⚠️ Performance monitoring disabled");
             None
         };
-
 
         Ok(Self {
             mcp_server,
@@ -449,7 +461,7 @@ impl HttpTransportServer {
             metrics_collector: self.metrics_collector.clone(),
             #[cfg(feature = "influxdb")]
             influx_manager: self.influx_manager.clone(),
-                    sse_manager,
+            sse_manager,
         });
 
         // let cors = CorsLayer::new()
@@ -498,27 +510,65 @@ impl HttpTransportServer {
             .route("/admin/", get(navigation_hub))
             .route("/admin/keys", get(admin_keys_ui::api_keys_ui))
             // API key management endpoints
-            .route("/admin/api/keys", get(|State(state): State<Arc<AppState>>| async move {
-                admin_api::list_keys(State(state.auth_manager.clone())).await
-            }))
-            .route("/admin/api/keys", axum::routing::post(|State(state): State<Arc<AppState>>, Json(request): Json<admin_api::CreateKeyRequest>| async move {
-                admin_api::create_key(State(state.auth_manager.clone()), Json(request)).await
-            }))
-            .route("/admin/api/keys/stats", get(|State(state): State<Arc<AppState>>| async move {
-                admin_api::get_auth_stats(State(state.auth_manager.clone())).await
-            }))
-            .route("/admin/api/keys/:id", get(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
-                admin_api::get_key(State(state.auth_manager.clone()), Path(key_id)).await
-            }))
-            .route("/admin/api/keys/:id", axum::routing::put(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>, Json(request): Json<admin_api::UpdateKeyRequest>| async move {
-                admin_api::update_key(State(state.auth_manager.clone()), Path(key_id), Json(request)).await
-            }))
-            .route("/admin/api/keys/:id", axum::routing::delete(|State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
-                admin_api::delete_key(State(state.auth_manager.clone()), Path(key_id)).await
-            }))
-            .route("/admin/api/audit", get(|State(state): State<Arc<AppState>>| async move {
-                admin_api::get_audit_events(State(state.auth_manager.clone())).await
-            }))
+            .route(
+                "/admin/api/keys",
+                get(|State(state): State<Arc<AppState>>| async move {
+                    admin_api::list_keys(State(state.auth_manager.clone())).await
+                }),
+            )
+            .route(
+                "/admin/api/keys",
+                axum::routing::post(
+                    |State(state): State<Arc<AppState>>,
+                     Json(request): Json<admin_api::CreateKeyRequest>| async move {
+                        admin_api::create_key(State(state.auth_manager.clone()), Json(request))
+                            .await
+                    },
+                ),
+            )
+            .route(
+                "/admin/api/keys/stats",
+                get(|State(state): State<Arc<AppState>>| async move {
+                    admin_api::get_auth_stats(State(state.auth_manager.clone())).await
+                }),
+            )
+            .route(
+                "/admin/api/keys/:id",
+                get(
+                    |State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
+                        admin_api::get_key(State(state.auth_manager.clone()), Path(key_id)).await
+                    },
+                ),
+            )
+            .route(
+                "/admin/api/keys/:id",
+                axum::routing::put(
+                    |State(state): State<Arc<AppState>>,
+                     Path(key_id): Path<String>,
+                     Json(request): Json<admin_api::UpdateKeyRequest>| async move {
+                        admin_api::update_key(
+                            State(state.auth_manager.clone()),
+                            Path(key_id),
+                            Json(request),
+                        )
+                        .await
+                    },
+                ),
+            )
+            .route(
+                "/admin/api/keys/:id",
+                axum::routing::delete(
+                    |State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
+                        admin_api::delete_key(State(state.auth_manager.clone()), Path(key_id)).await
+                    },
+                ),
+            )
+            .route(
+                "/admin/api/audit",
+                get(|State(state): State<Arc<AppState>>| async move {
+                    admin_api::get_audit_events(State(state.auth_manager.clone())).await
+                }),
+            )
             .layer(axum::middleware::from_fn_with_state(
                 shared_state.clone(),
                 auth_middleware_wrapper,
@@ -599,30 +649,14 @@ impl HttpTransportServer {
             "🔑 API key management UI: http://localhost:{}/admin/keys",
             self.port
         );
-        info!(
-            "🔑 API key management endpoints:",
-        );
-        info!(
-            "   - GET    /admin/api/keys         - List all keys",
-        );
-        info!(
-            "   - POST   /admin/api/keys         - Create new key",
-        );
-        info!(
-            "   - GET    /admin/api/keys/:id     - Get specific key",
-        );
-        info!(
-            "   - PUT    /admin/api/keys/:id     - Update key",
-        );
-        info!(
-            "   - DELETE /admin/api/keys/:id     - Delete key",
-        );
-        info!(
-            "   - GET    /admin/api/keys/stats   - Auth statistics",
-        );
-        info!(
-            "   - GET    /admin/api/audit        - Audit log",
-        );
+        info!("🔑 API key management endpoints:",);
+        info!("   - GET    /admin/api/keys         - List all keys",);
+        info!("   - POST   /admin/api/keys         - Create new key",);
+        info!("   - GET    /admin/api/keys/:id     - Get specific key",);
+        info!("   - PUT    /admin/api/keys/:id     - Update key",);
+        info!("   - DELETE /admin/api/keys/:id     - Delete key",);
+        info!("   - GET    /admin/api/keys/stats   - Auth statistics",);
+        info!("   - GET    /admin/api/audit        - Audit log",);
 
         Ok(app)
     }
@@ -651,7 +685,6 @@ fn generate_navigation_html() -> String {
     // Use the new styled version
     crate::http_transport::navigation_new::generate_navigation_html()
 }
-
 
 /// Root handler
 async fn root_handler() -> impl IntoResponse {
@@ -823,7 +856,10 @@ async fn create_mcp_sse_stream(
 
     // Set up session-based response routing for SSE transport
     // Always register the session for SSE connections to enable bidirectional communication
-    info!("Setting up session-based routing for client: {}", client_id_owned);
+    info!(
+        "Setting up session-based routing for client: {}",
+        client_id_owned
+    );
     let session_receiver = sse_manager.register_session(&client_id_owned).await;
 
     // Create endpoint event first for MCP Inspector (SSE transport pattern)
@@ -902,17 +938,16 @@ async fn create_mcp_sse_stream(
     let session_stream = stream::unfold(session_receiver, |mut receiver| async move {
         match receiver.recv().await {
             Ok(response) => {
-                let response_event = Event::default()
-                    .event("message")
-                    .data(response.to_string());
+                let response_event = Event::default().event("message").data(response.to_string());
                 Some((response_event, receiver))
             }
             Err(broadcast::error::RecvError::Lagged(_)) => {
-                let lag_event = Event::default()
-                    .event("error")
-                    .data(serde_json::json!({
+                let lag_event = Event::default().event("error").data(
+                    serde_json::json!({
                         "error": "Session response stream lagged"
-                    }).to_string());
+                    })
+                    .to_string(),
+                );
                 Some((lag_event, receiver))
             }
             Err(broadcast::error::RecvError::Closed) => None,
@@ -1068,7 +1103,7 @@ async fn handle_mcp_message(
 
     // Store the JSON response for SSE routing
     let mut json_response: Option<serde_json::Value> = None;
-    
+
     // Handle different MCP request types according to MCP specification
     let response_result = if let Some(method) = request.get("method").and_then(|m| m.as_str()) {
         match method {
@@ -2321,7 +2356,11 @@ async fn handle_mcp_message(
     if let Some(session_id) = session_id {
         // For SSE transport, send response through SSE stream
         if let Some(ref response) = json_response {
-            if let Err(e) = state.sse_manager.send_session_response(session_id, response.clone()).await {
+            if let Err(e) = state
+                .sse_manager
+                .send_session_response(session_id, response.clone())
+                .await
+            {
                 warn!("Failed to send session response for {}: {}", session_id, e);
                 // Fall back to HTTP response if SSE fails
                 return response_result;
@@ -2507,9 +2546,10 @@ async fn auth_middleware_wrapper(
     if std::env::var("DEV_MODE").is_ok() {
         return Ok(next.run(request).await);
     }
-    
+
     // Use unified authentication system with smart error handling
-    unified_auth_middleware_with_smart_errors(State(state.auth_manager.clone()), request, next).await
+    unified_auth_middleware_with_smart_errors(State(state.auth_manager.clone()), request, next)
+        .await
 }
 
 /// Unified authentication middleware with smart error handling
@@ -2523,40 +2563,49 @@ async fn unified_auth_middleware_with_smart_errors(
     let uri = request.uri().clone();
 
     // Authenticate the request using the unified system
-    match auth_manager.authenticate_request(headers, query_string).await {
+    match auth_manager
+        .authenticate_request(headers, query_string)
+        .await
+    {
         crate::auth::models::AuthResult::Success(_) => {
             // Authentication successful, proceed with the request
             Ok(next.run(request).await)
         }
         crate::auth::models::AuthResult::Unauthorized { reason } => {
             warn!("Authentication failed: {}", reason);
-            
+
             // Return smart 401 page for browser requests
             if is_browser_request(headers) {
-                Ok(create_smart_401_response(&uri, &reason).await.into_response())
+                Ok(create_smart_401_response(&uri, &reason)
+                    .await
+                    .into_response())
             } else {
                 Err(StatusCode::UNAUTHORIZED)
             }
         }
         crate::auth::models::AuthResult::Forbidden { reason } => {
             warn!("Access forbidden: {}", reason);
-            
+
             // Return smart 403 page for browser requests
             if is_browser_request(headers) {
-                Ok(create_smart_403_response(&uri, &reason).await.into_response())
+                Ok(create_smart_403_response(&uri, &reason)
+                    .await
+                    .into_response())
             } else {
                 Err(StatusCode::FORBIDDEN)
             }
         }
-        crate::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
-            warn!("Request rate limited, retry after {} seconds", retry_after_seconds);
+        crate::auth::models::AuthResult::RateLimited {
+            retry_after_seconds,
+        } => {
+            warn!(
+                "Request rate limited, retry after {} seconds",
+                retry_after_seconds
+            );
             Err(StatusCode::TOO_MANY_REQUESTS)
         }
     }
 }
-
-
-
 
 /// Prometheus metrics endpoint
 async fn prometheus_metrics(State(state): State<Arc<AppState>>) -> impl IntoResponse {
@@ -2578,7 +2627,6 @@ async fn prometheus_metrics(State(state): State<Arc<AppState>>) -> impl IntoResp
         )
     }
 }
-
 
 /// Favicon handler to prevent 401 errors
 async fn favicon_handler() -> impl IntoResponse {
@@ -2682,21 +2730,26 @@ async fn unified_dashboard_websocket(
 ) -> std::result::Result<axum::response::Response, StatusCode> {
     // Check for API key authentication
     if let Some(api_key) = params.get("api_key") {
-        debug!("WebSocket authentication attempt with API key: {}", &api_key[..8.min(api_key.len())]);
-        
+        debug!(
+            "WebSocket authentication attempt with API key: {}",
+            &api_key[..8.min(api_key.len())]
+        );
+
         // Extract client IP for proper authentication
         let client_ip = crate::auth::validation::extract_client_ip(&headers);
-        
+
         // Use the unified authentication manager with proper IP
-        let auth_result = state.auth_manager.authenticate(
-            api_key,
-            &client_ip,
-        ).await;
-        
+        let auth_result = state.auth_manager.authenticate(api_key, &client_ip).await;
+
         match auth_result {
             crate::auth::models::AuthResult::Success(auth_success) => {
-                debug!("WebSocket authentication successful for key: {}", auth_success.key.id);
-                return Ok(ws.on_upgrade(move |socket| handle_unified_dashboard_websocket(socket, state)));
+                debug!(
+                    "WebSocket authentication successful for key: {}",
+                    auth_success.key.id
+                );
+                return Ok(
+                    ws.on_upgrade(move |socket| handle_unified_dashboard_websocket(socket, state))
+                );
             }
             crate::auth::models::AuthResult::Unauthorized { reason } => {
                 warn!("WebSocket authentication failed: {}", reason);
@@ -2704,14 +2757,19 @@ async fn unified_dashboard_websocket(
             crate::auth::models::AuthResult::Forbidden { reason } => {
                 warn!("WebSocket authentication forbidden: {}", reason);
             }
-            crate::auth::models::AuthResult::RateLimited { retry_after_seconds } => {
-                warn!("WebSocket authentication rate limited for {} seconds", retry_after_seconds);
+            crate::auth::models::AuthResult::RateLimited {
+                retry_after_seconds,
+            } => {
+                warn!(
+                    "WebSocket authentication rate limited for {} seconds",
+                    retry_after_seconds
+                );
             }
         }
     } else {
         warn!("WebSocket connection attempted without API key");
     }
-    
+
     // Authentication failed
     Err(StatusCode::UNAUTHORIZED)
 }
@@ -2850,16 +2908,16 @@ async fn list_tools_web(State(_state): State<Arc<AppState>>) -> impl IntoRespons
 </head>
 <body>
     {}
-    
+
     <div class="container">
         <div class="card">
             <div class="card-header">
                 <div class="card-icon">🛠️</div>
                 <h2 class="card-title">Available MCP Tools</h2>
             </div>
-            
+
             <p>These are the control tools available through the Model Context Protocol interface:</p>
-            
+
             <div class="data-table">
                 <table>
                     <thead>
@@ -2883,7 +2941,7 @@ async fn list_tools_web(State(_state): State<Arc<AppState>>) -> impl IntoRespons
                     </tbody>
                 </table>
             </div>
-            
+
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
                 <strong>Note:</strong> These tools require authentication and are primarily designed for AI/LLM integration via MCP.
                 For real-time data queries, see <a href="/api/resources">MCP Resources</a>.
@@ -2895,7 +2953,7 @@ async fn list_tools_web(State(_state): State<Arc<AppState>>) -> impl IntoRespons
         crate::shared_styles::get_shared_styles(),
         crate::shared_styles::get_nav_header("MCP Tools", true)
     );
-    
+
     axum::response::Html(tools_html)
 }
 
@@ -2912,16 +2970,16 @@ async fn list_resources_web(State(_state): State<Arc<AppState>>) -> impl IntoRes
 </head>
 <body>
     {}
-    
+
     <div class="container">
         <div class="card">
             <div class="card-header">
                 <div class="card-icon">📁</div>
                 <h2 class="card-title">Available MCP Resources</h2>
             </div>
-            
+
             <p>These are the data resources available through the Model Context Protocol interface:</p>
-            
+
             <div class="data-table">
                 <table>
                     <thead>
@@ -2944,9 +3002,9 @@ async fn list_resources_web(State(_state): State<Arc<AppState>>) -> impl IntoRes
                     </tbody>
                 </table>
             </div>
-            
+
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
-                <strong>Note:</strong> Resources provide read-only access to system data. 
+                <strong>Note:</strong> Resources provide read-only access to system data.
                 Use the loxone:// URI scheme to access specific resources via MCP.
             </div>
         </div>
@@ -2956,7 +3014,7 @@ async fn list_resources_web(State(_state): State<Arc<AppState>>) -> impl IntoRes
         crate::shared_styles::get_shared_styles(),
         crate::shared_styles::get_nav_header("MCP Resources", true)
     );
-    
+
     axum::response::Html(resources_html)
 }
 
@@ -2973,16 +3031,16 @@ async fn list_prompts_web(State(_state): State<Arc<AppState>>) -> impl IntoRespo
 </head>
 <body>
     {}
-    
+
     <div class="container">
         <div class="card">
             <div class="card-header">
                 <div class="card-icon">💬</div>
                 <h2 class="card-title">Available MCP Prompts</h2>
             </div>
-            
+
             <p>These are the AI-powered automation prompts available through the Model Context Protocol:</p>
-            
+
             <div class="data-table">
                 <table>
                     <thead>
@@ -3006,9 +3064,9 @@ async fn list_prompts_web(State(_state): State<Arc<AppState>>) -> impl IntoRespo
                     </tbody>
                 </table>
             </div>
-            
+
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
-                <strong>Note:</strong> Prompts are interactive templates that guide AI assistants 
+                <strong>Note:</strong> Prompts are interactive templates that guide AI assistants
                 in performing complex automation tasks with contextual awareness.
             </div>
         </div>
@@ -3018,7 +3076,7 @@ async fn list_prompts_web(State(_state): State<Arc<AppState>>) -> impl IntoRespo
         crate::shared_styles::get_shared_styles(),
         crate::shared_styles::get_nav_header("MCP Prompts", true)
     );
-    
+
     axum::response::Html(prompts_html)
 }
 
@@ -3039,40 +3097,40 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
             gap: calc(var(--spacing-unit) * 3);
             margin-bottom: calc(var(--spacing-unit) * 3);
         }}
-        
+
         .metric-card {{
             background: var(--bg-secondary);
             border-radius: var(--border-radius);
             padding: calc(var(--spacing-unit) * 3);
             border: 1px solid var(--border-color);
         }}
-        
+
         .metric-title {{
             font-size: 1.125rem;
             font-weight: 700;
             margin-bottom: calc(var(--spacing-unit) * 2);
             color: var(--text-primary);
         }}
-        
+
         .metric-value {{
             font-size: 2rem;
             font-weight: 700;
             color: var(--accent-primary);
             margin-bottom: calc(var(--spacing-unit) * 1);
         }}
-        
+
         .metric-label {{
             font-size: 0.875rem;
             color: var(--text-secondary);
         }}
-        
+
         .time-selector {{
             display: flex;
             gap: calc(var(--spacing-unit) * 1);
             margin-bottom: calc(var(--spacing-unit) * 3);
             flex-wrap: wrap;
         }}
-        
+
         .time-btn {{
             padding: calc(var(--spacing-unit) * 1) calc(var(--spacing-unit) * 2);
             background: var(--bg-secondary);
@@ -3081,13 +3139,13 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
             cursor: pointer;
             transition: all var(--transition-fast);
         }}
-        
+
         .time-btn:hover, .time-btn.active {{
             background: var(--accent-primary);
             color: white;
             border-color: var(--accent-primary);
         }}
-        
+
         .chart-placeholder {{
             height: 200px;
             background: var(--bg-primary);
@@ -3103,49 +3161,49 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
 </head>
 <body>
     {}
-    
+
     <div class="container">
         <div class="card">
             <div class="card-header">
                 <div class="card-icon">📈</div>
                 <h1 class="card-title">Historical Data Dashboard</h1>
             </div>
-            
+
             <p>View historical trends and analytics for your Loxone system.</p>
-            
+
             <div class="time-selector">
                 <button class="time-btn active" onclick="updateTimeRange('1h')">Last Hour</button>
                 <button class="time-btn" onclick="updateTimeRange('24h')">Last 24 Hours</button>
                 <button class="time-btn" onclick="updateTimeRange('7d')">Last 7 Days</button>
                 <button class="time-btn" onclick="updateTimeRange('30d')">Last 30 Days</button>
             </div>
-            
+
             <div class="metrics-grid">
                 <div class="metric-card">
                     <div class="metric-title">System Uptime</div>
                     <div class="metric-value" id="uptimeMetric">--</div>
                     <div class="metric-label">Total uptime this period</div>
                 </div>
-                
+
                 <div class="metric-card">
                     <div class="metric-title">Device Operations</div>
                     <div class="metric-value" id="operationsMetric">--</div>
                     <div class="metric-label">Total operations executed</div>
                 </div>
-                
+
                 <div class="metric-card">
                     <div class="metric-title">Response Time</div>
                     <div class="metric-value" id="responseMetric">--</div>
                     <div class="metric-label">Average response time</div>
                 </div>
-                
+
                 <div class="metric-card">
                     <div class="metric-title">Active Devices</div>
                     <div class="metric-value" id="devicesMetric">--</div>
                     <div class="metric-label">Currently active devices</div>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h2 class="card-title">System Performance Trend</h2>
                 <div class="chart-placeholder">
@@ -3154,7 +3212,7 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
                     <small>(Future: Integration with time-series database)</small>
                 </div>
             </div>
-            
+
             <div class="card">
                 <h2 class="card-title">Device Activity Trend</h2>
                 <div class="chart-placeholder">
@@ -3163,9 +3221,9 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
                     <small>(Future: Historical device state changes)</small>
                 </div>
             </div>
-            
+
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
-                <strong>Note:</strong> Historical data collection is currently in development. 
+                <strong>Note:</strong> Historical data collection is currently in development.
                 Enable with <code>ENABLE_LOXONE_STATS=1</code> environment variable.
                 <br><br>
                 <strong>Future Features:</strong>
@@ -3179,34 +3237,34 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
             </div>
         </div>
     </div>
-    
+
     <script>
         let currentTimeRange = '1h';
-        
+
         function updateTimeRange(range) {{
             currentTimeRange = range;
-            
+
             // Update button states
             document.querySelectorAll('.time-btn').forEach(btn => {{
                 btn.classList.remove('active');
             }});
             event.target.classList.add('active');
-            
+
             // Load data for the selected time range
             loadHistoryData(range);
         }}
-        
+
         async function loadHistoryData(timeRange) {{
             try {{
                 const response = await fetch(`/history/api/data?range=${{timeRange}}`);
                 const data = await response.json();
-                
+
                 // Update metrics
                 document.getElementById('uptimeMetric').textContent = data.uptime || '99.9%';
                 document.getElementById('operationsMetric').textContent = data.operations || '1,234';
                 document.getElementById('responseMetric').textContent = data.response_time || '45ms';
                 document.getElementById('devicesMetric').textContent = data.active_devices || '12';
-                
+
             }} catch (error) {{
                 console.warn('Failed to load history data:', error);
                 // Set default values
@@ -3216,12 +3274,12 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
                 document.getElementById('devicesMetric').textContent = '12';
             }}
         }}
-        
+
         // Load initial data
         document.addEventListener('DOMContentLoaded', () => {{
             loadHistoryData(currentTimeRange);
         }});
-        
+
         // Refresh every 30 seconds
         setInterval(() => loadHistoryData(currentTimeRange), 30000);
     </script>
@@ -3230,14 +3288,17 @@ async fn history_dashboard_handler(State(_state): State<Arc<AppState>>) -> impl 
         crate::shared_styles::get_shared_styles(),
         crate::shared_styles::get_nav_header("History Dashboard", true)
     );
-    
+
     axum::response::Html(history_html)
 }
 
 /// History API data endpoint
-async fn history_api_data(State(_state): State<Arc<AppState>>, Query(params): Query<std::collections::HashMap<String, String>>) -> impl IntoResponse {
+async fn history_api_data(
+    State(_state): State<Arc<AppState>>,
+    Query(params): Query<std::collections::HashMap<String, String>>,
+) -> impl IntoResponse {
     let time_range = params.get("range").map(String::as_str).unwrap_or("1h");
-    
+
     // For now, return mock data. Future: integrate with time-series database
     let data = serde_json::json!({
         "time_range": time_range,
@@ -3254,7 +3315,7 @@ async fn history_api_data(State(_state): State<Arc<AppState>>, Query(params): Qu
         "timestamp": chrono::Utc::now().to_rfc3339(),
         "status": "Historical data collection is in development"
     });
-    
+
     Json(data)
 }
 
@@ -3268,10 +3329,13 @@ fn is_browser_request(headers: &HeaderMap) -> bool {
 }
 
 /// Create smart 401 response with helpful setup instructions
-async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum::response::Html<String> {
+async fn create_smart_401_response(
+    uri: &axum::http::Uri,
+    reason: &str,
+) -> axum::response::Html<String> {
     let port = uri.port_u16().unwrap_or(3001);
     let host = uri.host().unwrap_or("localhost");
-    
+
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -3286,13 +3350,13 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
             margin: 2rem auto;
             padding: 2rem;
         }}
-        
+
         .error-icon {{
             font-size: 4rem;
             text-align: center;
             margin-bottom: 1rem;
         }}
-        
+
         .setup-step {{
             background: var(--bg-secondary);
             border-radius: var(--border-radius);
@@ -3300,7 +3364,7 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
             margin-bottom: calc(var(--spacing-unit) * 2);
             border-left: 4px solid var(--accent-primary);
         }}
-        
+
         .code-block {{
             background: var(--bg-primary);
             border: 1px solid var(--border-color);
@@ -3311,7 +3375,7 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
             margin: calc(var(--spacing-unit) * 1) 0;
             overflow-x: auto;
         }}
-        
+
         .url-example {{
             background: linear-gradient(135deg, var(--accent-primary), hsl(calc(var(--accent-hue) + 30), 70%, 50%));
             color: white;
@@ -3321,7 +3385,7 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
             word-break: break-all;
             margin: calc(var(--spacing-unit) * 1) 0;
         }}
-        
+
         .quick-start {{
             background: linear-gradient(135deg, #10B981, #059669);
             color: white;
@@ -3329,7 +3393,7 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
             border-radius: var(--border-radius);
             margin-top: calc(var(--spacing-unit) * 2);
         }}
-        
+
         .dev-mode {{
             background: linear-gradient(135deg, #F59E0B, #D97706);
             color: white;
@@ -3342,39 +3406,39 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
 <body>
     <div class="setup-container">
         <div class="error-icon">🔐</div>
-        
+
         <div class="card">
             <h1 style="text-align: center; margin-bottom: 1rem;">Authentication Required</h1>
             <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">
                 This Loxone MCP Server requires an API key for access.
                 <br><strong>Reason:</strong> {reason}
             </p>
-            
+
             <div class="setup-step">
                 <h2>🚀 Quick Start (Recommended)</h2>
                 <p>Restart the server with the <code>--show-access-url</code> flag to get a ready-to-use URL:</p>
                 <div class="code-block">cargo run --bin loxone-mcp-server http --show-access-url</div>
                 <p>This will display a complete URL with a valid API key that you can copy and paste.</p>
             </div>
-            
+
             <div class="setup-step">
                 <h2>🔑 Manual API Key Setup</h2>
                 <p><strong>Step 1:</strong> Create an admin API key</p>
                 <div class="code-block">cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin</div>
-                
+
                 <p><strong>Step 2:</strong> Copy the generated API key and use it in the URL</p>
                 <div class="url-example">http://{host}:{port}/admin?api_key=YOUR_GENERATED_KEY</div>
-                
+
                 <p><strong>Step 3:</strong> Bookmark the URL for future access</p>
             </div>
-            
+
             <div class="dev-mode">
                 <h2>🚧 Development Mode</h2>
                 <p>For development/testing, you can bypass authentication entirely:</p>
                 <div class="code-block">cargo run --bin loxone-mcp-server http --dev-mode</div>
                 <p><strong>⚠️ WARNING:</strong> Never use dev mode in production!</p>
             </div>
-            
+
             <div class="quick-start">
                 <h2>📋 Available Endpoints</h2>
                 <ul style="margin: 0;">
@@ -3391,12 +3455,15 @@ async fn create_smart_401_response(uri: &axum::http::Uri, reason: &str) -> axum:
 </html>"#,
         crate::shared_styles::get_shared_styles()
     );
-    
+
     axum::response::Html(html)
 }
 
 /// Create smart 403 response for forbidden access
-async fn create_smart_403_response(_uri: &axum::http::Uri, reason: &str) -> axum::response::Html<String> {
+async fn create_smart_403_response(
+    _uri: &axum::http::Uri,
+    reason: &str,
+) -> axum::response::Html<String> {
     let html = format!(
         r#"<!DOCTYPE html>
 <html lang="en">
@@ -3413,7 +3480,7 @@ async fn create_smart_403_response(_uri: &axum::http::Uri, reason: &str) -> axum
             <h1>Access Forbidden</h1>
             <p>Your API key does not have permission to access this resource.</p>
             <p><strong>Reason:</strong> {}</p>
-            
+
             <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-primary); border-radius: 8px;">
                 <p><strong>Need admin access?</strong></p>
                 <p>Contact your system administrator or create an admin key:</p>
@@ -3426,6 +3493,6 @@ async fn create_smart_403_response(_uri: &axum::http::Uri, reason: &str) -> axum
         crate::shared_styles::get_shared_styles(),
         reason
     );
-    
+
     axum::response::Html(html)
 }

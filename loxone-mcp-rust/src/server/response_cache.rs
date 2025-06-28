@@ -84,7 +84,7 @@ pub struct CacheStats {
     /// Total cache hits
     pub hits: u64,
 
-    /// Total cache misses  
+    /// Total cache misses
     pub misses: u64,
 
     /// Total entries evicted due to TTL

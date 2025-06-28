@@ -1,16 +1,21 @@
 //! Test server that mimics what MCP Inspector expects
 
-use mcp_transport::{Transport, RequestHandler, http::HttpTransport};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_protocol::{Request, Response};
+use mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use serde_json::json;
-use tracing::{info, debug};
+use tracing::{debug, info};
 
 // Handler that logs requests and returns proper responses
-fn inspector_handler(request: Request) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
+fn inspector_handler(
+    request: Request,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = Response> + Send>> {
     Box::pin(async move {
-        info!("Received request: method={}, id={:?}", request.method, request.id);
+        info!(
+            "Received request: method={}, id={:?}",
+            request.method, request.id
+        );
         debug!("Request params: {:?}", request.params);
-        
+
         // Handle initialize request from MCP Inspector
         if request.method == "initialize" {
             Response {
@@ -57,11 +62,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create HTTP transport on port 3001 (default for MCP Inspector)
     let mut transport = HttpTransport::new(3001);
-    
+
     // Start the transport
     let handler: RequestHandler = Box::new(inspector_handler);
     transport.start(handler).await?;
-    
+
     info!("✅ Server ready for MCP Inspector");
     info!("Connect MCP Inspector to: http://localhost:3001");
     info!("");
@@ -72,12 +77,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("4. Server responds with capabilities");
     info!("");
     info!("Press Ctrl+C to stop");
-    
+
     // Keep server running
     tokio::signal::ctrl_c().await?;
-    
+
     info!("Shutting down...");
     transport.stop().await?;
-    
+
     Ok(())
 }

@@ -81,7 +81,6 @@ pub struct LoxoneMcpServer {
     pub(crate) subscription_coordinator: Arc<subscription::SubscriptionCoordinator>,
 
     // Removed history_store - unused module
-
     /// Loxone statistics collector (optional)
     #[cfg(feature = "influxdb")]
     #[allow(dead_code)]
@@ -152,16 +151,16 @@ impl LoxoneMcpServer {
         // Start async connection attempt (non-blocking)
         info!("🚀 Starting asynchronous Loxone connection...");
         info!("⚡ Server will start immediately - connection attempts continue in background");
-        
+
         // Check if we're in dev mode to skip actual connection
         let should_skip_connection = std::env::var("DEV_MODE").is_ok();
-        
+
         if should_skip_connection {
             info!("🚧 Development mode detected - skipping Loxone connection");
         } else {
             // Try to connect immediately without blocking server startup
             info!("🔌 Attempting initial Loxone connection (non-blocking)...");
-            
+
             // Try initial connection once, but don't fail if it doesn't work
             match client.connect().await {
                 Ok(()) => {
@@ -169,15 +168,15 @@ impl LoxoneMcpServer {
                 }
                 Err(e) => {
                     warn!("⚠️ Initial connection failed: {}", e);
-                    
+
                     // If using token auth and connection failed, try fallback to basic auth
                     if loxone_config.auth_method == crate::config::AuthMethod::Token {
                         warn!("🔄 Token authentication failed during connection, trying basic authentication fallback");
-                        
+
                         // Create a new basic auth client and try to connect
                         let mut basic_config = loxone_config.clone();
                         basic_config.auth_method = crate::config::AuthMethod::Basic;
-                        
+
                         match create_client(&basic_config, &credentials).await {
                             Ok(mut basic_client) => {
                                 match basic_client.connect().await {
@@ -187,7 +186,10 @@ impl LoxoneMcpServer {
                                         client = basic_client;
                                     }
                                     Err(e) => {
-                                        warn!("⚠️ Basic authentication fallback also failed: {}", e);
+                                        warn!(
+                                            "⚠️ Basic authentication fallback also failed: {}",
+                                            e
+                                        );
                                         info!("🔄 Server will continue - connection attempts can be retried later...");
                                     }
                                 }
@@ -198,7 +200,9 @@ impl LoxoneMcpServer {
                             }
                         }
                     } else {
-                        info!("🔄 Server will continue - connection attempts can be retried later...");
+                        info!(
+                            "🔄 Server will continue - connection attempts can be retried later..."
+                        );
                     }
                 }
             }
@@ -207,15 +211,15 @@ impl LoxoneMcpServer {
         // Create context for the client - handle both HTTP client types
         let context = if let Some(http_client) = client
             .as_any()
-            .downcast_ref::<crate::client::http_client::LoxoneHttpClient>()
-        {
+            .downcast_ref::<crate::client::http_client::LoxoneHttpClient>(
+        ) {
             // If using basic auth HTTP client, share its context directly
             info!("📊 Using basic auth HTTP client context");
             http_client.context().clone()
         } else if let Some(token_client) = client
             .as_any()
-            .downcast_ref::<crate::client::token_http_client::TokenHttpClient>()
-        {
+            .downcast_ref::<crate::client::token_http_client::TokenHttpClient>(
+        ) {
             // If using token auth HTTP client, share its context directly
             info!("📊 Using token auth HTTP client context");
             token_client.context().clone()
@@ -427,7 +431,7 @@ impl LoxoneMcpServer {
         // Initialize unified value resolver with enhanced caching
         info!("🔍 Initializing unified value resolver with enhanced caching...");
         let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
-        
+
         // Configure enhanced cache for better performance
         let cache_config = crate::services::cache_manager::CacheConfig {
             device_state_ttl: chrono::Duration::seconds(30), // 30-second TTL for real-time data
@@ -437,7 +441,7 @@ impl LoxoneMcpServer {
             max_cache_size: 10000,                           // Support large device counts
             enable_prefetch: true,                           // Enable intelligent prefetching
         };
-        
+
         let value_resolver = Arc::new(crate::services::UnifiedValueResolver::with_cache_config(
             client_arc.clone(),
             sensor_registry,
@@ -448,7 +452,7 @@ impl LoxoneMcpServer {
         // Initialize centralized state manager
         info!("🔄 Initializing centralized state manager...");
         let mut state_manager = crate::services::StateManager::new(value_resolver.clone()).await?;
-        
+
         // Start state manager background tasks
         state_manager.start().await?;
         let state_manager = Arc::new(state_manager);
@@ -717,7 +721,7 @@ impl LoxoneMcpServer {
         // Initialize unified value resolver with enhanced caching
         info!("🔍 Initializing unified value resolver with enhanced caching...");
         let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
-        
+
         // Configure enhanced cache for better performance
         let cache_config = crate::services::cache_manager::CacheConfig {
             device_state_ttl: chrono::Duration::seconds(30), // 30-second TTL for real-time data
@@ -727,7 +731,7 @@ impl LoxoneMcpServer {
             max_cache_size: 10000,                           // Support large device counts
             enable_prefetch: true,                           // Enable intelligent prefetching
         };
-        
+
         let value_resolver = Arc::new(crate::services::UnifiedValueResolver::with_cache_config(
             client_arc.clone(),
             sensor_registry,
@@ -738,7 +742,7 @@ impl LoxoneMcpServer {
         // Initialize centralized state manager
         info!("🔄 Initializing centralized state manager...");
         let mut state_manager = crate::services::StateManager::new(value_resolver.clone()).await?;
-        
+
         // Start state manager background tasks
         state_manager.start().await?;
         let state_manager = Arc::new(state_manager);
@@ -814,7 +818,7 @@ impl LoxoneMcpServer {
     /// Run the MCP server (legacy - use framework instead)
     pub async fn run(self) -> Result<()> {
         Err(LoxoneError::config(
-            "Legacy run method disabled - use framework implementation in main.rs".to_string()
+            "Legacy run method disabled - use framework implementation in main.rs".to_string(),
         ))
     }
 
@@ -868,7 +872,11 @@ impl LoxoneMcpServer {
     }
 
     /// Call tool for HTTP transport compatibility
-    pub async fn call_tool(&self, tool_name: &str, arguments: serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn call_tool(
+        &self,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value> {
         // Basic implementation - just return success for now
         Ok(serde_json::json!({
             "tool": tool_name,
@@ -877,46 +885,95 @@ impl LoxoneMcpServer {
         }))
     }
 
-
     // Prompt message methods for HTTP transport compatibility
-    pub async fn get_cozy_prompt_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Make home cozy"})])
+    pub async fn get_cozy_prompt_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Make home cozy"}),
+        ])
     }
 
-    pub async fn get_event_prompt_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Prepare for event"})])
+    pub async fn get_event_prompt_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Prepare for event"}),
+        ])
     }
 
-    pub async fn get_energy_prompt_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Analyze energy usage"})])
+    pub async fn get_energy_prompt_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Analyze energy usage"}),
+        ])
     }
 
-    pub async fn get_morning_prompt_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Good morning routine"})])
+    pub async fn get_morning_prompt_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Good morning routine"}),
+        ])
     }
 
-    pub async fn get_night_prompt_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Good night routine"})])
+    pub async fn get_night_prompt_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Good night routine"}),
+        ])
     }
 
-    pub async fn get_comfort_optimization_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Optimize comfort"})])
+    pub async fn get_comfort_optimization_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Optimize comfort"}),
+        ])
     }
 
-    pub async fn get_seasonal_adjustment_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Seasonal adjustment"})])
+    pub async fn get_seasonal_adjustment_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Seasonal adjustment"}),
+        ])
     }
 
-    pub async fn get_security_analysis_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Security analysis"})])
+    pub async fn get_security_analysis_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Security analysis"}),
+        ])
     }
 
-    pub async fn get_troubleshooting_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Troubleshoot automation"})])
+    pub async fn get_troubleshooting_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Troubleshoot automation"}),
+        ])
     }
 
-    pub async fn get_custom_scene_messages(&self, _args: Option<serde_json::Value>) -> Result<Vec<serde_json::Value>> {
-        Ok(vec![serde_json::json!({"role": "user", "content": "Create custom scene"})])
+    pub async fn get_custom_scene_messages(
+        &self,
+        _args: Option<serde_json::Value>,
+    ) -> Result<Vec<serde_json::Value>> {
+        Ok(vec![
+            serde_json::json!({"role": "user", "content": "Create custom scene"}),
+        ])
     }
 }
 
@@ -963,10 +1020,12 @@ async fn try_connect_with_fallback(
             warn!("⚠️ Connection failed: {}", e);
 
             // If using advanced auth, try fallback to basic auth
-            if loxone_config.auth_method == crate::config::AuthMethod::Token 
-                || (cfg!(feature = "websocket") && loxone_config.auth_method == crate::config::AuthMethod::WebSocket) {
+            if loxone_config.auth_method == crate::config::AuthMethod::Token
+                || (cfg!(feature = "websocket")
+                    && loxone_config.auth_method == crate::config::AuthMethod::WebSocket)
+            {
                 warn!("🔄 Advanced authentication failed, trying basic authentication fallback");
-                
+
                 let mut basic_config = loxone_config.clone();
                 basic_config.auth_method = crate::config::AuthMethod::Basic;
 
@@ -985,7 +1044,10 @@ async fn try_connect_with_fallback(
                         }
                     }
                     Err(fallback_err) => {
-                        error!("❌ Failed to create basic auth fallback client: {}", fallback_err);
+                        error!(
+                            "❌ Failed to create basic auth fallback client: {}",
+                            fallback_err
+                        );
                         Err(e)
                     }
                 }
@@ -1007,24 +1069,34 @@ async fn spawn_reconnection_task(
         let mut retry_count = 0;
         let max_retries = 10; // Limit retries to avoid infinite loops
         let base_delay = std::time::Duration::from_secs(30);
-        
+
         loop {
             if retry_count >= max_retries {
                 error!("❌ Max reconnection attempts reached. Giving up.");
                 break;
             }
-            
+
             retry_count += 1;
             let delay = base_delay * retry_count.min(5); // Cap delay at 5x base (2.5 minutes)
-            
-            info!("⏰ Sleeping for {} seconds before retry #{}", delay.as_secs(), retry_count);
+
+            info!(
+                "⏰ Sleeping for {} seconds before retry #{}",
+                delay.as_secs(),
+                retry_count
+            );
             tokio::time::sleep(delay).await;
-            
+
             info!("🔌 Reconnection attempt #{}/{}", retry_count, max_retries);
-            
+
             match create_client(&loxone_config, &credentials).await {
                 Ok(client) => {
-                    match try_connect_with_fallback(client, loxone_config.clone(), credentials.clone()).await {
+                    match try_connect_with_fallback(
+                        client,
+                        loxone_config.clone(),
+                        credentials.clone(),
+                    )
+                    .await
+                    {
                         Ok(()) => {
                             info!("✅ Reconnection successful after {} attempts", retry_count);
                             break;
@@ -1035,7 +1107,10 @@ async fn spawn_reconnection_task(
                     }
                 }
                 Err(e) => {
-                    warn!("⚠️ Failed to create client for reconnection attempt #{}: {}", retry_count, e);
+                    warn!(
+                        "⚠️ Failed to create client for reconnection attempt #{}: {}",
+                        retry_count, e
+                    );
                 }
             }
         }

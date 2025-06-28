@@ -1,6 +1,6 @@
 //! System diagnostics collection for health monitoring
 
-use super::{SystemInfo, MemoryInfo, CpuInfo, PerformanceMetrics, ThreadPoolMetrics};
+use super::{CpuInfo, MemoryInfo, PerformanceMetrics, SystemInfo, ThreadPoolMetrics};
 use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -30,7 +30,7 @@ impl DiagnosticsCollector {
     /// Collect current system diagnostics
     pub async fn collect_diagnostics(&mut self) -> Result<DiagnosticSnapshot> {
         debug!("Collecting system diagnostics");
-        
+
         let timestamp = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
@@ -83,7 +83,7 @@ impl DiagnosticsCollector {
     /// Add snapshot to history
     fn add_to_history(&mut self, snapshot: DiagnosticSnapshot) {
         self.metrics_history.push(snapshot);
-        
+
         // Keep only the specified number of history items
         if self.metrics_history.len() > self.history_size {
             self.metrics_history.remove(0);
@@ -106,7 +106,7 @@ impl DiagnosticsCollector {
                 .as_secs(), // Simplified
             cpu_time_user: 0.5, // Mock values
             cpu_time_system: 0.2,
-            memory_rss_bytes: 1024 * 1024 * 50, // 50MB
+            memory_rss_bytes: 1024 * 1024 * 50,  // 50MB
             memory_vms_bytes: 1024 * 1024 * 100, // 100MB
             open_files: 25,
             thread_count: std::thread::available_parallelism()
@@ -119,18 +119,16 @@ impl DiagnosticsCollector {
     async fn collect_network_info(&self) -> Result<NetworkInfo> {
         // In production, this would collect actual network statistics
         Ok(NetworkInfo {
-            interfaces: vec![
-                NetworkInterface {
-                    name: "eth0".to_string(),
-                    bytes_sent: 1024 * 1024 * 100, // 100MB
-                    bytes_received: 1024 * 1024 * 200, // 200MB
-                    packets_sent: 50000,
-                    packets_received: 75000,
-                    errors_sent: 0,
-                    errors_received: 0,
-                    is_up: true,
-                }
-            ],
+            interfaces: vec![NetworkInterface {
+                name: "eth0".to_string(),
+                bytes_sent: 1024 * 1024 * 100,     // 100MB
+                bytes_received: 1024 * 1024 * 200, // 200MB
+                packets_sent: 50000,
+                packets_received: 75000,
+                errors_sent: 0,
+                errors_received: 0,
+                is_up: true,
+            }],
             connections: ConnectionInfo {
                 tcp_established: 5,
                 tcp_listen: 3,
@@ -144,23 +142,21 @@ impl DiagnosticsCollector {
     async fn collect_disk_info(&self) -> Result<DiskInfo> {
         // In production, this would use system APIs for actual disk info
         Ok(DiskInfo {
-            filesystems: vec![
-                FilesystemInfo {
-                    mount_point: "/".to_string(),
-                    filesystem_type: "ext4".to_string(),
-                    total_bytes: 1024_u64 * 1024 * 1024 * 100, // 100GB
-                    available_bytes: 1024_u64 * 1024 * 1024 * 75, // 75GB available
-                    used_bytes: 1024_u64 * 1024 * 1024 * 25, // 25GB used
-                    usage_percent: 25.0,
-                    inodes_total: 1000000,
-                    inodes_used: 250000,
-                    inodes_available: 750000,
-                }
-            ],
+            filesystems: vec![FilesystemInfo {
+                mount_point: "/".to_string(),
+                filesystem_type: "ext4".to_string(),
+                total_bytes: 1024_u64 * 1024 * 1024 * 100, // 100GB
+                available_bytes: 1024_u64 * 1024 * 1024 * 75, // 75GB available
+                used_bytes: 1024_u64 * 1024 * 1024 * 25,   // 25GB used
+                usage_percent: 25.0,
+                inodes_total: 1000000,
+                inodes_used: 250000,
+                inodes_available: 750000,
+            }],
             io_stats: DiskIOStats {
                 reads_completed: 10000,
                 writes_completed: 5000,
-                bytes_read: 1024 * 1024 * 500, // 500MB
+                bytes_read: 1024 * 1024 * 500,    // 500MB
                 bytes_written: 1024 * 1024 * 200, // 200MB
                 io_time_ms: 5000,
             },
@@ -170,7 +166,7 @@ impl DiagnosticsCollector {
     /// Collect environment information
     fn collect_environment_info(&self) -> EnvironmentInfo {
         let mut env_vars = HashMap::new();
-        
+
         // Collect relevant environment variables (excluding sensitive ones)
         for (key, value) in std::env::vars() {
             if self.is_safe_env_var(&key) {
@@ -204,18 +200,22 @@ impl DiagnosticsCollector {
 
     /// Check if environment variable is safe to collect
     fn is_safe_env_var(&self, key: &str) -> bool {
-        !key.to_uppercase().contains("PASSWORD") &&
-        !key.to_uppercase().contains("SECRET") &&
-        !key.to_uppercase().contains("TOKEN") &&
-        !key.to_uppercase().contains("KEY") &&
-        !key.to_uppercase().contains("PRIVATE")
+        !key.to_uppercase().contains("PASSWORD")
+            && !key.to_uppercase().contains("SECRET")
+            && !key.to_uppercase().contains("TOKEN")
+            && !key.to_uppercase().contains("KEY")
+            && !key.to_uppercase().contains("PRIVATE")
     }
 
     /// Calculate memory usage trend
-    fn calculate_memory_trend(&self, previous: &DiagnosticSnapshot, current: &DiagnosticSnapshot) -> TrendDirection {
+    fn calculate_memory_trend(
+        &self,
+        previous: &DiagnosticSnapshot,
+        current: &DiagnosticSnapshot,
+    ) -> TrendDirection {
         let prev_usage = previous.system_info.memory.usage_percent;
         let curr_usage = current.system_info.memory.usage_percent;
-        
+
         if curr_usage > prev_usage + 1.0 {
             TrendDirection::Increasing
         } else if curr_usage < prev_usage - 1.0 {
@@ -226,10 +226,14 @@ impl DiagnosticsCollector {
     }
 
     /// Calculate CPU usage trend
-    fn calculate_cpu_trend(&self, previous: &DiagnosticSnapshot, current: &DiagnosticSnapshot) -> TrendDirection {
+    fn calculate_cpu_trend(
+        &self,
+        previous: &DiagnosticSnapshot,
+        current: &DiagnosticSnapshot,
+    ) -> TrendDirection {
         let prev_usage = previous.system_info.cpu.usage_percent;
         let curr_usage = current.system_info.cpu.usage_percent;
-        
+
         if curr_usage > prev_usage + 2.0 {
             TrendDirection::Increasing
         } else if curr_usage < prev_usage - 2.0 {
@@ -240,10 +244,14 @@ impl DiagnosticsCollector {
     }
 
     /// Calculate disk usage trend
-    fn calculate_disk_trend(&self, previous: &DiagnosticSnapshot, current: &DiagnosticSnapshot) -> TrendDirection {
+    fn calculate_disk_trend(
+        &self,
+        previous: &DiagnosticSnapshot,
+        current: &DiagnosticSnapshot,
+    ) -> TrendDirection {
         if let (Some(prev_fs), Some(curr_fs)) = (
             previous.disk_info.filesystems.first(),
-            current.disk_info.filesystems.first()
+            current.disk_info.filesystems.first(),
         ) {
             if curr_fs.usage_percent > prev_fs.usage_percent + 0.5 {
                 TrendDirection::Increasing
@@ -258,7 +266,11 @@ impl DiagnosticsCollector {
     }
 
     /// Calculate performance trend
-    fn calculate_performance_trend(&self, _previous: &DiagnosticSnapshot, _current: &DiagnosticSnapshot) -> TrendDirection {
+    fn calculate_performance_trend(
+        &self,
+        _previous: &DiagnosticSnapshot,
+        _current: &DiagnosticSnapshot,
+    ) -> TrendDirection {
         // This would compare performance metrics like response times, throughput, etc.
         TrendDirection::Stable
     }
@@ -478,7 +490,7 @@ mod tests {
     async fn test_diagnostics_collection() {
         let mut collector = DiagnosticsCollector::default();
         let snapshot = collector.collect_diagnostics().await.unwrap();
-        
+
         assert!(snapshot.process_info.pid > 0);
         assert!(!snapshot.environment_info.hostname.is_empty());
         assert!(!snapshot.disk_info.filesystems.is_empty());
@@ -487,17 +499,17 @@ mod tests {
     #[tokio::test]
     async fn test_trend_calculation() {
         let mut collector = DiagnosticsCollector::default();
-        
+
         // Collect first snapshot
         collector.collect_diagnostics().await.unwrap();
-        
+
         // Wait a bit and collect second snapshot
         tokio::time::sleep(Duration::from_millis(100)).await;
         collector.collect_diagnostics().await.unwrap();
-        
+
         let trends = collector.calculate_trends();
         assert!(trends.is_some());
-        
+
         let trends = trends.unwrap();
         assert!(matches!(trends.memory_usage_trend, TrendDirection::Stable));
     }
@@ -505,7 +517,7 @@ mod tests {
     #[test]
     fn test_safe_env_var_filtering() {
         let collector = DiagnosticsCollector::default();
-        
+
         assert!(collector.is_safe_env_var("PATH"));
         assert!(collector.is_safe_env_var("HOME"));
         assert!(!collector.is_safe_env_var("PASSWORD"));

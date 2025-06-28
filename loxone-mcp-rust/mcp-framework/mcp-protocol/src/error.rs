@@ -55,7 +55,10 @@ impl Error {
 
     /// Create a method not found error
     pub fn method_not_found(method: impl Into<String>) -> Self {
-        Self::new(ErrorCode::MethodNotFound, format!("Method not found: {}", method.into()))
+        Self::new(
+            ErrorCode::MethodNotFound,
+            format!("Method not found: {}", method.into()),
+        )
     }
 
     /// Create an invalid params error
@@ -72,11 +75,14 @@ impl Error {
     pub fn protocol_version_mismatch(client_version: &str, server_version: &str) -> Self {
         Self::with_data(
             ErrorCode::InvalidRequest,
-            format!("Protocol version mismatch: client={}, server={}", client_version, server_version),
+            format!(
+                "Protocol version mismatch: client={}, server={}",
+                client_version, server_version
+            ),
             serde_json::json!({
                 "client_version": client_version,
                 "server_version": server_version
-            })
+            }),
         )
     }
 
@@ -92,12 +98,18 @@ impl Error {
 
     /// Create a resource not found error
     pub fn resource_not_found(resource: impl Into<String>) -> Self {
-        Self::new(ErrorCode::ResourceNotFound, format!("Resource not found: {}", resource.into()))
+        Self::new(
+            ErrorCode::ResourceNotFound,
+            format!("Resource not found: {}", resource.into()),
+        )
     }
 
     /// Create a tool not found error
     pub fn tool_not_found(tool: impl Into<String>) -> Self {
-        Self::new(ErrorCode::ToolNotFound, format!("Tool not found: {}", tool.into()))
+        Self::new(
+            ErrorCode::ToolNotFound,
+            format!("Tool not found: {}", tool.into()),
+        )
     }
 
     /// Create a validation error
@@ -145,7 +157,7 @@ impl fmt::Display for ErrorCode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
             ErrorCode::ParseError => "ParseError",
-            ErrorCode::InvalidRequest => "InvalidRequest", 
+            ErrorCode::InvalidRequest => "InvalidRequest",
             ErrorCode::MethodNotFound => "MethodNotFound",
             ErrorCode::InvalidParams => "InvalidParams",
             ErrorCode::InternalError => "InternalError",

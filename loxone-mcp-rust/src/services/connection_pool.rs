@@ -136,11 +136,8 @@ impl ConnectionPool {
         );
 
         // Start health check task
-        let health_task = Self::start_health_checker(
-            connections.clone(),
-            config.clone(),
-            metrics.clone(),
-        );
+        let health_task =
+            Self::start_health_checker(connections.clone(), config.clone(), metrics.clone());
 
         Ok(Self {
             connections,
@@ -153,12 +150,15 @@ impl ConnectionPool {
     }
 
     /// Execute batch request with aggressive optimization
-    pub async fn execute_batch(&self, uuids: Vec<String>) -> Result<HashMap<String, serde_json::Value>> {
+    pub async fn execute_batch(
+        &self,
+        uuids: Vec<String>,
+    ) -> Result<HashMap<String, serde_json::Value>> {
         let start = Instant::now();
-        
+
         // Create response channel
         let (response_tx, mut response_rx) = mpsc::unbounded_channel();
-        
+
         // Add to batch queue
         {
             let mut queue = self.request_queue.lock().await;
@@ -167,13 +167,13 @@ impl ConnectionPool {
                 response_tx,
                 created_at: start,
             });
-            
+
             // Force batch execution if queue is full
             if queue.pending.len() >= self.config.batch_size {
                 self.execute_pending_batch(&mut queue).await;
             }
         }
-        
+
         // Wait for response with timeout
         match tokio::time::timeout(self.config.request_timeout, response_rx.recv()).await {
             Ok(Some(result)) => {
@@ -201,12 +201,12 @@ impl ConnectionPool {
     ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(config.batch_timeout);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let mut queue = request_queue.lock().await;
-                
+
                 // Execute batch if there are pending requests
                 if !queue.pending.is_empty() {
                     // Check if batch timeout has elapsed
@@ -214,9 +214,10 @@ impl ConnectionPool {
                         Some(last) => last.elapsed() >= config.batch_timeout,
                         None => true,
                     };
-                    
+
                     if should_execute || queue.pending.len() >= config.batch_size {
-                        Self::execute_pending_batch_static(&mut queue, &connections, &metrics).await;
+                        Self::execute_pending_batch_static(&mut queue, &connections, &metrics)
+                            .await;
                     }
                 }
             }
@@ -239,23 +240,23 @@ impl ConnectionPool {
         }
 
         debug!("Executing batch of {} requests", queue.pending.len());
-        
+
         // Collect all UUIDs from pending requests
         let mut all_uuids = Vec::new();
         let mut response_channels = Vec::new();
-        
+
         for request in queue.pending.drain(..) {
             all_uuids.extend(request.uuids);
             response_channels.push(request.response_tx);
         }
-        
+
         // Remove duplicates
         all_uuids.sort();
         all_uuids.dedup();
-        
+
         // Execute batch request
         let result = Self::execute_batch_request(&all_uuids, connections).await;
-        
+
         // Send results to all waiting requests
         match &result {
             Ok(data) => {
@@ -271,7 +272,7 @@ impl ConnectionPool {
                 }
             }
         }
-        
+
         // Update metrics
         {
             let mut metrics_guard = metrics.write().await;
@@ -282,7 +283,7 @@ impl ConnectionPool {
                 0.0
             };
         }
-        
+
         queue.last_batch_at = Some(Instant::now());
     }
 
@@ -292,15 +293,15 @@ impl ConnectionPool {
         connections: &Arc<RwLock<Vec<Arc<dyn LoxoneClient>>>>,
     ) -> Result<HashMap<String, serde_json::Value>> {
         let connections_guard = connections.read().await;
-        
+
         if connections_guard.is_empty() {
             return Err(LoxoneError::connection("No available connections"));
         }
-        
+
         // Use first available connection (could implement round-robin)
         let connection = connections_guard[0].clone();
         drop(connections_guard);
-        
+
         // Execute batch request
         connection.get_device_states(uuids).await
     }
@@ -313,13 +314,13 @@ impl ConnectionPool {
     ) -> tokio::task::JoinHandle<()> {
         tokio::spawn(async move {
             let mut interval = tokio::time::interval(config.health_check_interval);
-            
+
             loop {
                 interval.tick().await;
-                
+
                 let mut connections_guard = connections.write().await;
                 let mut active_count = 0;
-                
+
                 // Health check all connections
                 let mut healthy_connections = Vec::new();
                 for connection in connections_guard.drain(..) {
@@ -333,19 +334,22 @@ impl ConnectionPool {
                         }
                     }
                 }
-                
+
                 *connections_guard = healthy_connections;
-                
+
                 // Update metrics
                 {
                     let mut metrics_guard = metrics.write().await;
                     metrics_guard.active_connections = active_count;
                     metrics_guard.idle_connections = active_count; // Simplified
-                    metrics_guard.pool_utilization_percent = 
+                    metrics_guard.pool_utilization_percent =
                         (active_count as f32 / config.max_connections as f32) * 100.0;
                 }
-                
-                info!("Health check completed: {} healthy connections", active_count);
+
+                info!(
+                    "Health check completed: {} healthy connections",
+                    active_count
+                );
             }
         })
     }
@@ -353,21 +357,22 @@ impl ConnectionPool {
     /// Update performance metrics
     async fn update_metrics(&self, elapsed: Duration, success: bool) {
         let mut metrics = self.metrics.write().await;
-        
+
         metrics.total_requests += 1;
-        
+
         if !success {
             metrics.failed_requests += 1;
         }
-        
+
         let elapsed_us = elapsed.as_micros() as u64;
-        
+
         // Update average request time
         if metrics.total_requests == 1 {
             metrics.avg_request_time_us = elapsed_us;
         } else {
-            metrics.avg_request_time_us = 
-                (metrics.avg_request_time_us * (metrics.total_requests - 1) + elapsed_us) / metrics.total_requests;
+            metrics.avg_request_time_us =
+                (metrics.avg_request_time_us * (metrics.total_requests - 1) + elapsed_us)
+                    / metrics.total_requests;
         }
     }
 
@@ -380,13 +385,15 @@ impl ConnectionPool {
     pub async fn get_status(&self) -> PoolStatus {
         let connections_count = self.connections.read().await.len();
         let metrics = self.get_metrics().await;
-        
+
         PoolStatus {
             total_connections: connections_count,
             available_permits: self.semaphore.available_permits(),
             avg_request_time_ms: metrics.avg_request_time_us as f32 / 1000.0,
             success_rate_percent: if metrics.total_requests > 0 {
-                ((metrics.total_requests - metrics.failed_requests) as f32 / metrics.total_requests as f32) * 100.0
+                ((metrics.total_requests - metrics.failed_requests) as f32
+                    / metrics.total_requests as f32)
+                    * 100.0
             } else {
                 100.0
             },
@@ -414,11 +421,10 @@ mod tests {
     #[tokio::test]
     async fn test_connection_pool_creation() {
         let config = PoolConfig::default();
-        
-        let pool_result = ConnectionPool::new(config, || {
-            Err(LoxoneError::connection("Test error"))
-        }).await;
-        
+
+        let pool_result =
+            ConnectionPool::new(config, || Err(LoxoneError::connection("Test error"))).await;
+
         assert!(pool_result.is_ok());
     }
 
@@ -428,11 +434,11 @@ mod tests {
             request_timeout: Duration::from_millis(10),
             ..Default::default()
         };
-        
-        let pool = ConnectionPool::new(config, || {
-            Err(LoxoneError::connection("No connections"))
-        }).await.unwrap();
-        
+
+        let pool = ConnectionPool::new(config, || Err(LoxoneError::connection("No connections")))
+            .await
+            .unwrap();
+
         let result = pool.execute_batch(vec!["test-uuid".to_string()]).await;
         assert!(result.is_err());
     }
@@ -440,13 +446,13 @@ mod tests {
     #[tokio::test]
     async fn test_metrics_update() {
         let config = PoolConfig::default();
-        let pool = ConnectionPool::new(config, || {
-            Err(LoxoneError::connection("Test"))
-        }).await.unwrap();
-        
+        let pool = ConnectionPool::new(config, || Err(LoxoneError::connection("Test")))
+            .await
+            .unwrap();
+
         pool.update_metrics(Duration::from_millis(50), true).await;
         pool.update_metrics(Duration::from_millis(100), false).await;
-        
+
         let metrics = pool.get_metrics().await;
         assert_eq!(metrics.total_requests, 2);
         assert_eq!(metrics.failed_requests, 1);

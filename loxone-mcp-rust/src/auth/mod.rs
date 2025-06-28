@@ -32,15 +32,15 @@
 //! ```
 
 pub mod manager;
+pub mod middleware;
+pub mod models;
+pub mod security;
 pub mod storage;
 pub mod validation;
-pub mod models;
-pub mod middleware;
-pub mod security;
 
 pub use manager::AuthenticationManager;
-pub use models::{ApiKey, Role, AuthResult, AuthContext};
-pub use storage::{StorageBackend, FileStorage, EnvironmentStorage};
+pub use models::{ApiKey, AuthContext, AuthResult, Role};
+pub use storage::{EnvironmentStorage, FileStorage, StorageBackend};
 pub use validation::Validator;
 
 use std::sync::Arc;

@@ -2,7 +2,7 @@
 //!
 //! This crate provides comprehensive logging capabilities for MCP servers including:
 //! - Structured logging with tracing
-//! - Metrics collection and reporting  
+//! - Metrics collection and reporting
 //! - Log sanitization for security
 //! - Performance monitoring integration
 //!
@@ -15,10 +15,10 @@
 //! async fn main() {
 //!     let metrics = MetricsCollector::new();
 //!     let logger = StructuredLogger::new();
-//!     
+//!
 //!     // Initialize structured logging
 //!     logger.init().expect("Failed to initialize logging");
-//!     
+//!
 //!     // Log with structured context
 //!     tracing::info!("Server started", server_type = "mcp", version = "1.0");
 //! }
@@ -30,14 +30,11 @@ pub mod structured;
 
 // Re-export main types for convenience
 pub use metrics::{
-    MetricsCollector, RequestMetrics, HealthMetrics, 
-    BusinessMetrics, ErrorMetrics, MetricsSnapshot, ErrorRecord,
-    get_metrics
+    get_metrics, BusinessMetrics, ErrorMetrics, ErrorRecord, HealthMetrics, MetricsCollector,
+    MetricsSnapshot, RequestMetrics,
 };
 pub use sanitization::{LogSanitizer, SanitizationConfig};
-pub use structured::{
-    StructuredLogger, StructuredContext, ErrorClass
-};
+pub use structured::{ErrorClass, StructuredContext, StructuredLogger};
 
 /// Result type for logging operations
 pub type Result<T> = std::result::Result<T, LoggingError>;
@@ -47,13 +44,13 @@ pub type Result<T> = std::result::Result<T, LoggingError>;
 pub enum LoggingError {
     #[error("Configuration error: {0}")]
     Config(String),
-    
+
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
-    
+
     #[error("Serialization error: {0}")]
     Serialization(#[from] serde_json::Error),
-    
+
     #[error("Tracing error: {0}")]
     Tracing(String),
 }

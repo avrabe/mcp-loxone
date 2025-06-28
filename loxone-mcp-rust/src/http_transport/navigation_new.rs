@@ -1,6 +1,6 @@
 //! New navigation page with shared styles
 
-use crate::shared_styles::{get_nav_header, get_shared_styles, get_api_key_preservation_script};
+use crate::shared_styles::{get_api_key_preservation_script, get_nav_header, get_shared_styles};
 
 /// Generate the main navigation hub HTML
 pub fn generate_navigation_html() -> String {
@@ -21,7 +21,7 @@ pub fn generate_navigation_html() -> String {
             gap: calc(var(--spacing-unit) * 3);
             margin-top: calc(var(--spacing-unit) * 3);
         }}
-        
+
         .nav-category {{
             background: var(--bg-secondary);
             border-radius: var(--border-radius);
@@ -29,20 +29,20 @@ pub fn generate_navigation_html() -> String {
             border: 1px solid var(--border-color);
             transition: all var(--transition-fast);
         }}
-        
+
         .nav-category:hover {{
             border-color: var(--accent-primary);
             transform: translateY(-4px);
             box-shadow: 0 8px 25px var(--shadow-color);
         }}
-        
+
         .category-header {{
             display: flex;
             align-items: center;
             gap: calc(var(--spacing-unit) * 1.5);
             margin-bottom: calc(var(--spacing-unit) * 2);
         }}
-        
+
         .category-icon {{
             width: 48px;
             height: 48px;
@@ -55,23 +55,23 @@ pub fn generate_navigation_html() -> String {
             color: white;
             transition: transform var(--transition-fast);
         }}
-        
+
         .nav-category:hover .category-icon {{
             transform: scale(1.1) rotate(5deg);
         }}
-        
+
         .category-title {{
             font-size: 1.25rem;
             font-weight: 700;
             margin: 0;
         }}
-        
+
         .nav-links {{
             display: flex;
             flex-direction: column;
             gap: calc(var(--spacing-unit) * 1);
         }}
-        
+
         .nav-link {{
             display: flex;
             align-items: center;
@@ -85,39 +85,39 @@ pub fn generate_navigation_html() -> String {
             transition: all var(--transition-fast);
             cursor: pointer;
         }}
-        
+
         .nav-link:hover {{
             background: var(--bg-secondary);
             border-color: var(--accent-primary);
             color: var(--accent-primary);
             transform: translateX(4px);
         }}
-        
+
         .link-icon {{
             font-size: 1.25rem;
             width: 28px;
             text-align: center;
             transition: transform var(--transition-fast);
         }}
-        
+
         .nav-link:hover .link-icon {{
             transform: scale(1.2);
         }}
-        
+
         .link-content {{
             flex: 1;
         }}
-        
+
         .link-title {{
             font-weight: 600;
             margin-bottom: calc(var(--spacing-unit) * 0.25);
         }}
-        
+
         .link-description {{
             font-size: 0.875rem;
             color: var(--text-secondary);
         }}
-        
+
         .status-indicator {{
             width: 12px;
             height: 12px;
@@ -126,13 +126,13 @@ pub fn generate_navigation_html() -> String {
             position: relative;
             animation: pulse 2s infinite;
         }}
-        
+
         @keyframes pulse {{
             0% {{ opacity: 1; }}
             50% {{ opacity: 0.5; }}
             100% {{ opacity: 1; }}
         }}
-        
+
         .hero-section {{
             text-align: center;
             margin-bottom: calc(var(--spacing-unit) * 4);
@@ -141,7 +141,7 @@ pub fn generate_navigation_html() -> String {
             border-radius: var(--border-radius);
             border: 1px solid var(--border-color);
         }}
-        
+
         .hero-title {{
             font-size: 2.5rem;
             font-weight: 700;
@@ -151,19 +151,19 @@ pub fn generate_navigation_html() -> String {
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }}
-        
+
         .hero-subtitle {{
             font-size: 1.125rem;
             color: var(--text-secondary);
         }}
-        
+
         .quick-stats {{
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
             gap: calc(var(--spacing-unit) * 2);
             margin-bottom: calc(var(--spacing-unit) * 4);
         }}
-        
+
         .stat-card {{
             background: var(--bg-secondary);
             padding: calc(var(--spacing-unit) * 2);
@@ -172,23 +172,23 @@ pub fn generate_navigation_html() -> String {
             border: 1px solid var(--border-color);
             transition: all var(--transition-fast);
         }}
-        
+
         .stat-card:hover {{
             border-color: var(--accent-primary);
             transform: translateY(-2px);
         }}
-        
+
         .stat-value {{
             font-size: 1.75rem;
             font-weight: 700;
             color: var(--accent-primary);
         }}
-        
+
         .stat-label {{
             font-size: 0.875rem;
             color: var(--text-secondary);
         }}
-        
+
         .footer-info {{
             margin-top: calc(var(--spacing-unit) * 6);
             padding-top: calc(var(--spacing-unit) * 3);
@@ -196,7 +196,7 @@ pub fn generate_navigation_html() -> String {
             text-align: center;
             color: var(--text-secondary);
         }}
-        
+
         .version-info {{
             font-size: 0.875rem;
             margin-bottom: calc(var(--spacing-unit) * 1);
@@ -205,13 +205,13 @@ pub fn generate_navigation_html() -> String {
 </head>
 <body>
     {}
-    
+
     <div class="container">
         <div class="hero-section">
             <h1 class="hero-title">Loxone MCP Server</h1>
             <p class="hero-subtitle">Central administration and monitoring hub</p>
         </div>
-        
+
         <div class="quick-stats">
             <div class="stat-card">
                 <div class="stat-value" id="statusValue">●</div>
@@ -230,7 +230,7 @@ pub fn generate_navigation_html() -> String {
                 <div class="stat-label">Active Connections</div>
             </div>
         </div>
-        
+
         <div class="nav-grid">
             <div class="nav-category">
                 <div class="category-header">
@@ -262,7 +262,7 @@ pub fn generate_navigation_html() -> String {
                     </a>
                 </div>
             </div>
-            
+
             <div class="nav-category">
                 <div class="category-header">
                     <div class="category-icon">🔐</div>
@@ -292,7 +292,7 @@ pub fn generate_navigation_html() -> String {
                     </a>
                 </div>
             </div>
-            
+
             <div class="nav-category">
                 <div class="category-header">
                     <div class="category-icon">⚙️</div>
@@ -322,7 +322,7 @@ pub fn generate_navigation_html() -> String {
                     </a>
                 </div>
             </div>
-            
+
             <div class="nav-category">
                 <div class="category-header">
                     <div class="category-icon">🔗</div>
@@ -353,7 +353,7 @@ pub fn generate_navigation_html() -> String {
                 </div>
             </div>
         </div>
-        
+
         <div class="footer-info">
             <div class="version-info">
                 Loxone MCP Server v1.0.0 | Built with Rust 🦀
@@ -365,7 +365,7 @@ pub fn generate_navigation_html() -> String {
             </div>
         </div>
     </div>
-    
+
     <script>
         // Load system stats
         async function loadStats() {{
@@ -373,16 +373,16 @@ pub fn generate_navigation_html() -> String {
                 // Get health status
                 const response = await fetch('/health');
                 const health = await response.json();
-                
+
                 document.getElementById('statusValue').textContent = health.status === 'ok' ? '🟢' : '🔴';
-                
+
                 // Get admin status for more details
                 const adminResponse = await fetch('/admin/status');
                 if (adminResponse.ok) {{
                     const adminData = await adminResponse.json();
                     document.getElementById('connectionsValue').textContent = adminData.connections || '0';
                 }}
-                
+
                 // Calculate uptime (for now, just show server start time)
                 const serverStartTime = sessionStorage.getItem('serverStartTime') || Date.now();
                 if (!sessionStorage.getItem('serverStartTime')) {{
@@ -392,16 +392,16 @@ pub fn generate_navigation_html() -> String {
                 const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));
                 const uptimeMinutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
                 document.getElementById('uptimeValue').textContent = uptimeHours > 0 ? `${{uptimeHours}}h ${{uptimeMinutes}}m` : `${{uptimeMinutes}}m`;
-                
+
             }} catch (error) {{
                 console.warn('Failed to load stats:', error);
                 document.getElementById('statusValue').textContent = '🟡';
             }}
         }}
-        
+
         // Load stats on page load
         document.addEventListener('DOMContentLoaded', loadStats);
-        
+
         // Refresh stats every 30 seconds
         setInterval(loadStats, 30000);
     </script>

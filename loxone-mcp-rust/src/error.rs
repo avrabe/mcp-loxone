@@ -17,7 +17,7 @@ pub enum LoxoneError {
     #[error("Connection error: {0}")]
     Connection(String),
 
-    /// Authentication errors  
+    /// Authentication errors
     #[error("Authentication failed: {0}")]
     Authentication(String),
 

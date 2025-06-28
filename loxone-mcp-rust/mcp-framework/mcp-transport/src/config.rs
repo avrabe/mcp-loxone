@@ -7,18 +7,12 @@ use serde::{Deserialize, Serialize};
 pub enum TransportConfig {
     /// Standard I/O transport (for MCP clients)
     Stdio,
-    
+
     /// HTTP transport with Server-Sent Events
-    Http {
-        port: u16,
-        host: Option<String>,
-    },
-    
+    Http { port: u16, host: Option<String> },
+
     /// WebSocket transport
-    WebSocket {
-        port: u16,
-        host: Option<String>,
-    },
+    WebSocket { port: u16, host: Option<String> },
 }
 
 impl Default for TransportConfig {
@@ -32,13 +26,13 @@ impl TransportConfig {
     pub fn stdio() -> Self {
         Self::Stdio
     }
-    
+
     /// Create HTTP transport configuration
     pub fn http(port: u16) -> Self {
         Self::Http { port, host: None }
     }
-    
-    /// Create WebSocket transport configuration  
+
+    /// Create WebSocket transport configuration
     pub fn websocket(port: u16) -> Self {
         Self::WebSocket { port, host: None }
     }
