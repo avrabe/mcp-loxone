@@ -1,4 +1,4 @@
-# mcp-monitoring
+# pulseengine-mcp-monitoring
 
 **Monitoring, metrics, and observability for MCP servers**
 
@@ -40,8 +40,8 @@ This monitoring system is actively used in the **Loxone MCP Server** where it:
 
 ```toml
 [dependencies]
-mcp-monitoring = "0.1.0"
-mcp-protocol = "0.1.0"
+pulseengine-mcp-monitoring = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -50,7 +50,7 @@ tokio = { version = "1.0", features = ["full"] }
 ### Health Checks
 
 ```rust
-use mcp_monitoring::{HealthChecker, HealthConfig, HealthStatus};
+use pulseengine_mcp_monitoring::{HealthChecker, HealthConfig, HealthStatus};
 
 // Configure health checks
 let config = HealthConfig {
@@ -83,7 +83,7 @@ println!("Server health: {:?}", status);
 ### Metrics Collection
 
 ```rust
-use mcp_monitoring::{MetricsCollector, MetricType, Metric};
+use pulseengine_mcp_monitoring::{MetricsCollector, MetricType, Metric};
 
 let collector = MetricsCollector::new();
 
@@ -112,7 +112,7 @@ collector.record(Metric {
 ### Performance Tracking
 
 ```rust
-use mcp_monitoring::{PerformanceTracker, TrackingConfig};
+use pulseengine_mcp_monitoring::{PerformanceTracker, TrackingConfig};
 
 let tracker = PerformanceTracker::new(TrackingConfig {
     enable_detailed_timing: true,
@@ -152,7 +152,7 @@ tracker.finish_request(request_id, result.is_ok()).await;
 ### Built-in Health Checks
 
 ```rust
-use mcp_monitoring::builtin_checks;
+use pulseengine_mcp_monitoring::builtin_checks;
 
 // Add standard health checks
 health_checker.add_check("memory", builtin_checks::memory_usage(80.0)); // 80% threshold
@@ -163,7 +163,7 @@ health_checker.add_check("cpu", builtin_checks::cpu_usage(95.0));
 ### Custom Health Checks
 
 ```rust
-use mcp_monitoring::{HealthCheck, HealthStatus};
+use pulseengine_mcp_monitoring::{HealthCheck, HealthStatus};
 
 struct DatabaseHealthCheck {
     connection_pool: DatabasePool,
@@ -193,7 +193,7 @@ health_checker.add_check_instance(Box::new(DatabaseHealthCheck {
 ```rust
 // Expose health checks via HTTP
 use axum::{Router, Json};
-use mcp_monitoring::HealthChecker;
+use pulseengine_mcp_monitoring::HealthChecker;
 
 async fn health_endpoint(
     health_checker: &HealthChecker,
@@ -215,7 +215,7 @@ let app = Router::new()
 ### Metric Types
 
 ```rust
-use mcp_monitoring::MetricType;
+use pulseengine_mcp_monitoring::MetricType;
 
 // Counter - Always increasing values
 MetricType::Counter // Total requests, total errors
@@ -261,7 +261,7 @@ collector.increment_counter("errors_total", &[
 
 ```rust
 use mcp_server::{ServerConfig, MiddlewareConfig};
-use mcp_monitoring::MonitoringMiddleware;
+use pulseengine_mcp_monitoring::MonitoringMiddleware;
 
 let monitoring_config = MonitoringConfig {
     enable_metrics: true,
@@ -286,7 +286,7 @@ let server_config = ServerConfig {
 ### Request Tracing
 
 ```rust
-use mcp_monitoring::RequestTracer;
+use pulseengine_mcp_monitoring::RequestTracer;
 
 let tracer = RequestTracer::new();
 
@@ -303,7 +303,7 @@ tracer.finish_trace(trace_id);
 ### Memory and Resource Monitoring
 
 ```rust
-use mcp_monitoring::ResourceMonitor;
+use pulseengine_mcp_monitoring::ResourceMonitor;
 
 let monitor = ResourceMonitor::new();
 
@@ -346,7 +346,7 @@ health_checker.add_check("loxone_miniserver", Box::new(|_| {
 
 ```rust
 // Expose metrics for Grafana/Prometheus
-use mcp_monitoring::prometheus_exporter;
+use pulseengine_mcp_monitoring::prometheus_exporter;
 
 let exporter = prometheus_exporter::new(&collector);
 let metrics_data = exporter.export().await;

@@ -1,4 +1,4 @@
-# mcp-security
+# pulseengine-mcp-security
 
 **Security middleware and input validation for MCP servers**
 
@@ -35,8 +35,8 @@ This security layer is actively used in the **Loxone MCP Server** where it:
 
 ```toml
 [dependencies]
-mcp-security = "0.1.0"
-mcp-protocol = "0.1.0"
+pulseengine-mcp-security = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
 serde_json = "1.0"
 ```
 
@@ -45,7 +45,7 @@ serde_json = "1.0"
 ### Input Validation
 
 ```rust
-use mcp_security::{SecurityValidator, ValidationRules};
+use pulseengine_mcp_security::{SecurityValidator, ValidationRules};
 use mcp_protocol::CallToolRequestParam;
 
 // Create validator with rules
@@ -80,7 +80,7 @@ match validator.validate_tool_request(&request) {
 ### CORS Configuration
 
 ```rust
-use mcp_security::{CorsConfig, SecurityMiddleware};
+use pulseengine_mcp_security::{CorsConfig, SecurityMiddleware};
 
 let cors_config = CorsConfig {
     allow_origins: vec![
@@ -101,7 +101,7 @@ let middleware = SecurityMiddleware::new(cors_config);
 ### Request Size Limits
 
 ```rust
-use mcp_security::SecurityConfig;
+use pulseengine_mcp_security::SecurityConfig;
 
 let config = SecurityConfig {
     max_request_size: 1024 * 1024, // 1MB limit
@@ -135,7 +135,7 @@ let config = SecurityConfig {
 ### String Sanitization
 
 ```rust
-use mcp_security::sanitize_string;
+use pulseengine_mcp_security::sanitize_string;
 
 // Remove potentially dangerous content
 let clean = sanitize_string(
@@ -152,7 +152,7 @@ let safe_path = sanitize_file_path("../../../etc/passwd")?;
 ### Parameter Validation
 
 ```rust
-use mcp_security::validate_parameters;
+use pulseengine_mcp_security::validate_parameters;
 
 let params = serde_json::json!({
     "device_name": "Living Room Light",
@@ -167,7 +167,7 @@ let validated = validate_parameters(&params, &schema, &security_rules)?;
 ### SQL Injection Prevention
 
 ```rust
-use mcp_security::check_sql_injection;
+use pulseengine_mcp_security::check_sql_injection;
 
 let user_input = "'; DROP TABLE users; --";
 if check_sql_injection(user_input) {
@@ -180,7 +180,7 @@ if check_sql_injection(user_input) {
 ### With HTTP Transport
 
 ```rust
-use mcp_security::SecurityMiddleware;
+use pulseengine_mcp_security::SecurityMiddleware;
 use axum::{Router, middleware};
 
 let app = Router::new()
@@ -193,7 +193,7 @@ let app = Router::new()
 
 ```rust
 use mcp_server::ServerConfig;
-use mcp_security::SecurityConfig;
+use pulseengine_mcp_security::SecurityConfig;
 
 let security_config = SecurityConfig {
     enable_validation: true,
@@ -214,7 +214,7 @@ let server_config = ServerConfig {
 ### Predefined Rule Sets
 
 ```rust
-use mcp_security::{ValidationRules, SecurityLevel};
+use pulseengine_mcp_security::{ValidationRules, SecurityLevel};
 
 // Strict security for public-facing servers
 let strict_rules = ValidationRules::strict();
@@ -229,7 +229,7 @@ let dev_rules = ValidationRules::development();
 ### Custom Validation Rules
 
 ```rust
-use mcp_security::ValidationRules;
+use pulseengine_mcp_security::ValidationRules;
 
 let custom_rules = ValidationRules {
     max_string_length: 500,
@@ -251,7 +251,7 @@ let custom_rules = ValidationRules {
 ## Security Headers
 
 ```rust
-use mcp_security::SecurityHeaders;
+use pulseengine_mcp_security::SecurityHeaders;
 
 let headers = SecurityHeaders::strict()
     .with_hsts(31536000) // 1 year
@@ -267,7 +267,7 @@ let headers = SecurityHeaders::strict()
 
 ```rust
 // From Loxone implementation - validating file paths
-use mcp_security::validate_file_path;
+use pulseengine_mcp_security::validate_file_path;
 
 fn handle_read_file(path: &str) -> Result<String, SecurityError> {
     // Prevent path traversal

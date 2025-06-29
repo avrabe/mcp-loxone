@@ -1,6 +1,6 @@
 //! Test HTTP/SSE transport implementation
 
-use mcp_transport::{http::HttpTransport, RequestHandler, Transport, TransportError};
+use pulseengine_mcp_transport::{http::HttpTransport, RequestHandler, Transport, TransportError};
 use pulseengine_mcp_protocol::{Request, Response};
 use serde_json::json;
 use std::sync::Arc;

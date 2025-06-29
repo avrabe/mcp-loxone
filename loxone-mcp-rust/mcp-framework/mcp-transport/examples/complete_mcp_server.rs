@@ -10,7 +10,7 @@
 //! - Ping
 //! - Error handling for unknown methods
 
-use mcp_transport::{http::HttpTransport, RequestHandler, Transport};
+use pulseengine_mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use pulseengine_mcp_protocol::{Error, Request, Response};
 use serde_json::json;
 use tracing::{debug, info, warn};

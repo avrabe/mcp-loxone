@@ -1,4 +1,4 @@
-# mcp-transport
+# pulseengine-mcp-transport
 
 **Transport layer implementations for MCP servers**
 
@@ -30,8 +30,8 @@ The HTTP transport was specifically debugged and fixed to work with MCP Inspecto
 
 ```toml
 [dependencies]
-mcp-transport = "0.1.0"
-mcp-protocol = "0.1.0"
+pulseengine-mcp-transport = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -40,8 +40,8 @@ tokio = { version = "1.0", features = ["full"] }
 ### Basic HTTP Transport
 
 ```rust
-use mcp_transport::{TransportConfig, create_transport};
-use mcp_protocol::{Request, Response};
+use pulseengine_mcp_transport::{TransportConfig, create_transport};
+use pulseengine_mcp_protocol::{Request, Response};
 
 // Create HTTP transport on port 3001
 let config = TransportConfig::Http { port: 3001 };

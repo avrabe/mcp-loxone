@@ -1,13 +1,18 @@
 [package]
 name = "pulseengine-mcp-protocol"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
 description = "Core Model Context Protocol types and validation - PulseEngine MCP Framework"
+homepage = "https://github.com/avrabe/mcp-loxone"
 repository = "https://github.com/avrabe/mcp-loxone"
-keywords = ["mcp", "protocol", "validation", "context"]
-categories = ["api-bindings", "data-structures"]
+documentation = "https://docs.rs/pulseengine-mcp-protocol"
+readme = "README.md"
+keywords = ["mcp", "protocol", "validation", "context", "parsing"]
+categories = ["api-bindings", "data-structures", "parsing"]
+maintenance = { status = "actively-developed" }
+rust-version = "1.70"
 
 [dependencies]
 serde = { workspace = true }

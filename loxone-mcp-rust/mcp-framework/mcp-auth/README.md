@@ -1,4 +1,4 @@
-# mcp-auth
+# pulseengine-mcp-auth
 
 **Authentication and authorization framework for MCP servers**
 
@@ -38,8 +38,8 @@ This authentication system is currently used in production by the **Loxone MCP S
 
 ```toml
 [dependencies]
-mcp-auth = "0.1.0"
-mcp-protocol = "0.1.0"
+pulseengine-mcp-auth = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -48,7 +48,7 @@ tokio = { version = "1.0", features = ["full"] }
 ### Setting Up Authentication
 
 ```rust
-use mcp_auth::{AuthConfig, AuthManager, Role};
+use pulseengine_mcp_auth::{AuthConfig, AuthManager, Role};
 
 // Configure authentication
 let mut config = AuthConfig::default();
@@ -63,7 +63,7 @@ let auth_manager = AuthManager::new(config).await?;
 ### Creating API Keys
 
 ```rust
-use mcp_auth::{CreateKeyRequest, KeyType};
+use pulseengine_mcp_auth::{CreateKeyRequest, KeyType};
 
 // Create an admin key
 let request = CreateKeyRequest {
@@ -82,7 +82,7 @@ println!("Created key: {}", key_info.secret); // lmk_live_xxxx...
 ### Validating Requests
 
 ```rust
-use mcp_auth::AuthRequest;
+use pulseengine_mcp_auth::AuthRequest;
 
 // In your request handler
 let auth_request = AuthRequest {
@@ -183,7 +183,7 @@ auth_manager.revoke_key("key-id-here").await?;
 ### Predefined Roles
 
 ```rust
-use mcp_auth::Role;
+use pulseengine_mcp_auth::Role;
 
 // Admin: Full access to all tools and management functions
 Role::Admin
@@ -201,7 +201,7 @@ Role::Device
 ### Custom Permissions
 
 ```rust
-use mcp_auth::{Permission, CustomRole};
+use pulseengine_mcp_auth::{Permission, CustomRole};
 
 let custom_role = CustomRole {
     name: "Climate Controller".to_string(),
@@ -236,7 +236,7 @@ auth_manager.get_audit_log(None, Some(100)).await?;
 
 ```rust
 use mcp_server::ServerConfig;
-use mcp_auth::AuthConfig;
+use pulseengine_mcp_auth::AuthConfig;
 
 let mut auth_config = AuthConfig::default();
 auth_config.enabled = true;

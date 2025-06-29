@@ -22,15 +22,15 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) enables AI assist
 
 ```toml
 [dependencies]
-mcp-server = "0.1.0"
-mcp-protocol = "0.1.0"
+pulseengine-mcp-server = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 ```
 
 ```rust
-use mcp_server::{McpServer, McpBackend, ServerConfig};
-use mcp_protocol::*;
+use pulseengine_mcp_server::{McpServer, McpBackend, ServerConfig};
+use pulseengine_mcp_protocol::*;
 use async_trait::async_trait;
 
 #[derive(Clone)]

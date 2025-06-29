@@ -798,8 +798,10 @@ mod tests {
 
     #[test]
     fn test_validate_origin() {
-        let mut config = HttpConfig::default();
-        config.allowed_origins = Some(vec!["http://localhost:3000".to_string()]);
+        let config = HttpConfig {
+            allowed_origins: Some(vec!["http://localhost:3000".to_string()]),
+            ..Default::default()
+        };
 
         let mut headers = HeaderMap::new();
         headers.insert(ORIGIN, "http://localhost:3000".parse().unwrap());
@@ -812,9 +814,11 @@ mod tests {
 
     #[test]
     fn test_validate_auth() {
-        let mut config = HttpConfig::default();
-        config.require_auth = true;
-        config.valid_tokens = vec!["valid-token".to_string()];
+        let config = HttpConfig {
+            require_auth: true,
+            valid_tokens: vec!["valid-token".to_string()],
+            ..Default::default()
+        };
 
         let mut headers = HeaderMap::new();
         headers.insert(AUTHORIZATION, "Bearer valid-token".parse().unwrap());

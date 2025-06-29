@@ -1,4 +1,4 @@
-# mcp-server
+# pulseengine-mcp-server
 
 **Framework for building MCP servers with pluggable backends**
 
@@ -30,17 +30,17 @@ This framework currently powers the **Loxone MCP Server**, which implements 30+ 
 
 ```toml
 [dependencies]
-mcp-server = "0.1.0"
-mcp-protocol = "0.1.0"
-mcp-transport = "0.1.0"
+pulseengine-mcp-server = "0.1.1"
+pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-transport = "0.1.1"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 ```
 
 ```rust
-use mcp_server::{McpServer, McpBackend, ServerConfig};
-use mcp_protocol::*;
-use mcp_transport::TransportConfig;
+use pulseengine_mcp_server::{McpServer, McpBackend, ServerConfig};
+use pulseengine_mcp_protocol::*;
+use pulseengine_mcp_transport::TransportConfig;
 use async_trait::async_trait;
 use std::collections::HashMap;
 

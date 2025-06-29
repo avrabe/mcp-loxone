@@ -1,4 +1,4 @@
-# mcp-protocol
+# pulseengine-mcp-protocol
 
 **Core types and validation for the Model Context Protocol in Rust**
 
@@ -17,7 +17,7 @@ This crate provides the fundamental types and validation logic for building MCP 
 ## Quick Example
 
 ```rust
-use mcp_protocol::{Tool, Content, CallToolResult};
+use pulseengine_mcp_protocol::{Tool, Content, CallToolResult};
 use serde_json::json;
 
 // Define a tool with proper schema
@@ -70,7 +70,7 @@ Add this to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-mcp-protocol = "0.1.0"
+pulseengine-mcp-protocol = "0.1.1"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 ```
@@ -80,7 +80,7 @@ serde_json = "1.0"
 ### Defining Tools
 
 ```rust
-use mcp_protocol::Tool;
+use pulseengine_mcp_protocol::Tool;
 use serde_json::json;
 
 let tool = Tool {
@@ -102,7 +102,7 @@ let tool = Tool {
 ### Handling Requests and Responses
 
 ```rust
-use mcp_protocol::{CallToolRequestParam, CallToolResult, Content};
+use pulseengine_mcp_protocol::{CallToolRequestParam, CallToolResult, Content};
 
 // Parse a tool call request
 let request = CallToolRequestParam {
@@ -120,7 +120,7 @@ let response = CallToolResult {
 ### Error Handling
 
 ```rust
-use mcp_protocol::Error;
+use pulseengine_mcp_protocol::Error;
 
 // Create standard MCP errors
 let error = Error::invalid_params("Missing required parameter: location");
@@ -131,9 +131,9 @@ let internal_error = Error::internal_error("Database connection failed");
 
 This crate works well with other parts of the MCP framework:
 
-- **mcp-server** - Uses these types for the backend trait
-- **mcp-transport** - Handles serialization of these types over HTTP/WebSocket
-- **mcp-auth** - Validates requests using these error types
+- **pulseengine-mcp-server** - Uses these types for the backend trait
+- **pulseengine-mcp-transport** - Handles serialization of these types over HTTP/WebSocket
+- **pulseengine-mcp-auth** - Validates requests using these error types
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 //! Test server for MCP Inspector using streamable-http transport
 
-use mcp_transport::{streamable_http::StreamableHttpTransport, RequestHandler, Transport};
+use pulseengine_mcp_transport::{streamable_http::StreamableHttpTransport, RequestHandler, Transport};
 use pulseengine_mcp_protocol::{Request, Response};
 use serde_json::json;
 use tracing::info;

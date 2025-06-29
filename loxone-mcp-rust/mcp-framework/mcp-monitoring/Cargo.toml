@@ -1,16 +1,21 @@
 [package]
 name = "pulseengine-mcp-monitoring"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
 description = "Monitoring, metrics, and observability for MCP servers - PulseEngine MCP Framework"
+homepage = "https://github.com/avrabe/mcp-loxone"
 repository = "https://github.com/avrabe/mcp-loxone"
-keywords = ["mcp", "monitoring", "metrics", "observability"]
+documentation = "https://docs.rs/pulseengine-mcp-monitoring"
+readme = "README.md"
+keywords = ["mcp", "monitoring", "metrics", "observability", "telemetry"]
 categories = ["development-tools::profiling", "web-programming"]
+maintenance = { status = "actively-developed" }
+rust-version = "1.70"
 
 [dependencies]
-pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-protocol = "0.1.2"
 
 tokio = { workspace = true }
 serde = { workspace = true }

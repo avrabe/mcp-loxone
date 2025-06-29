@@ -33,7 +33,7 @@ mod tests {
         // Server should start successfully
         match transport.start(handler).await {
             Ok(_) => {}
-            Err(e) => panic!("Failed to start HTTP transport: {:?}", e),
+            Err(e) => panic!("Failed to start HTTP transport: {e:?}"),
         }
 
         // Give server time to fully start

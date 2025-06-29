@@ -1,4 +1,4 @@
-# mcp-logging
+# pulseengine-mcp-logging
 
 **Structured logging framework for MCP servers**
 
@@ -39,7 +39,7 @@ This logging system is actively used in the **Loxone MCP Server** where it:
 
 ```toml
 [dependencies]
-mcp-logging = "0.1.0"
+pulseengine-mcp-logging = "0.1.1"
 tracing = "0.1"
 serde_json = "1.0"
 ```
@@ -49,7 +49,7 @@ serde_json = "1.0"
 ### Initialize Logging
 
 ```rust
-use mcp_logging::{LoggingConfig, init_logging};
+use pulseengine_mcp_logging::{LoggingConfig, init_logging};
 
 // Configure structured logging
 let config = LoggingConfig {
@@ -68,7 +68,7 @@ init_logging(config)?;
 
 ```rust
 use tracing::{info, warn, error};
-use mcp_logging::log_tool_execution;
+use pulseengine_mcp_logging::log_tool_execution;
 
 // Standard structured logging
 info!(
@@ -90,7 +90,7 @@ log_tool_execution(
 ### Request Correlation
 
 ```rust
-use mcp_logging::{CorrelationId, with_correlation_id};
+use pulseengine_mcp_logging::{CorrelationId, with_correlation_id};
 
 // Generate correlation ID for a request
 let correlation_id = CorrelationId::new();
@@ -129,7 +129,7 @@ with_correlation_id(correlation_id, async {
 ### Automatic Credential Scrubbing
 
 ```rust
-use mcp_logging::sanitize_for_logging;
+use pulseengine_mcp_logging::sanitize_for_logging;
 
 // Automatically removes sensitive data
 let safe_params = sanitize_for_logging(&serde_json::json!({
@@ -146,7 +146,7 @@ info!(params = ?safe_params, "Tool called");
 ### Custom Sanitization Rules
 
 ```rust
-use mcp_logging::{SanitizationConfig, SanitizationRule};
+use pulseengine_mcp_logging::{SanitizationConfig, SanitizationRule};
 
 let sanitization_config = SanitizationConfig {
     rules: vec![
@@ -166,7 +166,7 @@ let sanitization_config = SanitizationConfig {
 ### Security Audit Logging
 
 ```rust
-use mcp_logging::audit_log;
+use pulseengine_mcp_logging::audit_log;
 
 // Log security-relevant events
 audit_log!(
@@ -191,7 +191,7 @@ audit_log!(
 ### Tool Execution Logging
 
 ```rust
-use mcp_logging::{log_tool_start, log_tool_success, log_tool_error};
+use pulseengine_mcp_logging::{log_tool_start, log_tool_success, log_tool_error};
 
 // Start tool execution
 let execution_id = log_tool_start("get_device_status", &params);
@@ -210,7 +210,7 @@ match execute_tool().await {
 ### Protocol Message Logging
 
 ```rust
-use mcp_logging::{log_request, log_response};
+use pulseengine_mcp_logging::{log_request, log_response};
 
 // Log incoming requests
 log_request(&mcp_request, correlation_id, client_info);
@@ -222,7 +222,7 @@ log_response(&mcp_response, correlation_id, response_time_ms);
 ### Transport Activity
 
 ```rust
-use mcp_logging::log_transport_event;
+use pulseengine_mcp_logging::log_transport_event;
 
 // Log transport-specific events
 log_transport_event!(
@@ -247,7 +247,7 @@ log_transport_event!(
 ### Log Levels and Filtering
 
 ```rust
-use mcp_logging::LoggingConfig;
+use pulseengine_mcp_logging::LoggingConfig;
 
 let config = LoggingConfig {
     level: "info".to_string(),
@@ -305,7 +305,7 @@ let dev_config = LoggingConfig {
 
 ```rust
 use mcp_server::ServerConfig;
-use mcp_logging::LoggingConfig;
+use pulseengine_mcp_logging::LoggingConfig;
 
 let logging_config = LoggingConfig {
     level: "info".to_string(),
@@ -325,7 +325,7 @@ server.run().await?;
 
 ```rust
 use mcp_auth::AuthManager;
-use mcp_logging::audit_log;
+use pulseengine_mcp_logging::audit_log;
 
 // Log authentication events
 let auth_result = auth_manager.validate_request(&request).await;
