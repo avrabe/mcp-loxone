@@ -6,7 +6,7 @@
 //! - loxone://rooms/{room}/devices - Devices in specific room
 //! - loxone://rooms/{room}/overview - Room overview with statistics
 
-use crate::tools::{ToolContext, ToolResponse};
+// use crate::tools::{ToolContext, ToolResponse}; // Unused after cleanup
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -33,7 +33,7 @@ pub struct RoomInfo {
 // The following tools were removed as they duplicate existing resources:
 //
 // - list_rooms() → Use resource: loxone://rooms
-// - get_room_devices() → Use resource: loxone://rooms/{room}/devices  
+// - get_room_devices() → Use resource: loxone://rooms/{room}/devices
 // - get_room_overview() → Use resource: loxone://rooms/{room}/overview
 //
 // These functions provided read-only data access and violated MCP patterns.
