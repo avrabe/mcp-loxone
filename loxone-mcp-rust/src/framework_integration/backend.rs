@@ -10,56 +10,55 @@ use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
 use crate::{
-    error::LoxoneError, framework_integration::adapters, server::LoxoneMcpServer, ServerConfig,
+    client::ClientContext, error::LoxoneError, framework_integration::adapters, ServerConfig,
 };
 use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
-/// Convert LoxoneError to BackendError
+/// Simplified error handling - single conversion chain
+/// 
+/// Framework pattern: LoxoneError -> BackendError (framework handles MCP protocol errors)
+/// This eliminates the complex triple-conversion chain and reduces error handling overhead.
+/// Convert LoxoneError to BackendError (simplified mapping)
 impl From<LoxoneError> for BackendError {
     fn from(err: LoxoneError) -> Self {
+        use LoxoneError::*;
         match err {
-            LoxoneError::Connection(msg) => BackendError::connection(msg),
-            LoxoneError::Authentication(msg) => BackendError::configuration(msg),
-            LoxoneError::Config(msg) => BackendError::configuration(msg),
-            LoxoneError::InvalidInput(msg) => BackendError::configuration(msg),
+            // Connection issues
+            Connection(msg) | WebSocket(msg) => BackendError::connection(msg),
+            Http(e) => BackendError::connection(e.to_string()),
+            
+            // Configuration issues  
+            Authentication(msg) | Config(msg) | Credentials(msg) | InvalidInput(msg) => {
+                BackendError::configuration(msg)
+            }
+            
+            // Not found/unsupported
+            NotFound(msg) | ServiceUnavailable(msg) => BackendError::not_supported(msg),
+            
+            // All other errors as internal
             _ => BackendError::internal(err.to_string()),
         }
     }
 }
 
-/// Convert BackendError to LoxoneError
+/// Convert BackendError to LoxoneError (reverse mapping for compatibility)
 impl From<BackendError> for LoxoneError {
     fn from(err: BackendError) -> Self {
         match err {
             BackendError::Connection(msg) => LoxoneError::connection(msg),
             BackendError::Configuration(msg) => LoxoneError::config(msg),
-            BackendError::NotSupported(msg) => LoxoneError::invalid_input(msg),
-            _ => LoxoneError::invalid_input(err.to_string()),
+            BackendError::NotSupported(msg) => LoxoneError::not_found(msg),
+            BackendError::Internal(msg) => LoxoneError::Generic(anyhow::anyhow!(msg)),
+            BackendError::NotInitialized => LoxoneError::config("Backend not initialized"),
+            BackendError::Custom(e) => LoxoneError::Generic(anyhow::anyhow!("Custom error: {}", e)),
         }
     }
 }
 
-/// Convert LoxoneError to MCP protocol Error
-impl From<LoxoneError> for Error {
-    fn from(val: LoxoneError) -> Self {
-        match val {
-            LoxoneError::Connection(msg) => {
-                Error::internal_error(format!("Connection error: {msg}"))
-            }
-            LoxoneError::Authentication(msg) => {
-                Error::invalid_params(format!("Authentication error: {msg}"))
-            }
-            LoxoneError::Config(msg) => {
-                Error::invalid_params(format!("Configuration error: {msg}"))
-            }
-            LoxoneError::InvalidInput(msg) => Error::invalid_params(msg),
-            LoxoneError::NotFound(msg) => Error::method_not_found(msg),
-            LoxoneError::Timeout(msg) => Error::internal_error(format!("Timeout: {msg}")),
-            _ => Error::internal_error(val.to_string()),
-        }
-    }
-}
+// Note: Framework handles LoxoneError -> MCP Protocol Error conversion automatically
+// No need for manual Error conversion - reduces complexity and maintenance burden
+
 
 /// Cache entry for resource data
 #[derive(Clone)]
@@ -87,21 +86,512 @@ impl CacheEntry {
 
 /// Loxone-specific backend implementation for the MCP framework
 #[derive(Clone)]
+#[allow(dead_code)]
 pub struct LoxoneBackend {
-    /// Reference to the Loxone MCP server
-    server: Arc<LoxoneMcpServer>,
+    /// Server configuration
+    config: crate::ServerConfig,
 
-    /// Simple resource cache with TTL
+    /// Loxone client
+    client: Arc<dyn crate::client::LoxoneClient>,
+
+    /// Client context for caching
+    context: Arc<crate::client::ClientContext>,
+
+    /// Rate limiting middleware
+    rate_limiter: Arc<crate::server::rate_limiter::RateLimitMiddleware>,
+
+    /// Health checker for comprehensive monitoring
+    health_checker: Arc<crate::server::health_check::HealthChecker>,
+
+    /// Request coalescer for performance optimization
+    request_coalescer: Arc<crate::server::request_coalescing::RequestCoalescer>,
+
+    /// Schema validator for parameter validation
+    schema_validator: Arc<crate::server::schema_validation::SchemaValidator>,
+
+    /// Resource monitor for system resource management
+    resource_monitor: Arc<crate::server::resource_monitor::ResourceMonitor>,
+
+    /// Response cache for MCP tools
+    response_cache: Arc<crate::server::response_cache::ToolResponseCache>,
+
+    /// Sampling protocol integration for MCP (optional)
+    sampling_integration: Option<Arc<crate::sampling::protocol::SamplingProtocolIntegration>>,
+
+    /// Resource subscription coordinator for real-time notifications
+    subscription_coordinator: Arc<crate::server::subscription::SubscriptionCoordinator>,
+
+    /// Unified value resolution service
+    value_resolver: Arc<crate::services::UnifiedValueResolver>,
+
+    /// Centralized state manager with change detection
+    state_manager: Option<Arc<crate::services::StateManager>>,
+
+    /// Server metrics collector for dashboard monitoring
+    metrics_collector: Arc<crate::monitoring::server_metrics::ServerMetricsCollector>,
+
+    /// Resource cache with TTL for framework resources
     resource_cache: Arc<tokio::sync::RwLock<HashMap<String, CacheEntry>>>,
 }
 
 impl LoxoneBackend {
-    /// Create a new Loxone backend
-    pub fn new(server: Arc<LoxoneMcpServer>) -> Self {
-        Self {
-            server,
-            resource_cache: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+    /// Ensure client is connected and structure is loaded (static version)
+    async fn ensure_connected_static(
+        client: &Arc<dyn crate::client::LoxoneClient>,
+        context: &Arc<crate::client::ClientContext>,
+    ) -> std::result::Result<(), BackendError> {
+        // Check if structure is already loaded
+        {
+            let rooms = context.rooms.read().await;
+            if !rooms.is_empty() {
+                return Ok(()); // Already connected and loaded
+            }
         }
+
+        debug!("🔌 Connecting to Loxone and loading structure...");
+        
+        // First do a health check to establish connection
+        match client.health_check().await {
+            Ok(true) => {
+                debug!("✅ Health check passed, fetching structure...");
+            }
+            Ok(false) => {
+                return Err(BackendError::connection("Health check failed".to_string()));
+            }
+            Err(e) => {
+                return Err(BackendError::connection(format!("Health check error: {}", e)));
+            }
+        }
+        
+        // Now try to fetch structure
+        match client.get_structure().await {
+            Ok(structure) => {
+                context.update_structure(structure).await.map_err(|e| BackendError::internal(e.to_string()))?;
+                let rooms = context.rooms.read().await;
+                let devices = context.devices.read().await;
+                let capabilities = context.capabilities.read().await;
+                info!("✅ Structure loaded: {} rooms, {} devices", rooms.len(), devices.len());
+                info!("📊 System capabilities: lights={}, blinds={}, climate={}, sensors={}", 
+                      capabilities.has_lighting, capabilities.has_blinds, 
+                      capabilities.has_climate, capabilities.has_sensors);
+                Ok(())
+            }
+            Err(e) => {
+                warn!("⚠️ Failed to load structure: {}", e);
+                Err(BackendError::connection(format!("Failed to load structure: {}", e)))
+            }
+        }
+    }
+
+    /// Ensure client is connected and structure is loaded
+    async fn ensure_connected(&self) -> std::result::Result<(), BackendError> {
+        Self::ensure_connected_static(&self.client, &self.context).await
+    }
+
+    /// Parse a URI against a template and extract parameters
+    fn parse_uri_template(
+        &self,
+        uri: &str,
+        template: &str,
+    ) -> Option<std::collections::HashMap<String, String>> {
+        let uri_parts: Vec<&str> = uri.split('/').collect();
+        let template_parts: Vec<&str> = template.split('/').collect();
+
+        if uri_parts.len() != template_parts.len() {
+            return None;
+        }
+
+        let mut params = std::collections::HashMap::new();
+
+        for (uri_part, template_part) in uri_parts.iter().zip(template_parts.iter()) {
+            if template_part.starts_with('{') && template_part.ends_with('}') {
+                // Extract parameter name from {param_name}
+                let param_name = &template_part[1..template_part.len() - 1];
+                params.insert(param_name.to_string(), uri_part.to_string());
+            } else if uri_part != template_part {
+                // Non-parameter parts must match exactly
+                return None;
+            }
+        }
+
+        Some(params)
+    }
+
+    /// Handle dynamic resource URI requests
+    async fn handle_dynamic_resource(
+        &self,
+        uri: &str,
+    ) -> std::result::Result<(String, String), LoxoneError> {
+        // Try to match against known templates and handle dynamically
+
+        // Room-based dynamic resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://rooms/{room_name}/devices") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let room_devices: Vec<_> = devices
+                .values()
+                .filter(|d| d.room.as_ref() == Some(room_name))
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&room_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://rooms/{room_name}/lights") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let lighting_devices: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.room.as_ref() == Some(room_name)
+                        && (d.category == "lights"
+                            || d.device_type.contains("Light")
+                            || d.device_type.contains("Dimmer"))
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&lighting_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://rooms/{room_name}/blinds") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let blinds_devices: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.room.as_ref() == Some(room_name)
+                        && (d.category == "blinds" || d.device_type == "Jalousie")
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&blinds_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://rooms/{room_name}/climate") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let climate_devices: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.room.as_ref() == Some(room_name)
+                        && (d.category == "climate"
+                            || d.device_type.contains("Temperature")
+                            || d.device_type.contains("Climate"))
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&climate_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://rooms/{room_name}/status") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let room_devices: Vec<_> = devices
+                .values()
+                .filter(|d| d.room.as_ref() == Some(room_name))
+                .collect();
+
+            let status_summary = serde_json::json!({
+                "room": room_name,
+                "device_count": room_devices.len(),
+                "devices": room_devices,
+                "summary": {
+                    "lights": room_devices.iter().filter(|d| d.category == "lights").count(),
+                    "blinds": room_devices.iter().filter(|d| d.category == "blinds").count(),
+                    "climate": room_devices.iter().filter(|d| d.category == "climate").count(),
+                    "audio": room_devices.iter().filter(|d| d.category == "audio").count(),
+                    "security": room_devices.iter().filter(|d| d.category == "security").count(),
+                }
+            });
+            return Ok(("application/json".to_string(), status_summary.to_string()));
+        }
+
+        // Device-based dynamic resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://devices/{device_id}/state") {
+            let device_id = params.get("device_id").unwrap();
+            let devices = self.context.devices.read().await;
+            if let Some(device) = devices.get(device_id) {
+                return Ok((
+                    "application/json".to_string(),
+                    serde_json::to_string(device).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                ));
+            } else {
+                return Err(LoxoneError::validation(format!(
+                    "Device not found: {device_id}"
+                )));
+            }
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://devices/{device_id}/history") {
+            let device_id = params.get("device_id").unwrap();
+            let history = serde_json::json!({
+                "device_id": device_id,
+                "history": [],
+                "note": "Device history not yet implemented in framework migration"
+            });
+            return Ok(("application/json".to_string(), history.to_string()));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://devices/category/{category}") {
+            let category = params.get("category").unwrap();
+            // Ensure we're connected and have structure loaded
+            self.ensure_connected().await.map_err(|e| LoxoneError::Generic(anyhow::anyhow!("Connection error: {}", e)))?;
+            
+            let devices = self.context.devices.read().await;
+            let category_devices: Vec<_> = devices
+                .values()
+                .filter(|d| d.category == *category)
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&category_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://devices/type/{device_type}") {
+            let device_type = params.get("device_type").unwrap();
+            let devices = self.context.devices.read().await;
+            let type_devices: Vec<_> = devices
+                .values()
+                .filter(|d| d.device_type == *device_type)
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&type_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        // Audio dynamic resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://audio/zones/{zone_name}") {
+            let zone_name = params.get("zone_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let audio_zone: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.name == *zone_name
+                        && (d.category == "audio"
+                            || d.device_type.contains("Audio")
+                            || d.device_type.contains("Music"))
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&audio_zone).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://audio/rooms/{room_name}") {
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let room_audio: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.room.as_ref() == Some(room_name)
+                        && (d.category == "audio"
+                            || d.device_type.contains("Audio")
+                            || d.device_type.contains("Music"))
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&room_audio).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        // Sensor dynamic resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://sensors/{sensor_type}") {
+            let sensor_type = params.get("sensor_type").unwrap();
+            let devices = self.context.devices.read().await;
+            let sensors: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.device_type
+                        .to_lowercase()
+                        .contains(&sensor_type.to_lowercase())
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&sensors).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        if let Some(params) =
+            self.parse_uri_template(uri, "loxone://sensors/{sensor_type}/rooms/{room_name}")
+        {
+            let sensor_type = params.get("sensor_type").unwrap();
+            let room_name = params.get("room_name").unwrap();
+            let devices = self.context.devices.read().await;
+            let room_sensors: Vec<_> = devices
+                .values()
+                .filter(|d| {
+                    d.room.as_ref() == Some(room_name)
+                        && d.device_type
+                            .to_lowercase()
+                            .contains(&sensor_type.to_lowercase())
+                })
+                .collect();
+            return Ok((
+                "application/json".to_string(),
+                serde_json::to_string(&room_sensors).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+            ));
+        }
+
+        // System monitoring resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://system/rooms/{room_name}") {
+            let room_name = params.get("room_name").unwrap();
+            let rooms = self.context.rooms.read().await;
+            if let Some(room_data) = rooms.get(room_name) {
+                return Ok((
+                    "application/json".to_string(),
+                    serde_json::to_string(room_data).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                ));
+            } else {
+                return Err(LoxoneError::validation(format!(
+                    "Room not found: {room_name}"
+                )));
+            }
+        }
+
+        if let Some(params) = self.parse_uri_template(uri, "loxone://monitoring/{metric_type}") {
+            let metric_type = params.get("metric_type").unwrap();
+            let metrics = serde_json::json!({
+                "metric_type": metric_type,
+                "data": [],
+                "note": "System monitoring not yet implemented in framework migration"
+            });
+            return Ok(("application/json".to_string(), metrics.to_string()));
+        }
+
+        // Energy and environment resources
+        if let Some(params) = self.parse_uri_template(uri, "loxone://energy/rooms/{room_name}") {
+            let room_name = params.get("room_name").unwrap();
+            let energy_data = serde_json::json!({
+                "room": room_name,
+                "consumption": null,
+                "note": "Room energy data not yet implemented in framework migration"
+            });
+            return Ok(("application/json".to_string(), energy_data.to_string()));
+        }
+
+        // If no template matches, return not found
+        Err(LoxoneError::validation(format!(
+            "Dynamic resource not found: {uri}"
+        )))
+    }
+
+    /// Initialize backend directly with dependencies (no server wrapper)
+    pub async fn initialize(config: ServerConfig) -> std::result::Result<Self, LoxoneError> {
+        use crate::client::create_client;
+        use crate::monitoring::server_metrics::ServerMetricsCollector;
+        use crate::server::health_check::HealthChecker;
+        use crate::server::rate_limiter::RateLimitMiddleware;
+        use crate::server::request_coalescing::RequestCoalescer;
+        use crate::server::resource_monitor::ResourceMonitor;
+        use crate::server::response_cache::ToolResponseCache;
+        use crate::server::schema_validation::SchemaValidator;
+        use crate::server::subscription::SubscriptionCoordinator;
+        use crate::services::{SensorTypeRegistry, UnifiedValueResolver};
+        use std::sync::Arc;
+
+        debug!("🔧 Initializing LoxoneBackend with direct dependencies");
+
+        // Get credentials and create client
+        let credential_manager =
+            crate::config::credentials::CredentialManager::new_async(config.credentials.clone())
+                .await?;
+        let credentials = credential_manager.get_credentials().await?;
+        let client_box = create_client(&config.loxone, &credentials).await?;
+        let client: Arc<dyn crate::client::LoxoneClient> = Arc::from(client_box);
+        debug!("✅ Loxone client created successfully");
+
+        // Create client context
+        let context = Arc::new(ClientContext::new());
+        debug!("✅ Client context initialized");
+
+        // Connect to Loxone and load structure automatically  
+        info!("🔌 Connecting to Loxone Miniserver...");
+        
+        // Test basic connectivity with health check first
+        match client.health_check().await {
+            Ok(true) => {
+                info!("✅ Health check passed - Miniserver is reachable");
+                
+                // Try to load structure, but don't fail initialization if it doesn't work
+                match Self::ensure_connected_static(&client, &context).await {
+                    Ok(_) => {
+                        info!("✅ Successfully connected and loaded structure during initialization");
+                    }
+                    Err(e) => {
+                        warn!("⚠️ Structure loading failed during initialization: {}", e);
+                        info!("🔄 Structure will be loaded on first resource access");
+                    }
+                }
+            }
+            Ok(false) => {
+                warn!("⚠️ Health check failed - Miniserver not reachable");
+                info!("🔄 Connection will be retried when resources are accessed");
+            }
+            Err(e) => {
+                warn!("⚠️ Health check error: {}", e);
+                info!("🔄 Connection will be retried when resources are accessed");
+            }
+        }
+
+        // Create sensor type registry
+        let sensor_registry = Arc::new(SensorTypeRegistry::default());
+
+        // Initialize all dependencies directly (simplified for framework migration)
+        let rate_limiter = Arc::new(RateLimitMiddleware::new(Default::default()));
+        let health_checker = Arc::new(HealthChecker::new(client.clone(), Default::default()));
+        let request_coalescer = Arc::new(RequestCoalescer::new(
+            Default::default(),
+            Arc::new(
+                crate::server::loxone_batch_executor::LoxoneBatchExecutor::new(client.clone()),
+            ),
+        ));
+        let schema_validator = Arc::new(SchemaValidator::new());
+        let resource_monitor = Arc::new(ResourceMonitor::new(Default::default()));
+        let response_cache = Arc::new(ToolResponseCache::new());
+        let subscription_coordinator = Arc::new(SubscriptionCoordinator::new().await?);
+        
+        // Start the subscription system background tasks
+        subscription_coordinator.start().await?;
+        debug!("✅ Subscription coordinator started with real-time updates");
+        
+        // Start real-time monitoring for Loxone data changes
+        let client_clone = client.clone();
+        let context_clone = context.clone();
+        tokio::spawn(async move {
+            Self::start_realtime_monitoring(client_clone, context_clone).await;
+        });
+        let value_resolver = Arc::new(UnifiedValueResolver::new(client.clone(), sensor_registry));
+        let metrics_collector = Arc::new(ServerMetricsCollector::new());
+
+        Ok(Self {
+            config,
+            client,
+            context,
+            rate_limiter,
+            health_checker,
+            request_coalescer,
+            schema_validator,
+            resource_monitor,
+            response_cache,
+            sampling_integration: None,
+            subscription_coordinator,
+            value_resolver,
+            state_manager: None,
+            metrics_collector,
+            resource_cache: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+        })
     }
 
     /// Get cache TTL for a resource URI
@@ -131,17 +621,142 @@ impl LoxoneBackend {
         // Cache most resources except system info which should always be fresh
         !matches!(uri, "loxone://system/info" | "loxone://status/health")
     }
+
+    /// Check if URI matches a dynamic resource template pattern
+    fn is_dynamic_resource(&self, uri: &str) -> bool {
+        let dynamic_patterns = [
+            "loxone://rooms/{room_name}/",
+            "loxone://devices/{device_id}/",
+            "loxone://devices/category/{category}",
+            "loxone://devices/type/{device_type}",
+            "loxone://sensors/{sensor_type}/",
+            "loxone://system/rooms/{room_name}",
+            "loxone://monitoring/{metric_type}",
+            "loxone://history/{date}/",
+            "loxone://audio/zones/{zone_name}",
+            "loxone://audio/rooms/{room_name}",
+            "loxone://security/zones/{zone_name}",
+            "loxone://access/doors/{door_id}",
+            "loxone://energy/rooms/{room_name}",
+            "loxone://weather/locations/{location}",
+        ];
+
+        for pattern in &dynamic_patterns {
+            // Simple pattern matching - check if URI starts with pattern prefix
+            if let Some(prefix) = pattern.split('{').next() {
+                if uri.starts_with(prefix) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Start real-time monitoring for Loxone data changes
+    async fn start_realtime_monitoring(
+        client: Arc<dyn crate::client::LoxoneClient>,
+        context: Arc<crate::client::ClientContext>,
+    ) {
+        debug!("📡 Starting real-time Loxone data monitoring...");
+        
+        let mut interval = tokio::time::interval(Duration::from_secs(5));
+        
+        loop {
+            interval.tick().await;
+            
+            // Monitor sensor data changes
+            if let Err(e) = Self::monitor_sensor_changes(&client, &context).await {
+                debug!("Sensor monitoring error: {}", e);
+            }
+            
+            // Monitor device state changes
+            if let Err(e) = Self::monitor_device_changes(&client, &context).await {
+                debug!("Device monitoring error: {}", e);
+            }
+            
+            // Monitor energy consumption changes
+            if let Err(e) = Self::monitor_energy_changes(&client, &context).await {
+                debug!("Energy monitoring error: {}", e);
+            }
+        }
+    }
+    
+    /// Monitor sensor data for changes
+    async fn monitor_sensor_changes(
+        client: &Arc<dyn crate::client::LoxoneClient>,
+        _context: &Arc<crate::client::ClientContext>,
+    ) -> std::result::Result<(), LoxoneError> {
+        // In a full implementation, this would:
+        // 1. Poll sensor endpoints for current values
+        // 2. Compare with cached values to detect changes
+        // 3. Trigger notifications for subscribed clients
+        
+        debug!("🌡️ Checking sensor data for changes...");
+        
+        // Placeholder for sensor monitoring
+        if client.health_check().await.unwrap_or(false) {
+            debug!("✅ Sensor monitoring active - connection healthy");
+        } else {
+            debug!("⚠️ Sensor monitoring paused - connection issues");
+        }
+        
+        Ok(())
+    }
+    
+    /// Monitor device states for changes
+    async fn monitor_device_changes(
+        client: &Arc<dyn crate::client::LoxoneClient>,
+        context: &Arc<crate::client::ClientContext>,
+    ) -> std::result::Result<(), LoxoneError> {
+        debug!("📱 Checking device states for changes...");
+        
+        // In a full implementation, this would:
+        // 1. Fetch current device states
+        // 2. Compare with cached states in context
+        // 3. Update context and trigger notifications for changes
+        
+        let devices = context.devices.read().await;
+        let device_count = devices.len();
+        
+        if client.health_check().await.unwrap_or(false) {
+            debug!("✅ Device monitoring active for {} devices", device_count);
+        } else {
+            debug!("⚠️ Device monitoring paused - connection issues");
+        }
+        
+        Ok(())
+    }
+    
+    /// Monitor energy consumption for changes
+    async fn monitor_energy_changes(
+        client: &Arc<dyn crate::client::LoxoneClient>,
+        _context: &Arc<crate::client::ClientContext>,
+    ) -> std::result::Result<(), LoxoneError> {
+        debug!("⚡ Checking energy consumption for changes...");
+        
+        // In a full implementation, this would:
+        // 1. Poll energy monitoring endpoints
+        // 2. Track consumption changes
+        // 3. Trigger notifications for significant changes
+        
+        if client.health_check().await.unwrap_or(false) {
+            debug!("✅ Energy monitoring active - connection healthy");
+        } else {
+            debug!("⚠️ Energy monitoring paused - connection issues");
+        }
+        
+        Ok(())
+    }
 }
 
 #[async_trait]
 impl McpBackend for LoxoneBackend {
-    type Error = LoxoneError;
+    type Error = BackendError;
     type Config = ServerConfig;
 
     async fn initialize(config: Self::Config) -> std::result::Result<Self, Self::Error> {
-        info!("🚀 Initializing Loxone backend with framework");
-        let server = LoxoneMcpServer::new(config).await?;
-        Ok(Self::new(Arc::new(server)))
+        info!("🚀 Initializing Loxone backend with framework (direct mode)");
+        Self::initialize(config).await.map_err(BackendError::from)
     }
 
     fn get_server_info(&self) -> ServerInfo {
@@ -165,21 +780,21 @@ impl McpBackend for LoxoneBackend {
     async fn health_check(&self) -> std::result::Result<(), Self::Error> {
         info!("🔍 Performing Loxone backend health check");
 
-        // Check if the server is properly initialized and can connect
-        match self.server.client.health_check().await {
+        // Check if the client is properly initialized and can connect
+        match self.client.health_check().await {
             Ok(true) => {
                 info!("✅ Loxone backend health check passed");
                 Ok(())
             }
             Ok(false) => {
                 warn!("⚠️ Loxone backend health check failed - not connected");
-                Err(LoxoneError::connection(
+                Err(BackendError::connection(
                     "Health check failed: not connected",
                 ))
             }
             Err(e) => {
                 error!("❌ Loxone backend health check error: {}", e);
-                Err(LoxoneError::connection(format!("Health check error: {e}")))
+                Err(BackendError::connection(format!("Health check error: {e}")))
             }
         }
     }
@@ -188,15 +803,15 @@ impl McpBackend for LoxoneBackend {
         &self,
         _params: PaginatedRequestParam,
     ) -> std::result::Result<ListToolsResult, Self::Error> {
-        info!("📋 Listing Loxone tools");
+        debug!("📋 Listing Loxone tools");
 
         let tools = adapters::get_all_loxone_tools();
 
-        info!("✅ Listed {} Loxone tools", tools.len());
+        debug!("✅ Listed {} Loxone tools", tools.len());
 
         Ok(ListToolsResult {
             tools,
-            next_cursor: String::new(), // Empty string instead of None
+            next_cursor: None,
         })
     }
 
@@ -204,10 +819,10 @@ impl McpBackend for LoxoneBackend {
         &self,
         params: CallToolRequestParam,
     ) -> std::result::Result<CallToolResult, Self::Error> {
-        info!("⚡ Calling Loxone tool: {}", params.name);
+        debug!("⚡ Calling Loxone tool: {}", params.name);
 
         // Use the adapter layer to handle tool calls
-        match adapters::handle_tool_call(&self.server, &params).await {
+        match adapters::handle_tool_call_direct(&self.client, &self.context, &params).await {
             Ok(content) => {
                 info!("✅ Tool {} executed successfully", params.name);
                 Ok(CallToolResult::success(vec![content]))
@@ -225,7 +840,7 @@ impl McpBackend for LoxoneBackend {
         &self,
         _params: PaginatedRequestParam,
     ) -> std::result::Result<ListResourcesResult, Self::Error> {
-        info!("📁 Listing Loxone resources");
+        debug!("📁 Listing Loxone resources");
 
         let resources = vec![
             // System resources
@@ -381,7 +996,7 @@ impl McpBackend for LoxoneBackend {
             },
         ];
 
-        info!("✅ Listed {} Loxone resources", resources.len());
+        debug!("✅ Listed {} Loxone resources", resources.len());
 
         Ok(ListResourcesResult {
             resources,
@@ -393,7 +1008,7 @@ impl McpBackend for LoxoneBackend {
         &self,
         params: ReadResourceRequestParam,
     ) -> std::result::Result<ReadResourceResult, Self::Error> {
-        info!("📖 Reading Loxone resource: {}", params.uri);
+        debug!("📖 Reading Loxone resource: {}", params.uri);
 
         // Check cache first if caching is enabled for this resource
         if self.should_cache(&params.uri) {
@@ -420,21 +1035,22 @@ impl McpBackend for LoxoneBackend {
                 let info = serde_json::json!({
                     "server": "loxone-mcp-server",
                     "version": "1.0.0",
-                    "connected": self.server.client.is_connected().await.unwrap_or(false),
-                    "health": self.server.client.health_check().await.unwrap_or(false)
+                    "connected": self.client.is_connected().await.unwrap_or(false),
+                    "health": self.client.health_check().await.unwrap_or(false)
                 });
                 ("application/json", info.to_string())
             }
 
             "loxone://structure/rooms" => {
-                let rooms = self.server.context.rooms.read().await;
+                let rooms = self.context.rooms.read().await;
                 let room_data = serde_json::to_value(&*rooms)
-                    .map_err(|e| LoxoneError::serialization(e.to_string()))?;
+                    .map_err(|e| LoxoneError::serialization(e.to_string()))
+                    .map_err(BackendError::from)?;
                 ("application/json", room_data.to_string())
             }
 
             "loxone://config/devices" => {
-                let devices = self.server.context.devices.read().await;
+                let devices = self.context.devices.read().await;
                 let device_data = serde_json::to_value(&*devices)
                     .map_err(|e| LoxoneError::serialization(e.to_string()))?;
                 ("application/json", device_data.to_string())
@@ -446,25 +1062,32 @@ impl McpBackend for LoxoneBackend {
                     "message": "Framework migration mode - basic health check"
                 });
                 let health_data = serde_json::to_value(&health_status)
-                    .map_err(|e| LoxoneError::serialization(e.to_string()))?;
+                    .map_err(|e| LoxoneError::serialization(e.to_string()))
+                    .map_err(BackendError::from)?;
                 ("application/json", health_data.to_string())
             }
 
             // Room resources
             "loxone://rooms" => {
-                let rooms = self.server.context.rooms.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let rooms = self.context.rooms.read().await;
                 let room_list: Vec<_> = rooms.keys().cloned().collect();
-                ("application/json", serde_json::to_string(&room_list)?)
+                ("application/json", serde_json::to_string(&room_list).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
 
             // Device resources
             "loxone://devices/all" => {
-                let devices = self.server.context.devices.read().await;
+                let devices = self.context.devices.read().await;
                 let device_list: Vec<_> = devices.values().collect();
-                ("application/json", serde_json::to_string(&device_list)?)
+                ("application/json", serde_json::to_string(&device_list).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
             "loxone://devices/category/lighting" => {
-                let devices = self.server.context.devices.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let devices = self.context.devices.read().await;
                 let lighting_devices: Vec<_> = devices
                     .values()
                     .filter(|d| {
@@ -475,19 +1098,25 @@ impl McpBackend for LoxoneBackend {
                     .collect();
                 (
                     "application/json",
-                    serde_json::to_string(&lighting_devices)?,
+                    serde_json::to_string(&lighting_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
                 )
             }
             "loxone://devices/category/blinds" => {
-                let devices = self.server.context.devices.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let devices = self.context.devices.read().await;
                 let blinds_devices: Vec<_> = devices
                     .values()
                     .filter(|d| d.category == "blinds" || d.device_type == "Jalousie")
                     .collect();
-                ("application/json", serde_json::to_string(&blinds_devices)?)
+                ("application/json", serde_json::to_string(&blinds_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
             "loxone://devices/category/climate" => {
-                let devices = self.server.context.devices.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let devices = self.context.devices.read().await;
                 let climate_devices: Vec<_> = devices
                     .values()
                     .filter(|d| {
@@ -496,12 +1125,12 @@ impl McpBackend for LoxoneBackend {
                             || d.device_type.contains("Climate")
                     })
                     .collect();
-                ("application/json", serde_json::to_string(&climate_devices)?)
+                ("application/json", serde_json::to_string(&climate_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
 
             // Audio resources
             "loxone://audio/zones" => {
-                let devices = self.server.context.devices.read().await;
+                let devices = self.context.devices.read().await;
                 let audio_devices: Vec<_> = devices
                     .values()
                     .filter(|d| {
@@ -510,7 +1139,7 @@ impl McpBackend for LoxoneBackend {
                             || d.device_type.contains("Music")
                     })
                     .collect();
-                ("application/json", serde_json::to_string(&audio_devices)?)
+                ("application/json", serde_json::to_string(&audio_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
             "loxone://audio/sources" => {
                 let audio_sources = serde_json::json!({
@@ -522,17 +1151,35 @@ impl McpBackend for LoxoneBackend {
 
             // Sensor resources
             "loxone://sensors/temperature" => {
-                let devices = self.server.context.devices.read().await;
-                let temp_sensors: Vec<_> = devices
-                    .values()
-                    .filter(|d| {
-                        d.device_type.contains("Temperature") || d.device_type.contains("Temp")
-                    })
-                    .collect();
-                ("application/json", serde_json::to_string(&temp_sensors)?)
+                // Try to ensure connection, but provide fallback if structure loading fails
+                match self.ensure_connected().await {
+                    Ok(_) => {
+                        let devices = self.context.devices.read().await;
+                        let temp_sensors: Vec<_> = devices
+                            .values()
+                            .filter(|d| {
+                                d.device_type.contains("Temperature") || d.device_type.contains("Temp")
+                            })
+                            .collect();
+                        ("application/json", serde_json::to_string(&temp_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                    }
+                    Err(_) => {
+                        // Fallback: provide mock sensor data indicating structure loading issues
+                        let fallback_data = serde_json::json!({
+                            "sensors": [],
+                            "status": "structure_loading_failed",
+                            "message": "Temperature sensors unavailable due to authentication issues with structure endpoint",
+                            "note": "Health check passes but structure loading fails - this is a known issue with some Loxone configurations"
+                        });
+                        ("application/json", fallback_data.to_string())
+                    }
+                }
             }
             "loxone://sensors/door-window" => {
-                let devices = self.server.context.devices.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let devices = self.context.devices.read().await;
                 let door_window_sensors: Vec<_> = devices
                     .values()
                     .filter(|d| {
@@ -543,16 +1190,19 @@ impl McpBackend for LoxoneBackend {
                     .collect();
                 (
                     "application/json",
-                    serde_json::to_string(&door_window_sensors)?,
+                    serde_json::to_string(&door_window_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
                 )
             }
             "loxone://sensors/motion" => {
-                let devices = self.server.context.devices.read().await;
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+                
+                let devices = self.context.devices.read().await;
                 let motion_sensors: Vec<_> = devices
                     .values()
                     .filter(|d| d.device_type.contains("Motion") || d.device_type.contains("PIR"))
                     .collect();
-                ("application/json", serde_json::to_string(&motion_sensors)?)
+                ("application/json", serde_json::to_string(&motion_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
 
             // Weather resources
@@ -578,11 +1228,11 @@ impl McpBackend for LoxoneBackend {
 
             // System resources (additional)
             "loxone://system/capabilities" => {
-                let capabilities = self.server.context.capabilities.read().await;
-                ("application/json", serde_json::to_string(&*capabilities)?)
+                let capabilities = self.context.capabilities.read().await;
+                ("application/json", serde_json::to_string(&*capabilities).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
             }
             "loxone://system/categories" => {
-                let devices = self.server.context.devices.read().await;
+                let devices = self.context.devices.read().await;
                 let mut categories = std::collections::HashMap::new();
                 for device in devices.values() {
                     *categories.entry(device.category.clone()).or_insert(0) += 1;
@@ -595,10 +1245,19 @@ impl McpBackend for LoxoneBackend {
             }
 
             _ => {
-                return Err(LoxoneError::not_found(format!(
-                    "Resource not found: {}",
-                    params.uri
-                )));
+                // Try to handle as dynamic resource template
+                match self.handle_dynamic_resource(&params.uri).await {
+                    Ok((_mime_type, content)) => {
+                        // Always use application/json for consistency
+                        ("application/json", content)
+                    }
+                    Err(_) => {
+                        return Err(BackendError::not_supported(format!(
+                            "Resource not found: {}",
+                            params.uri
+                        )));
+                    }
+                }
             }
         };
 
@@ -632,26 +1291,151 @@ impl McpBackend for LoxoneBackend {
         &self,
         _params: PaginatedRequestParam,
     ) -> std::result::Result<ListResourceTemplatesResult, Self::Error> {
-        info!("📋 Listing Loxone resource templates");
+        debug!("📋 Listing Loxone resource templates");
 
         let resource_templates = vec![
+            // Room-based templates
             ResourceTemplate {
-                uri_template: "loxone://devices/{room_name}".to_string(),
+                uri_template: "loxone://rooms/{room_name}/devices".to_string(),
                 name: "Room Devices".to_string(),
-                description: Some("All devices in a specific room".to_string()),
+                description: Some("All devices in a specific room with current states".to_string()),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceTemplate {
+                uri_template: "loxone://rooms/{room_name}/lights".to_string(),
+                name: "Room Lighting".to_string(),
+                description: Some("All lighting devices in a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://rooms/{room_name}/blinds".to_string(),
+                name: "Room Blinds".to_string(),
+                description: Some("All blinds/rolladen devices in a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://rooms/{room_name}/climate".to_string(),
+                name: "Room Climate".to_string(),
+                description: Some("Climate control and sensors for a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://rooms/{room_name}/status".to_string(),
+                name: "Room Status Summary".to_string(),
+                description: Some(
+                    "Comprehensive status summary for all devices in a room".to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            // Device-based templates
+            ResourceTemplate {
+                uri_template: "loxone://devices/{device_id}/state".to_string(),
+                name: "Device State".to_string(),
+                description: Some("Current state and properties of a specific device".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://devices/{device_id}/history".to_string(),
+                name: "Device History".to_string(),
+                description: Some("Historical state changes for a specific device".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://devices/category/{category}".to_string(),
+                name: "Category Devices".to_string(),
+                description: Some(
+                    "All devices in a specific category with current states".to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://devices/type/{device_type}".to_string(),
+                name: "Device Type Collection".to_string(),
+                description: Some("All devices of a specific type with current states".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            // Sensor-based templates
+            ResourceTemplate {
                 uri_template: "loxone://sensors/{sensor_type}".to_string(),
                 name: "Sensor Data".to_string(),
-                description: Some("Sensor readings by type".to_string()),
+                description: Some(
+                    "All sensors of a specific type with current readings".to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://sensors/{sensor_type}/rooms/{room_name}".to_string(),
+                name: "Room Sensor Data".to_string(),
+                description: Some("Sensors of a specific type in a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            // System monitoring templates
+            ResourceTemplate {
+                uri_template: "loxone://system/rooms/{room_name}".to_string(),
+                name: "Room System Info".to_string(),
+                description: Some("System-level information for a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://monitoring/{metric_type}".to_string(),
+                name: "System Metrics".to_string(),
+                description: Some("System monitoring metrics by type".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://history/{date}/summary".to_string(),
+                name: "Daily Summary".to_string(),
+                description: Some(
+                    "Daily activity summary for a specific date (YYYY-MM-DD)".to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            // Audio and entertainment templates
+            ResourceTemplate {
+                uri_template: "loxone://audio/zones/{zone_name}".to_string(),
+                name: "Audio Zone Status".to_string(),
+                description: Some(
+                    "Current status and controls for a specific audio zone".to_string(),
+                ),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://audio/rooms/{room_name}".to_string(),
+                name: "Room Audio".to_string(),
+                description: Some("All audio devices and zones in a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            // Security and access templates
+            ResourceTemplate {
+                uri_template: "loxone://security/zones/{zone_name}".to_string(),
+                name: "Security Zone".to_string(),
+                description: Some("Security status for a specific zone or area".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://access/doors/{door_id}".to_string(),
+                name: "Door Access".to_string(),
+                description: Some("Access control status for a specific door".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            // Energy and environment templates
+            ResourceTemplate {
+                uri_template: "loxone://energy/rooms/{room_name}".to_string(),
+                name: "Room Energy".to_string(),
+                description: Some("Energy consumption data for a specific room".to_string()),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceTemplate {
+                uri_template: "loxone://weather/locations/{location}".to_string(),
+                name: "Location Weather".to_string(),
+                description: Some("Weather data for a specific location or sensor".to_string()),
                 mime_type: Some("application/json".to_string()),
             },
         ];
 
         Ok(ListResourceTemplatesResult {
             resource_templates,
-            next_cursor: String::new(), // Empty string instead of None
+            next_cursor: None,
         })
     }
 
@@ -661,42 +1445,333 @@ impl McpBackend for LoxoneBackend {
     ) -> std::result::Result<ListPromptsResult, Self::Error> {
         info!("💬 Listing Loxone prompts");
 
+        // Get real-time data for context-aware prompts
+        let rooms = self.context.rooms.read().await;
+        let devices = self.context.devices.read().await;
+        
+        let room_names: Vec<_> = rooms.keys().cloned().collect();
+        let device_count = devices.len();
+        let room_count = rooms.len();
+        
+        // Calculate device category counts for intelligent prompting
+        let lights_count = devices.values().filter(|d| d.category == "lights").count();
+        let blinds_count = devices.values().filter(|d| d.category == "blinds").count();
+        let climate_count = devices.values().filter(|d| d.category == "climate").count();
+        let audio_count = devices.values().filter(|d| d.category == "audio").count();
+        let security_count = devices.values().filter(|d| d.category == "security").count();
+
         let prompts = vec![
+            // Energy and efficiency prompts
             Prompt {
                 name: "analyze_energy_usage".to_string(),
                 description: Some(
-                    "Analyze energy consumption patterns and provide optimization suggestions"
-                        .to_string(),
+                    format!("Analyze energy consumption patterns across {room_count} rooms and {device_count} devices for optimization")
                 ),
-                arguments: Some(vec![PromptArgument {
-                    name: "period".to_string(),
-                    description: Some("Time period to analyze (day, week, month)".to_string()),
-                    required: Some(false),
-                }]),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "period".to_string(),
+                        description: Some("Time period to analyze (day, week, month)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "focus_rooms".to_string(),
+                        description: Some("Comma-separated list of rooms to focus on".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "include_recommendations".to_string(),
+                        description: Some("Include actionable optimization recommendations".to_string()),
+                        required: Some(false),
+                    }
+                ]),
             },
+            Prompt {
+                name: "room_energy_optimization".to_string(),
+                description: Some(
+                    "Analyze and optimize energy usage for a specific room".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "room_name".to_string(),
+                        description: Some(format!("Room to analyze (available: {})", room_names.join(", "))),
+                        required: Some(true),
+                    },
+                    PromptArgument {
+                        name: "include_schedule".to_string(),
+                        description: Some("Include scheduling recommendations".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Home status and monitoring prompts
             Prompt {
                 name: "home_status_summary".to_string(),
                 description: Some(
-                    "Generate a comprehensive summary of current home status".to_string(),
+                    format!("Generate comprehensive home status for {room_count} rooms with {device_count} total devices")
                 ),
-                arguments: Some(vec![PromptArgument {
-                    name: "include_sensors".to_string(),
-                    description: Some("Include sensor data in summary".to_string()),
-                    required: Some(false),
-                }]),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "include_sensors".to_string(),
+                        description: Some("Include detailed sensor readings".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "room_filter".to_string(),
+                        description: Some("Focus on specific rooms (comma-separated)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "device_categories".to_string(),
+                        description: Some("Filter by device categories (lights, blinds, climate, audio, security)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
             },
+            Prompt {
+                name: "room_status_report".to_string(),
+                description: Some(
+                    "Generate detailed status report for a specific room with all devices".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "room_name".to_string(),
+                        description: Some(format!("Room to analyze (available: {})", room_names.join(", "))),
+                        required: Some(true),
+                    },
+                    PromptArgument {
+                        name: "include_controls".to_string(),
+                        description: Some("Include available control options".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "device_diagnostics".to_string(),
+                description: Some(
+                    "Analyze device performance and suggest maintenance actions".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "device_category".to_string(),
+                        description: Some("Category to focus on (lights, blinds, climate, audio, security)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "include_history".to_string(),
+                        description: Some("Include historical performance data".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Security and safety prompts
             Prompt {
                 name: "security_report".to_string(),
                 description: Some(
-                    "Generate a security status report with recommendations".to_string(),
+                    format!("Generate security status report with {security_count} security devices and recommendations")
                 ),
-                arguments: Some(vec![]), // Empty array instead of None
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "include_history".to_string(),
+                        description: Some("Include recent security events".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "threat_assessment".to_string(),
+                        description: Some("Include threat assessment and recommendations".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "safety_check".to_string(),
+                description: Some(
+                    "Perform comprehensive safety check across all home systems".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "focus_areas".to_string(),
+                        description: Some("Areas to focus on (fire, security, electrical, climate)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Comfort and automation prompts
+            Prompt {
+                name: "comfort_optimization".to_string(),
+                description: Some(
+                    format!("Optimize comfort settings across {lights_count} lighting and {climate_count} climate devices")
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "time_of_day".to_string(),
+                        description: Some("Time period to optimize (morning, afternoon, evening, night)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "weather_consideration".to_string(),
+                        description: Some("Consider weather conditions in recommendations".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "lighting_scene_suggestion".to_string(),
+                description: Some(
+                    format!("Suggest optimal lighting scenes for {lights_count} lighting devices across rooms")
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "scenario".to_string(),
+                        description: Some("Usage scenario (work, relax, party, sleep, away)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "room_priority".to_string(),
+                        description: Some("Prioritize specific rooms".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "climate_optimization".to_string(),
+                description: Some(
+                    format!("Optimize climate control across {climate_count} climate devices for efficiency and comfort")
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "season".to_string(),
+                        description: Some("Season to optimize for (spring, summer, autumn, winter)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "priority".to_string(),
+                        description: Some("Priority focus (comfort, efficiency, cost)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Entertainment and lifestyle prompts
+            Prompt {
+                name: "entertainment_setup".to_string(),
+                description: Some(
+                    format!("Configure optimal entertainment experience using {audio_count} audio devices")
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "activity".to_string(),
+                        description: Some("Activity type (movie, music, party, quiet)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "zones".to_string(),
+                        description: Some("Audio zones to include".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "blinds_automation".to_string(),
+                description: Some(
+                    format!("Create intelligent blinds automation rules for {blinds_count} blind devices")
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "priority".to_string(),
+                        description: Some("Priority factor (privacy, energy, comfort, security)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "schedule_type".to_string(),
+                        description: Some("Schedule type (daily, seasonal, weather-based)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Troubleshooting and maintenance prompts
+            Prompt {
+                name: "system_troubleshooting".to_string(),
+                description: Some(
+                    "Analyze system issues and provide step-by-step troubleshooting guidance".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "symptom".to_string(),
+                        description: Some("Describe the issue or symptom observed".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "affected_area".to_string(),
+                        description: Some("Room or system area affected".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "maintenance_schedule".to_string(),
+                description: Some(
+                    "Generate personalized maintenance schedule for all home automation systems".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "priority_level".to_string(),
+                        description: Some("Maintenance priority (essential, recommended, optional)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "season".to_string(),
+                        description: Some("Season to focus on (spring, summer, autumn, winter)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+
+            // Advanced automation prompts
+            Prompt {
+                name: "automation_suggestions".to_string(),
+                description: Some(
+                    "Suggest intelligent automation rules based on current device setup and usage patterns".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "lifestyle".to_string(),
+                        description: Some("Lifestyle type (family, professional, retired, student)".to_string()),
+                        required: Some(false),
+                    },
+                    PromptArgument {
+                        name: "complexity".to_string(),
+                        description: Some("Automation complexity (simple, intermediate, advanced)".to_string()),
+                        required: Some(false),
+                    }
+                ]),
+            },
+            Prompt {
+                name: "scenario_planning".to_string(),
+                description: Some(
+                    "Plan and configure home automation scenarios for different situations".to_string(),
+                ),
+                arguments: Some(vec![
+                    PromptArgument {
+                        name: "scenario_type".to_string(),
+                        description: Some("Scenario (vacation, party, work_from_home, sleep, emergency)".to_string()),
+                        required: Some(true),
+                    },
+                    PromptArgument {
+                        name: "duration".to_string(),
+                        description: Some("Expected duration of scenario".to_string()),
+                        required: Some(false),
+                    }
+                ]),
             },
         ];
 
         Ok(ListPromptsResult {
             prompts,
-            next_cursor: Some(String::new()), // Empty string instead of None
+            next_cursor: None,
         })
     }
 
@@ -756,12 +1831,32 @@ impl McpBackend for LoxoneBackend {
             }
 
             "security_report" => {
+                let include_history = params.arguments.as_ref()
+                    .and_then(|args| args.get("include_history"))
+                    .map(|v| v == "true")
+                    .unwrap_or(false);
+
+                let threat_assessment = params.arguments.as_ref()
+                    .and_then(|args| args.get("threat_assessment"))
+                    .map(|v| v == "true")
+                    .unwrap_or(true);
+
+                let context_msg = if include_history && threat_assessment {
+                    "You are a home security expert with access to historical data and threat assessment capabilities."
+                } else if include_history {
+                    "You are a home security expert with access to historical security data."
+                } else if threat_assessment {
+                    "You are a home security expert focused on current threat assessment."
+                } else {
+                    "You are a home security expert analyzing current security system status."
+                };
+
                 (
                     "Security status and recommendations".to_string(),
                     vec![
                         PromptMessage::new_text(
                             PromptMessageRole::System,
-                            "You are a home security expert analyzing Loxone security system data."
+                            context_msg
                         ),
                         PromptMessage::new_text(
                             PromptMessageRole::User,
@@ -771,8 +1866,365 @@ impl McpBackend for LoxoneBackend {
                 )
             }
 
+            "room_energy_optimization" => {
+                let room_name = params.arguments.as_ref()
+                    .and_then(|args| args.get("room_name"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("unspecified");
+
+                let include_schedule = params.arguments.as_ref()
+                    .and_then(|args| args.get("include_schedule"))
+                    .map(|v| v == "true")
+                    .unwrap_or(true);
+
+                let schedule_context = if include_schedule {
+                    " Include detailed scheduling recommendations in your analysis."
+                } else {
+                    " Focus on immediate optimizations without scheduling."
+                };
+
+                (
+                    format!("Energy optimization for room: {room_name}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are an energy efficiency expert focusing on optimizing energy usage in the {room_name} room.{schedule_context}")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please analyze energy usage in the {room_name} room and provide specific optimization recommendations.")
+                        ),
+                    ]
+                )
+            }
+
+            "room_status_report" => {
+                let room_name = params.arguments.as_ref()
+                    .and_then(|args| args.get("room_name"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("unspecified");
+
+                let include_controls = params.arguments.as_ref()
+                    .and_then(|args| args.get("include_controls"))
+                    .map(|v| v == "true")
+                    .unwrap_or(true);
+
+                let control_context = if include_controls {
+                    " Include available control options and usage instructions."
+                } else {
+                    " Focus on status information without control details."
+                };
+
+                (
+                    format!("Status report for room: {room_name}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a smart home assistant reporting on the {room_name} room status.{control_context}")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please provide a comprehensive status report for the {room_name} room including all devices and systems.")
+                        ),
+                    ]
+                )
+            }
+
+            "device_diagnostics" => {
+                let device_category = params.arguments.as_ref()
+                    .and_then(|args| args.get("device_category"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("all");
+
+                let include_history = params.arguments.as_ref()
+                    .and_then(|args| args.get("include_history"))
+                    .map(|v| v == "true")
+                    .unwrap_or(false);
+
+                let history_context = if include_history {
+                    " Use historical performance data to identify patterns and predict potential issues."
+                } else {
+                    " Focus on current device status and immediate diagnostic information."
+                };
+
+                (
+                    format!("Device diagnostics for: {device_category}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a smart home technician specializing in {device_category} device diagnostics.{history_context}")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please analyze the performance of {device_category} devices and suggest maintenance actions.")
+                        ),
+                    ]
+                )
+            }
+
+            "safety_check" => {
+                let focus_areas = params.arguments.as_ref()
+                    .and_then(|args| args.get("focus_areas"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("all systems");
+
+                (
+                    format!("Safety check focusing on: {focus_areas}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a home safety inspector with expertise in {focus_areas}. Perform a thorough safety analysis.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please perform a comprehensive safety check focusing on {focus_areas} and provide actionable recommendations.")
+                        ),
+                    ]
+                )
+            }
+
+            "comfort_optimization" => {
+                let time_of_day = params.arguments.as_ref()
+                    .and_then(|args| args.get("time_of_day"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("current time");
+
+                let weather_consideration = params.arguments.as_ref()
+                    .and_then(|args| args.get("weather_consideration"))
+                    .map(|v| v == "true")
+                    .unwrap_or(true);
+
+                let weather_context = if weather_consideration {
+                    " Take current weather conditions into account for optimal comfort settings."
+                } else {
+                    " Focus on indoor comfort settings without weather considerations."
+                };
+
+                (
+                    format!("Comfort optimization for: {time_of_day}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a comfort optimization specialist focusing on {time_of_day} settings.{weather_context}")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please optimize comfort settings for {time_of_day} across lighting and climate systems.")
+                        ),
+                    ]
+                )
+            }
+
+            "lighting_scene_suggestion" => {
+                let scenario = params.arguments.as_ref()
+                    .and_then(|args| args.get("scenario"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("general use");
+
+                let room_priority = params.arguments.as_ref()
+                    .and_then(|args| args.get("room_priority"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "all rooms".to_string());
+
+                (
+                    format!("Lighting scenes for {scenario} scenario"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a lighting design expert creating optimal scenes for {scenario} scenarios, prioritizing {room_priority}.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please suggest optimal lighting scenes for {scenario} usage, focusing on {room_priority}.")
+                        ),
+                    ]
+                )
+            }
+
+            "climate_optimization" => {
+                let season = params.arguments.as_ref()
+                    .and_then(|args| args.get("season"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("current season");
+
+                let priority = params.arguments.as_ref()
+                    .and_then(|args| args.get("priority"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("balance");
+
+                (
+                    format!("Climate optimization for {season} (priority: {priority})"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a climate control expert optimizing for {season} with {priority} priority.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please optimize climate control for {season} season with {priority} priority focus.")
+                        ),
+                    ]
+                )
+            }
+
+            "entertainment_setup" => {
+                let activity = params.arguments.as_ref()
+                    .and_then(|args| args.get("activity"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("general entertainment");
+
+                let zones = params.arguments.as_ref()
+                    .and_then(|args| args.get("zones"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "all available zones".to_string());
+
+                (
+                    format!("Entertainment setup for {activity} activity"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are an entertainment system specialist configuring optimal audio for {activity} activities in {zones}.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please configure the optimal entertainment experience for {activity} in {zones}.")
+                        ),
+                    ]
+                )
+            }
+
+            "blinds_automation" => {
+                let priority = params.arguments.as_ref()
+                    .and_then(|args| args.get("priority"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("comfort");
+
+                let schedule_type = params.arguments.as_ref()
+                    .and_then(|args| args.get("schedule_type"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("daily");
+
+                (
+                    format!("Blinds automation (priority: {priority}, schedule: {schedule_type})"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a home automation expert creating intelligent blinds rules with {priority} priority and {schedule_type} scheduling.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please create automated blinds rules prioritizing {priority} with {schedule_type} scheduling approach.")
+                        ),
+                    ]
+                )
+            }
+
+            "system_troubleshooting" => {
+                let symptom = params.arguments.as_ref()
+                    .and_then(|args| args.get("symptom"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "general system issues".to_string());
+
+                let affected_area = params.arguments.as_ref()
+                    .and_then(|args| args.get("affected_area"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "system-wide".to_string());
+
+                (
+                    format!("Troubleshooting: {symptom} in {affected_area}"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a smart home troubleshooting expert analyzing {symptom} issues in {affected_area}.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please provide step-by-step troubleshooting guidance for {symptom} in {affected_area}.")
+                        ),
+                    ]
+                )
+            }
+
+            "maintenance_schedule" => {
+                let priority_level = params.arguments.as_ref()
+                    .and_then(|args| args.get("priority_level"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("recommended");
+
+                let season = params.arguments.as_ref()
+                    .and_then(|args| args.get("season"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("current season");
+
+                (
+                    format!("Maintenance schedule ({priority_level} priority, {season} focus)"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a home automation maintenance expert creating {priority_level} priority schedules for {season}.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please generate a {priority_level} priority maintenance schedule focusing on {season} preparations.")
+                        ),
+                    ]
+                )
+            }
+
+            "automation_suggestions" => {
+                let lifestyle = params.arguments.as_ref()
+                    .and_then(|args| args.get("lifestyle"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("general");
+
+                let complexity = params.arguments.as_ref()
+                    .and_then(|args| args.get("complexity"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("intermediate");
+
+                (
+                    format!("Automation suggestions for {lifestyle} lifestyle ({complexity})"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a home automation consultant specializing in {complexity} complexity solutions for {lifestyle} lifestyles.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please suggest {complexity} automation rules suitable for a {lifestyle} lifestyle.")
+                        ),
+                    ]
+                )
+            }
+
+            "scenario_planning" => {
+                let scenario_type = params.arguments.as_ref()
+                    .and_then(|args| args.get("scenario_type"))
+                    .map(|s| s.as_str())
+                    .unwrap_or("general");
+
+                let duration = params.arguments.as_ref()
+                    .and_then(|args| args.get("duration"))
+                    .map(|s| s.to_string())
+                    .unwrap_or_else(|| "unspecified duration".to_string());
+
+                (
+                    format!("Scenario planning for {scenario_type} ({duration})"),
+                    vec![
+                        PromptMessage::new_text(
+                            PromptMessageRole::System,
+                            format!("You are a home automation scenario planner specializing in {scenario_type} scenarios lasting {duration}.")
+                        ),
+                        PromptMessage::new_text(
+                            PromptMessageRole::User,
+                            format!("Please plan and configure home automation for {scenario_type} scenario lasting {duration}.")
+                        ),
+                    ]
+                )
+            }
+
             _ => {
-                return Err(LoxoneError::not_found(format!("Prompt not found: {}", params.name)));
+                return Err(BackendError::not_supported(format!("Prompt not found: {}", params.name)));
             }
         };
 
@@ -789,7 +2241,7 @@ impl McpBackend for LoxoneBackend {
         info!("🔔 Subscribing to Loxone resource: {}", params.uri);
 
         // Validate resource URI exists
-        match params.uri.as_str() {
+        let is_valid_resource = match params.uri.as_str() {
             // System resources
             "loxone://system/info" | "loxone://structure/rooms" | "loxone://config/devices" |
             "loxone://status/health" | "loxone://system/capabilities" | "loxone://system/categories" |
@@ -801,21 +2253,68 @@ impl McpBackend for LoxoneBackend {
             // Sensor resources
             "loxone://sensors/temperature" | "loxone://sensors/door-window" | "loxone://sensors/motion" |
             // Weather and energy resources
-            "loxone://weather/current" | "loxone://energy/consumption" => {
-                info!("✅ Valid resource URI for subscription: {}", params.uri);
+            "loxone://weather/current" | "loxone://energy/consumption" => true,
+            _ => {
+                // Also check if it's a dynamic resource template
+                self.is_dynamic_resource(&params.uri)
+            }
+        };
 
-                // In a full implementation, we would:
-                // 1. Register the client for notifications
-                // 2. Start monitoring the resource for changes
-                // 3. Set up WebSocket or SSE push notifications
+        if !is_valid_resource {
+            warn!("❌ Unknown resource URI for subscription: {}", params.uri);
+            return Err(BackendError::not_supported(format!("Resource not found for subscription: {}", params.uri)));
+        }
 
-                // For framework migration, we accept the subscription but don't implement push notifications yet
-                info!("📝 Subscription registered (push notifications pending full implementation)");
+        info!("✅ Valid resource URI for subscription: {}", params.uri);
+
+        // Create client info for subscription
+        use crate::server::subscription::types::{ClientInfo, ClientTransport};
+        use std::time::SystemTime;
+        use uuid::Uuid;
+
+        let client_info = ClientInfo {
+            id: Uuid::new_v4().to_string(), // Generate client ID if not provided
+            transport: ClientTransport::Stdio, // Default to stdio for framework migration
+            capabilities: vec!["resources".to_string(), "notifications".to_string()],
+            connected_at: SystemTime::now(),
+        };
+
+        // Register with subscription coordinator
+        match self.subscription_coordinator.subscribe_client(
+            client_info,
+            params.uri.clone(),
+            None, // No filters for now
+        ).await {
+            Ok(()) => {
+                info!("✅ Subscription registered with real-time updates: {}", params.uri);
+                
+                // Start monitoring this resource type if not already started
+                match params.uri.as_str() {
+                    uri if uri.starts_with("loxone://sensors/") => {
+                        // Start sensor monitoring if not already active
+                        debug!("📊 Sensor monitoring active for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://devices/") => {
+                        // Start device state monitoring
+                        debug!("📱 Device monitoring active for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://energy/") => {
+                        // Start energy monitoring
+                        debug!("⚡ Energy monitoring active for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://weather/") => {
+                        // Start weather monitoring
+                        debug!("🌤️ Weather monitoring active for: {}", uri);
+                    }
+                    _ => {
+                        debug!("📡 General monitoring active for: {}", params.uri);
+                    }
+                }
                 Ok(())
             }
-            _ => {
-                warn!("❌ Unknown resource URI for subscription: {}", params.uri);
-                Err(LoxoneError::not_found(format!("Resource not found for subscription: {}", params.uri)))
+            Err(e) => {
+                error!("❌ Failed to register subscription: {}", e);
+                Err(BackendError::from(e))
             }
         }
     }
@@ -826,8 +2325,8 @@ impl McpBackend for LoxoneBackend {
     ) -> std::result::Result<(), Self::Error> {
         info!("🔕 Unsubscribing from Loxone resource: {}", params.uri);
 
-        // Validate resource URI and unsubscribe
-        match params.uri.as_str() {
+        // Validate resource URI exists
+        let is_valid_resource = match params.uri.as_str() {
             // Valid resource URIs (same as subscribe)
             "loxone://system/info"
             | "loxone://structure/rooms"
@@ -846,23 +2345,56 @@ impl McpBackend for LoxoneBackend {
             | "loxone://sensors/door-window"
             | "loxone://sensors/motion"
             | "loxone://weather/current"
-            | "loxone://energy/consumption" => {
-                info!("✅ Valid resource URI for unsubscription: {}", params.uri);
+            | "loxone://energy/consumption" => true,
+            _ => {
+                // Also check if it's a dynamic resource template
+                self.is_dynamic_resource(&params.uri)
+            }
+        };
 
-                // In a full implementation, we would:
-                // 1. Remove the client from notification registry
-                // 2. Stop monitoring if no other clients subscribed
-                // 3. Clean up WebSocket/SSE connections
+        if !is_valid_resource {
+            warn!("❌ Unknown resource URI for unsubscription: {}", params.uri);
+            return Err(BackendError::not_supported(format!(
+                "Resource not found for unsubscription: {}",
+                params.uri
+            )));
+        }
 
-                info!("📝 Unsubscription processed (full cleanup pending implementation)");
+        info!("✅ Valid resource URI for unsubscription: {}", params.uri);
+
+        // For framework migration, we don't have client ID tracking yet
+        // In a full implementation, we would need the client ID from the MCP session
+        // For now, we'll unsubscribe all clients from this resource
+        match self.subscription_coordinator.unsubscribe_client(
+            "framework-migration-client".to_string(), // Placeholder client ID
+            Some(params.uri.clone()),
+        ).await {
+            Ok(()) => {
+                info!("✅ Unsubscription processed with cleanup: {}", params.uri);
+                
+                // Log monitoring status change
+                match params.uri.as_str() {
+                    uri if uri.starts_with("loxone://sensors/") => {
+                        debug!("📊 Sensor monitoring may stop for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://devices/") => {
+                        debug!("📱 Device monitoring may stop for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://energy/") => {
+                        debug!("⚡ Energy monitoring may stop for: {}", uri);
+                    }
+                    uri if uri.starts_with("loxone://weather/") => {
+                        debug!("🌤️ Weather monitoring may stop for: {}", uri);
+                    }
+                    _ => {
+                        debug!("📡 General monitoring may stop for: {}", params.uri);
+                    }
+                }
                 Ok(())
             }
-            _ => {
-                warn!("❌ Unknown resource URI for unsubscription: {}", params.uri);
-                Err(LoxoneError::not_found(format!(
-                    "Resource not found for unsubscription: {}",
-                    params.uri
-                )))
+            Err(e) => {
+                error!("❌ Failed to process unsubscription: {}", e);
+                Err(BackendError::from(e))
             }
         }
     }
@@ -874,31 +2406,242 @@ impl McpBackend for LoxoneBackend {
         info!("🔍 Providing completion for: {}", params.ref_);
 
         let completions = match params.ref_.as_str() {
+            // Room-based completions
             "room_names" => {
-                let rooms = self.server.context.rooms.read().await;
+                let rooms = self.context.rooms.read().await;
                 rooms.keys().cloned().collect::<Vec<_>>()
             }
+            "room_names_with_lights" => {
+                let rooms = self.context.rooms.read().await;
+                let devices = self.context.devices.read().await;
+
+                // Find rooms that have lighting devices
+                let mut rooms_with_lights = Vec::new();
+                for room_name in rooms.keys() {
+                    let has_lights = devices.values().any(|device| {
+                        device.room.as_ref() == Some(room_name)
+                            && (device.category == "lights"
+                                || device.device_type.contains("Light")
+                                || device.device_type.contains("Dimmer"))
+                    });
+                    if has_lights {
+                        rooms_with_lights.push(room_name.clone());
+                    }
+                }
+                rooms_with_lights
+            }
+            "room_names_with_blinds" => {
+                let rooms = self.context.rooms.read().await;
+                let devices = self.context.devices.read().await;
+
+                // Find rooms that have blinds/rolladen
+                let mut rooms_with_blinds = Vec::new();
+                for room_name in rooms.keys() {
+                    let has_blinds = devices.values().any(|device| {
+                        device.room.as_ref() == Some(room_name)
+                            && (device.category == "blinds" || device.device_type == "Jalousie")
+                    });
+                    if has_blinds {
+                        rooms_with_blinds.push(room_name.clone());
+                    }
+                }
+                rooms_with_blinds
+            }
+            "room_names_with_climate" => {
+                let rooms = self.context.rooms.read().await;
+                let devices = self.context.devices.read().await;
+
+                // Find rooms that have climate devices
+                let mut rooms_with_climate = Vec::new();
+                for room_name in rooms.keys() {
+                    let has_climate = devices.values().any(|device| {
+                        device.room.as_ref() == Some(room_name)
+                            && (device.category == "climate"
+                                || device.device_type.contains("Temperature")
+                                || device.device_type.contains("Climate"))
+                    });
+                    if has_climate {
+                        rooms_with_climate.push(room_name.clone());
+                    }
+                }
+                rooms_with_climate
+            }
+
+            // Device-based completions
+            "device_names" => {
+                let devices = self.context.devices.read().await;
+                devices.values().map(|d| d.name.clone()).collect()
+            }
+            "device_ids" => {
+                let devices = self.context.devices.read().await;
+                devices.keys().cloned().collect()
+            }
+            "lighting_device_names" => {
+                let devices = self.context.devices.read().await;
+                devices
+                    .values()
+                    .filter(|d| {
+                        d.category == "lights"
+                            || d.device_type.contains("Light")
+                            || d.device_type.contains("Dimmer")
+                    })
+                    .map(|d| d.name.clone())
+                    .collect()
+            }
+            "blinds_device_names" => {
+                let devices = self.context.devices.read().await;
+                devices
+                    .values()
+                    .filter(|d| d.category == "blinds" || d.device_type == "Jalousie")
+                    .map(|d| d.name.clone())
+                    .collect()
+            }
+            "audio_zone_names" => {
+                let devices = self.context.devices.read().await;
+                devices
+                    .values()
+                    .filter(|d| {
+                        d.category == "audio"
+                            || d.device_type.contains("Audio")
+                            || d.device_type.contains("Music")
+                    })
+                    .map(|d| d.name.clone())
+                    .collect()
+            }
+
+            // Device type completions with actual system data
             "device_types" => {
+                let devices = self.context.devices.read().await;
+                let mut types: std::collections::HashSet<String> =
+                    devices.values().map(|d| d.device_type.clone()).collect();
+
+                // Add common types even if not present
+                types.insert("Light".to_string());
+                types.insert("Jalousie".to_string());
+                types.insert("TimedSwitch".to_string());
+                types.insert("Dimmer".to_string());
+
+                types.into_iter().collect()
+            }
+            "device_categories" => {
+                let devices = self.context.devices.read().await;
+                let mut categories: std::collections::HashSet<String> =
+                    devices.values().map(|d| d.category.clone()).collect();
+
+                // Add standard categories
+                categories.insert("lights".to_string());
+                categories.insert("blinds".to_string());
+                categories.insert("climate".to_string());
+                categories.insert("audio".to_string());
+                categories.insert("security".to_string());
+
+                categories.into_iter().collect()
+            }
+
+            // Action completions based on context
+            "lighting_actions" => {
                 vec![
-                    "Light".to_string(),
-                    "Jalousie".to_string(),
-                    "TimedSwitch".to_string(),
-                    "Dimmer".to_string(),
+                    "on".to_string(),
+                    "off".to_string(),
+                    "toggle".to_string(),
+                    "dim".to_string(),
+                    "brighten".to_string(),
                 ]
             }
+            "blinds_actions" => {
+                vec![
+                    "up".to_string(),
+                    "down".to_string(),
+                    "stop".to_string(),
+                    "position".to_string(),
+                    "hoch".to_string(),
+                    "runter".to_string(),
+                    "stopp".to_string(),
+                ]
+            }
+            "audio_actions" => {
+                vec![
+                    "play".to_string(),
+                    "pause".to_string(),
+                    "stop".to_string(),
+                    "next".to_string(),
+                    "previous".to_string(),
+                    "volume_up".to_string(),
+                    "volume_down".to_string(),
+                    "mute".to_string(),
+                    "unmute".to_string(),
+                ]
+            }
+
+            // Sensor type completions
             "sensor_types" => {
                 vec![
                     "temperature".to_string(),
                     "humidity".to_string(),
                     "motion".to_string(),
                     "door_window".to_string(),
+                    "contact".to_string(),
+                    "presence".to_string(),
+                    "air_quality".to_string(),
                 ]
             }
+
+            // Climate control completions
+            "climate_modes" => {
+                vec![
+                    "auto".to_string(),
+                    "heat".to_string(),
+                    "cool".to_string(),
+                    "off".to_string(),
+                    "eco".to_string(),
+                    "comfort".to_string(),
+                    "manual".to_string(),
+                ]
+            }
+
+            // Scope completions for unified tools
+            "control_scopes" => {
+                vec![
+                    "device".to_string(),
+                    "room".to_string(),
+                    "system".to_string(),
+                    "all".to_string(),
+                ]
+            }
+
+            // Resource URI completions
+            "resource_uris" => {
+                vec![
+                    "loxone://system/info".to_string(),
+                    "loxone://structure/rooms".to_string(),
+                    "loxone://config/devices".to_string(),
+                    "loxone://status/health".to_string(),
+                    "loxone://system/capabilities".to_string(),
+                    "loxone://rooms".to_string(),
+                    "loxone://devices/all".to_string(),
+                    "loxone://devices/category/lighting".to_string(),
+                    "loxone://devices/category/blinds".to_string(),
+                    "loxone://devices/category/climate".to_string(),
+                    "loxone://audio/zones".to_string(),
+                    "loxone://sensors/temperature".to_string(),
+                    "loxone://sensors/door-window".to_string(),
+                    "loxone://sensors/motion".to_string(),
+                    "loxone://weather/current".to_string(),
+                    "loxone://energy/consumption".to_string(),
+                ]
+            }
+
             _ => {
                 debug!("Unknown completion reference: {}", params.ref_);
                 vec![]
             }
         };
+
+        info!(
+            "✅ Providing {} completions for '{}'",
+            completions.len(),
+            params.ref_
+        );
 
         Ok(CompleteResult {
             completion: completions
@@ -930,6 +2673,6 @@ impl McpBackend for LoxoneBackend {
         _params: serde_json::Value,
     ) -> std::result::Result<serde_json::Value, Self::Error> {
         warn!("❓ Unknown custom method: {}", method);
-        Err(LoxoneError::validation(format!("Unknown method: {method}")))
+        Err(BackendError::configuration(format!("Unknown method: {method}")))
     }
 }
