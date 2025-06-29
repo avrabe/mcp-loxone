@@ -1,423 +1,310 @@
-# 🏗️ Loxone MCP Rust Architecture
+# Architecture Overview
 
-**Comprehensive system design overview for the high-performance Rust MCP implementation**
+This document describes the architecture of the Loxone MCP Server implementation.
 
-## 📊 System Overview
-
-The Loxone MCP Rust server is a sophisticated, production-ready implementation consisting of **183 source files** organized into **12 major modules**. Built with performance, security, and scalability in mind.
-
-### 🎯 Core Design Principles
-
-- **Performance First**: Async I/O, zero-copy operations, minimal allocations
-- **Security by Design**: Input validation, rate limiting, audit logging
-- **Universal Deployment**: Native, Docker, WASM, edge computing
-- **Type Safety**: Rust's type system prevents runtime errors
-- **Modular Architecture**: Clean separation of concerns
-
-## 🏛️ High-Level Architecture
+## System Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                     🦀 Loxone MCP Rust Server                   │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
-│  │ 🖥️  Server   │  │ 🎛️  Tools    │  │ 🔌 Client   │  │🌐 WASM  │ │
-│  │ MCP Protocol│  │ 30+ Commands│  │ HTTP/WS     │  │2MB Size │ │
-│  │ (10 files)  │  │ (12 files)  │  │ (7 files)   │  │(4 files)│ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
-│  │ 🛡️ Security  │  │ 📊 Perf     │  │ 📈 Monitor  │  │📚 History│ │
-│  │ Validation  │  │ Profiling   │  │ Dashboard   │  │Time-Series│ │
-│  │ (6 files)   │  │ (6 files)   │  │ (6 files)   │  │(13 files)│ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
-├─────────────────────────────────────────────────────────────────┤
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────┐ │
-│  │ ⚙️ Config    │  │ ✅ Validation│  │ 🔍 Discovery│  │📝 Audit │ │
-│  │ Credentials │  │ Req/Resp    │  │ Network     │  │Logging  │ │
-│  │ (7 files)   │  │ (5 files)   │  │ (5 files)   │  │(1 file) │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘  └─────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────┐     ┌─────────────────┐
+│ Claude Desktop  │     │   Web Client    │
+│    (stdio)      │     │  (HTTP/SSE)     │
+└────────┬────────┘     └────────┬────────┘
+         │                       │
+         └───────────┬───────────┘
+                     │
+        ┌────────────┴────────────┐
+        │   MCP Server Core      │
+        │  (PulseEngine MCP)     │
+        └────────────┬────────────┘
+                     │
+        ┌────────────┴────────────┐
+        │    Tool Adapters       │
+        │   (34 MCP Tools)       │
+        └────────────┬────────────┘
+                     │
+        ┌────────────┴────────────┐
+        │   Loxone Client        │
+        │  (HTTP/WebSocket)      │
+        └────────────┬────────────┘
+                     │
+        ┌────────────┴────────────┐
+        │  Loxone Miniserver     │
+        │   (Gen 1/Gen 2)        │
+        └─────────────────────────┘
 ```
 
-## 📦 Module Deep Dive
+## Core Components
 
-### 🖥️ Server Module (`src/server/` - 10 files)
+### 1. Transport Layer
 
-**Core MCP protocol implementation and request handling**
+The server supports multiple transport mechanisms:
 
-```
-server/
-├── mod.rs                    # Module exports and core types
-├── handlers.rs               # MCP tool request handlers
-├── rmcp_impl.rs             # Remote MCP implementation
-├── models.rs                # Data models and structures
-├── resources.rs             # MCP resource management
-├── context_builders.rs      # Request context creation
-├── response_optimization.rs # Response formatting
-├── schema_validation.rs     # Input schema validation
-├── response_cache.rs        # Response caching layer
-└── subscription/            # Real-time subscriptions
-    ├── manager.rs           # Subscription lifecycle
-    ├── detector.rs          # Change detection
-    ├── dispatcher.rs        # Event dispatching
-    └── types.rs            # Subscription types
-```
+- **stdio Transport**: For Claude Desktop integration
+  - JSON-RPC over standard input/output
+  - Single-user, desktop application model
+  
+- **HTTP/SSE Transport**: For web clients and integrations
+  - RESTful HTTP endpoints
+  - Server-Sent Events for streaming responses
+  - CORS support for browser-based clients
 
-**Key Responsibilities:**
-- MCP protocol compliance and message handling
-- Request routing and response formatting
-- Resource lifecycle management
-- Real-time subscription handling
-- Request context and metadata management
+### 2. MCP Framework (PulseEngine)
 
-### 🎛️ Tools Module (`src/tools/` - 12 files)
+The server is built on the PulseEngine MCP framework, providing:
 
-**30+ MCP tools for comprehensive device control**
+- Protocol compliance and validation
+- Request/response handling
+- Tool registration and discovery
+- Resource management
+- Error handling and logging
 
-```
-tools/
-├── mod.rs           # Tool registration and exports
-├── devices.rs       # Lights, switches, dimmers (10 tools)
-├── climate.rs       # Temperature, HVAC control (8 tools)
-├── audio.rs         # Volume, zones, sources (12 tools)
-├── sensors.rs       # Temperature, motion, door/window (8 tools)
-├── security.rs      # Alarms, access control (6 tools)
-├── energy.rs        # Power monitoring (4 tools)
-├── rooms.rs         # Room-based operations (4 tools)
-├── weather.rs       # Weather station integration (3 tools)
-├── workflows.rs     # Automation and scenes (5 tools)
-├── documentation.rs # Tool documentation generation
-└── modular design  # Each tool is self-contained
-```
+### 3. Tool Adapters
 
-**Tool Categories:**
-- **Device Control**: Direct hardware manipulation
-- **Monitoring**: Status and sensor reading
-- **Automation**: Scene and workflow management
-- **System**: Discovery and configuration
+Tools are organized in a centralized adapter system (`src/tools/adapters.rs`):
 
-### 🔌 Client Module (`src/client/` - 7 files)
+- Single source of truth for all tool implementations
+- Consistent error handling across tools
+- Shared context and state management
+- Type-safe parameter validation
 
-**HTTP and WebSocket communication with Loxone Miniserver**
+### 4. Loxone Client
 
-```
-client/
-├── mod.rs                  # Client trait and common types
-├── http_client.rs         # Basic HTTP client implementation
-├── token_http_client.rs   # Token-based authentication
-├── websocket_client.rs    # WebSocket real-time communication
-├── connection_pool.rs     # Connection pooling and reuse
-├── streaming_parser.rs    # Efficient response parsing
-├── command_queue.rs       # Batch command processing
-└── auth.rs               # Authentication strategies
-```
+The client layer handles communication with the Miniserver:
 
-**Features:**
-- **Connection Pooling**: Reuse HTTP connections for efficiency
-- **Async I/O**: Non-blocking communication using Tokio
-- **Authentication**: Token and basic auth support
-- **Error Handling**: Robust retry and fallback mechanisms
-- **Streaming**: Real-time event processing
+- **HTTP Client** (`src/client/http_client.rs`)
+  - Primary communication method
+  - Basic authentication
+  - Connection pooling
+  - Retry logic with exponential backoff
+  
+- **WebSocket Client** (`src/client/websocket_client.rs`)
+  - For future real-time updates
+  - Encrypted communication support
+  - Currently not fully integrated
 
-### 🛡️ Security Module (`src/security/` - 6 files)
+### 5. State Management
 
-**Production-grade security and input validation**
+Efficient state management through multiple layers:
+
+- **Connection Pool**: Manages HTTP connections efficiently
+- **Response Cache**: TTL-based caching of device states
+- **Structure Cache**: Caches device structure (rooms, devices)
+- **Background Refresh**: Automatic cache updates
+
+## Data Flow
+
+### Request Processing
+
+1. **Transport receives request** (stdio or HTTP)
+2. **Framework validates** against MCP protocol
+3. **Tool adapter called** with validated parameters
+4. **Client queries** Loxone Miniserver
+5. **Response cached** if applicable
+6. **Result returned** through transport
+
+### Example: Light Control
 
 ```
-security/
-├── mod.rs                  # Security framework
-├── middleware.rs          # HTTP security middleware
-├── input_sanitization.rs  # Input validation and sanitization
-├── rate_limiting.rs       # Token bucket rate limiting
-├── cors.rs               # Cross-origin request policies
-└── headers.rs            # Security header management
+User: "Turn on living room lights"
+  │
+  ├─> MCP Server receives tool call: control_lights_unified
+  │     └─> Parameters: {scope: "room", target: "Living Room", command: "on"}
+  │
+  ├─> Tool Adapter validates parameters
+  │     └─> Checks room exists, command is valid
+  │
+  ├─> Loxone Client builds request
+  │     └─> GET /jdev/sps/io/{uuid}/on for each light
+  │
+  ├─> Connection pool provides connection
+  │     └─> Reuses existing or creates new
+  │
+  ├─> Miniserver processes commands
+  │     └─> Returns success/failure for each
+  │
+  └─> Response formatted and returned
+        └─> Cache updated with new states
 ```
 
-**Security Features:**
-- **Input Validation**: SQL injection, XSS, path traversal prevention
-- **Rate Limiting**: Token bucket with penalty system
-- **CORS Protection**: Configurable cross-origin policies
-- **Audit Logging**: All security events logged
-- **Header Security**: CSP, HSTS, X-Frame-Options
+## Security Architecture
 
-### 📊 Performance Module (`src/performance/` - 6 files)
-
-**Real-time performance monitoring and optimization**
+### Authentication Flow
 
 ```
-performance/
-├── mod.rs           # Performance monitoring framework
-├── metrics.rs       # Metric collection and aggregation
-├── profiler.rs      # Performance profiling and bottleneck detection
-├── analyzer.rs      # Performance analysis and trending
-├── reporter.rs      # Performance reporting and alerting
-└── middleware.rs    # HTTP performance middleware
+┌────────┐     ┌────────────┐     ┌──────────────┐
+│ Client │────>│ MCP Server │────>│  Miniserver  │
+└────────┘     └────────────┘     └──────────────┘
+    │               │                     │
+    │ API Key       │ Basic Auth         │
+    └───────────────┴─────────────────────┘
 ```
 
-**Monitoring Capabilities:**
-- **Request Latency**: P50, P95, P99 percentiles
-- **Resource Usage**: CPU, memory, network tracking
-- **Bottleneck Detection**: Automatic performance issue identification
-- **Trending**: Historical performance analysis
-- **Alerting**: Configurable performance thresholds
+### Security Layers
 
-### 📚 History Module (`src/history/` - 13 files)
+1. **API Key Authentication**
+   - Role-based access control (admin, operator, viewer)
+   - Key storage using system keychain
+   - Optional IP whitelisting
 
-**Time-series data storage and retrieval**
+2. **Input Validation**
+   - UUID format validation
+   - Command sanitization
+   - Parameter type checking
 
-```
-history/
-├── mod.rs                # History system framework
-├── core.rs              # Unified history store
-├── hot_storage.rs       # In-memory ring buffers
-├── cold_storage.rs      # Persistent JSON storage
-├── events.rs            # Event type definitions
-├── query.rs             # Query interface and filtering
-├── tiering.rs           # Hot-to-cold data migration
-├── dashboard.rs         # Dashboard integration
-├── dashboard_api.rs     # Dashboard API endpoints
-├── dynamic_dashboard.rs # Auto-discovery dashboard
-├── config.rs            # History configuration
-├── compat/              # Compatibility adapters
-│   └── sensor_history.rs
-└── migration_roadmap.md # Migration documentation
-```
+3. **Rate Limiting**
+   - Per-role limits
+   - Sliding window algorithm
+   - Graceful degradation
 
-**Data Management:**
-- **Tiered Storage**: Hot (memory) + Cold (disk) storage
-- **Real-time Queries**: Efficient time-series querying
-- **Dashboard Integration**: Web dashboard for visualization
-- **Event Streaming**: Real-time data updates
-- **Data Migration**: Automatic hot-to-cold tiering
+4. **Audit Logging**
+   - All actions logged with user context
+   - Configurable retention
+   - Export capabilities
 
-### 🌐 WASM Module (`src/wasm/` - 4 files)
+## Performance Optimizations
 
-**WebAssembly compilation and optimization**
+### Connection Management
 
-```
-wasm/
-├── mod.rs            # WASM module exports
-├── component.rs      # WASM component model
-├── wasip2.rs        # WASIP2 interface implementation
-└── optimizations.rs # Size and performance optimizations
-```
+- **Pool Size**: Configurable (default: 10)
+- **Keep-Alive**: Maintains persistent connections
+- **Circuit Breaker**: Prevents cascade failures
 
-**WASM Features:**
-- **WASIP2 Support**: Latest WebAssembly standard
-- **2MB Binary**: Optimized for edge deployment
-- **Browser Compatible**: Runs in web browsers
-- **Edge Computing**: Suitable for CDN edge nodes
+### Caching Strategy
 
-### ⚙️ Config Module (`src/config/` - 7 files)
+- **Device States**: 30-second TTL
+- **Structure Data**: 5-minute TTL
+- **Weather Data**: 1-minute TTL
+- **Energy Data**: 10-second TTL
 
-**Secure credential and configuration management**
+### Concurrency
 
-```
-config/
-├── mod.rs                # Configuration framework
-├── credentials.rs        # Credential management interface
-├── security_keychain.rs  # macOS Keychain integration
-├── macos_keychain.rs     # macOS-specific implementation
-├── infisical_client.rs   # Infisical secret management
-├── wasi_keyvalue.rs      # WASM key-value storage
-└── sensor_config.rs      # Sensor configuration management
+- **Async/Await**: Non-blocking I/O throughout
+- **Tokio Runtime**: Multi-threaded executor
+- **Batch Operations**: Parallel device commands
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Loxone Connection
+LOXONE_HOST=http://192.168.1.100
+LOXONE_USER=username
+LOXONE_PASS=password
+
+# Server Configuration
+LOXONE_LOG_LEVEL=info
+LOXONE_CACHE_TTL=30
+LOXONE_MAX_CONNECTIONS=10
+
+# Security
+LOXONE_API_KEY=your-api-key
+LOXONE_RATE_LIMIT=100
 ```
 
-**Configuration Sources:**
-- **Environment Variables**: Development and container deployment
-- **macOS Keychain**: Secure local storage
-- **Infisical**: Team secret management
-- **WASM Storage**: Browser local storage for WASM deployment
+### Configuration File
 
-### ✅ Validation Module (`src/validation/` - 5 files)
+```toml
+[server]
+host = "127.0.0.1"
+port = 3001
+transport = "http"
 
-**Request and response validation framework**
+[loxone]
+host = "http://192.168.1.100"
+verify_ssl = false
+timeout = 30
 
-```
-validation/
-├── mod.rs         # Validation framework
-├── middleware.rs  # HTTP validation middleware
-├── schema.rs      # JSON schema validation
-├── sanitizer.rs   # Input sanitization
-└── rules.rs       # Validation rules engine
-```
+[cache]
+device_ttl = 30
+structure_ttl = 300
 
-### 🔍 Discovery Module (`src/discovery/` - 5 files)
-
-**Network device discovery and auto-configuration**
-
-```
-discovery/
-├── mod.rs             # Discovery framework
-├── device_discovery.rs # Loxone device discovery
-├── discovery_cache.rs  # Discovery result caching
-├── network.rs         # Network scanning utilities
-└── mdns.rs           # mDNS/Bonjour discovery
+[security]
+enable_auth = true
+rate_limit = 100
 ```
 
-### 📈 Monitoring Module (`src/monitoring/` - 6 files)
+## Error Handling
 
-**Real-time monitoring and dashboard**
+### Error Types
 
-```
-monitoring/
-├── mod.rs                  # Monitoring framework
-├── unified_collector.rs    # Data collection service
-├── unified_dashboard.rs    # Dashboard controller
-├── dashboard.rs           # Dashboard implementation
-├── metrics.rs             # Metrics aggregation
-└── influxdb.rs           # InfluxDB integration
-```
+1. **Connection Errors**: Network and timeout issues
+2. **Authentication Errors**: Invalid credentials or permissions
+3. **Validation Errors**: Invalid parameters or commands
+4. **Device Errors**: Device not found or command failed
+5. **Protocol Errors**: MCP protocol violations
 
-## 🔄 Data Flow Architecture
+### Error Propagation
 
-### Request Processing Flow
-
-```
-1. HTTP/stdio Request → Security Middleware → Validation
-2. Tool Router → Specific Tool Handler → Loxone Client
-3. Response Processing → Caching → Security Headers
-4. Monitoring/Logging → Response to Client
+```rust
+LoxoneError
+  ├─> Connection(String)
+  ├─> Authentication(String)
+  ├─> Validation(String)
+  ├─> DeviceControl(String)
+  └─> Protocol(String)
 ```
 
-### Real-time Event Flow
+## Monitoring and Observability
+
+### Logging
+
+- **Structured Logging**: Using `tracing` crate
+- **Log Levels**: TRACE, DEBUG, INFO, WARN, ERROR
+- **Context**: Request IDs, user info, timing
+
+### Metrics
+
+- Request count and latency
+- Cache hit/miss rates
+- Connection pool statistics
+- Error rates by type
+
+### Health Checks
+
+- `/health` - Basic server health
+- `/ready` - Miniserver connectivity
+- `/metrics` - Prometheus-compatible metrics
+
+## Future Considerations
+
+### Planned Enhancements
+
+1. **WebSocket Integration**: Real-time device updates
+2. **Event Subscriptions**: Push notifications for state changes
+3. **Advanced Caching**: Predictive cache warming
+4. **Distributed Deployment**: Multiple server instances
+
+### WASM Support
+
+Currently disabled due to tokio limitations. Future implementation would require:
+
+- Alternative async runtime for WASM
+- Platform-specific transport implementations
+- Modified security layer for browser environment
+
+## Development Guidelines
+
+### Code Organization
 
 ```
-1. Loxone WebSocket → Event Parser → Event Classification
-2. Subscription Manager → Event Dispatcher → Clients
-3. History Storage → Dashboard Updates → Metrics
-```
-
-### WASM Compilation Flow
-
-```
-1. Rust Source → WASM Target → Size Optimization
-2. Component Model → WASIP2 Interface → 2MB Binary
-3. Edge Deployment → Browser/Runtime → Production
-```
-
-## 🎯 Performance Characteristics
-
-### Benchmark Results
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **Cold Start** | <100ms | Server initialization time |
-| **Request Latency** | <10ms | Average tool execution time |
-| **Throughput** | 1000+ RPS | Concurrent request handling |
-| **Memory Usage** | <50MB | Runtime memory footprint |
-| **Binary Size** | 15MB (native) | Release binary size |
-| **WASM Size** | 2MB | WebAssembly binary |
-| **Connection Pool** | 100 connections | HTTP client pool size |
-
-### Scalability Features
-
-- **Async I/O**: Non-blocking operations using Tokio
-- **Connection Pooling**: HTTP connection reuse
-- **Batch Processing**: Multiple devices in parallel
-- **Smart Caching**: Structure data cached in memory
-- **Rate Limiting**: Prevents resource exhaustion
-- **Resource Monitoring**: Automatic scaling triggers
-
-## 🔐 Security Architecture
-
-### Defense in Depth
-
-```
-┌─ Input Layer ─────────────────────────────────────┐
-│ • Parameter validation (UUID, IP, string formats) │
-│ • Size limits (request/response)                  │
-│ • Character encoding validation                   │
-└───────────────────────────────────────────────────┘
-                         ▼
-┌─ Application Layer ───────────────────────────────┐
-│ • Rate limiting (token bucket + penalties)       │
-│ • Authentication (token/basic)                   │
-│ • Authorization (role-based access)              │
-└───────────────────────────────────────────────────┘
-                         ▼
-┌─ Transport Layer ─────────────────────────────────┐
-│ • TLS/HTTPS encryption                           │
-│ • CORS policies                                  │
-│ • Security headers (CSP, HSTS, etc.)            │
-└───────────────────────────────────────────────────┘
-                         ▼
-┌─ Audit Layer ─────────────────────────────────────┐
-│ • All requests logged                            │
-│ • Security events tracked                       │
-│ • Credential sanitization                       │
-└───────────────────────────────────────────────────┘
-```
-
-## 🚀 Deployment Architecture
-
-### Multi-Platform Support
-
-```
-┌─ Native Deployment ───┐    ┌─ Container Deployment ─┐
-│ • Linux/macOS/Windows │    │ • Docker containers    │
-│ • Systemd integration │    │ • Kubernetes pods      │
-│ • Direct binary exec  │    │ • Health checks        │
-└───────────────────────┘    └────────────────────────┘
-                     ▼              ▼
-              ┌─ Load Balancer ─────────────┐
-              │ • Multiple instances        │
-              │ • Health monitoring         │
-              │ • Auto-scaling             │
-              └────────────────────────────┘
-                         ▼
-┌─ Edge Deployment ─────┐    ┌─ WASM Deployment ──────┐
-│ • CDN edge nodes      │    │ • Browser execution    │
-│ • Minimal latency     │    │ • Serverless functions │
-│ • Regional processing │    │ • Edge computing       │
-└───────────────────────┘    └────────────────────────┘
-```
-
-## 🔧 Development Architecture
-
-### Build System
-
-```
-┌─ Cargo Workspace ─────────────────────────────────┐
-│ • Main crate: loxone-mcp-rust                     │
-│ • Foundation crate: mcp-foundation                │
-│ • Multi-target builds (native + WASM)            │
-└───────────────────────────────────────────────────┘
-                         ▼
-┌─ CI/CD Pipeline ──────────────────────────────────┐
-│ • GitHub Actions                                  │
-│ • Multi-platform testing                         │
-│ • Security scanning                               │
-│ • Performance benchmarks                         │
-└───────────────────────────────────────────────────┘
-                         ▼
-┌─ Quality Gates ───────────────────────────────────┐
-│ • cargo test (226 tests)                         │
-│ • cargo clippy (linting)                         │
-│ • cargo audit (security)                         │
-│ • Code coverage reports                          │
-└───────────────────────────────────────────────────┘
+src/
+├── server/          # MCP protocol handling
+├── tools/           # Tool implementations
+│   └── adapters.rs  # All 34 tools
+├── client/          # Loxone communication
+├── security/        # Auth and validation
+├── performance/     # Monitoring and metrics
+└── lib.rs           # Public API
 ```
 
 ### Testing Strategy
 
-- **Unit Tests**: 183 files with individual function tests
-- **Integration Tests**: End-to-end MCP protocol testing
-- **Security Tests**: Input validation and attack prevention
-- **Performance Tests**: Latency and throughput benchmarks
-- **WASM Tests**: WebAssembly compatibility verification
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: End-to-end tool testing
+- **Performance Tests**: Load and stress testing
+- **Security Tests**: Penetration testing
 
-## 📈 Future Architecture
+### Contributing
 
-### Planned Enhancements
-
-- **Plugin System**: Dynamic tool loading
-- **GraphQL API**: Advanced query capabilities  
-- **AI Integration**: Smart automation suggestions
-- **Distributed Mode**: Multi-instance coordination
-- **Advanced Analytics**: Machine learning insights
-
----
-
-*This architecture enables a production-ready, secure, and highly performant MCP server that scales from single-device development to enterprise deployment.*
+See [contributing.md](../contributing.md) for development setup and guidelines.

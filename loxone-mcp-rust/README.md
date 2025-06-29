@@ -1,290 +1,181 @@
-# 🏠 Loxone MCP Rust Server
+# Loxone MCP Server
 
-**Model Context Protocol server for Loxone home automation systems**  
-*Development prototype • 17 working tools • Enterprise authentication*
+> **Bridging Loxone home automation with the Model Context Protocol ecosystem through high-performance Rust implementation**
 
 [![Rust](https://img.shields.io/badge/rust-1.70+-orange.svg)](https://www.rust-lang.org)
-[![Status](https://img.shields.io/badge/status-development-yellow.svg)](#-development-status)
-[![WASM](https://img.shields.io/badge/WASM-experimental-blue.svg)](https://wasmtime.dev)
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CI](https://github.com/avrabe/mcp-loxone/actions/workflows/ci.yml/badge.svg)](https://github.com/avrabe/mcp-loxone/actions)
+[![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
-> **⚠️ Development Status**: This is a working prototype with basic functionality. See [WISHLIST.md](WISHLIST.md) for planned features.
+A Model Context Protocol (MCP) server that enables programmatic control of Loxone home automation systems. This implementation provides comprehensive device control through 34 specialized tools, supporting both stdio (for Claude Desktop) and HTTP transports.
 
-## 🚀 Quick Start
+## Features
+
+- **Comprehensive Control**: 34 MCP tools covering lights, blinds, climate, audio, sensors, and more
+- **Multiple Transports**: stdio for Claude Desktop, HTTP/SSE for web integrations
+- **Enterprise Security**: API key authentication with role-based access control
+- **Performance Optimized**: Connection pooling, intelligent caching, batch operations
+- **Framework Integration**: Built on PulseEngine MCP framework for standardized protocol handling
+
+## Requirements
+
+- Rust 1.70 or higher
+- Loxone Miniserver (Gen 1 or Gen 2)
+- Network access to Miniserver
+
+## Installation
+
+### From Source
 
 ```bash
-# Setup (requires manual configuration)
-git clone https://github.com/your-repo/loxone-mcp-rust && cd loxone-mcp-rust
-cargo build
-
-# Configure credentials
-export LOXONE_HOST="192.168.1.100"
-export LOXONE_USER="admin"
-export LOXONE_PASS="password"
-
-# Setup unified authentication (NEW!)
-cargo run --bin loxone-mcp-auth create --name "Admin" --role admin --created-by "setup"
-
-# Run server
-cargo run --bin loxone-mcp-server -- stdio  # Claude Desktop integration
-cargo run --bin loxone-mcp-server -- http --port 3001   # HTTP API mode
-```
-
-**Basic setup** • **Manual configuration required** • **Development status**
-
-## ✨ What You Get
-
-| Feature | Description | Status |
-|---------|-------------|--------|
-| **🎛️ 17 MCP Tools** | Device control, sensor management, basic system info | ✅ Working |
-| **🌐 WASM Support** | Basic WASM compilation (needs testing) | ⚠️ Experimental |
-| **🛡️ Unified Auth** | SSH-style API keys, RBAC, IP whitelisting, audit logging | ✅ Production-ready |
-| **🔐 WebSocket Auth** | Token authentication for real-time connections | ✅ Working |
-| **📊 Dashboard** | Static HTML dashboard (no real-time data) | ⚠️ Basic |
-| **🐳 Multi-Platform** | Linux, macOS, Windows builds | ✅ Working |
-| **⚡ Core Performance** | Basic async I/O, single connections | ⚠️ Basic |
-
-## 🏗️ Architecture Overview
-
-```
-┌─────────── MCP Clients ──────────────┐    ┌─── Loxone Miniserver ────┐
-│  🤖 Claude Desktop (stdio)           │    │  🏠 HTTP/WebSocket API    │
-│  🔄 n8n Workflows (HTTP)            │◄──►│  💡 Device Controls       │
-│  🌐 Web Applications (REST)          │    │  📊 Real-time Events      │
-└───────────────────────────────────────┘    └───────────────────────────┘
-                    ▲                                     ▲
-                    │                                     │
-              ┌─────▼─────────────────────────────────────▼─────┐
-              │          🦀 Rust MCP Server                    │
-              │  ┌─────────┬─────────┬─────────┬─────────┐    │
-              │  │ 🎛️ Tools│🛡️Security│📊Monitor│🌐 WASM │    │
-              │  │ 17 MCP  │Basic Auth│Static   │Exp.    │    │
-              │  │ Commands│Validation│Dashboard│Deploy   │    │
-              │  └─────────┴─────────┴─────────┴─────────┘    │
-              │  ┌─────────────────────────────────────────┐    │
-              │  │ 🔧 Core Engine                          │    │
-              │  │ • Async I/O (Tokio)                     │    │
-              │  │ • Connection Pooling                    │    │
-              │  │ • Batch Processing                      │    │
-              │  │ • Auto-discovery                        │    │
-              │  └─────────────────────────────────────────┘    │
-              └─────────────────────────────────────────────────┘
-```
-
-## 🎯 Core Features
-
-### 🎛️ **Comprehensive Device Control**
-- **Audio**: Volume, zones, sources (12 commands)
-- **Climate**: Temperature, HVAC, zones (8 commands)  
-- **Devices**: Lights, switches, dimmers, blinds (10 commands)
-- **Security**: Alarms, access control, monitoring (6 commands)
-- **Sensors**: Temperature, motion, door/window (8 commands)
-- **Energy**: Power monitoring, consumption tracking (4 commands)
-
-### 🌐 **Deployment Flexibility**
-```bash
-# Native Binary (Linux/macOS/Windows)
+git clone https://github.com/avrabe/mcp-loxone
+cd loxone-mcp-rust
 cargo build --release
-
-# WebAssembly (Edge/Browser)
-make wasm  # → 2MB WASM binary
-
-# Docker Container
-docker build -t loxone-mcp .
-
-# Development Mode
-make dev-run  # Hot reload + inspector
 ```
 
-### 🛡️ **Production Security** (Enterprise-grade!)
-- ✅ **Unified Authentication System** with SSH-style secure storage
-- ✅ **Role-Based Access Control** (Admin, Operator, Monitor, Device, Custom)
-- ✅ **API Key Management CLI** with audit logging and key rotation
-- ✅ **Rate Limiting** (blocks after 4 failed attempts, 30min cooldown)
-- ✅ **IP Whitelisting** with CIDR notation (`192.168.1.0/24`, IPv6 support)
-- ✅ **WebSocket Token Auth** (shared with HTTP client, no fallback)
-- ✅ **Background Cache Refresh** (automatic storage synchronization)
-- ✅ **SSH-Style Permissions** (700 dirs, 600 files) for credentials
-- ✅ **Input validation** against injection attacks
-- ✅ **Credential sanitization** in logs
-- ✅ **CORS protection** with configurable policies
-- ✅ **Audit logging** with comprehensive usage tracking
-- ✅ **Request size limits** (DoS prevention)
+### Configuration
 
-### ⚡ **Performance Optimized**
-- ✅ **Async everywhere** - Built on Tokio runtime
-- ✅ **Zero-copy operations** - Minimal allocations
-- ✅ **Connection pooling** - HTTP client reuse
-- ✅ **Batch processing** - 100+ devices in parallel
-- ✅ **Smart caching** - Structure data cached
-- ✅ **WASM optimized** - 2MB binary size
+1. **Set up credentials** (interactive):
+   ```bash
+   cargo run --bin loxone-mcp-setup
+   ```
 
-## 📖 Documentation
+2. **Or use environment variables**:
+   ```bash
+   export LOXONE_HOST="http://192.168.1.100"
+   export LOXONE_USER="your-username"
+   export LOXONE_PASS="your-password"
+   ```
 
-| Guide | Description | Link |
-|-------|-------------|------|
-| 🏁 **Quick Start** | Get running in 5 minutes | [docs/QUICK_START.md](docs/QUICK_START.md) |
-| 🎛️ **Configuration** | Complete setup guide & wizard | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
-| 🏗️ **Architecture** | System design & 12 modules | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
-| 🔒 **Security** | API keys & access control | [docs/SECURITY_ARCHITECTURE.md](docs/SECURITY_ARCHITECTURE.md) |
-| 📊 **Resources** | 22 data resources | [docs/RESOURCES.md](docs/RESOURCES.md) |
-| 🔧 **API Tools** | 30+ MCP tools quick reference | [docs/RESOURCE_QUICK_REFERENCE.md](docs/RESOURCE_QUICK_REFERENCE.md) |
-| 🚀 **Local Testing** | Quick start guide | [LOCAL_QUICKSTART.md](LOCAL_QUICKSTART.md) |
-
-## 🛠️ Development
-
-### Prerequisites
-- **Rust 1.70+** - `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-- **WASM target** - `rustup target add wasm32-wasip2`
-- **Docker** (optional) - For containerized development
-
-### Quick Development Setup
-```bash
-# Clone and setup
-git clone https://github.com/your-repo/loxone-mcp-rust && cd loxone-mcp-rust
-./dev-env.sh  # Sets up credentials & environment
-
-# Generate API keys for secure access
-cargo run --bin loxone-mcp-auth -- create --role admin --name "Main Admin"
-
-# Build & Test
-cargo build                    # Native build
-cargo test --lib              # Run test suite  
-cargo clippy                  # Code linting
-make wasm                     # WASM build
-make check                    # All quality checks
-
-# Run development server
-make dev-run                  # HTTP mode with hot reload
-cargo run -- stdio           # Claude Desktop mode
-```
-
-### Project Structure (183 files across 12 modules)
-```
-src/
-├── 🖥️  server/         # MCP protocol implementation (10 files)
-├── 🎛️  tools/          # 30+ device control tools (12 files)
-├── 🔌 client/         # HTTP/WebSocket clients (7 files)
-├── ⚙️  config/         # Credential management (7 files)
-├── 🛡️  security/       # API keys, validation, rate limiting (8 files)
-├── 🔑 key_store/      # Multi-user key management
-├── 📊 performance/    # Monitoring, profiling (6 files)
-├── 📈 monitoring/     # Dashboard, metrics (6 files)
-├── 📚 history/        # Time-series data storage (13 files)
-├── 🌐 wasm/          # WebAssembly optimizations (4 files)
-├── ✅ validation/     # Request/response validation (5 files)
-├── 🔍 discovery/      # Network device discovery (5 files)
-└── 📝 audit_log.rs   # Security audit logging
-```
-
-## 🌟 Key Statistics
-
-| Metric | Value | Description |
-|--------|-------|-------------|
-| **📁 Source Files** | 183 Rust files | Comprehensive implementation |
-| **🎛️ MCP Tools** | 30+ commands | Complete device control |
-| **🏗️ Modules** | 12 major systems | Modular architecture |
-| **📦 Binary Size** | 2MB (WASM) | Edge deployment ready |
-| **⚡ Performance** | <10ms latency | Production optimized |
-| **🛡️ Security** | RBAC + validation | Multi-user API keys |
-| **✅ Test Coverage** | 226 tests | Comprehensive testing |
-| **🌐 Platforms** | 6 targets | Universal deployment |
-
-## 🔑 Unified Authentication System (NEW!)
-
-The server now includes a production-ready unified authentication system with SSH-style security.
-
-**📚 Full Documentation**: See [docs/UNIFIED_AUTH_SETUP.md](docs/UNIFIED_AUTH_SETUP.md)
-
-### Quick Start
-```bash
-# Install auth CLI tool
-cargo install --path . --bin loxone-mcp-auth
-
-# Create your first admin key
-loxone-mcp-auth create --name "Admin" --role admin --created-by "setup"
-
-# List all keys
-loxone-mcp-auth list
-
-# Test authentication
-loxone-mcp-auth test --secret lmk_live_your_key --ip 127.0.0.1
-```
-
-### Key Features
-- **SSH-Style Security**: Credentials stored with 600/700 permissions
-- **Role-Based Access**: Admin, Operator, Monitor, Device, Custom roles
-- **Audit Logging**: Complete security event tracking
-- **Rate Limiting**: Protection against brute-force attacks
-- **Key Rotation**: Built-in support for key expiration and renewal
-
-## 🔗 Integration Examples
+## Usage
 
 ### Claude Desktop Integration
+
+Add to your Claude Desktop configuration:
+
 ```json
 {
   "mcpServers": {
     "loxone": {
-      "command": "cargo",
-      "args": ["run", "--bin", "loxone-mcp-server", "--", "stdio"]
+      "command": "/path/to/loxone-mcp-server",
+      "args": ["stdio"]
     }
   }
 }
 ```
 
-### n8n Workflow Integration
-```bash
-# Start HTTP server for n8n
-cargo run --bin loxone-mcp-server -- http --port 3001
+### HTTP Server (for n8n, web clients)
 
-# Use in n8n HTTP Request node with API key
-POST http://localhost:3001/tools/call
-Headers:
-  X-API-Key: lmcp_operator_001_abc123def456
+```bash
+./loxone-mcp-server http --port 3001
 ```
 
-### WASM Edge Deployment
-```bash
-# Build WASM component
-make wasm
+### Verify Installation
 
-# Deploy to Wasmtime/Wasmer
-wasmtime --serve target/wasm32-wasip2/release/loxone-mcp-server.wasm
+```bash
+cargo run --bin loxone-mcp-verify
 ```
 
-## 🤝 Community & Support
+## Available Tools
 
-- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/loxone-mcp-rust/issues)
-- **💬 Discussions**: [GitHub Discussions](https://github.com/your-repo/loxone-mcp-rust/discussions)  
-- **📖 Documentation**: [Full Docs](docs/README.md)
-- **🔒 Security**: [Security Policy](docs/SECURITY_ARCHITECTURE.md)
+The server implements 34 tools organized by category:
 
-## 📈 Roadmap
+### Device Control
+- `control_device` - Direct device control by UUID
+- `control_multiple_devices` - Batch device operations
+- `discover_all_devices` - List all available devices
+- `get_devices_by_category` - Filter devices by type
 
-- [x] **v1.0**: Core MCP implementation with 30+ tools
-- [x] **v1.1**: WASM support and edge deployment
-- [x] **v1.2**: Real-time dashboard and monitoring
-- [ ] **v2.0**: Plugin system for custom tools
-- [ ] **v2.1**: GraphQL API and advanced queries
-- [ ] **v2.2**: AI-powered automation suggestions
+### Lighting
+- `control_lights_unified` - Control lights by room or globally
+- `get_light_scenes` - Available lighting scenes
+- `set_light_scene` - Activate lighting scenes
 
-## 🏆 Why Choose This Implementation?
+### Climate Control
+- `get_room_climate` - Temperature and humidity data
+- `set_room_temperature` - Adjust room temperature
+- `get_climate_control` - HVAC system status
+- `set_room_mode` - Set comfort/eco/off modes
 
-| Advantage | Rust Benefits | Real Impact |
-|-----------|---------------|-------------|
-| **⚡ Performance** | Zero-cost abstractions | 10x faster than Python |
-| **🛡️ Security** | Memory safety, type system | Eliminates injection attacks |
-| **🌐 Portability** | WASM compilation | Deploy anywhere |
-| **🔧 Reliability** | Compile-time guarantees | Fewer runtime errors |
-| **📈 Scalability** | Async I/O, low resource usage | Handle 1000+ concurrent requests |
+### Audio
+- `get_audio_zones` - List audio zones
+- `control_audio_zone` - Play/pause/stop audio
+- `set_audio_volume` - Volume control
+- `get_audio_sources` - Available audio sources
 
----
+### Sensors
+- `get_all_door_window_sensors` - Security sensor status
+- `get_temperature_sensors` - Temperature readings
+- `get_motion_sensors` - Motion detection status
+- `discover_sensor_capabilities` - Available sensor types
 
-<div align="center">
+[Full tool documentation →](docs/tools_reference.md)
 
-**Built with ❤️ in Rust**  
-License: MIT • Version: 1.0.0 • [📚 Documentation](docs/) • [🚀 Get Started](#-quick-start)
+## Architecture
 
-*Transform your Loxone home automation with modern, secure, high-performance MCP integration*
+The server uses an async Rust architecture with:
 
-</div>
+- **Transport Layer**: Supports stdio and HTTP/SSE
+- **Tool Layer**: Modular tool implementations
+- **Client Layer**: HTTP and WebSocket clients for Miniserver communication
+- **Security Layer**: Authentication, rate limiting, input validation
+- **Cache Layer**: Intelligent state caching with TTL
+
+[Architecture details →](docs/architecture.md)
+
+## Security
+
+- **Authentication**: API key based with role support (admin, operator, viewer)
+- **Rate Limiting**: Configurable per-role limits
+- **Input Validation**: All inputs sanitized and validated
+- **Audit Logging**: Comprehensive activity logging
+
+[Security documentation →](docs/security.md)
+
+## Development
+
+### Building from Source
+
+```bash
+# Development build with debug symbols
+cargo build
+
+# Run tests
+cargo test
+
+# Format and lint
+cargo fmt && cargo clippy
+```
+
+### Project Structure
+
+```
+src/
+├── server/          # MCP protocol implementation
+├── tools/           # Tool implementations
+├── client/          # Loxone client
+├── security/        # Auth and validation
+└── main.rs          # Entry point
+```
+
+## Limitations
+
+- **WASM Support**: Currently disabled due to tokio compatibility issues
+- **Real-time Updates**: WebSocket subscriptions planned but not yet implemented
+- **Miniserver Version**: Tested with Gen 1 and Gen 2, newer versions may have differences
+
+## Contributing
+
+Contributions are welcome! Please see [contributing.md](contributing.md) for guidelines.
+
+## License
+
+Licensed under either of:
+
+- Apache License, Version 2.0 ([LICENSE-APACHE](LICENSE-APACHE))
+- MIT license ([LICENSE-MIT](LICENSE-MIT))
+
+at your option.
+
+## Acknowledgments
+
+Built on the PulseEngine MCP framework. Special thanks to the Loxone community for protocol documentation.
