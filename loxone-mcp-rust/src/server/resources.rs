@@ -507,7 +507,7 @@ impl ResourceManager {
         );
 
         // Additional resources for tools that were converted from read-only tools
-        
+
         // Room-specific resources
         // Note: These use templated URIs - handler must parse {room} parameter
         self.register_resource(
@@ -524,13 +524,14 @@ impl ResourceManager {
             LoxoneResource {
                 uri: "loxone://rooms/{room}/overview".to_string(),
                 name: "Room Overview".to_string(),
-                description: "Complete overview of a room including devices and statistics".to_string(),
+                description: "Complete overview of a room including devices and statistics"
+                    .to_string(),
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Rooms,
         );
 
-        // Climate resources  
+        // Climate resources
         self.register_resource(
             LoxoneResource {
                 uri: "loxone://climate/overview".to_string(),
@@ -1469,7 +1470,7 @@ impl LoxoneMcpServer {
         // Implement categories directly
         let devices = self.context.devices.read().await;
         let mut categories = std::collections::HashMap::new();
-        
+
         for device in devices.values() {
             let category = match device.device_type.to_lowercase().as_str() {
                 t if t.contains("light") => "lighting",
@@ -1478,45 +1479,39 @@ impl LoxoneMcpServer {
                 t if t.contains("climate") || t.contains("temperature") => "climate",
                 t if t.contains("sensor") => "sensors",
                 t if t.contains("security") || t.contains("alarm") => "security",
-                _ => "other"
+                _ => "other",
             };
-            
+
             *categories.entry(category).or_insert(0) += 1;
         }
-        
-        return Ok(serde_json::json!({
+
+        Ok(serde_json::json!({
             "categories": categories,
             "total_devices": devices.len(),
             "timestamp": chrono::Utc::now()
-        }));
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get categories: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        }))
     }
 
     async fn read_audio_zones_resource(&self) -> Result<serde_json::Value> {
         // Implement audio zones detection directly since removed tool function
         let devices = self.context.devices.read().await;
-        let audio_devices: Vec<_> = devices.values()
-            .filter(|device| device.device_type.to_lowercase().contains("audio") || 
-                           device.device_type.to_lowercase().contains("music"))
-            .map(|device| serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "room": device.room,
-                "type": device.device_type,
-                "states": device.states
-            }))
+        let audio_devices: Vec<_> = devices
+            .values()
+            .filter(|device| {
+                device.device_type.to_lowercase().contains("audio")
+                    || device.device_type.to_lowercase().contains("music")
+            })
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "room": device.room,
+                    "type": device.device_type,
+                    "states": device.states
+                })
+            })
             .collect();
-        
+
         Ok(serde_json::json!({
             "audio_zones": audio_devices,
             "total_zones": audio_devices.len(),
@@ -1527,17 +1522,22 @@ impl LoxoneMcpServer {
     async fn read_audio_sources_resource(&self) -> Result<serde_json::Value> {
         // Implement audio sources detection directly since removed tool function
         let devices = self.context.devices.read().await;
-        let audio_sources: Vec<_> = devices.values()
-            .filter(|device| device.device_type.to_lowercase().contains("audiosource") || 
-                           device.device_type.to_lowercase().contains("source"))
-            .map(|device| serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "type": device.device_type,
-                "states": device.states
-            }))
+        let audio_sources: Vec<_> = devices
+            .values()
+            .filter(|device| {
+                device.device_type.to_lowercase().contains("audiosource")
+                    || device.device_type.to_lowercase().contains("source")
+            })
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "type": device.device_type,
+                    "states": device.states
+                })
+            })
             .collect();
-        
+
         Ok(serde_json::json!({
             "audio_sources": audio_sources,
             "total_sources": audio_sources.len(),
@@ -1548,20 +1548,25 @@ impl LoxoneMcpServer {
     async fn read_door_window_sensors_resource(&self) -> Result<serde_json::Value> {
         // Implement door/window sensors directly since removed tool function
         let devices = self.context.devices.read().await;
-        let door_window_sensors: Vec<_> = devices.values()
-            .filter(|device| device.device_type.to_lowercase().contains("sensor") &&
-                           (device.name.to_lowercase().contains("door") ||
-                            device.name.to_lowercase().contains("window") ||
-                            device.name.to_lowercase().contains("contact")))
-            .map(|device| serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "room": device.room,
-                "type": device.device_type,
-                "states": device.states
-            }))
+        let door_window_sensors: Vec<_> = devices
+            .values()
+            .filter(|device| {
+                device.device_type.to_lowercase().contains("sensor")
+                    && (device.name.to_lowercase().contains("door")
+                        || device.name.to_lowercase().contains("window")
+                        || device.name.to_lowercase().contains("contact"))
+            })
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "room": device.room,
+                    "type": device.device_type,
+                    "states": device.states
+                })
+            })
             .collect();
-        
+
         Ok(serde_json::json!({
             "sensors": door_window_sensors,
             "total_sensors": door_window_sensors.len(),
@@ -1572,18 +1577,23 @@ impl LoxoneMcpServer {
     async fn read_temperature_sensors_resource(&self) -> Result<serde_json::Value> {
         // Implement temperature sensors directly since removed tool function
         let devices = self.context.devices.read().await;
-        let temperature_sensors: Vec<_> = devices.values()
-            .filter(|device| device.device_type.to_lowercase().contains("temperature") ||
-                           device.device_type.to_lowercase().contains("sensor"))
-            .map(|device| serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "room": device.room,
-                "type": device.device_type,
-                "states": device.states
-            }))
+        let temperature_sensors: Vec<_> = devices
+            .values()
+            .filter(|device| {
+                device.device_type.to_lowercase().contains("temperature")
+                    || device.device_type.to_lowercase().contains("sensor")
+            })
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "room": device.room,
+                    "type": device.device_type,
+                    "states": device.states
+                })
+            })
             .collect();
-        
+
         Ok(serde_json::json!({
             "sensors": temperature_sensors,
             "total_sensors": temperature_sensors.len(),
@@ -1710,17 +1720,22 @@ impl LoxoneMcpServer {
     async fn read_weather_current_resource(&self) -> Result<serde_json::Value> {
         // Implement weather data directly since removed tool function
         let devices = self.context.devices.read().await;
-        let weather_devices: Vec<_> = devices.values()
-            .filter(|device| device.device_type.to_lowercase().contains("weather") ||
-                           device.name.to_lowercase().contains("weather"))
-            .map(|device| serde_json::json!({
-                "uuid": device.uuid,
-                "name": device.name,
-                "type": device.device_type,
-                "states": device.states
-            }))
+        let weather_devices: Vec<_> = devices
+            .values()
+            .filter(|device| {
+                device.device_type.to_lowercase().contains("weather")
+                    || device.name.to_lowercase().contains("weather")
+            })
+            .map(|device| {
+                serde_json::json!({
+                    "uuid": device.uuid,
+                    "name": device.name,
+                    "type": device.device_type,
+                    "states": device.states
+                })
+            })
             .collect();
-        
+
         Ok(serde_json::json!({
             "weather_devices": weather_devices,
             "total_devices": weather_devices.len(),
@@ -1732,7 +1747,7 @@ impl LoxoneMcpServer {
     async fn read_weather_outdoor_conditions_resource(&self) -> Result<serde_json::Value> {
         // Implement outdoor conditions directly
         let current_weather = self.read_weather_current_resource().await?;
-        
+
         Ok(serde_json::json!({
             "outdoor_conditions": current_weather,
             "comfort_assessment": "moderate",

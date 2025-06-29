@@ -6,11 +6,11 @@
 //! - loxone://devices/category/{category} - Devices by category
 //! - loxone://system/capabilities - System capabilities
 
-use crate::tools::{ActionAliases, DeviceFilter, DeviceStats, ToolContext, ToolResponse};
+use crate::tools::{ActionAliases, ToolContext, ToolResponse};
 // use crate::validation::ToolParameterValidator; // Temporarily disabled
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+// use std::collections::HashMap; // Unused after cleanup
 
 /// Device control result
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -261,8 +261,6 @@ pub async fn control_multiple_devices(
     ToolResponse::success_with_message(response_data, message)
 }
 
-/// Get devices by category
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_devices_by_category() → Use resource: loxone://devices/category/{category}
 // This function provided read-only data access and violated MCP patterns.

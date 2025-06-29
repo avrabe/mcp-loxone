@@ -179,6 +179,7 @@ fn normalize_audio_action(action: &str) -> String {
 }
 
 /// Helper function to create audio source information
+#[allow(dead_code)]
 async fn create_audio_source_info(
     device: &LoxoneDevice,
     _client: &std::sync::Arc<dyn crate::client::LoxoneClient>,

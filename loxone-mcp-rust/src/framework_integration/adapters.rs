@@ -144,7 +144,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "discover_rolladen_capabilities".to_string(),
-            description: "Discover all rolladen/blinds capabilities and devices in the system".to_string(),
+            description: "Discover all rolladen/blinds capabilities and devices in the system"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {},
@@ -153,7 +154,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "control_room_rolladen".to_string(),
-            description: "Control all rolladen/blinds in a specific room (legacy compatibility)".to_string(),
+            description: "Control all rolladen/blinds in a specific room (legacy compatibility)"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -171,7 +173,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "control_all_rolladen".to_string(),
-            description: "Control all rolladen/blinds in the entire system (legacy compatibility)".to_string(),
+            description: "Control all rolladen/blinds in the entire system (legacy compatibility)"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -203,7 +206,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "control_all_lights".to_string(),
-            description: "Control all lights in the entire system (legacy compatibility)".to_string(),
+            description: "Control all lights in the entire system (legacy compatibility)"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -217,7 +221,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "control_multiple_devices".to_string(),
-            description: "Control multiple devices simultaneously (legacy compatibility)".to_string(),
+            description: "Control multiple devices simultaneously (legacy compatibility)"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -234,7 +239,6 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["devices", "action"]
             }),
         },
-
         // Audio tools
         // READ-ONLY TOOL REMOVED: get_audio_zones
         // → Use resource: loxone://audio/zones
@@ -285,7 +289,6 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["zone_name", "volume"]
             }),
         },
-
         // Lighting tools
         Tool {
             name: "control_lights_unified".to_string(),
@@ -317,7 +320,6 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["scope", "action"]
             }),
         },
-
         // Sensor tools
         // READ-ONLY TOOLS REMOVED: get_all_door_window_sensors, get_temperature_sensors
         // → Use resources: loxone://sensors/door-window, loxone://sensors/temperature
@@ -374,7 +376,6 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["room_name", "mode"]
             }),
         },
-
         // Security tools
         // READ-ONLY TOOL REMOVED: get_alarm_status
         // → Use resource: loxone://security/status
@@ -403,11 +404,11 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "additionalProperties": false
             }),
         },
-
         // Workflow tools
         Tool {
             name: "create_workflow".to_string(),
-            description: "Create a new automation workflow by chaining multiple tools together".to_string(),
+            description: "Create a new automation workflow by chaining multiple tools together"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -446,7 +447,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
         Tool {
             name: "execute_workflow_demo".to_string(),
-            description: "Execute a demonstration workflow to show automation capabilities".to_string(),
+            description: "Execute a demonstration workflow to show automation capabilities"
+                .to_string(),
             input_schema: serde_json::json!({
                 "type": "object",
                 "properties": {
@@ -797,7 +799,6 @@ pub async fn handle_tool_call(
         }
         // READ-ONLY TOOLS REMOVED: list_predefined_workflows, get_workflow_examples
         // → Use resources: loxone://workflows/predefined, loxone://workflows/examples
-
         _ => {
             return Err(LoxoneError::validation(format!(
                 "Unknown tool: {}",
