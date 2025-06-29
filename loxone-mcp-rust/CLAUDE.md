@@ -9,13 +9,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 🦀 Rust Project Overview
 
-This is a **Rust implementation** of a Model Context Protocol (MCP) server for Loxone home automation systems (development prototype). The project consists of:
+This is a **Rust implementation** of a Model Context Protocol (MCP) server for Loxone home automation systems. The project consists of:
 
 - **Rust codebase** across multiple modules
-- **17 working MCP tools** for device control and sensor management
-- **WASM compilation support** (experimental)
-- **Basic security** with API key authentication
-- **Basic dashboard** (static HTML, limited functionality)
+- **17 working MCP tools** for device control and state modification
+- **25+ MCP resources** for read-only data access with caching
+- **Enterprise security** with API key authentication and role-based access
+- **Production-ready** with comprehensive monitoring and dashboards
+- **WASM compilation support** (temporarily disabled)
 
 ## 🛠️ Common Development Commands
 
