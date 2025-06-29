@@ -252,3 +252,10 @@ The following read-only tools have been migrated to resources:
 | `get_all_door_window_sensors` | `loxone://sensors/door-window` |
 | `get_temperature_sensors` | `loxone://sensors/temperature` |
 | `list_discovered_sensors` | `loxone://sensors/discovered` |
+| `get_weather_station_data` | `loxone://weather/current` |
+| `get_energy_consumption` | `loxone://energy/consumption` |
+| `get_alarm_status` | `loxone://security/status` |
+| `get_climate_control` | `loxone://climate/overview` |
+| `get_room_climate` | `loxone://climate/rooms/{room}` |
+| `list_predefined_workflows` | `loxone://workflows/predefined` |
+| `get_workflow_examples` | `loxone://workflows/examples` |

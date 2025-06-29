@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Loxone MCP server provides 30+ tools organized into functional categories for comprehensive home automation control.
+The Loxone MCP server provides 17 tools for device control and 25+ resources for data access, organized into functional categories for comprehensive home automation control.
 
 ## Authentication
 
@@ -18,105 +18,65 @@ curl -H "Authorization: Bearer lmcp_admin_001_abc123def456" http://localhost:300
 
 ## Tool Categories
 
-### 🎵 Audio Control (12 tools)
+The server implements 17 action-based tools, organized by functionality:
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `get_audio_zones` | List all audio zones | Monitor+ | None |
-| `get_zone_status` | Get specific zone status | Monitor+ | `zone_id` |
-| `set_zone_volume` | Set volume (0-100) | Operator+ | `zone_id`, `volume` |
-| `play_audio` | Play audio in zone | Operator+ | `zone_id` |
-| `pause_audio` | Pause audio in zone | Operator+ | `zone_id` |
-| `stop_audio` | Stop audio in zone | Operator+ | `zone_id` |
-| `next_track` | Skip to next track | Operator+ | `zone_id` |
-| `previous_track` | Skip to previous track | Operator+ | `zone_id` |
-| `set_audio_source` | Change audio source | Operator+ | `zone_id`, `source_id` |
-| `get_audio_favorites` | List favorite stations | Monitor+ | None |
-| `play_favorite` | Play favorite station | Operator+ | `zone_id`, `favorite_id` |
-| `sync_audio_zones` | Sync multiple zones | Operator+ | `zone_ids[]` |
+### Device Control (2 tools)
+- `control_device` - Control individual devices by UUID
+- `control_multiple_devices` - Batch device operations
 
-### 🌡️ Climate Control (8 tools)
+### Lighting Control (3 tools)
+- `control_lights_unified` - Unified lighting control with scope targeting
+- `control_room_lights` - Control all lights in a specific room
+- `control_all_lights` - Control all lights in the entire system
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `get_climate_zones` | List all climate zones | Monitor+ | None |
-| `get_zone_temperature` | Get current temperature | Monitor+ | `zone_id` |
-| `set_target_temperature` | Set target temperature | Operator+ | `zone_id`, `temperature` |
-| `get_hvac_mode` | Get HVAC mode | Monitor+ | `zone_id` |
-| `set_hvac_mode` | Set HVAC mode | Operator+ | `zone_id`, `mode` |
-| `get_climate_schedule` | Get zone schedule | Monitor+ | `zone_id` |
-| `override_climate` | Temporary override | Operator+ | `zone_id`, `temperature`, `duration` |
-| `reset_climate_override` | Cancel override | Operator+ | `zone_id` |
+### Blinds/Rolladen Control (4 tools)
+- `control_rolladen_unified` - Unified rolladen control with scope targeting
+- `discover_rolladen_capabilities` - Discover rolladen devices and capabilities
+- `control_room_rolladen` - Control all rolladen in a specific room
+- `control_all_rolladen` - Control all rolladen in the entire system
 
-### 💡 Device Control (10 tools)
+### Climate Control (2 tools)
+- `set_room_temperature` - Set target temperature for room climate control
+- `set_room_mode` - Set heating/cooling mode for room climate control
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `list_devices` | List all devices | Monitor+ | `type?`, `room?` |
-| `get_device_state` | Get device state | Monitor+ | `device_id` |
-| `turn_on` | Turn device on | Operator+ | `device_id` |
-| `turn_off` | Turn device off | Operator+ | `device_id` |
-| `toggle` | Toggle device state | Operator+ | `device_id` |
-| `set_dimmer` | Set dimmer level | Operator+ | `device_id`, `level` |
-| `open_blind` | Open blind/shutter | Operator+ | `device_id` |
-| `close_blind` | Close blind/shutter | Operator+ | `device_id` |
-| `set_blind_position` | Set blind position | Operator+ | `device_id`, `position` |
-| `stop_blind` | Stop blind movement | Operator+ | `device_id` |
+### Audio Control (2 tools)
+- `control_audio_zone` - Control audio playback in zones
+- `set_audio_volume` - Set volume for audio zones
 
-### 🏠 Room Management (6 tools)
+### Security Control (2 tools)
+- `arm_alarm` - Arm the security alarm system
+- `disarm_alarm` - Disarm the security alarm system
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `list_rooms` | List all rooms | Monitor+ | None |
-| `get_room_devices` | Get devices in room | Monitor+ | `room_id` |
-| `get_room_state` | Get room state summary | Monitor+ | `room_id` |
-| `room_all_on` | Turn on all devices | Operator+ | `room_id` |
-| `room_all_off` | Turn off all devices | Operator+ | `room_id` |
-| `set_room_scene` | Activate room scene | Operator+ | `room_id`, `scene_id` |
+### Workflow Management (2 tools)
+- `create_workflow` - Create new automation workflows
+- `execute_workflow_demo` - Execute demonstration workflows
 
-### 🔒 Security System (6 tools)
+## Resources for Read-Only Data
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `get_alarm_status` | Get alarm system status | Monitor+ | None |
-| `arm_alarm` | Arm alarm system | Admin | `mode` |
-| `disarm_alarm` | Disarm alarm system | Admin | `code` |
-| `get_access_logs` | View access logs | Admin | `limit?` |
-| `trigger_panic` | Trigger panic alarm | Admin | None |
-| `test_alarm` | Test alarm system | Admin | None |
+For data retrieval, use the 25+ resources available via the MCP Resources protocol:
 
-### 📊 Sensors & Monitoring (8 tools)
+### Room Data
+- `loxone://rooms` - List all rooms
+- `loxone://rooms/{room}/devices` - Devices in specific room
+- `loxone://rooms/{room}/overview` - Room overview with statistics
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `list_sensors` | List all sensors | Monitor+ | `type?` |
-| `get_sensor_value` | Get sensor reading | Monitor+ | `sensor_id` |
-| `get_temperature_sensors` | List temperature sensors | Monitor+ | None |
-| `get_motion_sensors` | List motion sensors | Monitor+ | None |
-| `get_door_window_sensors` | List door/window sensors | Monitor+ | None |
-| `get_sensor_history` | Get sensor history | Monitor+ | `sensor_id`, `hours?` |
-| `configure_sensor_alerts` | Set sensor alerts | Operator+ | `sensor_id`, `thresholds` |
-| `test_sensor` | Test sensor operation | Operator+ | `sensor_id` |
+### Device Data
+- `loxone://devices/all` - All devices
+- `loxone://devices/category/{category}` - Devices by category
+- `loxone://devices/type/{type}` - Devices by type
 
-### ⚡ Energy Management (4 tools)
+### System Information
+- `loxone://system/status` - System status
+- `loxone://system/capabilities` - System capabilities
+- `loxone://system/categories` - Category overview
 
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `get_power_consumption` | Current power usage | Monitor+ | None |
-| `get_energy_statistics` | Energy statistics | Monitor+ | `period` |
-| `get_device_consumption` | Device power usage | Monitor+ | `device_id` |
-| `set_power_limit` | Set power limit | Admin | `limit_watts` |
+### Sensor Data
+- `loxone://sensors/door-window` - Door/window sensors
+- `loxone://sensors/temperature` - Temperature sensors
+- `loxone://sensors/motion` - Motion sensors
+- And many more...
 
-### 🔄 Automation & Scenes (6 tools)
-
-| Tool | Description | Required Role | Parameters |
-|------|-------------|---------------|------------|
-| `list_scenes` | List all scenes | Monitor+ | None |
-| `activate_scene` | Activate a scene | Operator+ | `scene_id` |
-| `list_automations` | List automations | Monitor+ | None |
-| `enable_automation` | Enable automation | Operator+ | `automation_id` |
-| `disable_automation` | Disable automation | Operator+ | `automation_id` |
-| `test_automation` | Test automation | Operator+ | `automation_id` |
+See [resources.md](resources.md) for complete resource documentation.
 
 ## HTTP Endpoints
 

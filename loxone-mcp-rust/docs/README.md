@@ -28,7 +28,7 @@ New to the project? Start here! Learn how to install, configure, and run your fi
 - ⚡ Performance tuning scenarios
 
 ### 🔑 [API Reference](./API_REFERENCE.md)
-Complete documentation for all 30+ MCP tools with examples, parameters, and authentication.
+Complete documentation for all 17 MCP tools and 25+ resources with examples, parameters, and authentication.
 
 ### 🛡️ [Security Guide](./SECURITY_ARCHITECTURE.md)
 Multi-user API key management, role-based access control, and web UI for key administration.
@@ -52,7 +52,7 @@ Solutions to common problems and debugging techniques.
 <td width="50%">
 
 ### 🎛️ Complete Device Control
-- **30+ MCP Tools** covering all device types
+- **17 MCP Tools** for device actions + **25+ Resources** for data access
 - **Batch Operations** for efficient control
 - **Room-based Management** for logical grouping
 - **Real-time Feedback** via WebSocket
@@ -178,7 +178,8 @@ curl -X POST http://localhost:3001/message \
 | Metric | Value | Description |
 |--------|-------|-------------|
 | **📁 Source Files** | 183 | Comprehensive implementation |
-| **🎛️ MCP Tools** | 30+ | Complete device coverage |
+| **🎛️ MCP Tools** | 17 | Device control actions |
+| **📊 MCP Resources** | 25+ | Read-only data access |
 | **✅ Tests** | 226 | Extensive test suite |
 | **📦 Dependencies** | 42 | Carefully selected |
 | **⭐ Performance** | A+ | Production optimized |
