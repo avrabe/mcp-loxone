@@ -61,15 +61,27 @@ futures-util = "0.3"
 
 [package]
 name = "loxone-mcp-rust"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
-authors = ["Ralf Anton Beier"]
-license = "MIT"
-description = "Loxone MCP Server implementation in Rust with framework separation"
+authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
+license = "MIT OR Apache-2.0"
+description = "High-performance async Rust library for Loxone home automation systems with MCP server support"
+homepage = "https://github.com/avrabe/mcp-loxone"
 repository = "https://github.com/avrabe/mcp-loxone"
-keywords = ["loxone", "mcp", "home-automation", "framework"]
-categories = ["api-bindings", "web-programming"]
+documentation = "https://docs.rs/loxone-mcp-rust"
+readme = "README.md"
+keywords = ["loxone", "home-automation", "smart-home", "iot", "mcp"]
+categories = ["api-bindings", "embedded", "network-programming", "asynchronous"]
+exclude = ["/.github", "/target", "/tests/fixtures", "/integration_tests"]
 build = "build.rs"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+targets = ["x86_64-unknown-linux-gnu", "wasm32-wasip2"]
+
+[badges]
+maintenance = { status = "actively-developed" }
 
 [build-dependencies]
 chrono = "0.4"
@@ -109,13 +121,13 @@ path = "src/bin/loxone-mcp-auth.rs"
 
 [dependencies]
 # MCP Logging Framework
-pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging" }
+pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging", version = "0.1.1" }
 
 # MCP Framework (new unified framework)
-pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol", optional = true }
-pulseengine-mcp-server = { path = "mcp-framework/mcp-server", optional = true }
-pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport", optional = true }
-pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth", optional = true }
+pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol", version = "0.1.1", optional = true }
+pulseengine-mcp-server = { path = "mcp-framework/mcp-server", version = "0.1.1", optional = true }
+pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport", version = "0.1.1", optional = true }
+pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth", version = "0.1.1", optional = true }
 
 # Legacy MCP Foundation (to be removed after migration)
 # Legacy mcp-foundation removed - framework is now default
