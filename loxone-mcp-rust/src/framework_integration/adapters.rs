@@ -5,11 +5,11 @@
 
 use crate::{
     error::LoxoneError,
-    server::LoxoneMcpServer,
     tools::{ToolContext, ToolResponse},
 };
 use pulseengine_mcp_protocol::{CallToolRequestParam, Content, Tool};
 use serde_json::Value;
+use std::sync::Arc;
 
 /// Helper to extract parameter from MCP request
 pub fn extract_string_param(params: &Option<Value>, name: &str) -> Result<String, LoxoneError> {
@@ -64,741 +64,298 @@ pub fn tool_response_to_content(response: ToolResponse) -> Content {
     )
 }
 
-/// Create tool context from Loxone server
-pub fn create_tool_context(server: &LoxoneMcpServer) -> ToolContext {
+/// Legacy function - use create_tool_context_direct instead
+/// This function is deprecated and will be removed
+#[deprecated(note = "Use create_tool_context_direct instead - framework migration complete")]
+pub fn create_tool_context(_: &()) -> ToolContext {
+    panic!("Legacy create_tool_context called - use create_tool_context_direct instead");
+}
+
+/// Create tool context directly from dependencies (no server wrapper)
+pub fn create_tool_context_direct(
+    client: &Arc<dyn crate::client::LoxoneClient>,
+    context: &Arc<crate::client::ClientContext>,
+) -> ToolContext {
+    let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::default());
     ToolContext {
-        client: server.client.clone(),
-        context: server.context.clone(),
-        value_resolver: server.value_resolver.clone(),
-        state_manager: server.state_manager.clone(),
+        client: client.clone(),
+        context: context.clone(),
+        value_resolver: Arc::new(crate::services::UnifiedValueResolver::new(
+            client.clone(),
+            sensor_registry,
+        )),
+        state_manager: None, // Simplified for framework migration
     }
 }
 
-/// Generate Tool definitions for all available Loxone tools
-pub fn get_all_loxone_tools() -> Vec<Tool> {
-    vec![
-        // READ-ONLY TOOLS REMOVED: list_rooms, get_room_devices, get_room_overview
-        // → Use resources: loxone://rooms, loxone://rooms/{room}/devices, loxone://rooms/{room}/overview
-
-        // Device tools
-        // READ-ONLY TOOL REMOVED: discover_all_devices
-        // → Use resource: loxone://devices/all
-        Tool {
-            name: "control_device".to_string(),
-            description: "Control a specific device (lights, blinds, etc.)".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "device_id": {
-                        "type": "string",
-                        "description": "UUID of the device to control"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform (on, off, toggle, etc.)",
-                        "enum": ["on", "off", "toggle", "up", "down", "stop"]
-                    },
-                    "value": {
-                        "type": "number",
-                        "description": "Optional value for the action (e.g., brightness level)",
-                        "minimum": 0,
-                        "maximum": 100
-                    }
-                },
-                "required": ["device_id", "action"]
-            }),
-        },
-        // READ-ONLY TOOL REMOVED: get_devices_by_category
-        // → Use resources: loxone://devices/category/{category}
-
-        // Rolladen/Blinds tools
-        Tool {
-            name: "control_rolladen_unified".to_string(),
-            description: "Unified rolladen/blinds control with scope-based targeting".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "scope": {
-                        "type": "string",
-                        "description": "Scope of rolladen/blinds control",
-                        "enum": ["device", "room", "system", "all"]
-                    },
-                    "target": {
-                        "type": "string",
-                        "description": "Target device ID/name or room name (required for device/room scope)"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Rolladen/blinds action to perform",
-                        "enum": ["up", "down", "stop", "position", "hoch", "runter", "stopp"]
-                    },
-                    "position": {
-                        "type": "integer",
-                        "description": "Position percentage (0-100) where 0=fully up, 100=fully down",
-                        "minimum": 0,
-                        "maximum": 100
-                    }
-                },
-                "required": ["scope", "action"]
-            }),
-        },
-        Tool {
-            name: "discover_rolladen_capabilities".to_string(),
-            description: "Discover all rolladen/blinds capabilities and devices in the system"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
-        Tool {
-            name: "control_room_rolladen".to_string(),
-            description: "Control all rolladen/blinds in a specific room (legacy compatibility)"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room": {
-                        "type": "string",
-                        "description": "Name of the room"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform: 'up', 'down', or 'stop'"
-                    }
-                },
-                "required": ["room", "action"]
-            }),
-        },
-        Tool {
-            name: "control_all_rolladen".to_string(),
-            description: "Control all rolladen/blinds in the entire system (legacy compatibility)"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform: 'up', 'down', or 'stop'"
-                    }
-                },
-                "required": ["action"]
-            }),
-        },
-        Tool {
-            name: "control_room_lights".to_string(),
-            description: "Control all lights in a specific room (legacy compatibility)".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room": {
-                        "type": "string",
-                        "description": "Name of the room"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform: 'on' or 'off'"
-                    }
-                },
-                "required": ["room", "action"]
-            }),
-        },
-        Tool {
-            name: "control_all_lights".to_string(),
-            description: "Control all lights in the entire system (legacy compatibility)"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform: 'on' or 'off'"
-                    }
-                },
-                "required": ["action"]
-            }),
-        },
-        Tool {
-            name: "control_multiple_devices".to_string(),
-            description: "Control multiple devices simultaneously (legacy compatibility)"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "devices": {
-                        "type": "array",
-                        "description": "Array of device UUIDs to control",
-                        "items": {"type": "string"}
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform on all devices"
-                    }
-                },
-                "required": ["devices", "action"]
-            }),
-        },
-        // Audio tools
-        // READ-ONLY TOOL REMOVED: get_audio_zones
-        // → Use resource: loxone://audio/zones
-        Tool {
-            name: "control_audio_zone".to_string(),
-            description: "Control an audio zone (play, stop, volume control)".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "zone_name": {
-                        "type": "string",
-                        "description": "Name of the audio zone to control"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Action to perform",
-                        "enum": ["play", "stop", "pause", "volume", "mute", "unmute", "next", "previous", "start"]
-                    },
-                    "value": {
-                        "type": "number",
-                        "description": "Value for volume actions (0-100)",
-                        "minimum": 0,
-                        "maximum": 100
-                    }
-                },
-                "required": ["zone_name", "action"]
-            }),
-        },
-        // READ-ONLY TOOL REMOVED: get_audio_sources
-        // → Use resource: loxone://audio/sources
-        Tool {
-            name: "set_audio_volume".to_string(),
-            description: "Set volume for an audio zone".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "zone_name": {
-                        "type": "string",
-                        "description": "Name of the audio zone"
-                    },
-                    "volume": {
-                        "type": "number",
-                        "description": "Volume level (0-100)",
-                        "minimum": 0,
-                        "maximum": 100
-                    }
-                },
-                "required": ["zone_name", "volume"]
-            }),
-        },
-        // Lighting tools
-        Tool {
-            name: "control_lights_unified".to_string(),
-            description: "Unified lighting control with scope-based targeting".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "scope": {
-                        "type": "string",
-                        "description": "Scope of lighting control",
-                        "enum": ["device", "room", "all"]
-                    },
-                    "target": {
-                        "type": "string",
-                        "description": "Target device ID or room name (required for device/room scope)"
-                    },
-                    "action": {
-                        "type": "string",
-                        "description": "Lighting action to perform",
-                        "enum": ["on", "off", "dim", "bright", "toggle"]
-                    },
-                    "brightness": {
-                        "type": "integer",
-                        "description": "Brightness level (0-100) for dim/bright actions",
-                        "minimum": 0,
-                        "maximum": 100
-                    }
-                },
-                "required": ["scope", "action"]
-            }),
-        },
-        // Sensor tools
-        // READ-ONLY TOOLS REMOVED: get_all_door_window_sensors, get_temperature_sensors
-        // → Use resources: loxone://sensors/door-window, loxone://sensors/temperature
-
-        // Weather tools
-        // READ-ONLY TOOL REMOVED: get_weather_station_data
-        // → Use resource: loxone://weather/current
-
-        // Energy tools
-        // READ-ONLY TOOL REMOVED: get_energy_consumption
-        // → Use resource: loxone://energy/consumption
-
-        // Climate control tools
-        // READ-ONLY TOOLS REMOVED: get_climate_control, get_room_climate
-        // → Use resources: loxone://climate/overview, loxone://climate/rooms/{room}
-        Tool {
-            name: "set_room_temperature".to_string(),
-            description: "Set target temperature for a room's climate controller".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "Name of the room to control"
-                    },
-                    "temperature": {
-                        "type": "number",
-                        "description": "Target temperature in Celsius (5.0 - 35.0)",
-                        "minimum": 5.0,
-                        "maximum": 35.0
-                    }
-                },
-                "required": ["room_name", "temperature"]
-            }),
-        },
-        // READ-ONLY TOOL REMOVED: get_temperature_readings
-        // → Use resource: loxone://climate/sensors
-        Tool {
-            name: "set_room_mode".to_string(),
-            description: "Control heating/cooling mode for a room's climate controller".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "Name of the room to control"
-                    },
-                    "mode": {
-                        "type": "string",
-                        "description": "Climate mode to set",
-                        "enum": ["heating", "cooling", "auto", "off"]
-                    }
-                },
-                "required": ["room_name", "mode"]
-            }),
-        },
-        // Security tools
-        // READ-ONLY TOOL REMOVED: get_alarm_status
-        // → Use resource: loxone://security/status
-        Tool {
-            name: "arm_alarm".to_string(),
-            description: "Arm the alarm system for security monitoring".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "mode": {
-                        "type": "string",
-                        "description": "Alarm mode to set",
-                        "enum": ["home", "away", "full"],
-                        "default": "away"
-                    }
-                },
-                "required": []
-            }),
-        },
-        Tool {
-            name: "disarm_alarm".to_string(),
-            description: "Disarm the alarm system".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
-        // Workflow tools
-        Tool {
-            name: "create_workflow".to_string(),
-            description: "Create a new automation workflow by chaining multiple tools together"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Name of the workflow"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Description of what the workflow does"
-                    },
-                    "steps": {
-                        "type": "array",
-                        "description": "Array of workflow steps to execute",
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "type": {
-                                    "type": "string",
-                                    "enum": ["tool", "parallel", "sequential", "conditional", "delay", "loop"]
-                                }
-                            }
-                        }
-                    },
-                    "timeout_seconds": {
-                        "type": "number",
-                        "description": "Maximum execution time in seconds"
-                    },
-                    "variables": {
-                        "type": "object",
-                        "description": "Initial variables for the workflow"
-                    }
-                },
-                "required": ["name", "description", "steps"]
-            }),
-        },
-        Tool {
-            name: "execute_workflow_demo".to_string(),
-            description: "Execute a demonstration workflow to show automation capabilities"
-                .to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "workflow_name": {
-                        "type": "string",
-                        "description": "Name of the demo workflow to execute",
-                        "enum": ["home_automation", "morning_routine", "security_check"]
-                    },
-                    "variables": {
-                        "type": "object",
-                        "description": "Variables to pass to the workflow"
-                    }
-                },
-                "required": ["workflow_name"]
-            }),
-        },
-        // READ-ONLY TOOLS REMOVED: list_predefined_workflows, get_workflow_examples
-        // → Use resources: loxone://workflows/predefined, loxone://workflows/examples
-    ]
-}
-
-/// Route tool calls to appropriate implementation
-pub async fn handle_tool_call(
-    server: &LoxoneMcpServer,
+/// Route tool calls to appropriate implementation (framework migration version)
+pub async fn handle_tool_call_direct(
+    client: &Arc<dyn crate::client::LoxoneClient>,
+    context: &Arc<crate::client::ClientContext>,
     params: &CallToolRequestParam,
 ) -> Result<Content, LoxoneError> {
-    let context = create_tool_context(server);
+    let tool_context = create_tool_context_direct(client, context);
 
     let response = match params.name.as_str() {
-        // READ-ONLY TOOLS REMOVED: list_rooms, get_room_devices, get_room_overview
-        // → Use resources: loxone://rooms, loxone://rooms/{room}/devices, loxone://rooms/{room}/overview
+        // Control tools
+        "control_lighting" => {
+            // Parse lighting control parameters
+            #[derive(serde::Deserialize)]
+            struct LightingParams {
+                room: Option<String>,
+                action: String,
+                brightness: Option<u8>,
+            }
+            let lighting_params: LightingParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| LoxoneError::validation(format!("Invalid lighting parameters: {e}")))?;
 
-        // Device tools
-        // READ-ONLY TOOL REMOVED: discover_all_devices
-        // → Use resource: loxone://devices/all
-        "control_device" => {
-            let device_id = extract_string_param(&params.arguments, "device_id")?;
-            let action = extract_string_param(&params.arguments, "action")?;
-            // Note: value parameter not used by current function signature
-            crate::tools::devices::control_device(context, device_id, action).await
+            let scope = lighting_params.room.unwrap_or_else(|| "all".to_string());
+            Ok(crate::tools::lighting::control_lights_unified(
+                tool_context,
+                scope,
+                None, // target - room is used as scope instead
+                lighting_params.action,
+                lighting_params.brightness,
+            )
+            .await)
         }
-        // READ-ONLY TOOL REMOVED: get_devices_by_category
-        // → Use resources: loxone://devices/category/{category}
+        "control_blinds" => {
+            // Parse blinds control parameters
+            #[derive(serde::Deserialize)]
+            struct BlindsParams {
+                room: Option<String>,
+                action: String,
+                position: Option<u8>,
+            }
+            let blinds_params: BlindsParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| LoxoneError::validation(format!("Invalid blinds parameters: {e}")))?;
 
-        // Rolladen/Blinds tools
-        "control_rolladen_unified" => {
-            let scope = extract_string_param(&params.arguments, "scope")?;
-            let target = extract_optional_string_param(&params.arguments, "target");
-            let action = extract_string_param(&params.arguments, "action")?;
-            let position = extract_optional_u8_param(&params.arguments, "position");
-            crate::tools::rolladen::control_rolladen_unified(
-                context, scope, target, action, position,
+            let (scope, target) = if let Some(room) = blinds_params.room {
+                ("room".to_string(), Some(room))
+            } else {
+                ("all".to_string(), None)
+            };
+            Ok(crate::tools::rolladen::control_rolladen_unified(
+                tool_context,
+                scope,
+                target,
+                blinds_params.action,
+                blinds_params.position,
             )
-            .await
+            .await)
         }
-        "discover_rolladen_capabilities" => {
-            crate::tools::rolladen::discover_rolladen_capabilities(context).await
-        }
-        "control_room_rolladen" => {
-            // Legacy compatibility: redirect to unified rolladen control with room scope
-            let room = extract_string_param(&params.arguments, "room")?;
-            let action = extract_string_param(&params.arguments, "action")?;
-            crate::tools::rolladen::control_rolladen_unified(
-                context,
-                "room".to_string(),
-                Some(room),
-                action,
-                None,
+        "control_climate" => {
+            // Parse climate control parameters
+            #[derive(serde::Deserialize)]
+            struct ClimateParams {
+                room: Option<String>,
+                action: String,
+                temperature: Option<f64>,
+                mode: Option<String>,
+            }
+            let climate_params: ClimateParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
             )
-            .await
-        }
-        "control_all_rolladen" => {
-            // Legacy compatibility: redirect to unified rolladen control with system scope
-            let action = extract_string_param(&params.arguments, "action")?;
-            crate::tools::rolladen::control_rolladen_unified(
-                context,
-                "all".to_string(),
-                None,
-                action,
-                None,
-            )
-            .await
-        }
-        "control_room_lights" => {
-            // Legacy compatibility: redirect to unified lighting control with room scope
-            let room = extract_string_param(&params.arguments, "room")?;
-            let action = extract_string_param(&params.arguments, "action")?;
-            crate::tools::lighting::control_lights_unified(
-                context,
-                "room".to_string(),
-                Some(room),
-                action,
-                None,
-            )
-            .await
-        }
-        "control_all_lights" => {
-            // Legacy compatibility: redirect to unified lighting control with all scope
-            let action = extract_string_param(&params.arguments, "action")?;
-            crate::tools::lighting::control_lights_unified(
-                context,
-                "all".to_string(),
-                None,
-                action,
-                None,
-            )
-            .await
-        }
-        "control_multiple_devices" => {
-            // Legacy compatibility: control multiple devices by UUID
-            let devices = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("devices"))
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| {
-                    LoxoneError::invalid_input("Missing or invalid devices parameter")
-                })?;
-            let action = extract_string_param(&params.arguments, "action")?;
+            .map_err(|e| LoxoneError::validation(format!("Invalid climate parameters: {e}")))?;
 
-            // Execute commands in parallel for all devices
-            let mut results = Vec::new();
-            for device_uuid in devices {
-                if let Some(uuid) = device_uuid.as_str() {
-                    match context.client.send_command(uuid, &action).await {
-                        Ok(response) => results.push(serde_json::json!({
-                            "device": uuid,
-                            "success": true,
-                            "response": response.value
-                        })),
-                        Err(e) => results.push(serde_json::json!({
-                            "device": uuid,
-                            "success": false,
-                            "error": e.to_string()
-                        })),
-                    }
+            match climate_params.action.as_str() {
+                "set_temperature" => {
+                    let room_name = climate_params.room.ok_or_else(|| {
+                        LoxoneError::validation(
+                            "room parameter required for set_temperature action".to_string(),
+                        )
+                    })?;
+                    let temperature = climate_params.temperature.ok_or_else(|| {
+                        LoxoneError::validation(
+                            "temperature parameter required for set_temperature action".to_string(),
+                        )
+                    })?;
+                    Ok(crate::tools::climate::set_room_temperature(
+                        tool_context,
+                        room_name,
+                        temperature,
+                    )
+                    .await)
                 }
-            }
-
-            crate::tools::ToolResponse {
-                status: "success".to_string(),
-                data: serde_json::json!({
-                    "action": action,
-                    "results": results,
-                    "total_devices": devices.len(),
-                    "timestamp": chrono::Utc::now()
-                }),
-                message: Some(format!(
-                    "Controlled {} devices with action '{}'",
-                    devices.len(),
-                    action
-                )),
-                timestamp: chrono::Utc::now(),
+                _ => Err(LoxoneError::validation(format!(
+                    "Unsupported climate action: {}",
+                    climate_params.action
+                ))),
             }
         }
+        "control_audio" => {
+            // Parse audio control parameters
+            #[derive(serde::Deserialize)]
+            struct AudioParams {
+                zone: String,
+                action: String,
+                volume: Option<f64>,
+            }
+            let audio_params: AudioParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| LoxoneError::validation(format!("Invalid audio parameters: {e}")))?;
 
-        // Audio tools
-        // READ-ONLY TOOL REMOVED: get_audio_zones
-        // → Use resource: loxone://audio/zones
-        "control_audio_zone" => {
-            let zone_name = extract_string_param(&params.arguments, "zone_name")?;
-            let action = extract_string_param(&params.arguments, "action")?;
-            let value = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("value"))
-                .and_then(|v| v.as_f64());
-            crate::tools::audio::control_audio_zone(context, zone_name, action, value).await
-        }
-        // READ-ONLY TOOL REMOVED: get_audio_sources
-        // → Use resource: loxone://audio/sources
-        "set_audio_volume" => {
-            let zone_name = extract_string_param(&params.arguments, "zone_name")?;
-            let volume = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("volume"))
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| LoxoneError::invalid_input("Missing volume parameter"))?;
-            crate::tools::audio::set_audio_volume(context, zone_name, volume).await
+            Ok(crate::tools::audio::control_audio_zone(
+                tool_context,
+                audio_params.zone,
+                audio_params.action,
+                audio_params.volume,
+            )
+            .await)
         }
 
-        // Lighting tools
-        "control_lights_unified" => {
-            let scope = extract_string_param(&params.arguments, "scope")?;
-            let target = extract_optional_string_param(&params.arguments, "target");
-            let action = extract_string_param(&params.arguments, "action")?;
-            let brightness = extract_optional_u8_param(&params.arguments, "brightness");
-            crate::tools::lighting::control_lights_unified(
-                context, scope, target, action, brightness,
+        // Monitoring tools
+        "get_sensor_data" => {
+            // Parse sensor parameters
+            #[derive(serde::Deserialize)]
+            struct SensorParams {
+                sensor_type: Option<String>,
+                room: Option<String>,
+            }
+            let sensor_params: SensorParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| LoxoneError::validation(format!("Invalid sensor parameters: {e}")))?;
+
+            // For now, use a default sensor ID - ideally this should query by type/room
+            let sensor_id = format!(
+                "{}_{}",
+                sensor_params
+                    .sensor_type
+                    .unwrap_or_else(|| "all".to_string()),
+                sensor_params.room.unwrap_or_else(|| "all".to_string())
+            );
+            Ok(crate::tools::sensors::get_sensor_details(tool_context, sensor_id).await)
+        }
+        "monitor_energy" => {
+            // Energy optimization takes raw JSON input
+            Ok(crate::tools::energy::optimize_energy_usage(
+                params.arguments.clone().unwrap_or_default(),
+                Arc::new(tool_context),
             )
             .await
+            .map(ToolResponse::success)
+            .unwrap_or_else(|e| ToolResponse::error(e.to_string())))
+        }
+        "get_weather_data" => {
+            // Weather data now available via resources
+            Err(LoxoneError::validation(
+                "get_weather_data tool has been deprecated. Use resource: loxone://weather instead"
+                    .to_string(),
+            ))
+        }
+        "get_system_status" => {
+            // System status now available via resources
+            Err(LoxoneError::validation(
+                "get_system_status tool has been deprecated. Use resource: loxone://system/status instead".to_string()
+            ))
+        }
+        "test_connection" => {
+            // Connection test now available via resources
+            Err(LoxoneError::validation(
+                "test_connection tool has been deprecated. Use resource: loxone://system/health instead".to_string()
+            ))
         }
 
-        // Sensor tools
-        // READ-ONLY TOOLS REMOVED: get_all_door_window_sensors, get_temperature_sensors
-        // → Use resources: loxone://sensors/door-window, loxone://sensors/temperature
+        // Device management
+        "get_device_status" => {
+            // Parse device status parameters
+            #[derive(serde::Deserialize)]
+            struct DeviceParams {
+                device_name: Option<String>,
+                device_category: Option<String>,
+            }
+            let device_params: DeviceParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| LoxoneError::validation(format!("Invalid device parameters: {e}")))?;
 
-        // Weather tools
-        // READ-ONLY TOOL REMOVED: get_weather_station_data
-        // → Use resource: loxone://weather/current
-
-        // Energy tools
-        // READ-ONLY TOOL REMOVED: get_energy_consumption
-        // → Use resource: loxone://energy/consumption
-
-        // Climate control tools
-        // READ-ONLY TOOLS REMOVED: get_climate_control, get_room_climate
-        // → Use resources: loxone://climate/overview, loxone://climate/rooms/{room}
-        "set_room_temperature" => {
-            let room_name = extract_string_param(&params.arguments, "room_name")?;
-            let temperature = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("temperature"))
-                .and_then(|v| v.as_f64())
-                .ok_or_else(|| LoxoneError::invalid_input("Missing temperature parameter"))?;
-            crate::tools::climate::set_room_temperature(context, room_name, temperature).await
+            let device = device_params
+                .device_name
+                .unwrap_or_else(|| "all".to_string());
+            Ok(crate::tools::devices::control_device(
+                tool_context,
+                device,
+                "status".to_string(), // Use status action to get device status
+            )
+            .await)
         }
-        // READ-ONLY TOOL REMOVED: get_temperature_readings
-        // → Use resource: loxone://climate/sensors
-        "set_room_mode" => {
-            let room_name = extract_string_param(&params.arguments, "room_name")?;
-            let mode = extract_string_param(&params.arguments, "mode")?;
-            crate::tools::climate::set_room_mode(context, room_name, mode).await
+        "send_custom_command" => {
+            // Parse custom command parameters
+            #[derive(serde::Deserialize)]
+            struct CustomCommandParams {
+                device_uuid: String,
+                command: String,
+            }
+            let command_params: CustomCommandParams =
+                serde_json::from_value(params.arguments.clone().unwrap_or_default()).map_err(
+                    |e| LoxoneError::validation(format!("Invalid custom command parameters: {e}")),
+                )?;
+
+            // Use control_device with custom command
+            Ok(crate::tools::devices::control_device(
+                tool_context,
+                command_params.device_uuid,
+                command_params.command,
+            )
+            .await)
         }
+
+        // System tools removed - functionality not available in current modules
+        // "get_system_status" => { ... }
+        // "test_connection" => { ... }
 
         // Security tools
-        // READ-ONLY TOOL REMOVED: get_alarm_status
-        // → Use resource: loxone://security/status
-        "arm_alarm" => {
-            match crate::tools::security::arm_alarm(
+        "get_security_status" => {
+            // Security functions take raw JSON input
+            Ok(crate::tools::security::arm_alarm(
                 params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context),
+                Arc::new(tool_context),
             )
             .await
-            {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
+            .map(ToolResponse::success)
+            .unwrap_or_else(|e| ToolResponse::error(e.to_string())))
         }
-        "disarm_alarm" => {
-            match crate::tools::security::disarm_alarm(
+
+        // Workflow tools
+        "execute_scene" => {
+            // Parse workflow execution parameters
+            use crate::tools::workflows::ExecuteWorkflowParams;
+            let workflow_params: ExecuteWorkflowParams = serde_json::from_value(
                 params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context),
             )
-            .await
-            {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
+            .map_err(|e| LoxoneError::validation(format!("Invalid workflow parameters: {e}")))?;
+
+            Ok(
+                crate::tools::workflows::execute_workflow_demo(tool_context, workflow_params)
+                    .await
+                    .map(ToolResponse::success)
+                    .unwrap_or_else(|e| ToolResponse::error(e.to_string())),
+            )
+        }
+        "create_custom_scene" => {
+            // Parse workflow creation parameters
+            use crate::tools::workflows::CreateWorkflowParams;
+            let workflow_params: CreateWorkflowParams = serde_json::from_value(
+                params.arguments.clone().unwrap_or_default(),
+            )
+            .map_err(|e| {
+                LoxoneError::validation(format!("Invalid workflow creation parameters: {e}"))
+            })?;
+
+            Ok(
+                crate::tools::workflows::create_workflow(tool_context, workflow_params)
+                    .await
+                    .map(ToolResponse::success)
+                    .unwrap_or_else(|e| ToolResponse::error(e.to_string())),
+            )
         }
 
-        // Workflow tools (adapted from legacy signature)
-        "create_workflow" => {
-            // Extract workflow parameters manually since they have a complex structure
-            let name = extract_string_param(&params.arguments, "name")?;
-            let description = extract_string_param(&params.arguments, "description")?;
-            let _steps = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("steps"))
-                .and_then(|v| v.as_array())
-                .ok_or_else(|| LoxoneError::invalid_input("Missing or invalid steps parameter"))?;
-            let timeout_seconds = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("timeout_seconds"))
-                .and_then(|v| v.as_u64());
-            let variables = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("variables"))
-                .and_then(|v| v.as_object())
-                .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-
-            let workflow_params = crate::tools::workflows::CreateWorkflowParams {
-                name,
-                description,
-                steps: vec![], // Simplified for framework migration
-                timeout_seconds,
-                variables,
-            };
-
-            match crate::tools::workflows::create_workflow(context, workflow_params).await {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
-        "execute_workflow_demo" => {
-            let workflow_name = extract_string_param(&params.arguments, "workflow_name")?;
-            let variables = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("variables"))
-                .and_then(|v| v.as_object())
-                .map(|obj| obj.iter().map(|(k, v)| (k.clone(), v.clone())).collect());
-
-            let execute_params = crate::tools::workflows::ExecuteWorkflowParams {
-                workflow_name,
-                variables,
-            };
-
-            match crate::tools::workflows::execute_workflow_demo(context, execute_params).await {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
-        // READ-ONLY TOOLS REMOVED: list_predefined_workflows, get_workflow_examples
-        // → Use resources: loxone://workflows/predefined, loxone://workflows/examples
         _ => {
             return Err(LoxoneError::validation(format!(
                 "Unknown tool: {}",
@@ -807,5 +364,259 @@ pub async fn handle_tool_call(
         }
     };
 
-    Ok(tool_response_to_content(response))
+    match response {
+        Ok(tool_response) => Ok(tool_response_to_content(tool_response)),
+        Err(e) => Err(e),
+    }
 }
+
+/// Generate Tool definitions for all available Loxone tools
+pub fn get_all_loxone_tools() -> Vec<Tool> {
+    vec![
+        // Device Control Tools
+        Tool {
+            name: "control_lighting".to_string(),
+            description: "Control lighting devices in rooms or globally".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "room": {
+                        "type": "string",
+                        "description": "Room name to control lights in",
+                        "x-completion-ref": "room_names_with_lights"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["on", "off", "toggle", "dim"],
+                        "description": "Action to perform"
+                    },
+                    "brightness": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Brightness level (0-100) for dimming"
+                    }
+                },
+                "required": ["action"]
+            }),
+        },
+        Tool {
+            name: "control_blinds".to_string(),
+            description: "Control blinds/rolladen in rooms".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "room": {
+                        "type": "string",
+                        "description": "Room name to control blinds in",
+                        "x-completion-ref": "room_names_with_blinds"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["up", "down", "stop", "position"],
+                        "description": "Blind control action"
+                    },
+                    "position": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Position percentage (0=closed, 100=open)"
+                    }
+                },
+                "required": ["action"]
+            }),
+        },
+        Tool {
+            name: "control_climate".to_string(),
+            description: "Control climate/heating in rooms".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "room": {
+                        "type": "string",
+                        "description": "Room name to control climate in",
+                        "x-completion-ref": "room_names_with_climate"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["set_temperature", "mode", "boost"],
+                        "description": "Climate control action"
+                    },
+                    "temperature": {
+                        "type": "number",
+                        "minimum": 10,
+                        "maximum": 30,
+                        "description": "Target temperature in Celsius"
+                    },
+                    "mode": {
+                        "type": "string",
+                        "enum": ["auto", "heat", "off"],
+                        "description": "Climate control mode"
+                    }
+                },
+                "required": ["action"]
+            }),
+        },
+        Tool {
+            name: "control_audio".to_string(),
+            description: "Control audio zones and playback".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "zone": {
+                        "type": "string",
+                        "description": "Audio zone name",
+                        "x-completion-ref": "audio_zone_names"
+                    },
+                    "action": {
+                        "type": "string",
+                        "enum": ["play", "pause", "stop", "volume", "next", "previous"],
+                        "description": "Audio control action"
+                    },
+                    "volume": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 100,
+                        "description": "Volume level (0-100)"
+                    }
+                },
+                "required": ["action"]
+            }),
+        },
+        // Monitoring Tools
+        Tool {
+            name: "get_sensor_data".to_string(),
+            description: "Get current sensor readings from the system".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "sensor_type": {
+                        "type": "string",
+                        "enum": ["temperature", "humidity", "motion", "door_window", "all"],
+                        "description": "Type of sensors to query"
+                    },
+                    "room": {
+                        "type": "string",
+                        "description": "Filter by specific room",
+                        "x-completion-ref": "room_names"
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "monitor_energy".to_string(),
+            description: "Monitor energy consumption and power usage".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "scope": {
+                        "type": "string",
+                        "enum": ["total", "room", "device"],
+                        "description": "Scope of energy monitoring"
+                    },
+                    "room": {
+                        "type": "string",
+                        "description": "Room name for room-specific monitoring",
+                        "x-completion-ref": "room_names"
+                    }
+                }
+            }),
+        },
+        // Weather tool removed - use resources: loxone://weather instead
+
+        // Device Management Tools
+        Tool {
+            name: "get_device_status".to_string(),
+            description: "Get detailed status of specific devices".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "device_name": {
+                        "type": "string",
+                        "description": "Name of device to query",
+                        "x-completion-ref": "device_names"
+                    },
+                    "device_category": {
+                        "type": "string",
+                        "enum": ["lights", "blinds", "climate", "audio", "security"],
+                        "description": "Category of devices to query"
+                    }
+                }
+            }),
+        },
+        Tool {
+            name: "send_custom_command".to_string(),
+            description: "Send custom commands to Loxone devices".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "device_uuid": {
+                        "type": "string",
+                        "description": "UUID of target device"
+                    },
+                    "command": {
+                        "type": "string",
+                        "description": "Command to send"
+                    }
+                },
+                "required": ["device_uuid", "command"]
+            }),
+        },
+        // System tools removed - functionality not available in current modules
+        // get_system_status, test_connection - use resources: loxone://system/status instead
+
+        // Security Tools
+        Tool {
+            name: "get_security_status".to_string(),
+            description: "Get current security system status".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "include_history": {
+                        "type": "boolean",
+                        "description": "Include recent security events"
+                    }
+                }
+            }),
+        },
+        // Workflow Tools
+        Tool {
+            name: "execute_scene".to_string(),
+            description: "Execute predefined automation scenes".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "scene_name": {
+                        "type": "string",
+                        "description": "Name of scene to execute",
+                        "x-completion-ref": "scene_names"
+                    }
+                },
+                "required": ["scene_name"]
+            }),
+        },
+        Tool {
+            name: "create_custom_scene".to_string(),
+            description: "Create custom automation scenes".to_string(),
+            input_schema: serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "scene_name": {
+                        "type": "string",
+                        "description": "Name for the new scene"
+                    },
+                    "actions": {
+                        "type": "array",
+                        "description": "List of actions to include in scene"
+                    }
+                },
+                "required": ["scene_name", "actions"]
+            }),
+        },
+        // READ-ONLY TOOLS REMOVED: list_rooms, get_room_devices, get_room_overview
+        // → Use resources: loxone://rooms, loxone://rooms/{room}/devices, loxone://rooms/{room}/overview
+    ]
+}
+
+// Legacy function disabled - framework migration complete
+// All tool handling now goes through handle_tool_call_direct

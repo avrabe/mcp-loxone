@@ -196,12 +196,18 @@ impl ToolContext {
 
     /// Ensure client is connected
     pub async fn ensure_connected(&self) -> Result<()> {
-        if !self.client.is_connected().await? {
-            return Err(LoxoneError::connection(
-                "Not connected to Loxone Miniserver",
-            ));
+        // Instead of checking internal connection flag, do a real connectivity test
+        // since our client in Arc doesn't have the connected flag set properly
+        match self.client.health_check().await {
+            Ok(true) => Ok(()),
+            Ok(false) => Err(LoxoneError::connection(
+                "Health check failed - Miniserver not reachable",
+            )),
+            Err(e) => Err(LoxoneError::connection(format!(
+                "Connection check failed: {}",
+                e
+            ))),
         }
-        Ok(())
     }
 
     /// Get all devices with optional filtering
