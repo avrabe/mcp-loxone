@@ -1,373 +1,252 @@
 # MCP Tools Reference
 
-This document provides a complete reference for all 34 MCP tools available in the Loxone MCP Server.
+This document provides a complete reference for all 17 MCP tools available in the Loxone MCP Server.
 
-## Table of Contents
+## Overview
 
-- [Room Management](#room-management)
-- [Device Control](#device-control)
-- [Lighting](#lighting)
-- [Blinds/Rolladen](#blindsrolladen)
-- [Climate Control](#climate-control)
-- [Audio System](#audio-system)
-- [Sensors](#sensors)
-- [Weather](#weather)
-- [Energy Management](#energy-management)
-- [Security](#security)
-- [Workflows](#workflows)
+The Loxone MCP server implements a clean separation between **tools** (for actions that modify state) and **resources** (for read-only data access). This follows the MCP specification and provides better caching and organization.
 
-## Room Management
+- **17 Tools**: For device control and state modification
+- **25+ Resources**: For data retrieval (see [resources.md](resources.md))
 
-### `list_rooms`
-Lists all configured rooms in the Loxone system.
+## Tools by Category
 
-**Parameters**: None
+### Device Control (2 tools)
 
-**Returns**:
-```json
-{
-  "rooms": [
-    {
-      "uuid": "0f869a3f-0155-8b3f-ffff403fb0c34b9e",
-      "name": "Living Room",
-      "devices_count": 12
-    }
-  ]
-}
-```
-
-### `get_room_devices`
-Gets all devices in a specific room.
-
-**Parameters**:
-- `room_name` (string, required): Name of the room
-
-**Returns**:
-```json
-{
-  "room": "Living Room",
-  "devices": [
-    {
-      "uuid": "0cd88f1e-0156-7a9f-ffff403fb0c34b9e",
-      "name": "Ceiling Light",
-      "type": "LightController",
-      "states": {}
-    }
-  ]
-}
-```
-
-### `get_room_overview`
-Provides a comprehensive overview of all rooms and their devices.
-
-**Parameters**: None
-
-**Returns**: Complete room and device hierarchy
-
-## Device Control
-
-### `discover_all_devices`
-Discovers all available devices in the Loxone system.
-
-**Parameters**: None
-
-**Returns**: List of all devices with their capabilities
-
-### `control_device`
+#### `control_device`
 Controls a specific device by UUID.
 
 **Parameters**:
-- `uuid` (string, required): Device UUID
-- `command` (string, required): Command to send (e.g., "on", "off", "50")
+- `device_id` (string, required): Device UUID
+- `action` (string, required): Action to perform (on, off, toggle, etc.)
+- `value` (number, optional): Optional value for the action (e.g., brightness level)
 
-**Returns**: Command execution result
+**Valid Actions**: on, off, toggle, up, down, stop
 
-### `get_devices_by_category`
-Filters devices by their category/type.
+**Example**:
+```json
+{
+  "device_id": "0cd88f1e-0156-7a9f-ffff403fb0c34b9e",
+  "action": "on"
+}
+```
+
+#### `control_multiple_devices`
+Controls multiple devices simultaneously.
 
 **Parameters**:
-- `category` (string, required): Device category (e.g., "lights", "blinds", "sensors")
+- `devices` (array, required): Array of device UUIDs
+- `action` (string, required): Action to perform on all devices
 
-**Returns**: Filtered device list
+**Example**:
+```json
+{
+  "devices": ["uuid1", "uuid2", "uuid3"],
+  "action": "off"
+}
+```
 
-### `control_multiple_devices`
-Controls multiple devices in a single operation.
+### Lighting Control (3 tools)
 
-**Parameters**:
-- `devices` (array, required): Array of {uuid, command} objects
-
-**Returns**: Batch operation results
-
-## Lighting
-
-### `control_lights_unified`
+#### `control_lights_unified`
 Unified lighting control with scope-based targeting.
 
 **Parameters**:
-- `scope` (string, required): "all", "room", or "device"
-- `target` (string, optional): Room name or device UUID (required for room/device scope)
-- `command` (string, required): "on", "off", or brightness value (0-100)
+- `scope` (string, required): "device", "room", or "all"
+- `target` (string, optional): Device ID or room name (required for device/room scope)
+- `action` (string, required): "on", "off", "dim", "bright", or "toggle"
+- `brightness` (integer, optional): Brightness level (0-100) for dim/bright actions
 
 **Example**:
 ```json
 {
   "scope": "room",
   "target": "Living Room",
-  "command": "50"
+  "action": "dim",
+  "brightness": 50
 }
 ```
 
-### `get_light_scenes`
-Retrieves available lighting scenes.
+#### `control_room_lights` (Legacy)
+Controls all lights in a specific room.
 
 **Parameters**:
-- `room` (string, optional): Filter scenes by room
+- `room` (string, required): Name of the room
+- `action` (string, required): "on" or "off"
 
-**Returns**: List of available scenes
-
-### `set_light_scene`
-Activates a specific lighting scene.
-
-**Parameters**:
-- `scene_id` (string, required): Scene identifier
-- `room` (string, optional): Apply to specific room only
-
-## Blinds/Rolladen
-
-### `control_rolladen_unified`
-Unified control for blinds and shutters.
+#### `control_all_lights` (Legacy)
+Controls all lights in the entire system.
 
 **Parameters**:
-- `scope` (string, required): "all", "room", or "device"
-- `room` (string, optional): Room name (required for room scope)
-- `uuid` (string, optional): Device UUID (required for device scope)
-- `command` (string, required): "up", "down", "stop", "shade", or position (0-100)
+- `action` (string, required): "on" or "off"
 
-### `discover_rolladen_capabilities`
-Discovers capabilities of blinds/shutters in the system.
+### Blinds/Rolladen Control (4 tools)
 
-**Parameters**: None
-
-**Returns**: List of rolladen devices with their features
-
-### `control_all_rolladen` (Legacy)
-Controls all blinds at once.
+#### `control_rolladen_unified`
+Unified rolladen/blinds control with scope-based targeting.
 
 **Parameters**:
-- `command` (string, required): "up", "down", or "shade"
+- `scope` (string, required): "device", "room", "system", or "all"
+- `target` (string, optional): Device ID/name or room name (required for device/room scope)
+- `action` (string, required): "up", "down", "stop", "position", "hoch", "runter", "stopp"
+- `position` (integer, optional): Position percentage (0-100) where 0=fully up, 100=fully down
 
-### `control_room_rolladen` (Legacy)
-Controls all blinds in a specific room.
-
-**Parameters**:
-- `room_name` (string, required): Room name
-- `command` (string, required): "up", "down", or "shade"
-
-## Climate Control
-
-### `get_climate_control`
-Gets the main climate control system status.
-
-**Parameters**: None
-
-**Returns**: HVAC system status and settings
-
-### `get_room_climate`
-Retrieves climate data for a specific room.
-
-**Parameters**:
-- `room_name` (string, required): Room name
-
-**Returns**:
+**Example**:
 ```json
 {
-  "room": "Living Room",
-  "temperature": 21.5,
-  "target_temperature": 22.0,
-  "humidity": 45,
-  "mode": "comfort"
+  "scope": "room",
+  "target": "Bedroom",
+  "action": "position",
+  "position": 75
 }
 ```
 
-### `set_room_temperature`
-Sets the target temperature for a room.
-
-**Parameters**:
-- `room_name` (string, required): Room name
-- `temperature` (number, required): Target temperature in Celsius
-
-### `get_temperature_readings`
-Gets all temperature sensor readings.
+#### `discover_rolladen_capabilities`
+Discovers all rolladen/blinds capabilities and devices in the system.
 
 **Parameters**: None
 
-**Returns**: Map of sensor locations to temperature values
+**Returns**: Information about available rolladen devices and their capabilities
 
-### `set_room_mode`
-Sets the climate mode for a room.
-
-**Parameters**:
-- `room_name` (string, required): Room name
-- `mode` (string, required): "comfort", "eco", or "off"
-
-## Audio System
-
-### `get_audio_zones`
-Lists all configured audio zones.
-
-**Parameters**: None
-
-**Returns**: List of audio zones with current status
-
-### `control_audio_zone`
-Controls playback in an audio zone.
+#### `control_room_rolladen` (Legacy)
+Controls all rolladen/blinds in a specific room.
 
 **Parameters**:
-- `zone_id` (string, required): Audio zone identifier
-- `action` (string, required): "play", "pause", "stop", "next", "previous"
+- `room` (string, required): Name of the room
+- `action` (string, required): "up", "down", or "stop"
 
-### `get_audio_sources`
-Lists available audio sources.
+#### `control_all_rolladen` (Legacy)
+Controls all rolladen/blinds in the entire system.
 
-**Parameters**: None
+**Parameters**:
+- `action` (string, required): "up", "down", or "stop"
 
-**Returns**: List of audio sources (radio, streaming services, etc.)
+### Climate Control (2 tools)
 
-### `set_audio_volume`
+#### `set_room_temperature`
+Sets the target temperature for a room's climate controller.
+
+**Parameters**:
+- `room_name` (string, required): Name of the room to control
+- `temperature` (number, required): Target temperature in Celsius (5.0 - 35.0)
+
+**Example**:
+```json
+{
+  "room_name": "Living Room",
+  "temperature": 22.5
+}
+```
+
+#### `set_room_mode`
+Controls heating/cooling mode for a room's climate controller.
+
+**Parameters**:
+- `room_name` (string, required): Name of the room to control
+- `mode` (string, required): "heating", "cooling", "auto", or "off"
+
+### Audio Control (2 tools)
+
+#### `control_audio_zone`
+Controls an audio zone (play, stop, volume control).
+
+**Parameters**:
+- `zone_name` (string, required): Name of the audio zone to control
+- `action` (string, required): "play", "stop", "pause", "volume", "mute", "unmute", "next", "previous", "start"
+- `value` (number, optional): Value for volume actions (0-100)
+
+**Example**:
+```json
+{
+  "zone_name": "Living Room",
+  "action": "volume",
+  "value": 75
+}
+```
+
+#### `set_audio_volume`
 Sets volume for an audio zone.
 
 **Parameters**:
-- `zone_id` (string, required): Audio zone identifier
+- `zone_name` (string, required): Name of the audio zone
 - `volume` (number, required): Volume level (0-100)
 
-## Sensors
+### Security Control (2 tools)
 
-### `get_all_door_window_sensors`
-Retrieves status of all door and window sensors.
+#### `arm_alarm`
+Arms the alarm system for security monitoring.
+
+**Parameters**:
+- `mode` (string, optional): Alarm mode to set ("home", "away", "full"), default: "away"
+
+**Example**:
+```json
+{
+  "mode": "away"
+}
+```
+
+#### `disarm_alarm`
+Disarms the alarm system.
 
 **Parameters**: None
 
-**Returns**:
+### Workflow Management (2 tools)
+
+#### `create_workflow`
+Creates a new automation workflow by chaining multiple tools together.
+
+**Parameters**:
+- `name` (string, required): Name of the workflow
+- `description` (string, required): Description of what the workflow does
+- `steps` (array, required): Array of workflow steps to execute
+- `timeout_seconds` (number, optional): Maximum execution time in seconds
+- `variables` (object, optional): Initial variables for the workflow
+
+**Example**:
 ```json
 {
-  "sensors": [
-    {
-      "location": "Front Door",
-      "state": "closed",
-      "last_change": "2024-01-29T10:30:00Z"
-    }
+  "name": "Morning Routine",
+  "description": "Turn on lights and open blinds",
+  "steps": [
+    {"type": "tool", "name": "control_all_lights", "args": {"action": "on"}},
+    {"type": "tool", "name": "control_all_rolladen", "args": {"action": "up"}}
   ]
 }
 ```
 
-### `get_temperature_sensors`
-Gets readings from all temperature sensors.
-
-**Parameters**: None
-
-**Returns**: Temperature readings by location
-
-### `get_motion_sensors`
-Retrieves motion sensor status.
-
-**Parameters**: None
-
-**Returns**: Motion detection status by location
-
-### `discover_sensor_capabilities`
-Discovers all sensor types and their capabilities.
-
-**Parameters**: None
-
-**Returns**: Comprehensive sensor inventory
-
-## Weather
-
-### `get_weather_station_data`
-Retrieves data from connected weather station.
-
-**Parameters**: None
-
-**Returns**:
-```json
-{
-  "temperature": 15.2,
-  "humidity": 68,
-  "pressure": 1013.25,
-  "wind_speed": 12.5,
-  "wind_direction": "NW",
-  "rain": 0.0
-}
-```
-
-## Energy Management
-
-### `get_energy_consumption`
-Retrieves current energy consumption data.
+#### `execute_workflow_demo`
+Executes a demonstration workflow to show automation capabilities.
 
 **Parameters**:
-- `timeframe` (string, optional): "current", "day", "week", "month"
+- `workflow_name` (string, required): Name of the demo workflow ("home_automation", "morning_routine", "security_check")
+- `variables` (object, optional): Variables to pass to the workflow
 
-**Returns**: Energy consumption metrics
+## Resources for Read-Only Data
 
-## Security
+The following operations are now handled by **resources** instead of tools:
 
-### `get_alarm_status`
-Gets the current alarm system status.
+| Operation | Resource URI |
+|-----------|--------------|
+| List rooms | `loxone://rooms` |
+| Get room devices | `loxone://rooms/{room}/devices` |
+| Get room overview | `loxone://rooms/{room}/overview` |
+| List all devices | `loxone://devices/all` |
+| Get devices by category | `loxone://devices/category/{category}` |
+| Get system capabilities | `loxone://system/capabilities` |
+| Get system categories | `loxone://system/categories` |
+| Get audio zones | `loxone://audio/zones` |
+| Get audio sources | `loxone://audio/sources` |
+| Get door/window sensors | `loxone://sensors/door-window` |
+| Get temperature sensors | `loxone://sensors/temperature` |
+| Get weather data | `loxone://weather/current` |
+| Get energy consumption | `loxone://energy/consumption` |
+| Get alarm status | `loxone://security/status` |
+| Get climate data | `loxone://climate/overview` |
+| Get predefined workflows | `loxone://workflows/predefined` |
+| Get workflow examples | `loxone://workflows/examples` |
 
-**Parameters**: None
-
-**Returns**:
-```json
-{
-  "armed": false,
-  "mode": "disarmed",
-  "zones": []
-}
-```
-
-### `arm_alarm`
-Arms the alarm system.
-
-**Parameters**:
-- `mode` (string, required): "away" or "home"
-- `zones` (array, optional): Specific zones to arm
-
-### `disarm_alarm`
-Disarms the alarm system.
-
-**Parameters**:
-- `code` (string, required): Disarm code
-
-## Workflows
-
-### `create_workflow`
-Creates a new automation workflow.
-
-**Parameters**:
-- `name` (string, required): Workflow name
-- `triggers` (array, required): Trigger conditions
-- `actions` (array, required): Actions to execute
-
-### `execute_workflow_demo`
-Executes a demonstration workflow.
-
-**Parameters**:
-- `workflow_name` (string, required): Name of demo workflow
-
-### `list_predefined_workflows`
-Lists all predefined workflows.
-
-**Parameters**: None
-
-**Returns**: Available workflow templates
-
-### `get_workflow_examples`
-Provides workflow examples and templates.
-
-**Parameters**: None
-
-**Returns**: Example workflow configurations
+See [resources.md](resources.md) for detailed resource documentation.
 
 ## Error Handling
 
@@ -383,12 +262,13 @@ All tools follow consistent error handling:
 Tools are subject to rate limiting based on user role:
 - **Admin**: 1000 requests/minute
 - **Operator**: 100 requests/minute
-- **Viewer**: 10 requests/minute (read-only tools)
+- **Viewer**: 10 requests/minute (read-only access only)
 
-## Notes
+## Migration Notes
 
-- All UUID parameters should be in Loxone's standard format
-- Temperature values are in Celsius
-- Percentage values are 0-100
-- Times are in ISO 8601 format
-- Some tools may return cached data for performance
+This server has been updated to follow MCP best practices by separating tools and resources:
+
+- **Tools**: Used for actions that modify device state
+- **Resources**: Used for read-only data access with caching
+
+This improves performance through intelligent caching and provides a cleaner API structure that follows the MCP specification.

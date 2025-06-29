@@ -6,12 +6,13 @@
 [![CI](https://github.com/avrabe/mcp-loxone/actions/workflows/ci.yml/badge.svg)](https://github.com/avrabe/mcp-loxone/actions)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](LICENSE)
 
-A Model Context Protocol (MCP) server that enables programmatic control of Loxone home automation systems. This implementation provides comprehensive device control through 34 specialized tools, supporting both stdio (for Claude Desktop) and HTTP transports.
+A Model Context Protocol (MCP) server that enables programmatic control of Loxone home automation systems. This implementation provides comprehensive device control through 17 specialized tools and 25+ resources, supporting both stdio (for Claude Desktop) and HTTP transports.
 
 ## Features
 
-- **Comprehensive Control**: 34 MCP tools covering lights, blinds, climate, audio, sensors, and more
-- **Multiple Transports**: stdio for Claude Desktop, HTTP/SSE for web integrations
+- **Comprehensive Control**: 17 MCP tools for device control + 25+ resources for data access
+- **MCP Compliant**: Proper separation of tools (actions) and resources (read-only data)
+- **Multiple Transports**: stdio for Claude Desktop, HTTP/SSE for web integrations  
 - **Enterprise Security**: API key authentication with role-based access control
 - **Performance Optimized**: Connection pooling, intelligent caching, batch operations
 - **Framework Integration**: Built on PulseEngine MCP framework for standardized protocol handling
@@ -75,40 +76,28 @@ Add to your Claude Desktop configuration:
 cargo run --bin loxone-mcp-verify
 ```
 
-## Available Tools
+## Available Tools & Resources
 
-The server implements 34 tools organized by category:
+The server implements 17 tools for actions and 25+ resources for data access:
 
-### Device Control
-- `control_device` - Direct device control by UUID
-- `control_multiple_devices` - Batch device operations
-- `discover_all_devices` - List all available devices
-- `get_devices_by_category` - Filter devices by type
+### Tools (Actions)
+- **Device Control**: `control_device`, `control_multiple_devices`
+- **Lighting**: `control_lights_unified`, `control_all_lights`, `control_room_lights` 
+- **Blinds/Rolladen**: `control_rolladen_unified`, `control_all_rolladen`, `control_room_rolladen`, `discover_rolladen_capabilities`
+- **Climate**: `set_room_temperature`, `set_room_mode`
+- **Audio**: `control_audio_zone`, `set_audio_volume`
+- **Security**: `arm_alarm`, `disarm_alarm`
+- **Workflows**: `create_workflow`, `execute_workflow_demo`
 
-### Lighting
-- `control_lights_unified` - Control lights by room or globally
-- `get_light_scenes` - Available lighting scenes
-- `set_light_scene` - Activate lighting scenes
+### Resources (Read-Only Data)
+- **Rooms**: `loxone://rooms`, `loxone://rooms/{room}/devices`, `loxone://rooms/{room}/overview`
+- **Devices**: `loxone://devices/all`, `loxone://devices/category/{category}`, `loxone://devices/type/{type}`
+- **System**: `loxone://system/status`, `loxone://system/capabilities`, `loxone://system/categories`
+- **Sensors**: `loxone://sensors/door-window`, `loxone://sensors/temperature`, `loxone://sensors/motion`
+- **Audio**: `loxone://audio/zones`, `loxone://audio/sources`
+- **And more...** (weather, energy, security, climate)
 
-### Climate Control
-- `get_room_climate` - Temperature and humidity data
-- `set_room_temperature` - Adjust room temperature
-- `get_climate_control` - HVAC system status
-- `set_room_mode` - Set comfort/eco/off modes
-
-### Audio
-- `get_audio_zones` - List audio zones
-- `control_audio_zone` - Play/pause/stop audio
-- `set_audio_volume` - Volume control
-- `get_audio_sources` - Available audio sources
-
-### Sensors
-- `get_all_door_window_sensors` - Security sensor status
-- `get_temperature_sensors` - Temperature readings
-- `get_motion_sensors` - Motion detection status
-- `discover_sensor_capabilities` - Available sensor types
-
-[Full tool documentation →](docs/tools_reference.md)
+[Full tool documentation →](docs/tools_reference.md) | [Resource documentation →](docs/resources.md)
 
 ## Architecture
 
