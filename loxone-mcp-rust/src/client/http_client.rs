@@ -282,8 +282,48 @@ impl LoxoneClient for LoxoneHttpClient {
 
         // Get structure file: /data/LoxAPP3.json
         let url = self.build_url("data/LoxAPP3.json")?;
+        
+        debug!("Fetching structure from endpoint");
 
-        let response = self.execute_request(url).await?;
+        // Create a completely fresh client that matches curl exactly
+        let auth_header = format!(
+            "Basic {}",
+            base64::engine::general_purpose::STANDARD.encode(format!(
+                "{}:{}",
+                self.credentials.username,
+                self.credentials.password
+            ))
+        );
+        
+        let fresh_client = reqwest::ClientBuilder::new()
+            .timeout(self.config.timeout)
+            .user_agent("curl/8.7.1")  // Use same User-Agent as curl
+            .danger_accept_invalid_certs(!self.config.verify_ssl)
+            .no_gzip()  // Disable compression like curl default
+            .pool_max_idle_per_host(0)  // Disable connection pooling completely
+            .build()
+            .map_err(|e| LoxoneError::connection(format!("Failed to build fresh HTTP client: {e}")))?;
+
+        debug!("Making fresh HTTP request to structure endpoint");
+        let response = fresh_client
+            .get(url.clone())
+            .header(reqwest::header::AUTHORIZATION, &auth_header)
+            .header(reqwest::header::ACCEPT, "*/*")  // Same as curl
+            .send()
+            .await
+            .map_err(|e| LoxoneError::connection(format!("Structure request failed: {e}")))?;
+
+        debug!("Structure response status: {}", response.status());
+        
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            error!("Structure fetch failed: status={}, body={}", status, text);
+            return Err(LoxoneError::authentication(format!(
+                "Structure fetch failed with status {}: {}",
+                status, text
+            )));
+        }
         let text = response
             .text()
             .await
