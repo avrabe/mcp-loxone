@@ -1,7 +1,7 @@
 //! Test server that mimics what MCP Inspector expects
 
-use pulseengine_mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use pulseengine_mcp_protocol::{Request, Response};
+use pulseengine_mcp_transport::{http::HttpTransport, RequestHandler, Transport};
 use serde_json::json;
 use tracing::{debug, info};
 
