@@ -16,7 +16,7 @@ use std::collections::HashMap;
 use std::time::{Duration, Instant};
 
 /// Simplified error handling - single conversion chain
-/// 
+///
 /// Framework pattern: LoxoneError -> BackendError (framework handles MCP protocol errors)
 /// This eliminates the complex triple-conversion chain and reduces error handling overhead.
 /// Convert LoxoneError to BackendError (simplified mapping)
@@ -27,15 +27,15 @@ impl From<LoxoneError> for BackendError {
             // Connection issues
             Connection(msg) | WebSocket(msg) => BackendError::connection(msg),
             Http(e) => BackendError::connection(e.to_string()),
-            
-            // Configuration issues  
+
+            // Configuration issues
             Authentication(msg) | Config(msg) | Credentials(msg) | InvalidInput(msg) => {
                 BackendError::configuration(msg)
             }
-            
+
             // Not found/unsupported
             NotFound(msg) | ServiceUnavailable(msg) => BackendError::not_supported(msg),
-            
+
             // All other errors as internal
             _ => BackendError::internal(err.to_string()),
         }
@@ -58,7 +58,6 @@ impl From<BackendError> for LoxoneError {
 
 // Note: Framework handles LoxoneError -> MCP Protocol Error conversion automatically
 // No need for manual Error conversion - reduces complexity and maintenance burden
-
 
 /// Cache entry for resource data
 #[derive(Clone)]
@@ -149,7 +148,7 @@ impl LoxoneBackend {
         }
 
         debug!("🔌 Connecting to Loxone and loading structure...");
-        
+
         // First do a health check to establish connection
         match client.health_check().await {
             Ok(true) => {
@@ -159,26 +158,53 @@ impl LoxoneBackend {
                 return Err(BackendError::connection("Health check failed".to_string()));
             }
             Err(e) => {
-                return Err(BackendError::connection(format!("Health check error: {}", e)));
+                return Err(BackendError::connection(format!("Health check error: {e}")));
             }
         }
-        
+
         // Now try to fetch structure
+        info!("🔄 Attempting to fetch structure from Loxone...");
         match client.get_structure().await {
             Ok(structure) => {
-                context.update_structure(structure).await.map_err(|e| BackendError::internal(e.to_string()))?;
+                info!(
+                    "📦 Structure received, {} controls found",
+                    structure.controls.len()
+                );
+                context
+                    .update_structure(structure)
+                    .await
+                    .map_err(|e| BackendError::internal(e.to_string()))?;
                 let rooms = context.rooms.read().await;
                 let devices = context.devices.read().await;
                 let capabilities = context.capabilities.read().await;
-                info!("✅ Structure loaded: {} rooms, {} devices", rooms.len(), devices.len());
-                info!("📊 System capabilities: lights={}, blinds={}, climate={}, sensors={}", 
-                      capabilities.has_lighting, capabilities.has_blinds, 
-                      capabilities.has_climate, capabilities.has_sensors);
+                info!(
+                    "✅ Structure loaded: {} rooms, {} devices",
+                    rooms.len(),
+                    devices.len()
+                );
+
+                // Debug: Show first few device types
+                for (uuid, device) in devices.iter().take(5) {
+                    info!(
+                        "Sample device: {} - {} (type: {}, category: {})",
+                        uuid, device.name, device.device_type, device.category
+                    );
+                }
+
+                info!(
+                    "📊 System capabilities: lights={}, blinds={}, climate={}, sensors={}",
+                    capabilities.has_lighting,
+                    capabilities.has_blinds,
+                    capabilities.has_climate,
+                    capabilities.has_sensors
+                );
                 Ok(())
             }
             Err(e) => {
-                warn!("⚠️ Failed to load structure: {}", e);
-                Err(BackendError::connection(format!("Failed to load structure: {}", e)))
+                error!("❌ Failed to load structure: {}", e);
+                Err(BackendError::connection(format!(
+                    "Failed to load structure: {e}"
+                )))
             }
         }
     }
@@ -234,7 +260,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&room_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&room_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -252,7 +279,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&lighting_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&lighting_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -268,7 +296,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&blinds_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&blinds_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -286,7 +315,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&climate_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&climate_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -320,7 +350,8 @@ impl LoxoneBackend {
             if let Some(device) = devices.get(device_id) {
                 return Ok((
                     "application/json".to_string(),
-                    serde_json::to_string(device).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                    serde_json::to_string(device)
+                        .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
                 ));
             } else {
                 return Err(LoxoneError::validation(format!(
@@ -342,8 +373,10 @@ impl LoxoneBackend {
         if let Some(params) = self.parse_uri_template(uri, "loxone://devices/category/{category}") {
             let category = params.get("category").unwrap();
             // Ensure we're connected and have structure loaded
-            self.ensure_connected().await.map_err(|e| LoxoneError::Generic(anyhow::anyhow!("Connection error: {}", e)))?;
-            
+            self.ensure_connected()
+                .await
+                .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("Connection error: {}", e)))?;
+
             let devices = self.context.devices.read().await;
             let category_devices: Vec<_> = devices
                 .values()
@@ -351,7 +384,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&category_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&category_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -364,7 +398,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&type_devices).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&type_devices)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -383,7 +418,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&audio_zone).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&audio_zone)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -401,7 +437,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&room_audio).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&room_audio)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -419,7 +456,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&sensors).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&sensors)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -440,7 +478,8 @@ impl LoxoneBackend {
                 .collect();
             return Ok((
                 "application/json".to_string(),
-                serde_json::to_string(&room_sensors).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                serde_json::to_string(&room_sensors)
+                    .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
             ));
         }
 
@@ -451,7 +490,8 @@ impl LoxoneBackend {
             if let Some(room_data) = rooms.get(room_name) {
                 return Ok((
                     "application/json".to_string(),
-                    serde_json::to_string(room_data).map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
+                    serde_json::to_string(room_data)
+                        .map_err(|e| LoxoneError::Generic(anyhow::anyhow!("JSON error: {}", e)))?,
                 ));
             } else {
                 return Err(LoxoneError::validation(format!(
@@ -516,18 +556,20 @@ impl LoxoneBackend {
         let context = Arc::new(ClientContext::new());
         debug!("✅ Client context initialized");
 
-        // Connect to Loxone and load structure automatically  
+        // Connect to Loxone and load structure automatically
         info!("🔌 Connecting to Loxone Miniserver...");
-        
+
         // Test basic connectivity with health check first
         match client.health_check().await {
             Ok(true) => {
                 info!("✅ Health check passed - Miniserver is reachable");
-                
+
                 // Try to load structure, but don't fail initialization if it doesn't work
                 match Self::ensure_connected_static(&client, &context).await {
                     Ok(_) => {
-                        info!("✅ Successfully connected and loaded structure during initialization");
+                        info!(
+                            "✅ Successfully connected and loaded structure during initialization"
+                        );
                     }
                     Err(e) => {
                         warn!("⚠️ Structure loading failed during initialization: {}", e);
@@ -561,11 +603,11 @@ impl LoxoneBackend {
         let resource_monitor = Arc::new(ResourceMonitor::new(Default::default()));
         let response_cache = Arc::new(ToolResponseCache::new());
         let subscription_coordinator = Arc::new(SubscriptionCoordinator::new().await?);
-        
+
         // Start the subscription system background tasks
         subscription_coordinator.start().await?;
         debug!("✅ Subscription coordinator started with real-time updates");
-        
+
         // Start real-time monitoring for Loxone data changes
         let client_clone = client.clone();
         let context_clone = context.clone();
@@ -658,29 +700,29 @@ impl LoxoneBackend {
         context: Arc<crate::client::ClientContext>,
     ) {
         debug!("📡 Starting real-time Loxone data monitoring...");
-        
+
         let mut interval = tokio::time::interval(Duration::from_secs(5));
-        
+
         loop {
             interval.tick().await;
-            
+
             // Monitor sensor data changes
             if let Err(e) = Self::monitor_sensor_changes(&client, &context).await {
                 debug!("Sensor monitoring error: {}", e);
             }
-            
+
             // Monitor device state changes
             if let Err(e) = Self::monitor_device_changes(&client, &context).await {
                 debug!("Device monitoring error: {}", e);
             }
-            
+
             // Monitor energy consumption changes
             if let Err(e) = Self::monitor_energy_changes(&client, &context).await {
                 debug!("Energy monitoring error: {}", e);
             }
         }
     }
-    
+
     /// Monitor sensor data for changes
     async fn monitor_sensor_changes(
         client: &Arc<dyn crate::client::LoxoneClient>,
@@ -690,61 +732,61 @@ impl LoxoneBackend {
         // 1. Poll sensor endpoints for current values
         // 2. Compare with cached values to detect changes
         // 3. Trigger notifications for subscribed clients
-        
+
         debug!("🌡️ Checking sensor data for changes...");
-        
+
         // Placeholder for sensor monitoring
         if client.health_check().await.unwrap_or(false) {
             debug!("✅ Sensor monitoring active - connection healthy");
         } else {
             debug!("⚠️ Sensor monitoring paused - connection issues");
         }
-        
+
         Ok(())
     }
-    
+
     /// Monitor device states for changes
     async fn monitor_device_changes(
         client: &Arc<dyn crate::client::LoxoneClient>,
         context: &Arc<crate::client::ClientContext>,
     ) -> std::result::Result<(), LoxoneError> {
         debug!("📱 Checking device states for changes...");
-        
+
         // In a full implementation, this would:
         // 1. Fetch current device states
         // 2. Compare with cached states in context
         // 3. Update context and trigger notifications for changes
-        
+
         let devices = context.devices.read().await;
         let device_count = devices.len();
-        
+
         if client.health_check().await.unwrap_or(false) {
             debug!("✅ Device monitoring active for {} devices", device_count);
         } else {
             debug!("⚠️ Device monitoring paused - connection issues");
         }
-        
+
         Ok(())
     }
-    
+
     /// Monitor energy consumption for changes
     async fn monitor_energy_changes(
         client: &Arc<dyn crate::client::LoxoneClient>,
         _context: &Arc<crate::client::ClientContext>,
     ) -> std::result::Result<(), LoxoneError> {
         debug!("⚡ Checking energy consumption for changes...");
-        
+
         // In a full implementation, this would:
         // 1. Poll energy monitoring endpoints
         // 2. Track consumption changes
         // 3. Trigger notifications for significant changes
-        
+
         if client.health_check().await.unwrap_or(false) {
             debug!("✅ Energy monitoring active - connection healthy");
         } else {
             debug!("⚠️ Energy monitoring paused - connection issues");
         }
-        
+
         Ok(())
     }
 }
@@ -1071,22 +1113,30 @@ impl McpBackend for LoxoneBackend {
             "loxone://rooms" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let rooms = self.context.rooms.read().await;
                 let room_list: Vec<_> = rooms.keys().cloned().collect();
-                ("application/json", serde_json::to_string(&room_list).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&room_list)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
 
             // Device resources
             "loxone://devices/all" => {
                 let devices = self.context.devices.read().await;
                 let device_list: Vec<_> = devices.values().collect();
-                ("application/json", serde_json::to_string(&device_list).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&device_list)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
             "loxone://devices/category/lighting" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let devices = self.context.devices.read().await;
                 let lighting_devices: Vec<_> = devices
                     .values()
@@ -1098,34 +1148,61 @@ impl McpBackend for LoxoneBackend {
                     .collect();
                 (
                     "application/json",
-                    serde_json::to_string(&lighting_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                    serde_json::to_string(&lighting_devices)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
                 )
             }
             "loxone://devices/category/blinds" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let devices = self.context.devices.read().await;
                 let blinds_devices: Vec<_> = devices
                     .values()
                     .filter(|d| d.category == "blinds" || d.device_type == "Jalousie")
                     .collect();
-                ("application/json", serde_json::to_string(&blinds_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&blinds_devices)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
             "loxone://devices/category/climate" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let devices = self.context.devices.read().await;
+                debug!(
+                    "Checking climate devices - total devices: {}",
+                    devices.len()
+                );
+
                 let climate_devices: Vec<_> = devices
                     .values()
                     .filter(|d| {
-                        d.category == "climate"
-                            || d.device_type.contains("Temperature")
-                            || d.device_type.contains("Climate")
+                        let matches = d.category == "climate"
+                            || d.device_type.to_lowercase().contains("temperature")
+                            || d.device_type.to_lowercase().contains("climate")
+                            || d.device_type.to_lowercase().contains("thermostat")
+                            || d.device_type.to_lowercase().contains("heating")
+                            || d.device_type == "IRoomControllerV2"
+                            || d.device_type == "IntelligentRoomController"
+                            || d.device_type.contains("RoomController");
+                        if matches {
+                            debug!(
+                                "Found climate device: {} (type: {}, category: {})",
+                                d.name, d.device_type, d.category
+                            );
+                        }
+                        matches
                     })
                     .collect();
-                ("application/json", serde_json::to_string(&climate_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                debug!("Found {} climate devices", climate_devices.len());
+                (
+                    "application/json",
+                    serde_json::to_string(&climate_devices)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
 
             // Audio resources
@@ -1139,7 +1216,11 @@ impl McpBackend for LoxoneBackend {
                             || d.device_type.contains("Music")
                     })
                     .collect();
-                ("application/json", serde_json::to_string(&audio_devices).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&audio_devices)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
             "loxone://audio/sources" => {
                 let audio_sources = serde_json::json!({
@@ -1155,13 +1236,36 @@ impl McpBackend for LoxoneBackend {
                 match self.ensure_connected().await {
                     Ok(_) => {
                         let devices = self.context.devices.read().await;
+                        debug!("Total devices loaded: {}", devices.len());
+
+                        // Log all device types for debugging
+                        for (uuid, device) in devices.iter().take(10) {
+                            debug!(
+                                "Device {}: type='{}', category='{}'",
+                                uuid, device.device_type, device.category
+                            );
+                        }
+
                         let temp_sensors: Vec<_> = devices
                             .values()
                             .filter(|d| {
-                                d.device_type.contains("Temperature") || d.device_type.contains("Temp")
+                                // Match common temperature sensor patterns
+                                d.device_type.to_lowercase().contains("temperature")
+                                    || d.device_type.to_lowercase().contains("temp")
+                                    || d.device_type == "InfoOnlyAnalog"
+                                    || d.device_type == "IRoomControllerV2"
+                                    || d.name.to_lowercase().contains("temp")
+                                    || d.name.to_lowercase().contains("temperatur")
+                                    || (d.category == "sensors"
+                                        && d.name.to_lowercase().contains("temp"))
                             })
                             .collect();
-                        ("application/json", serde_json::to_string(&temp_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                        debug!("Found {} temperature sensors", temp_sensors.len());
+                        (
+                            "application/json",
+                            serde_json::to_string(&temp_sensors)
+                                .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                        )
                     }
                     Err(_) => {
                         // Fallback: provide mock sensor data indicating structure loading issues
@@ -1178,7 +1282,7 @@ impl McpBackend for LoxoneBackend {
             "loxone://sensors/door-window" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let devices = self.context.devices.read().await;
                 let door_window_sensors: Vec<_> = devices
                     .values()
@@ -1190,28 +1294,140 @@ impl McpBackend for LoxoneBackend {
                     .collect();
                 (
                     "application/json",
-                    serde_json::to_string(&door_window_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                    serde_json::to_string(&door_window_sensors)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
                 )
             }
             "loxone://sensors/motion" => {
                 // Ensure we're connected and have structure loaded
                 self.ensure_connected().await?;
-                
+
                 let devices = self.context.devices.read().await;
                 let motion_sensors: Vec<_> = devices
                     .values()
                     .filter(|d| d.device_type.contains("Motion") || d.device_type.contains("PIR"))
                     .collect();
-                ("application/json", serde_json::to_string(&motion_sensors).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&motion_sensors)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
 
             // Weather resources
             "loxone://weather/current" => {
+                // Ensure we're connected and have structure loaded
+                self.ensure_connected().await?;
+
+                let devices = self.context.devices.read().await;
+
+                // Find weather station devices
+                let weather_devices: Vec<_> = devices
+                    .values()
+                    .filter(|d| {
+                        d.category == "weather"
+                            || d.device_type.to_lowercase().contains("weather")
+                            || d.device_type == "WeatherStation"
+                            || d.device_type == "WeatherServer"
+                            || d.name.to_lowercase().contains("weather")
+                            || d.name.to_lowercase().contains("wetter")
+                    })
+                    .collect();
+
+                debug!("Found {} weather devices", weather_devices.len());
+
+                // Also look for outdoor temperature sensors - specifically look for Terrasse
+                let outdoor_sensors: Vec<_> = devices
+                    .values()
+                    .filter(|d| {
+                        (d.device_type == "InfoOnlyAnalog" || d.category == "sensors")
+                            && (d.name.to_lowercase().contains("outdoor")
+                                || d.name.to_lowercase().contains("außen")
+                                || d.name.to_lowercase().contains("aussen")
+                                || d.name.to_lowercase().contains("terrasse")
+                                || d.room
+                                    .as_ref()
+                                    .map(|r| r.to_lowercase().contains("terrasse"))
+                                    .unwrap_or(false))
+                    })
+                    .collect();
+
+                debug!("Found {} outdoor sensors", outdoor_sensors.len());
+
+                // Try to get state values for a subset of devices
+                let mut temperature = None;
+                let mut humidity = None;
+                let mut state_uuids_to_resolve = Vec::new();
+
+                // Check outdoor sensors for temperature/humidity
+                for sensor in &outdoor_sensors {
+                    // Look for the value state UUID
+                    if let Some(value_uuid) = sensor.states.get("value").and_then(|v| v.as_str()) {
+                        state_uuids_to_resolve.push((value_uuid.to_string(), sensor.name.clone()));
+                    }
+                }
+
+                // Try to resolve state values if we have a client
+                if !state_uuids_to_resolve.is_empty() {
+                    debug!(
+                        "Attempting to resolve {} state UUIDs",
+                        state_uuids_to_resolve.len()
+                    );
+
+                    // Get state values using the client
+                    let state_uuids: Vec<String> = state_uuids_to_resolve
+                        .iter()
+                        .map(|(uuid, _)| uuid.clone())
+                        .collect();
+
+                    match self.client.get_state_values(&state_uuids).await {
+                        Ok(state_values) => {
+                            debug!("Successfully resolved {} state values", state_values.len());
+
+                            // Match values back to sensors
+                            for (uuid, name) in &state_uuids_to_resolve {
+                                if let Some(value) = state_values.get(uuid) {
+                                    if let Some(num_val) = value.as_f64() {
+                                        if name.to_lowercase().contains("temperatur")
+                                            || name.to_lowercase().contains("temp")
+                                        {
+                                            temperature = Some(num_val);
+                                            debug!("Found temperature: {} from {}", num_val, name);
+                                        } else if name.to_lowercase().contains("feuchte")
+                                            || name.to_lowercase().contains("humidity")
+                                        {
+                                            humidity = Some(num_val);
+                                            debug!("Found humidity: {} from {}", num_val, name);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            debug!("Failed to resolve state values: {}", e);
+                        }
+                    }
+                }
+
                 let weather_data = serde_json::json!({
-                    "temperature": null,
-                    "humidity": null,
-                    "pressure": null,
-                    "note": "Weather data access not yet implemented in framework migration"
+                    "temperature": temperature,
+                    "humidity": humidity,
+                    "weather_devices": weather_devices.iter().map(|d| {
+                        serde_json::json!({
+                            "name": d.name,
+                            "type": d.device_type,
+                            "uuid": d.uuid
+                        })
+                    }).collect::<Vec<_>>(),
+                    "outdoor_sensors": outdoor_sensors.iter().map(|d| {
+                        serde_json::json!({
+                            "name": d.name,
+                            "type": d.device_type,
+                            "uuid": d.uuid,
+                            "room": d.room
+                        })
+                    }).collect::<Vec<_>>(),
+                    "timestamp": chrono::Utc::now().to_rfc3339()
                 });
                 ("application/json", weather_data.to_string())
             }
@@ -1229,17 +1445,36 @@ impl McpBackend for LoxoneBackend {
             // System resources (additional)
             "loxone://system/capabilities" => {
                 let capabilities = self.context.capabilities.read().await;
-                ("application/json", serde_json::to_string(&*capabilities).map_err(|e| BackendError::internal(format!("JSON error: {e}")))?)
+                (
+                    "application/json",
+                    serde_json::to_string(&*capabilities)
+                        .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
+                )
             }
             "loxone://system/categories" => {
                 let devices = self.context.devices.read().await;
                 let mut categories = std::collections::HashMap::new();
+                let mut type_examples = std::collections::HashMap::new();
+
                 for device in devices.values() {
                     *categories.entry(device.category.clone()).or_insert(0) += 1;
+
+                    // Collect example device types for each category
+                    let examples = type_examples
+                        .entry(device.category.clone())
+                        .or_insert_with(Vec::new);
+                    if examples.len() < 3 && !examples.contains(&device.device_type) {
+                        examples.push(device.device_type.clone());
+                    }
                 }
+
+                debug!("Category breakdown: {:?}", categories);
+                debug!("Example device types by category: {:?}", type_examples);
+
                 let category_summary = serde_json::json!({
                     "categories": categories,
-                    "total_devices": devices.len()
+                    "total_devices": devices.len(),
+                    "type_examples": type_examples
                 });
                 ("application/json", category_summary.to_string())
             }
@@ -1448,17 +1683,20 @@ impl McpBackend for LoxoneBackend {
         // Get real-time data for context-aware prompts
         let rooms = self.context.rooms.read().await;
         let devices = self.context.devices.read().await;
-        
+
         let room_names: Vec<_> = rooms.keys().cloned().collect();
         let device_count = devices.len();
         let room_count = rooms.len();
-        
+
         // Calculate device category counts for intelligent prompting
         let lights_count = devices.values().filter(|d| d.category == "lights").count();
         let blinds_count = devices.values().filter(|d| d.category == "blinds").count();
         let climate_count = devices.values().filter(|d| d.category == "climate").count();
         let audio_count = devices.values().filter(|d| d.category == "audio").count();
-        let security_count = devices.values().filter(|d| d.category == "security").count();
+        let security_count = devices
+            .values()
+            .filter(|d| d.category == "security")
+            .count();
 
         let prompts = vec![
             // Energy and efficiency prompts
@@ -1783,7 +2021,9 @@ impl McpBackend for LoxoneBackend {
 
         let (description, messages) = match params.name.as_str() {
             "analyze_energy_usage" => {
-                let period = params.arguments.as_ref()
+                let period = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("period"))
                     .map(|s| s.as_str())
                     .unwrap_or("week");
@@ -1804,7 +2044,9 @@ impl McpBackend for LoxoneBackend {
             }
 
             "home_status_summary" => {
-                let include_sensors = params.arguments.as_ref()
+                let include_sensors = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("include_sensors"))
                     .map(|v| v == "true")
                     .unwrap_or(true);
@@ -1831,12 +2073,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "security_report" => {
-                let include_history = params.arguments.as_ref()
+                let include_history = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("include_history"))
                     .map(|v| v == "true")
                     .unwrap_or(false);
 
-                let threat_assessment = params.arguments.as_ref()
+                let threat_assessment = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("threat_assessment"))
                     .map(|v| v == "true")
                     .unwrap_or(true);
@@ -1867,12 +2113,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "room_energy_optimization" => {
-                let room_name = params.arguments.as_ref()
+                let room_name = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("room_name"))
                     .map(|s| s.as_str())
                     .unwrap_or("unspecified");
 
-                let include_schedule = params.arguments.as_ref()
+                let include_schedule = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("include_schedule"))
                     .map(|v| v == "true")
                     .unwrap_or(true);
@@ -1899,12 +2149,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "room_status_report" => {
-                let room_name = params.arguments.as_ref()
+                let room_name = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("room_name"))
                     .map(|s| s.as_str())
                     .unwrap_or("unspecified");
 
-                let include_controls = params.arguments.as_ref()
+                let include_controls = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("include_controls"))
                     .map(|v| v == "true")
                     .unwrap_or(true);
@@ -1931,12 +2185,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "device_diagnostics" => {
-                let device_category = params.arguments.as_ref()
+                let device_category = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("device_category"))
                     .map(|s| s.as_str())
                     .unwrap_or("all");
 
-                let include_history = params.arguments.as_ref()
+                let include_history = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("include_history"))
                     .map(|v| v == "true")
                     .unwrap_or(false);
@@ -1963,7 +2221,9 @@ impl McpBackend for LoxoneBackend {
             }
 
             "safety_check" => {
-                let focus_areas = params.arguments.as_ref()
+                let focus_areas = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("focus_areas"))
                     .map(|s| s.as_str())
                     .unwrap_or("all systems");
@@ -1984,12 +2244,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "comfort_optimization" => {
-                let time_of_day = params.arguments.as_ref()
+                let time_of_day = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("time_of_day"))
                     .map(|s| s.as_str())
                     .unwrap_or("current time");
 
-                let weather_consideration = params.arguments.as_ref()
+                let weather_consideration = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("weather_consideration"))
                     .map(|v| v == "true")
                     .unwrap_or(true);
@@ -2016,12 +2280,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "lighting_scene_suggestion" => {
-                let scenario = params.arguments.as_ref()
+                let scenario = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("scenario"))
                     .map(|s| s.as_str())
                     .unwrap_or("general use");
 
-                let room_priority = params.arguments.as_ref()
+                let room_priority = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("room_priority"))
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "all rooms".to_string());
@@ -2042,12 +2310,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "climate_optimization" => {
-                let season = params.arguments.as_ref()
+                let season = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("season"))
                     .map(|s| s.as_str())
                     .unwrap_or("current season");
 
-                let priority = params.arguments.as_ref()
+                let priority = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("priority"))
                     .map(|s| s.as_str())
                     .unwrap_or("balance");
@@ -2068,12 +2340,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "entertainment_setup" => {
-                let activity = params.arguments.as_ref()
+                let activity = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("activity"))
                     .map(|s| s.as_str())
                     .unwrap_or("general entertainment");
 
-                let zones = params.arguments.as_ref()
+                let zones = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("zones"))
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "all available zones".to_string());
@@ -2094,12 +2370,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "blinds_automation" => {
-                let priority = params.arguments.as_ref()
+                let priority = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("priority"))
                     .map(|s| s.as_str())
                     .unwrap_or("comfort");
 
-                let schedule_type = params.arguments.as_ref()
+                let schedule_type = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("schedule_type"))
                     .map(|s| s.as_str())
                     .unwrap_or("daily");
@@ -2120,12 +2400,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "system_troubleshooting" => {
-                let symptom = params.arguments.as_ref()
+                let symptom = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("symptom"))
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "general system issues".to_string());
 
-                let affected_area = params.arguments.as_ref()
+                let affected_area = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("affected_area"))
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "system-wide".to_string());
@@ -2146,12 +2430,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "maintenance_schedule" => {
-                let priority_level = params.arguments.as_ref()
+                let priority_level = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("priority_level"))
                     .map(|s| s.as_str())
                     .unwrap_or("recommended");
 
-                let season = params.arguments.as_ref()
+                let season = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("season"))
                     .map(|s| s.as_str())
                     .unwrap_or("current season");
@@ -2172,12 +2460,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "automation_suggestions" => {
-                let lifestyle = params.arguments.as_ref()
+                let lifestyle = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("lifestyle"))
                     .map(|s| s.as_str())
                     .unwrap_or("general");
 
-                let complexity = params.arguments.as_ref()
+                let complexity = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("complexity"))
                     .map(|s| s.as_str())
                     .unwrap_or("intermediate");
@@ -2198,12 +2490,16 @@ impl McpBackend for LoxoneBackend {
             }
 
             "scenario_planning" => {
-                let scenario_type = params.arguments.as_ref()
+                let scenario_type = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("scenario_type"))
                     .map(|s| s.as_str())
                     .unwrap_or("general");
 
-                let duration = params.arguments.as_ref()
+                let duration = params
+                    .arguments
+                    .as_ref()
                     .and_then(|args| args.get("duration"))
                     .map(|s| s.to_string())
                     .unwrap_or_else(|| "unspecified duration".to_string());
@@ -2224,7 +2520,10 @@ impl McpBackend for LoxoneBackend {
             }
 
             _ => {
-                return Err(BackendError::not_supported(format!("Prompt not found: {}", params.name)));
+                return Err(BackendError::not_supported(format!(
+                    "Prompt not found: {}",
+                    params.name
+                )));
             }
         };
 
@@ -2262,7 +2561,10 @@ impl McpBackend for LoxoneBackend {
 
         if !is_valid_resource {
             warn!("❌ Unknown resource URI for subscription: {}", params.uri);
-            return Err(BackendError::not_supported(format!("Resource not found for subscription: {}", params.uri)));
+            return Err(BackendError::not_supported(format!(
+                "Resource not found for subscription: {}",
+                params.uri
+            )));
         }
 
         info!("✅ Valid resource URI for subscription: {}", params.uri);
@@ -2280,14 +2582,21 @@ impl McpBackend for LoxoneBackend {
         };
 
         // Register with subscription coordinator
-        match self.subscription_coordinator.subscribe_client(
-            client_info,
-            params.uri.clone(),
-            None, // No filters for now
-        ).await {
+        match self
+            .subscription_coordinator
+            .subscribe_client(
+                client_info,
+                params.uri.clone(),
+                None, // No filters for now
+            )
+            .await
+        {
             Ok(()) => {
-                info!("✅ Subscription registered with real-time updates: {}", params.uri);
-                
+                info!(
+                    "✅ Subscription registered with real-time updates: {}",
+                    params.uri
+                );
+
                 // Start monitoring this resource type if not already started
                 match params.uri.as_str() {
                     uri if uri.starts_with("loxone://sensors/") => {
@@ -2365,13 +2674,17 @@ impl McpBackend for LoxoneBackend {
         // For framework migration, we don't have client ID tracking yet
         // In a full implementation, we would need the client ID from the MCP session
         // For now, we'll unsubscribe all clients from this resource
-        match self.subscription_coordinator.unsubscribe_client(
-            "framework-migration-client".to_string(), // Placeholder client ID
-            Some(params.uri.clone()),
-        ).await {
+        match self
+            .subscription_coordinator
+            .unsubscribe_client(
+                "framework-migration-client".to_string(), // Placeholder client ID
+                Some(params.uri.clone()),
+            )
+            .await
+        {
             Ok(()) => {
                 info!("✅ Unsubscription processed with cleanup: {}", params.uri);
-                
+
                 // Log monitoring status change
                 match params.uri.as_str() {
                     uri if uri.starts_with("loxone://sensors/") => {
@@ -2673,6 +2986,8 @@ impl McpBackend for LoxoneBackend {
         _params: serde_json::Value,
     ) -> std::result::Result<serde_json::Value, Self::Error> {
         warn!("❓ Unknown custom method: {}", method);
-        Err(BackendError::configuration(format!("Unknown method: {method}")))
+        Err(BackendError::configuration(format!(
+            "Unknown method: {method}"
+        )))
     }
 }

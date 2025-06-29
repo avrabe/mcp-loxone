@@ -155,6 +155,7 @@ pub async fn handle_tool_call_direct(
                 room: Option<String>,
                 action: String,
                 temperature: Option<f64>,
+                #[allow(dead_code)]
                 mode: Option<String>,
             }
             let climate_params: ClimateParams = serde_json::from_value(
@@ -268,6 +269,7 @@ pub async fn handle_tool_call_direct(
             #[derive(serde::Deserialize)]
             struct DeviceParams {
                 device_name: Option<String>,
+                #[allow(dead_code)]
                 device_category: Option<String>,
             }
             let device_params: DeviceParams = serde_json::from_value(
