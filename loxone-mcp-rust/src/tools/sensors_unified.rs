@@ -1,13 +1,24 @@
 //! Unified sensor tools using the value resolution service
 //!
-//! This module provides sensor tools that use the unified value resolver
-//! for consistent value parsing across the system.
+//! READ-ONLY TOOLS REMOVED:
+//! The following tools were removed as they duplicate existing resources:
+//!
+//! - get_temperature_sensors_unified() → Use resource: loxone://sensors/temperature
+//! - get_door_window_sensors_unified() → Use resource: loxone://sensors/door-window
+//! - get_motion_sensors_unified() → Use resource: loxone://sensors/motion
+//! - get_presence_detectors_unified() → Use resource: loxone://sensors/presence
+//! - get_weather_station_sensors_unified() → Use resource: loxone://sensors/weather-station
+//!
+//! These functions provided read-only data access and violated MCP patterns.
+//! Use the corresponding resources for sensor data retrieval instead.
 
 use crate::tools::{value_helpers::*, ToolContext, ToolResponse};
 use serde_json::json;
 
-/// Get all temperature sensor readings using unified value resolution
-pub async fn get_temperature_sensors_unified(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_temperature_sensors_unified() → Use resource: loxone://sensors/temperature
+#[allow(dead_code)]
+async fn _removed_get_temperature_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
         return ToolResponse::error(format!("Connection error: {e}"));
@@ -257,7 +268,10 @@ pub async fn get_energy_meters_unified(context: ToolContext) -> ToolResponse {
 }
 
 /// Get all door/window sensor statuses using unified value resolution
-pub async fn get_door_window_sensors_unified(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_door_window_sensors_unified() → Use resource: loxone://sensors/door-window
+#[allow(dead_code)]
+async fn _removed_get_door_window_sensors_unified(context: ToolContext) -> ToolResponse {
     // Ensure we're connected
     if let Err(e) = context.ensure_connected().await {
         return ToolResponse::error(format!("Connection error: {e}"));

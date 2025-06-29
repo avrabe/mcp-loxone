@@ -1,6 +1,10 @@
-//! Device control and discovery MCP tools
+//! Device control MCP tools
 //!
-//! Tools for device discovery, individual control, and batch operations.
+//! Tools for device control and batch operations.
+//! For read-only device data, use resources:
+//! - loxone://devices/all - All devices
+//! - loxone://devices/category/{category} - Devices by category
+//! - loxone://system/capabilities - System capabilities
 
 use crate::tools::{ActionAliases, DeviceFilter, DeviceStats, ToolContext, ToolResponse};
 // use crate::validation::ToolParameterValidator; // Temporarily disabled
@@ -33,62 +37,9 @@ pub struct DeviceControlResult {
     pub response: Option<serde_json::Value>,
 }
 
-/// Discover all devices in the system
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn discover_all_devices(
-    context: ToolContext,
-    // #[description("Optional filter by category")] // TODO: Re-enable when rmcp API is clarified
-    category: Option<String>,
-    // #[description("Optional filter by device type")] // TODO: Re-enable when rmcp API is clarified
-    device_type: Option<String>,
-    // #[description("Maximum number of devices to return")] // TODO: Re-enable when rmcp API is clarified
-    limit: Option<usize>,
-) -> ToolResponse {
-    // Temporarily disabled validation
-    // if let Err(e) = ToolParameterValidator::validate_discovery_params(
-    //     category.as_ref(),
-    //     device_type.as_ref(),
-    //     limit,
-    // ) {
-    //     return ToolResponse::error(e.to_string());
-    // }
-
-    // Basic validation instead
-    if let Some(l) = limit {
-        if l > 1000 {
-            return ToolResponse::error("Limit too large (max 1000)".to_string());
-        }
-    }
-
-    let filter = if category.is_some() || device_type.is_some() || limit.is_some() {
-        Some(DeviceFilter {
-            category,
-            device_type,
-            room: None,
-            limit,
-        })
-    } else {
-        None
-    };
-
-    let devices = match context.get_devices(filter).await {
-        Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(e.to_string()),
-    };
-
-    let stats = DeviceStats::from_devices(&devices);
-
-    let response_data = serde_json::json!({
-        "devices": devices,
-        "statistics": stats,
-        "total_found": devices.len()
-    });
-
-    ToolResponse::success_with_message(
-        response_data,
-        format!("Discovered {} devices", devices.len()),
-    )
-}
+// READ-ONLY TOOL REMOVED:
+// discover_all_devices() → Use resource: loxone://devices/all
+// This function provided read-only data access and violated MCP patterns.
 
 /// Control a specific device
 // #[tool] // TODO: Re-enable when rmcp API is clarified
@@ -312,45 +263,16 @@ pub async fn control_multiple_devices(
 
 /// Get devices by category
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_devices_by_category(
-    context: ToolContext,
-    // #[description("Device category (lighting, blinds, climate, sensors, etc.)")] // TODO: Re-enable when rmcp API is clarified
-    category: String,
-    // #[description("Maximum number of devices to return")] // TODO: Re-enable when rmcp API is clarified
-    limit: Option<usize>,
-) -> ToolResponse {
-    let mut devices = match context.context.get_devices_by_category(&category).await {
-        Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(e.to_string()),
-    };
+// READ-ONLY TOOL REMOVED:
+// get_devices_by_category() → Use resource: loxone://devices/category/{category}
+// This function provided read-only data access and violated MCP patterns.
 
-    if devices.is_empty() {
-        return ToolResponse::empty_with_context(&format!("devices in category '{category}'"));
-    }
+// READ-ONLY TOOL REMOVED:
+// get_available_capabilities() → Use resource: loxone://system/capabilities
+// This function provided read-only data access and violated MCP patterns.
 
-    // Apply limit
-    if let Some(limit) = limit {
-        devices.truncate(limit);
-    }
-
-    let stats = DeviceStats::from_devices(&devices);
-
-    let response_data = serde_json::json!({
-        "category": category,
-        "devices": devices,
-        "statistics": stats,
-        "total_found": devices.len()
-    });
-
-    ToolResponse::success_with_message(
-        response_data,
-        format!("Found {} devices in category '{}'", devices.len(), category),
-    )
-}
-
-/// Get available system capabilities based on discovered devices
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_available_capabilities(context: ToolContext) -> ToolResponse {
+#[allow(dead_code)]
+async fn _removed_get_available_capabilities(context: ToolContext) -> ToolResponse {
     let capabilities = context.context.capabilities.read().await;
     let devices = context.context.devices.read().await;
 
@@ -536,96 +458,12 @@ pub async fn get_available_capabilities(context: ToolContext) -> ToolResponse {
     )
 }
 
-/// Get all categories overview
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_all_categories_overview(context: ToolContext) -> ToolResponse {
-    let devices = context.context.devices.read().await;
+// READ-ONLY TOOL REMOVED:
+// get_all_categories_overview() → Use resource: loxone://system/categories
+// This function provided read-only data access and violated MCP patterns.
 
-    // Count devices by category
-    let mut category_counts: HashMap<String, usize> = HashMap::new();
-    let mut category_examples: HashMap<String, Vec<String>> = HashMap::new();
-
-    for device in devices.values() {
-        *category_counts.entry(device.category.clone()).or_insert(0) += 1;
-
-        let examples = category_examples
-            .entry(device.category.clone())
-            .or_default();
-
-        // Keep up to 3 examples per category
-        if examples.len() < 3 {
-            examples.push(format!("{} ({})", device.name, device.device_type));
-        }
-    }
-
-    let categories: Vec<_> = category_counts
-        .into_iter()
-        .map(|(category, count)| {
-            serde_json::json!({
-                "category": category,
-                "device_count": count,
-                "examples": category_examples.get(&category).unwrap_or(&Vec::new()),
-                "tools": vec![
-                    format!("get_devices_by_category('{}')", category),
-                    format!("control_all_{}", if category == "lighting" { "lights" }
-                        else if category == "blinds" { "rolladen" }
-                        else { &category })
-                ]
-            })
-        })
-        .collect();
-
-    let response_data = serde_json::json!({
-        "total_categories": categories.len(),
-        "categories": categories,
-        "note": "Use get_devices_by_category to see all devices in a specific category"
-    });
-
-    ToolResponse::success_with_message(
-        response_data,
-        format!("Found {} device categories", categories.len()),
-    )
-}
-
-/// Get devices by type
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_devices_by_type(
-    context: ToolContext,
-    // #[description("Device type (e.g., LightController, Jalousie)")] // TODO: Re-enable when rmcp API is clarified
-    device_type: String,
-    // #[description("Maximum number of devices to return")] // TODO: Re-enable when rmcp API is clarified
-    limit: Option<usize>,
-) -> ToolResponse {
-    let devices = match context
-        .get_devices(Some(DeviceFilter {
-            device_type: Some(device_type.clone()),
-            category: None,
-            room: None,
-            limit,
-        }))
-        .await
-    {
-        Ok(devices) => devices,
-        Err(e) => return ToolResponse::error(e.to_string()),
-    };
-
-    if devices.is_empty() {
-        return ToolResponse::empty_with_context(&format!("devices of type '{device_type}'"));
-    }
-
-    let stats = DeviceStats::from_devices(&devices);
-
-    let response_data = serde_json::json!({
-        "device_type": device_type,
-        "devices": devices,
-        "statistics": stats,
-        "total_found": devices.len()
-    });
-
-    ToolResponse::success_with_message(
-        response_data,
-        format!("Found {} devices of type '{}'", devices.len(), device_type),
-    )
-}
+// READ-ONLY TOOL REMOVED:
+// get_devices_by_type() → Use resource: loxone://devices/type/{type}
+// This function provided read-only data access and violated MCP patterns.
 
 // Note: get_all_blinds_status has been migrated to a resource: loxone://devices/category/blinds

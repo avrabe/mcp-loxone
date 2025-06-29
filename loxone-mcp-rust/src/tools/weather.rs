@@ -1,6 +1,15 @@
 //! Weather monitoring MCP tools
 //!
-//! Tools for weather data, outdoor conditions, and forecasting.
+//! READ-ONLY TOOLS REMOVED:
+//! The following tools were removed as they duplicate existing resources:
+//!
+//! - get_weather_data() → Use resource: loxone://weather/current
+//! - get_outdoor_conditions() → Use resource: loxone://weather/outdoor-conditions
+//! - get_weather_forecast_daily() → Use resource: loxone://weather/forecast-daily
+//! - get_weather_forecast_hourly() → Use resource: loxone://weather/forecast-hourly
+//!
+//! These functions provided read-only data access and violated MCP patterns.
+//! Use the corresponding resources for weather data retrieval instead.
 
 use crate::tools::{ToolContext, ToolResponse};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
@@ -68,7 +77,10 @@ pub struct ForecastPoint {
 
 /// Get current weather data
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_weather_data() → Use resource: loxone://weather/current
+#[allow(dead_code)]
+async fn _removed_get_weather_data(context: ToolContext) -> ToolResponse {
     // Get weather-related devices
     let devices = match context.context.get_devices_by_category("weather").await {
         Ok(devices) => devices,
@@ -165,9 +177,12 @@ pub async fn get_weather_data(context: ToolContext) -> ToolResponse {
 
 /// Get outdoor environmental conditions
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_outdoor_conditions(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_outdoor_conditions() → Use resource: loxone://weather/outdoor-conditions
+#[allow(dead_code)]
+async fn _removed_get_outdoor_conditions(context: ToolContext) -> ToolResponse {
     // Get weather data first
-    let weather_response = get_weather_data(context).await;
+    let weather_response = _removed_get_weather_data(context).await;
 
     match weather_response.status.as_str() {
         "success" => {
@@ -196,7 +211,10 @@ pub async fn get_outdoor_conditions(context: ToolContext) -> ToolResponse {
 
 /// Get daily weather forecast
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_weather_forecast_daily(
+// READ-ONLY TOOL REMOVED:
+// get_weather_forecast_daily() → Use resource: loxone://weather/forecast-daily
+#[allow(dead_code)]
+async fn _removed_get_weather_forecast_daily(
     _context: ToolContext,
     // #[description("Number of days to forecast")] // TODO: Re-enable when rmcp API is clarified
     days: Option<u32>,
@@ -240,7 +258,10 @@ pub async fn get_weather_forecast_daily(
 
 /// Get hourly weather forecast
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_weather_forecast_hourly(
+// READ-ONLY TOOL REMOVED:
+// get_weather_forecast_hourly() → Use resource: loxone://weather/forecast-hourly
+#[allow(dead_code)]
+async fn _removed_get_weather_forecast_hourly(
     _context: ToolContext,
     // #[description("Number of hours to forecast")] // TODO: Re-enable when rmcp API is clarified
     hours: Option<u32>,

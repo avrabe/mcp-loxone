@@ -77,55 +77,12 @@ pub fn create_tool_context(server: &LoxoneMcpServer) -> ToolContext {
 /// Generate Tool definitions for all available Loxone tools
 pub fn get_all_loxone_tools() -> Vec<Tool> {
     vec![
-        // Room tools
-        Tool {
-            name: "list_rooms".to_string(),
-            description: "List all available rooms in the Loxone system".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
-        Tool {
-            name: "get_room_devices".to_string(),
-            description: "Get all devices in a specific room".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "Name of the room to get devices for"
-                    }
-                },
-                "required": ["room_name"]
-            }),
-        },
-        Tool {
-            name: "get_room_overview".to_string(),
-            description: "Get comprehensive overview of a room including devices and status".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "Name of the room to get overview for"
-                    }
-                },
-                "required": ["room_name"]
-            }),
-        },
+        // READ-ONLY TOOLS REMOVED: list_rooms, get_room_devices, get_room_overview
+        // → Use resources: loxone://rooms, loxone://rooms/{room}/devices, loxone://rooms/{room}/overview
 
         // Device tools
-        Tool {
-            name: "discover_all_devices".to_string(),
-            description: "Discover all devices in the Loxone system".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: discover_all_devices
+        // → Use resource: loxone://devices/all
         Tool {
             name: "control_device".to_string(),
             description: "Control a specific device (lights, blinds, etc.)".to_string(),
@@ -151,21 +108,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["device_id", "action"]
             }),
         },
-        Tool {
-            name: "get_devices_by_category".to_string(),
-            description: "Get devices filtered by category (lights, blinds, climate, etc.)".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "Device category to filter by",
-                        "enum": ["lights", "blinds", "climate", "sensors", "audio", "security"]
-                    }
-                },
-                "required": ["category"]
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_devices_by_category
+        // → Use resources: loxone://devices/category/{category}
 
         // Rolladen/Blinds tools
         Tool {
@@ -292,15 +236,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
 
         // Audio tools
-        Tool {
-            name: "get_audio_zones".to_string(),
-            description: "Get audio system information including zones, sources, and playback status".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_audio_zones
+        // → Use resource: loxone://audio/zones
         Tool {
             name: "control_audio_zone".to_string(),
             description: "Control an audio zone (play, stop, volume control)".to_string(),
@@ -326,15 +263,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["zone_name", "action"]
             }),
         },
-        Tool {
-            name: "get_audio_sources".to_string(),
-            description: "Get available audio sources and their status".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_audio_sources
+        // → Use resource: loxone://audio/sources
         Tool {
             name: "set_audio_volume".to_string(),
             description: "Set volume for an audio zone".to_string(),
@@ -389,77 +319,20 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
 
         // Sensor tools
-        Tool {
-            name: "get_all_door_window_sensors".to_string(),
-            description: "Get status of all door and window sensors".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
-        Tool {
-            name: "get_temperature_sensors".to_string(),
-            description: "Get readings from all temperature sensors".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
+        // READ-ONLY TOOLS REMOVED: get_all_door_window_sensors, get_temperature_sensors
+        // → Use resources: loxone://sensors/door-window, loxone://sensors/temperature
 
         // Weather tools
-        Tool {
-            name: "get_weather_station_data".to_string(),
-            description: "Get comprehensive weather station data".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "required": []
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_weather_station_data
+        // → Use resource: loxone://weather/current
 
         // Energy tools
-        Tool {
-            name: "get_energy_consumption".to_string(),
-            description: "Get current energy consumption data".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "period": {
-                        "type": "string",
-                        "description": "Time period for energy data",
-                        "enum": ["current", "today", "week", "month"]
-                    }
-                },
-                "required": []
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_energy_consumption
+        // → Use resource: loxone://energy/consumption
 
         // Climate control tools
-        Tool {
-            name: "get_climate_control".to_string(),
-            description: "Get comprehensive climate control overview including all HVAC devices and room controllers".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
-        Tool {
-            name: "get_room_climate".to_string(),
-            description: "Get climate status for a specific room including temperature sensors and controllers".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "room_name": {
-                        "type": "string",
-                        "description": "Name of the room to get climate information for"
-                    }
-                },
-                "required": ["room_name"]
-            }),
-        },
+        // READ-ONLY TOOLS REMOVED: get_climate_control, get_room_climate
+        // → Use resources: loxone://climate/overview, loxone://climate/rooms/{room}
         Tool {
             name: "set_room_temperature".to_string(),
             description: "Set target temperature for a room's climate controller".to_string(),
@@ -480,15 +353,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["room_name", "temperature"]
             }),
         },
-        Tool {
-            name: "get_temperature_readings".to_string(),
-            description: "Get temperature readings from all climate sensors and room controllers".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_temperature_readings
+        // → Use resource: loxone://climate/sensors
         Tool {
             name: "set_room_mode".to_string(),
             description: "Control heating/cooling mode for a room's climate controller".to_string(),
@@ -510,15 +376,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
         },
 
         // Security tools
-        Tool {
-            name: "get_alarm_status".to_string(),
-            description: "Get current alarm system status and security device states".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
+        // READ-ONLY TOOL REMOVED: get_alarm_status
+        // → Use resource: loxone://security/status
         Tool {
             name: "arm_alarm".to_string(),
             description: "Arm the alarm system for security monitoring".to_string(),
@@ -604,24 +463,8 @@ pub fn get_all_loxone_tools() -> Vec<Tool> {
                 "required": ["workflow_name"]
             }),
         },
-        Tool {
-            name: "list_predefined_workflows".to_string(),
-            description: "List all predefined automation workflows available in the system".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
-        Tool {
-            name: "get_workflow_examples".to_string(),
-            description: "Get examples of workflow configurations for different automation scenarios".to_string(),
-            input_schema: serde_json::json!({
-                "type": "object",
-                "properties": {},
-                "additionalProperties": false
-            }),
-        },
+        // READ-ONLY TOOLS REMOVED: list_predefined_workflows, get_workflow_examples
+        // → Use resources: loxone://workflows/predefined, loxone://workflows/examples
     ]
 }
 
@@ -633,52 +476,20 @@ pub async fn handle_tool_call(
     let context = create_tool_context(server);
 
     let response = match params.name.as_str() {
-        // Room tools
-        "list_rooms" => crate::tools::rooms::list_rooms(context).await,
-        "get_room_devices" => {
-            let room_name = extract_string_param(&params.arguments, "room_name")?;
-            let category = extract_optional_string_param(&params.arguments, "category");
-            let limit = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("limit"))
-                .and_then(|v| v.as_u64())
-                .map(|n| n as usize);
-            crate::tools::rooms::get_room_devices(context, room_name, category, limit).await
-        }
-        "get_room_overview" => {
-            let room_name = extract_string_param(&params.arguments, "room_name")?;
-            crate::tools::rooms::get_room_overview(context, room_name).await
-        }
+        // READ-ONLY TOOLS REMOVED: list_rooms, get_room_devices, get_room_overview
+        // → Use resources: loxone://rooms, loxone://rooms/{room}/devices, loxone://rooms/{room}/overview
 
         // Device tools
-        "discover_all_devices" => {
-            let category = extract_optional_string_param(&params.arguments, "category");
-            let device_type = extract_optional_string_param(&params.arguments, "device_type");
-            let limit = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("limit"))
-                .and_then(|v| v.as_u64())
-                .map(|n| n as usize);
-            crate::tools::devices::discover_all_devices(context, category, device_type, limit).await
-        }
+        // READ-ONLY TOOL REMOVED: discover_all_devices
+        // → Use resource: loxone://devices/all
         "control_device" => {
             let device_id = extract_string_param(&params.arguments, "device_id")?;
             let action = extract_string_param(&params.arguments, "action")?;
             // Note: value parameter not used by current function signature
             crate::tools::devices::control_device(context, device_id, action).await
         }
-        "get_devices_by_category" => {
-            let category = extract_string_param(&params.arguments, "category")?;
-            let limit = params
-                .arguments
-                .as_ref()
-                .and_then(|p| p.get("limit"))
-                .and_then(|v| v.as_u64())
-                .map(|n| n as usize);
-            crate::tools::devices::get_devices_by_category(context, category, limit).await
-        }
+        // READ-ONLY TOOL REMOVED: get_devices_by_category
+        // → Use resources: loxone://devices/category/{category}
 
         // Rolladen/Blinds tools
         "control_rolladen_unified" => {
@@ -793,7 +604,8 @@ pub async fn handle_tool_call(
         }
 
         // Audio tools
-        "get_audio_zones" => crate::tools::audio::get_audio_zones(context).await,
+        // READ-ONLY TOOL REMOVED: get_audio_zones
+        // → Use resource: loxone://audio/zones
         "control_audio_zone" => {
             let zone_name = extract_string_param(&params.arguments, "zone_name")?;
             let action = extract_string_param(&params.arguments, "action")?;
@@ -804,7 +616,8 @@ pub async fn handle_tool_call(
                 .and_then(|v| v.as_f64());
             crate::tools::audio::control_audio_zone(context, zone_name, action, value).await
         }
-        "get_audio_sources" => crate::tools::audio::get_audio_sources(context).await,
+        // READ-ONLY TOOL REMOVED: get_audio_sources
+        // → Use resource: loxone://audio/sources
         "set_audio_volume" => {
             let zone_name = extract_string_param(&params.arguments, "zone_name")?;
             let volume = params
@@ -829,46 +642,20 @@ pub async fn handle_tool_call(
         }
 
         // Sensor tools
-        "get_all_door_window_sensors" => {
-            crate::tools::sensors_unified::get_door_window_sensors_unified(context).await
-        }
-        "get_temperature_sensors" => {
-            crate::tools::sensors_unified::get_temperature_sensors_unified(context).await
-        }
+        // READ-ONLY TOOLS REMOVED: get_all_door_window_sensors, get_temperature_sensors
+        // → Use resources: loxone://sensors/door-window, loxone://sensors/temperature
 
         // Weather tools
-        "get_weather_station_data" => crate::tools::weather::get_weather_data(context).await,
+        // READ-ONLY TOOL REMOVED: get_weather_station_data
+        // → Use resource: loxone://weather/current
 
-        // Energy tools (special handling for different return type)
-        "get_energy_consumption" => {
-            let _period = extract_optional_string_param(&params.arguments, "period");
-            match crate::tools::energy::get_energy_consumption(
-                params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context),
-            )
-            .await
-            {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
+        // Energy tools
+        // READ-ONLY TOOL REMOVED: get_energy_consumption
+        // → Use resource: loxone://energy/consumption
 
         // Climate control tools
-        "get_climate_control" => crate::tools::climate::get_climate_control(context).await,
-        "get_room_climate" => {
-            let room_name = extract_string_param(&params.arguments, "room_name")?;
-            crate::tools::climate::get_room_climate(context, room_name).await
-        }
+        // READ-ONLY TOOLS REMOVED: get_climate_control, get_room_climate
+        // → Use resources: loxone://climate/overview, loxone://climate/rooms/{room}
         "set_room_temperature" => {
             let room_name = extract_string_param(&params.arguments, "room_name")?;
             let temperature = params
@@ -879,37 +666,17 @@ pub async fn handle_tool_call(
                 .ok_or_else(|| LoxoneError::invalid_input("Missing temperature parameter"))?;
             crate::tools::climate::set_room_temperature(context, room_name, temperature).await
         }
-        "get_temperature_readings" => {
-            crate::tools::climate::get_temperature_readings(context).await
-        }
+        // READ-ONLY TOOL REMOVED: get_temperature_readings
+        // → Use resource: loxone://climate/sensors
         "set_room_mode" => {
             let room_name = extract_string_param(&params.arguments, "room_name")?;
             let mode = extract_string_param(&params.arguments, "mode")?;
             crate::tools::climate::set_room_mode(context, room_name, mode).await
         }
 
-        // Security tools (adapted from legacy signature)
-        "get_alarm_status" => {
-            match crate::tools::security::get_alarm_status(
-                params.arguments.clone().unwrap_or_default(),
-                std::sync::Arc::new(context),
-            )
-            .await
-            {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
+        // Security tools
+        // READ-ONLY TOOL REMOVED: get_alarm_status
+        // → Use resource: loxone://security/status
         "arm_alarm" => {
             match crate::tools::security::arm_alarm(
                 params.arguments.clone().unwrap_or_default(),
@@ -1028,39 +795,8 @@ pub async fn handle_tool_call(
                 },
             }
         }
-        "list_predefined_workflows" => {
-            let list_params = crate::tools::workflows::ListPredefinedWorkflowsParams {};
-            match crate::tools::workflows::list_predefined_workflows(context, list_params).await {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
-        "get_workflow_examples" => {
-            match crate::tools::workflows::get_workflow_examples(context).await {
-                Ok(value) => crate::tools::ToolResponse {
-                    status: "success".to_string(),
-                    data: value,
-                    message: None,
-                    timestamp: chrono::Utc::now(),
-                },
-                Err(e) => crate::tools::ToolResponse {
-                    status: "error".to_string(),
-                    data: serde_json::Value::Null,
-                    message: Some(e.to_string()),
-                    timestamp: chrono::Utc::now(),
-                },
-            }
-        }
+        // READ-ONLY TOOLS REMOVED: list_predefined_workflows, get_workflow_examples
+        // → Use resources: loxone://workflows/predefined, loxone://workflows/examples
 
         _ => {
             return Err(LoxoneError::validation(format!(

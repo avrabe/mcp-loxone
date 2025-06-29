@@ -2,6 +2,9 @@
 //!
 //! This module provides tools for creating and executing workflows that chain
 //! multiple tools together for complex automation scenarios.
+//! For read-only workflow data, use resources:
+//! - loxone://workflows/predefined - Predefined workflows
+//! - loxone://workflows/examples - Workflow examples
 
 use crate::error::{LoxoneError, Result};
 use crate::server::workflow_engine::{Workflow, WorkflowCondition, WorkflowEngine, WorkflowStep};
@@ -263,7 +266,10 @@ pub async fn execute_workflow_demo(
 }
 
 /// List predefined workflow templates
-pub async fn list_predefined_workflows(
+// READ-ONLY TOOL REMOVED:
+// list_predefined_workflows() → Use resource: loxone://workflows/predefined
+#[allow(dead_code)]
+async fn _removed_list_predefined_workflows(
     _context: ToolContext,
     _params: ListPredefinedWorkflowsParams,
 ) -> ToolResponse {
@@ -310,7 +316,10 @@ pub async fn list_predefined_workflows(
 }
 
 /// Get workflow examples and documentation
-pub async fn get_workflow_examples(_context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_workflow_examples() → Use resource: loxone://workflows/examples
+#[allow(dead_code)]
+async fn _removed_get_workflow_examples(_context: ToolContext) -> ToolResponse {
     info!("Getting workflow examples and documentation");
 
     let examples = serde_json::json!({

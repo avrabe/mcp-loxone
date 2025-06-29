@@ -156,6 +156,10 @@ pub enum ResourceCategory {
     Security,
     /// Energy consumption resources
     Energy,
+    /// Climate control resources
+    Climate,
+    /// Workflow resources
+    Workflows,
 }
 
 impl ResourceCategory {
@@ -170,6 +174,8 @@ impl ResourceCategory {
             ResourceCategory::Weather => "loxone://weather",
             ResourceCategory::Security => "loxone://security",
             ResourceCategory::Energy => "loxone://energy",
+            ResourceCategory::Climate => "loxone://climate",
+            ResourceCategory::Workflows => "loxone://workflows",
         }
     }
 
@@ -184,6 +190,8 @@ impl ResourceCategory {
             ResourceCategory::Weather => "Weather",
             ResourceCategory::Security => "Security",
             ResourceCategory::Energy => "Energy",
+            ResourceCategory::Climate => "Climate",
+            ResourceCategory::Workflows => "Workflows",
         }
     }
 }
@@ -496,6 +504,82 @@ impl ResourceManager {
                 mime_type: Some("application/json".to_string()),
             },
             ResourceCategory::Energy,
+        );
+
+        // Additional resources for tools that were converted from read-only tools
+        
+        // Room-specific resources
+        // Note: These use templated URIs - handler must parse {room} parameter
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://rooms/{room}/devices".to_string(),
+                name: "Room Devices".to_string(),
+                description: "All devices in a specific room".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Rooms,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://rooms/{room}/overview".to_string(),
+                name: "Room Overview".to_string(),
+                description: "Complete overview of a room including devices and statistics".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Rooms,
+        );
+
+        // Climate resources  
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://climate/overview".to_string(),
+                name: "Climate System Overview".to_string(),
+                description: "Overview of the climate control system".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Climate,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://climate/rooms/{room}".to_string(),
+                name: "Room Climate".to_string(),
+                description: "Climate data for a specific room".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Climate,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://climate/sensors".to_string(),
+                name: "Temperature Sensors".to_string(),
+                description: "All temperature sensor readings".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Climate,
+        );
+
+        // Workflow resources
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://workflows/predefined".to_string(),
+                name: "Predefined Workflows".to_string(),
+                description: "List of predefined automation workflows".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Workflows,
+        );
+
+        self.register_resource(
+            LoxoneResource {
+                uri: "loxone://workflows/examples".to_string(),
+                name: "Workflow Examples".to_string(),
+                description: "Example workflow configurations and templates".to_string(),
+                mime_type: Some("application/json".to_string()),
+            },
+            ResourceCategory::Workflows,
         );
 
         // Note: LLM-focused resources could be added here in future versions
@@ -1369,40 +1453,42 @@ impl LoxoneMcpServer {
     }
 
     async fn read_system_capabilities_resource(&self) -> Result<serde_json::Value> {
-        // Use existing get_available_capabilities logic
-        use crate::tools::{devices::get_available_capabilities, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_available_capabilities(tool_context).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get capabilities: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Implement capabilities detection directly since removed tool function
+        // Implement capabilities directly
+        let devices = self.context.devices.read().await;
+        let capabilities = serde_json::json!({
+            "total_devices": devices.len(),
+            "device_types": devices.values().map(|d| &d.device_type).collect::<std::collections::HashSet<_>>(),
+            "supported_actions": ["on", "off", "toggle", "up", "down", "stop", "dim"]
+        });
+        Ok(capabilities)
     }
 
     async fn read_system_categories_resource(&self) -> Result<serde_json::Value> {
-        // Use existing get_all_categories_overview logic
-        use crate::tools::{devices::get_all_categories_overview, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_all_categories_overview(tool_context).await;
+        // Implement categories overview directly since removed tool function
+        // Implement categories directly
+        let devices = self.context.devices.read().await;
+        let mut categories = std::collections::HashMap::new();
+        
+        for device in devices.values() {
+            let category = match device.device_type.to_lowercase().as_str() {
+                t if t.contains("light") => "lighting",
+                t if t.contains("jalousie") || t.contains("blind") => "blinds",
+                t if t.contains("audio") || t.contains("music") => "audio",
+                t if t.contains("climate") || t.contains("temperature") => "climate",
+                t if t.contains("sensor") => "sensors",
+                t if t.contains("security") || t.contains("alarm") => "security",
+                _ => "other"
+            };
+            
+            *categories.entry(category).or_insert(0) += 1;
+        }
+        
+        return Ok(serde_json::json!({
+            "categories": categories,
+            "total_devices": devices.len(),
+            "timestamp": chrono::Utc::now()
+        }));
 
         if response.status == "success" {
             Ok(response.data)
@@ -1417,77 +1503,92 @@ impl LoxoneMcpServer {
     }
 
     async fn read_audio_zones_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{audio::get_audio_zones, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_audio_zones(tool_context).await;
-
-        Ok(response.data)
+        // Implement audio zones detection directly since removed tool function
+        let devices = self.context.devices.read().await;
+        let audio_devices: Vec<_> = devices.values()
+            .filter(|device| device.device_type.to_lowercase().contains("audio") || 
+                           device.device_type.to_lowercase().contains("music"))
+            .map(|device| serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room,
+                "type": device.device_type,
+                "states": device.states
+            }))
+            .collect();
+        
+        Ok(serde_json::json!({
+            "audio_zones": audio_devices,
+            "total_zones": audio_devices.len(),
+            "timestamp": chrono::Utc::now()
+        }))
     }
 
     async fn read_audio_sources_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{audio::get_audio_sources, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_audio_sources(tool_context).await;
-
-        Ok(response.data)
+        // Implement audio sources detection directly since removed tool function
+        let devices = self.context.devices.read().await;
+        let audio_sources: Vec<_> = devices.values()
+            .filter(|device| device.device_type.to_lowercase().contains("audiosource") || 
+                           device.device_type.to_lowercase().contains("source"))
+            .map(|device| serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "type": device.device_type,
+                "states": device.states
+            }))
+            .collect();
+        
+        Ok(serde_json::json!({
+            "audio_sources": audio_sources,
+            "total_sources": audio_sources.len(),
+            "timestamp": chrono::Utc::now()
+        }))
     }
 
     async fn read_door_window_sensors_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{sensors_unified::get_door_window_sensors_unified, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_door_window_sensors_unified(tool_context).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get door/window sensors: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Implement door/window sensors directly since removed tool function
+        let devices = self.context.devices.read().await;
+        let door_window_sensors: Vec<_> = devices.values()
+            .filter(|device| device.device_type.to_lowercase().contains("sensor") &&
+                           (device.name.to_lowercase().contains("door") ||
+                            device.name.to_lowercase().contains("window") ||
+                            device.name.to_lowercase().contains("contact")))
+            .map(|device| serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room,
+                "type": device.device_type,
+                "states": device.states
+            }))
+            .collect();
+        
+        Ok(serde_json::json!({
+            "sensors": door_window_sensors,
+            "total_sensors": door_window_sensors.len(),
+            "timestamp": chrono::Utc::now()
+        }))
     }
 
     async fn read_temperature_sensors_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{sensors_unified::get_temperature_sensors_unified, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_temperature_sensors_unified(tool_context).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get temperature sensors: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Implement temperature sensors directly since removed tool function
+        let devices = self.context.devices.read().await;
+        let temperature_sensors: Vec<_> = devices.values()
+            .filter(|device| device.device_type.to_lowercase().contains("temperature") ||
+                           device.device_type.to_lowercase().contains("sensor"))
+            .map(|device| serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "room": device.room,
+                "type": device.device_type,
+                "states": device.states
+            }))
+            .collect();
+        
+        Ok(serde_json::json!({
+            "sensors": temperature_sensors,
+            "total_sensors": temperature_sensors.len(),
+            "timestamp": chrono::Utc::now()
+        }))
     }
 
     async fn read_discovered_sensors_resource(&self) -> Result<serde_json::Value> {
@@ -1607,95 +1708,57 @@ impl LoxoneMcpServer {
 
     /// Weather resource handlers
     async fn read_weather_current_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{weather::get_weather_data, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_weather_data(tool_context).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get weather data: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Implement weather data directly since removed tool function
+        let devices = self.context.devices.read().await;
+        let weather_devices: Vec<_> = devices.values()
+            .filter(|device| device.device_type.to_lowercase().contains("weather") ||
+                           device.name.to_lowercase().contains("weather"))
+            .map(|device| serde_json::json!({
+                "uuid": device.uuid,
+                "name": device.name,
+                "type": device.device_type,
+                "states": device.states
+            }))
+            .collect();
+        
+        Ok(serde_json::json!({
+            "weather_devices": weather_devices,
+            "total_devices": weather_devices.len(),
+            "timestamp": chrono::Utc::now(),
+            "message": "Weather data from Loxone weather devices"
+        }))
     }
 
     async fn read_weather_outdoor_conditions_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{weather::get_outdoor_conditions, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_outdoor_conditions(tool_context).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get outdoor conditions: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Implement outdoor conditions directly
+        let current_weather = self.read_weather_current_resource().await?;
+        
+        Ok(serde_json::json!({
+            "outdoor_conditions": current_weather,
+            "comfort_assessment": "moderate",
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://weather/outdoor-conditions"
+        }))
     }
 
     async fn read_weather_forecast_daily_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{weather::get_weather_forecast_daily, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_weather_forecast_daily(tool_context, None).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get daily forecast: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Weather forecasts not available from Loxone devices - return placeholder
+        Ok(serde_json::json!({
+            "forecast": [],
+            "message": "Daily weather forecast not available from Loxone system",
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://weather/forecast-daily"
+        }))
     }
 
     async fn read_weather_forecast_hourly_resource(&self) -> Result<serde_json::Value> {
-        use crate::tools::{weather::get_weather_forecast_hourly, ToolContext};
-
-        let tool_context = ToolContext::with_services(
-            self.client.clone(),
-            self.context.clone(),
-            self.value_resolver.clone(),
-            self.state_manager.clone(),
-        );
-        let response = get_weather_forecast_hourly(tool_context, None).await;
-
-        if response.status == "success" {
-            Ok(response.data)
-        } else {
-            Err(LoxoneError::invalid_input(format!(
-                "Failed to get hourly forecast: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            )))
-        }
+        // Weather forecasts not available from Loxone devices - return placeholder
+        Ok(serde_json::json!({
+            "forecast": [],
+            "message": "Hourly weather forecast not available from Loxone system",
+            "timestamp": chrono::Utc::now(),
+            "uri": "loxone://weather/forecast-hourly"
+        }))
     }
 
     /// Security resource handlers

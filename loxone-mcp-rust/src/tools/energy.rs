@@ -1,3 +1,15 @@
+//! Energy monitoring and management tools
+//!
+//! READ-ONLY TOOLS REMOVED:
+//! The following tools were removed as they duplicate existing resources:
+//!
+//! - get_energy_consumption() → Use resource: loxone://energy/consumption
+//! - get_power_meters() → Use resource: loxone://energy/meters
+//! - get_solar_production() → Use resource: loxone://energy/solar
+//!
+//! These functions provided read-only data access and violated MCP patterns.
+//! Use the corresponding resources for energy data retrieval instead.
+
 use anyhow::Result;
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde_json::{json, Value};
@@ -5,8 +17,10 @@ use std::sync::Arc;
 
 use crate::tools::ToolContext;
 
-// #[tool(name = "get_energy_consumption")] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_energy_consumption(
+// READ-ONLY TOOL REMOVED:
+// get_energy_consumption() → Use resource: loxone://energy/consumption
+#[allow(dead_code)]
+async fn _removed_get_energy_consumption(
     // #[description = "Get current energy consumption"] // TODO: Re-enable when rmcp API is clarified
     _input: Value,
     ctx: Arc<ToolContext>,
@@ -23,7 +37,10 @@ pub async fn get_energy_consumption(
 }
 
 // #[tool(name = "get_power_meters")] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_power_meters(
+// READ-ONLY TOOL REMOVED:
+// get_power_meters() → Use resource: loxone://energy/meters
+#[allow(dead_code)]
+async fn _removed_get_power_meters(
     // #[description = "Get list of power meters"] // TODO: Re-enable when rmcp API is clarified
     _input: Value,
     ctx: Arc<ToolContext>,
@@ -50,7 +67,10 @@ pub async fn get_power_meters(
 }
 
 // #[tool(name = "get_solar_production")] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_solar_production(
+// READ-ONLY TOOL REMOVED:
+// get_solar_production() → Use resource: loxone://energy/solar
+#[allow(dead_code)]
+async fn _removed_get_solar_production(
     // #[description = "Get solar panel production data"] // TODO: Re-enable when rmcp API is clarified
     _input: Value,
     ctx: Arc<ToolContext>,

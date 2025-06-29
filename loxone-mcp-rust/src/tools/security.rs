@@ -1,3 +1,10 @@
+//! Security system control tools
+//!
+//! Tools for security system control and alarm management.
+//! For read-only security data, use resources:
+//! - loxone://security/status - Security system status
+//! - loxone://security/zones - Security zones
+
 use anyhow::Result;
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde_json::{json, Value};
@@ -5,8 +12,10 @@ use std::sync::Arc;
 
 use crate::tools::ToolContext;
 
-// #[tool(name = "get_alarm_status")] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_alarm_status(
+// READ-ONLY TOOL REMOVED:
+// get_alarm_status() → Use resource: loxone://security/status
+#[allow(dead_code)]
+async fn _removed_get_alarm_status(
     // #[description = "Get current alarm system status"] // TODO: Re-enable when rmcp API is clarified
     _input: Value,
     ctx: Arc<ToolContext>,
@@ -55,7 +64,10 @@ pub async fn disarm_alarm(
 }
 
 // #[tool(name = "get_security_cameras")] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_security_cameras(
+// READ-ONLY TOOL REMOVED:
+// get_security_cameras() → Use resource: loxone://security/cameras
+#[allow(dead_code)]
+async fn _removed_get_security_cameras(
     // #[description = "Get list of security cameras"] // TODO: Re-enable when rmcp API is clarified
     _input: Value,
     ctx: Arc<ToolContext>,

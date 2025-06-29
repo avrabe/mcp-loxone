@@ -6,11 +6,11 @@
 pub use crate::tools::sensors_unified::{
     discover_sensor_types_unified as discover_sensor_types,
     get_air_quality_sensors_unified as get_air_quality_sensors,
-    get_door_window_sensors_unified as get_all_door_window_sensors,
+    // get_door_window_sensors_unified as get_all_door_window_sensors, // REMOVED
     get_energy_meters_unified as get_energy_meters,
     get_motion_sensors_unified as get_motion_sensors,
     get_presence_detectors_unified as get_presence_detectors,
-    get_temperature_sensors_unified as get_temperature_sensors,
+    // get_temperature_sensors_unified as get_temperature_sensors, // REMOVED
     get_weather_station_sensors_unified as get_weather_station_sensors,
 };
 

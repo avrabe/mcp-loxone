@@ -1,6 +1,10 @@
 //! Climate control MCP tools
 //!
-//! Tools for HVAC control, temperature monitoring, and climate management.
+//! Tools for HVAC control, temperature setting, and climate management.
+//! For read-only climate data, use resources:
+//! - loxone://climate/overview - Climate control overview
+//! - loxone://climate/rooms/{room} - Room climate data
+//! - loxone://climate/sensors - Temperature sensor readings
 
 use crate::tools::{DeviceFilter, ToolContext, ToolResponse};
 // use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
@@ -72,7 +76,10 @@ pub struct ClimateStatistics {
 
 /// Get comprehensive climate control overview
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_climate_control(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_climate_control() → Use resource: loxone://climate/overview
+#[allow(dead_code)]
+async fn _removed_get_climate_control(context: ToolContext) -> ToolResponse {
     // Get all climate-related devices
     let filter = DeviceFilter {
         category: Some("climate".to_string()),
@@ -169,7 +176,10 @@ pub async fn get_climate_control(context: ToolContext) -> ToolResponse {
 
 /// Get climate status for a specific room
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_room_climate(context: ToolContext, room_name: String) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_room_climate() → Use resource: loxone://climate/rooms/{room}
+#[allow(dead_code)]
+async fn _removed_get_room_climate(context: ToolContext, room_name: String) -> ToolResponse {
     // Get climate devices in the specified room
     let filter = DeviceFilter {
         category: Some("climate".to_string()),
@@ -307,7 +317,10 @@ pub async fn set_room_temperature(
 
 /// Get temperature readings from all sensors
 // #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_temperature_readings(context: ToolContext) -> ToolResponse {
+// READ-ONLY TOOL REMOVED:
+// get_temperature_readings() → Use resource: loxone://climate/sensors
+#[allow(dead_code)]
+async fn _removed_get_temperature_readings(context: ToolContext) -> ToolResponse {
     // Get all climate devices
     let filter = DeviceFilter {
         category: Some("climate".to_string()),
