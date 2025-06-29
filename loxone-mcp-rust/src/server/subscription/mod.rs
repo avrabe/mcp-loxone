@@ -20,7 +20,7 @@ pub use types::{
 use crate::error::Result;
 use std::sync::Arc;
 use tokio::sync::broadcast;
-use tracing::{info, warn};
+use tracing::{debug, info, warn};
 
 /// Central subscription coordinator that manages the entire subscription lifecycle
 pub struct SubscriptionCoordinator {
@@ -40,7 +40,7 @@ pub struct SubscriptionCoordinator {
 impl SubscriptionCoordinator {
     /// Create new subscription coordinator with all components
     pub async fn new() -> Result<Self> {
-        info!("🔄 Initializing resource subscription system...");
+        debug!("🔄 Initializing resource subscription system...");
 
         // Create broadcast channel for system events
         let (system_events, _) = broadcast::channel(1000);
@@ -51,7 +51,7 @@ impl SubscriptionCoordinator {
         let notification_dispatcher =
             Arc::new(NotificationDispatcher::new(system_events.subscribe()));
 
-        info!("✅ Resource subscription system initialized");
+        debug!("✅ Resource subscription system initialized");
 
         Ok(Self {
             subscription_manager,
@@ -63,7 +63,7 @@ impl SubscriptionCoordinator {
 
     /// Start the subscription system background tasks
     pub async fn start(&self) -> Result<()> {
-        info!("🚀 Starting subscription system background tasks...");
+        debug!("🚀 Starting subscription system background tasks...");
 
         // Start change detection monitoring
         let change_detector = self.change_detector.clone();
@@ -93,7 +93,7 @@ impl SubscriptionCoordinator {
             }
         });
 
-        info!("✅ Subscription system started successfully");
+        debug!("✅ Subscription system started successfully");
         Ok(())
     }
 

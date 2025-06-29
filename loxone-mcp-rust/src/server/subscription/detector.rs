@@ -45,7 +45,7 @@ pub struct ResourceChangeDetector {
 impl ResourceChangeDetector {
     /// Create a new change detector
     pub async fn new(event_sender: broadcast::Sender<SubscriptionEvent>) -> Result<Self> {
-        info!("🔍 Initializing resource change detector");
+        debug!("🔍 Initializing resource change detector");
 
         Ok(Self {
             client: None, // Will be set when we have a client
@@ -75,7 +75,7 @@ impl ResourceChangeDetector {
 
     /// Start monitoring for changes
     pub async fn start_monitoring(&self) -> Result<()> {
-        info!("🚀 Starting resource change monitoring");
+        debug!("🚀 Starting resource change monitoring");
 
         // Reset stop flag
         {
@@ -127,7 +127,7 @@ impl ResourceChangeDetector {
 
     /// Monitor WebSocket events for changes
     async fn monitor_websocket_events(&self) -> Result<()> {
-        info!("👂 Starting WebSocket event monitoring");
+        debug!("👂 Starting WebSocket event monitoring");
 
         // In a real implementation, this would:
         // 1. Connect to Loxone WebSocket

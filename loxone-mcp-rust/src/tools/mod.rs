@@ -204,8 +204,7 @@ impl ToolContext {
                 "Health check failed - Miniserver not reachable",
             )),
             Err(e) => Err(LoxoneError::connection(format!(
-                "Connection check failed: {}",
-                e
+                "Connection check failed: {e}"
             ))),
         }
     }

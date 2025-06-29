@@ -6,7 +6,8 @@
 use crate::client::LoxoneClient;
 use crate::error::Result;
 // Removed history import - module was unused
-use crate::http_transport::rate_limiting::RateLimitResult;
+// Legacy http_transport disabled during framework migration
+// use crate::http_transport::rate_limiting::RateLimitResult;
 use chrono::{DateTime, Utc};
 use serde::Serialize;
 use std::collections::HashMap;
@@ -578,39 +579,11 @@ impl UnifiedDataCollector {
         self.realtime_tx.subscribe()
     }
 
-    /// Record rate limiter event
-    pub async fn record_rate_limit_event(&self, result: RateLimitResult, client_ip: String) {
-        let mut metrics = self.operational_metrics.write().await;
-
-        match result {
-            RateLimitResult::Allowed { .. } | RateLimitResult::AllowedBurst { .. } => {
-                // Track successful request
-            }
-            RateLimitResult::Limited { .. } | RateLimitResult::Penalized { .. } => {
-                metrics.rate_limiter.recent_hits += 1;
-                metrics.rate_limiter.blocked_requests += 1;
-
-                // Update IP activity
-                if let Some(ip_activity) = metrics
-                    .rate_limiter
-                    .top_offenders
-                    .iter_mut()
-                    .find(|ip| ip.ip == client_ip)
-                {
-                    ip_activity.request_count += 1;
-                    ip_activity.blocked_count += 1;
-                    ip_activity.last_activity = Utc::now();
-                } else if metrics.rate_limiter.top_offenders.len() < 10 {
-                    metrics.rate_limiter.top_offenders.push(IpActivity {
-                        ip: client_ip,
-                        request_count: 1,
-                        blocked_count: 1,
-                        last_activity: Utc::now(),
-                    });
-                }
-            }
-        }
-    }
+    // Legacy rate limiter event recording - disabled during framework migration
+    // Use framework middleware instead
+    // pub async fn record_rate_limit_event(&self, result: RateLimitResult, client_ip: String) {
+    //     // Disabled - use framework rate limiting instead
+    // }
 
     /// Record API performance data
     pub async fn record_api_performance(

@@ -31,7 +31,7 @@ pub struct ResourceSubscriptionManager {
 impl ResourceSubscriptionManager {
     /// Create a new subscription manager
     pub fn new() -> Self {
-        info!("📊 Initializing resource subscription manager");
+        debug!("📊 Initializing resource subscription manager");
 
         Self {
             client_subscriptions: Arc::new(RwLock::new(HashMap::new())),
