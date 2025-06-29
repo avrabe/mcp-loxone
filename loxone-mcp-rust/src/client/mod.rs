@@ -309,7 +309,7 @@ impl ClientContext {
     /// Categorize device based on type
     fn categorize_device(&self, device_type: &str) -> String {
         match device_type.to_lowercase().as_str() {
-            t if t.contains("light") || t.contains("dimmer") => "lighting".to_string(),
+            t if t.contains("light") || t.contains("dimmer") => "lights".to_string(),
             t if t.contains("jalousie") || t.contains("blind") => "blinds".to_string(),
             t if t.contains("climate") || t.contains("heating") || t.contains("temperature") => {
                 "climate".to_string()
@@ -331,7 +331,7 @@ impl ClientContext {
         category: &str,
     ) {
         match category {
-            "lighting" => {
+            "lights" => {
                 capabilities.has_lighting = true;
                 capabilities.light_count += 1;
             }
@@ -466,6 +466,7 @@ pub async fn create_client(
             #[cfg(feature = "crypto-openssl")]
             {
                 use crate::client::token_http_client::TokenHttpClient;
+                tracing::info!("🔐 Attempting token authentication...");
                 match TokenHttpClient::new(config.clone(), credentials.clone()).await {
                     Ok(client) => {
                         tracing::info!("✅ Token authentication initialized successfully");
@@ -477,6 +478,7 @@ pub async fn create_client(
                         let client =
                             http_client::LoxoneHttpClient::new(config.clone(), credentials.clone())
                                 .await?;
+                        tracing::info!("✅ Basic authentication client created successfully");
                         Ok(Box::new(client))
                     }
                 }

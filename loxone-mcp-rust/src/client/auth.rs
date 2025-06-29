@@ -350,7 +350,12 @@ impl TokenAuthClient {
 
         // Step 1: Get server public key
         let cert_url = format!("{}/jdev/sys/getPublicKey", self.base_url);
-        let cert_response = self.client.get(&cert_url).send().await?;
+        let cert_response = self
+            .client
+            .get(&cert_url)
+            .timeout(std::time::Duration::from_secs(5)) // Short timeout for token auth check
+            .send()
+            .await?;
         let cert_text = cert_response.text().await?;
 
         // Log the public key response for debugging
@@ -369,7 +374,12 @@ impl TokenAuthClient {
 
         // Step 2: Get salt from server
         let salt_url = format!("{}/jdev/sys/getkey2/{}", self.base_url, username);
-        let salt_response = self.client.get(&salt_url).send().await?;
+        let salt_response = self
+            .client
+            .get(&salt_url)
+            .timeout(std::time::Duration::from_secs(5)) // Short timeout for token auth check
+            .send()
+            .await?;
         let salt_text = salt_response.text().await?;
 
         let salt_data: serde_json::Value = serde_json::from_str(&salt_text)?;
@@ -439,7 +449,12 @@ impl TokenAuthClient {
             urlencoding::encode(client_info)
         );
 
-        let token_response = self.client.get(&token_url).send().await?;
+        let token_response = self
+            .client
+            .get(&token_url)
+            .timeout(std::time::Duration::from_secs(5)) // Short timeout for token auth check
+            .send()
+            .await?;
         let token_text = token_response.text().await?;
 
         // Log the response for debugging
