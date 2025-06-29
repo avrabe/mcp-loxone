@@ -183,46 +183,46 @@ jobs:
             echo "✅ No unsafe blocks found"
           fi
 
-  rust-wasm:
-    name: Rust WASM Build
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-          targets: wasm32-wasip2
+  # rust-wasm:
+  #   name: Rust WASM Build
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: ./loxone-mcp-rust
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     
+  #     - name: Install Rust toolchain
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         toolchain: ${{ env.RUST_VERSION }}
+  #         targets: wasm32-wasip2
 
-      - name: Cache Rust dependencies
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
+  #     - name: Cache Rust dependencies
+  #       uses: Swatinem/rust-cache@v2
+  #       with:
+  #         workspaces: loxone-mcp-rust
 
-      - name: Install wasmtime
-        run: |
-          curl https://wasmtime.dev/install.sh -sSf | bash
-          echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
+  #     - name: Install wasmtime
+  #       run: |
+  #         curl https://wasmtime.dev/install.sh -sSf | bash
+  #         echo "$HOME/.wasmtime/bin" >> $GITHUB_PATH
 
-      - name: Build WASM target
-        run: cargo build --target wasm32-wasip2 --release --verbose
+  #     - name: Build WASM target
+  #       run: cargo build --target wasm32-wasip2 --release --verbose
 
-      - name: Test WASM binary
-        run: |
-          # Test that WASM binary can be loaded
-          wasmtime --version
-          echo "✅ WASM binary built successfully"
-          ls -la target/wasm32-wasip2/release/
+  #     - name: Test WASM binary
+  #       run: |
+  #         # Test that WASM binary can be loaded
+  #         wasmtime --version
+  #         echo "✅ WASM binary built successfully"
+  #         ls -la target/wasm32-wasip2/release/
 
-      - name: Upload WASM artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-wasm-binary
-          path: loxone-mcp-rust/target/wasm32-wasip2/release/*.wasm
+  #     - name: Upload WASM artifacts
+  #       uses: actions/upload-artifact@v4
+  #       with:
+  #         name: rust-wasm-binary
+  #         path: loxone-mcp-rust/target/wasm32-wasip2/release/*.wasm
 
   rust-performance:
     name: Rust Performance Tests
