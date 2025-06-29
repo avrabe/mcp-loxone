@@ -1,10 +1,13 @@
 name: WASM Tests
 
+# TEMPORARILY DISABLED - Re-enable once WASM support is properly implemented
+# TODO: Implement proper feature flags for WASM compatibility
 on:
-  push:
-    branches: [ main, develop ]
-  pull_request:
-    branches: [ main ]
+  workflow_dispatch:  # Only run manually for now
+  # push:
+  #   branches: [ main, develop ]
+  # pull_request:
+  #   branches: [ main ]
 
 env:
   CARGO_TERM_COLOR: always

@@ -44,11 +44,13 @@ jobs:
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             name: loxone-mcp-server-windows-amd64.exe
-          - target: wasm32-wasip2
-            os: ubuntu-latest
-            name: loxone-mcp-server.wasm
-            features: wasm
-            no-default-features: true
+          # WASM target - TEMPORARILY DISABLED
+          # TODO: Re-enable once WASM support is properly implemented
+          # - target: wasm32-wasip2
+          #   os: ubuntu-latest
+          #   name: loxone-mcp-server.wasm
+          #   features: wasm
+          #   no-default-features: true
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

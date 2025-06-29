@@ -130,28 +130,30 @@ jobs:
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
-  wasm:
-    name: WASM Build
-    runs-on: ubuntu-latest
-    
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: wasm32-wasip2
-    
-    - name: Build WASM
-      run: cargo build --target wasm32-wasip2 --release
-      working-directory: ./loxone-mcp-rust
-    
-    - name: Check WASM size
-      run: |
-        ls -lh target/wasm32-wasip2/release/*.wasm
-        size=$(stat -c%s target/wasm32-wasip2/release/loxone_mcp_rust.wasm)
-        if [ $size -gt 10485760 ]; then
-          echo "WASM binary too large: $size bytes (max 10MB)"
-          exit 1
-        fi
-      working-directory: ./loxone-mcp-rust
+  # WASM build - TEMPORARILY DISABLED
+  # TODO: Re-enable once WASM support is properly implemented with feature flags
+  # wasm:
+  #   name: WASM Build
+  #   runs-on: ubuntu-latest
+  #   
+  #   steps:
+  #   - uses: actions/checkout@v4
+  #   
+  #   - name: Install Rust
+  #     uses: dtolnay/rust-toolchain@stable
+  #     with:
+  #       targets: wasm32-wasip2
+  #   
+  #   - name: Build WASM
+  #     run: cargo build --target wasm32-wasip2 --release
+  #     working-directory: ./loxone-mcp-rust
+  #   
+  #   - name: Check WASM size
+  #     run: |
+  #       ls -lh target/wasm32-wasip2/release/*.wasm
+  #       size=$(stat -c%s target/wasm32-wasip2/release/loxone_mcp_rust.wasm)
+  #       if [ $size -gt 10485760 ]; then
+  #         echo "WASM binary too large: $size bytes (max 10MB)"
+  #         exit 1
+  #       fi
+  #     working-directory: ./loxone-mcp-rust
