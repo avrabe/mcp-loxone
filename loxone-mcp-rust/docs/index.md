@@ -4,7 +4,7 @@ This directory contains technical documentation for the Loxone MCP Server.
 
 ## Core Documentation
 
-- [tools_reference.md](tools_reference.md) - Complete reference for all 34 MCP tools
+- [tools_reference.md](tools_reference.md) - Complete reference for all 17 MCP tools
 - [architecture.md](architecture.md) - System design and component overview
 - [security.md](security.md) - Security features and best practices
 - [configuration.md](configuration.md) - Configuration options and examples
