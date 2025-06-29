@@ -8,7 +8,11 @@ members = [
     "mcp-framework/mcp-security",
     "mcp-framework/mcp-monitoring",
     "mcp-framework/mcp-logging",
+    "mcp-framework/mcp-cli",
+    "mcp-framework/mcp-cli-derive",
     "mcp-framework/examples/hello-world",
+    "mcp-framework/examples/cli-example",
+    "mcp-framework/examples/backend-example",
 ]
 
 resolver = "2"
@@ -45,6 +49,11 @@ rand = "0.8"
 # Keyring
 keyring = { version = "3.5" }
 
+# CLI dependencies
+clap = { version = "4.0", features = ["derive", "env"] }
+toml = "0.8"
+url = "2.4"
+
 # HTTP/Web 
 axum = { version = "0.7", features = ["ws"] }
 tower = { version = "0.4" }
@@ -61,7 +70,7 @@ futures-util = "0.3"
 
 [package]
 name = "loxone-mcp-rust"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
@@ -121,13 +130,17 @@ path = "src/bin/loxone-mcp-auth.rs"
 
 [dependencies]
 # MCP Logging Framework
-pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging", version = "0.1.1" }
+pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging", version = "0.2.0" }
 
 # MCP Framework (new unified framework)
-pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol", version = "0.1.1", optional = true }
-pulseengine-mcp-server = { path = "mcp-framework/mcp-server", version = "0.1.1", optional = true }
-pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport", version = "0.1.1", optional = true }
-pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth", version = "0.1.1", optional = true }
+pulseengine-mcp-protocol = { path = "mcp-framework/mcp-protocol", version = "0.2.0", optional = true }
+pulseengine-mcp-server = { path = "mcp-framework/mcp-server", version = "0.2.0", optional = true }
+pulseengine-mcp-transport = { path = "mcp-framework/mcp-transport", version = "0.2.0", optional = true }
+pulseengine-mcp-auth = { path = "mcp-framework/mcp-auth", version = "0.2.0", optional = true }
+pulseengine-mcp-security = { path = "mcp-framework/mcp-security", version = "0.2.0", optional = true }
+pulseengine-mcp-monitoring = { path = "mcp-framework/mcp-monitoring", version = "0.2.0", optional = true }
+pulseengine-mcp-cli = { path = "mcp-framework/mcp-cli", version = "0.2.0", optional = true }
+pulseengine-mcp-cli-derive = { path = "mcp-framework/mcp-cli-derive", version = "0.2.0", optional = true }
 
 # Legacy MCP Foundation (to be removed after migration)
 # Legacy mcp-foundation removed - framework is now default
@@ -225,7 +238,7 @@ tower = { version = "0.4", optional = true }
 tower-http = { version = "0.5", features = ["cors", "auth"], optional = true }
 
 # Command line argument parsing
-clap = { version = "4.0", features = ["derive"] }
+clap = { version = "4.0", features = ["derive", "env"] }
 
 # Password input
 rpassword = "7.0"
@@ -252,7 +265,18 @@ dirs = "5.0"  # For default storage directory
 default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration"]
 
 # Framework features (now default)
-framework-migration = ["pulseengine-mcp-protocol", "pulseengine-mcp-server", "pulseengine-mcp-transport", "pulseengine-mcp-auth", "http-server", "websocket"]
+framework-migration = [
+    "pulseengine-mcp-protocol", 
+    "pulseengine-mcp-server", 
+    "pulseengine-mcp-transport", 
+    "pulseengine-mcp-auth",
+    "pulseengine-mcp-security",
+    "pulseengine-mcp-monitoring",
+    "pulseengine-mcp-cli",
+    "pulseengine-mcp-cli-derive",
+    "http-server", 
+    "websocket"
+]
 
 # Crypto features
 crypto-openssl = ["openssl", "aes", "x509-parser"] # Modern crypto with OpenSSL (recommended)
@@ -294,6 +318,8 @@ pulseengine-mcp-security = { path = "mcp-framework/mcp-security" }
 pulseengine-mcp-monitoring = { path = "mcp-framework/mcp-monitoring" }
 pulseengine-mcp-logging = { path = "mcp-framework/mcp-logging" }
 pulseengine-mcp-server = { path = "mcp-framework/mcp-server" }
+pulseengine-mcp-cli = { path = "mcp-framework/mcp-cli" }
+pulseengine-mcp-cli-derive = { path = "mcp-framework/mcp-cli-derive" }
 
 [dev-dependencies]
 tokio-test = "0.4"

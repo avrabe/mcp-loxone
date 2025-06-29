@@ -38,8 +38,8 @@ This authentication system is currently used in production by the **Loxone MCP S
 
 ```toml
 [dependencies]
-pulseengine-mcp-auth = "0.1.1"
-pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-auth = "0.2.0"
+pulseengine-mcp-protocol = "0.2.0"
 tokio = { version = "1.0", features = ["full"] }
 ```
 

@@ -30,8 +30,8 @@ The HTTP transport was specifically debugged and fixed to work with MCP Inspecto
 
 ```toml
 [dependencies]
-pulseengine-mcp-transport = "0.1.1"
-pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-transport = "0.2.0"
+pulseengine-mcp-protocol = "0.2.0"
 tokio = { version = "1.0", features = ["full"] }
 ```
 
@@ -190,3 +190,5 @@ Transport layer improvements often come from real-world integration issues. The 
 Licensed under either of Apache License, Version 2.0 or MIT license at your option.
 
 **Repository:** https://github.com/avrabe/mcp-loxone
+
+**Note:** This crate is part of a larger MCP framework that will be published as a separate repository.

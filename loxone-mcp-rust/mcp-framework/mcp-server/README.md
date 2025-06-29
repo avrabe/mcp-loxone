@@ -30,9 +30,9 @@ This framework currently powers the **Loxone MCP Server**, which implements 30+ 
 
 ```toml
 [dependencies]
-pulseengine-mcp-server = "0.1.1"
-pulseengine-mcp-protocol = "0.1.1"
-pulseengine-mcp-transport = "0.1.1"
+pulseengine-mcp-server = "0.2.0"
+pulseengine-mcp-protocol = "0.2.0"
+pulseengine-mcp-transport = "0.2.0"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 ```
@@ -221,3 +221,5 @@ Most useful contributions:
 Licensed under either of Apache License, Version 2.0 or MIT license at your option.
 
 **Repository:** https://github.com/avrabe/mcp-loxone
+
+**Note:** This crate is part of a larger MCP framework that will be published as a separate repository.

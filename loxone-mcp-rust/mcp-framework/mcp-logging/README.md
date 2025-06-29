@@ -39,7 +39,7 @@ This logging system is actively used in the **Loxone MCP Server** where it:
 
 ```toml
 [dependencies]
-pulseengine-mcp-logging = "0.1.1"
+pulseengine-mcp-logging = "0.2.0"
 tracing = "0.1"
 serde_json = "1.0"
 ```

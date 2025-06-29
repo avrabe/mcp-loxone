@@ -1,0 +1,22 @@
+[package]
+name = "backend-example"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Framework dependencies
+pulseengine-mcp-cli = { path = "../../mcp-cli", features = ["cli", "derive"] }
+pulseengine-mcp-protocol = { path = "../../mcp-protocol" }
+pulseengine-mcp-server = { path = "../../mcp-server" }
+
+# Core dependencies
+async-trait = { workspace = true }
+thiserror = { workspace = true }
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+serde = { version = "1.0", features = ["derive"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[[bin]]
+name = "backend-server"
+path = "src/main.rs"

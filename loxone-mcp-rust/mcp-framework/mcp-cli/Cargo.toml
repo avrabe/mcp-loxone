@@ -1,0 +1,41 @@
+[package]
+name = "pulseengine-mcp-cli"
+version = "0.2.0"
+edition = "2021"
+authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
+license = "MIT OR Apache-2.0"
+description = "CLI integration and configuration framework for MCP servers - PulseEngine MCP Framework"
+homepage = "https://github.com/avrabe/mcp-loxone"
+repository = "https://github.com/avrabe/mcp-loxone"
+documentation = "https://docs.rs/pulseengine-mcp-cli"
+readme = "README.md"
+keywords = ["mcp", "cli", "configuration", "derive", "clap"]
+categories = ["command-line-interface", "api-bindings", "development-tools"]
+rust-version = "1.70"
+
+[dependencies]
+pulseengine-mcp-protocol = "0.2.0"
+pulseengine-mcp-logging = "0.2.0"
+
+# Core dependencies
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "json"] }
+
+# CLI and configuration
+clap = { workspace = true, optional = true }
+toml = { workspace = true, optional = true }
+url = { workspace = true, optional = true }
+
+# Derive macro (separate crate due to proc macro requirements)
+pulseengine-mcp-cli-derive = { version = "0.2.0", path = "../mcp-cli-derive", optional = true }
+
+[features]
+default = ["cli", "derive"]
+cli = ["clap", "toml", "url"]
+derive = ["pulseengine-mcp-cli-derive"]
+
+[dev-dependencies]
+tokio-test = "0.4"

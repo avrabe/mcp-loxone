@@ -40,8 +40,8 @@ This monitoring system is actively used in the **Loxone MCP Server** where it:
 
 ```toml
 [dependencies]
-pulseengine-mcp-monitoring = "0.1.1"
-pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-monitoring = "0.2.0"
+pulseengine-mcp-protocol = "0.2.0"
 tokio = { version = "1.0", features = ["full"] }
 ```
 

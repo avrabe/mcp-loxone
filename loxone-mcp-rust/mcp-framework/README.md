@@ -22,8 +22,8 @@ The [Model Context Protocol](https://modelcontextprotocol.io/) enables AI assist
 
 ```toml
 [dependencies]
-pulseengine-mcp-server = "0.1.1"
-pulseengine-mcp-protocol = "0.1.1"
+pulseengine-mcp-server = "0.2.0"
+pulseengine-mcp-protocol = "0.2.0"
 tokio = { version = "1.0", features = ["full"] }
 async-trait = "0.1"
 ```
