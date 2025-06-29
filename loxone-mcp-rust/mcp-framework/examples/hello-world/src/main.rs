@@ -131,7 +131,7 @@ impl McpBackend for HelloWorldBackend {
 
         Ok(ListToolsResult {
             tools,
-            next_cursor: String::new(),
+            next_cursor: None,
         })
     }
 
