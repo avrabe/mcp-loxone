@@ -70,7 +70,7 @@ jobs:
         shell: bash
       
       - name: Strip binary (Linux/macOS)
-        if: matrix.os != 'windows-latest' && matrix.target != 'wasm32-wasip2'
+        if: matrix.os != 'windows-latest'
         run: |
           if [ "${{ matrix.os }}" = "macos-latest" ]; then
             strip target/${{ matrix.target }}/release/loxone-mcp-server
@@ -82,15 +82,13 @@ jobs:
         run: |
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             7z a ${{ matrix.name }}.zip ./target/${{ matrix.target }}/release/loxone-mcp-server.exe
-          elif [ "${{ matrix.target }}" = "wasm32-wasip2" ]; then
-            cp target/${{ matrix.target }}/release/loxone_mcp_rust.wasm ${{ matrix.name }}
           else
             tar czf ${{ matrix.name }}.tar.gz -C ./target/${{ matrix.target }}/release loxone-mcp-server
           fi
         shell: bash
       
       - name: Upload Release Asset (tar.gz)
-        if: matrix.os != 'windows-latest' && matrix.target != 'wasm32-wasip2'
+        if: matrix.os != 'windows-latest'
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -111,13 +109,3 @@ jobs:
           asset_name: ${{ matrix.name }}.zip
           asset_content_type: application/zip
       
-      - name: Upload Release Asset (wasm)
-        if: matrix.target == 'wasm32-wasip2'
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ needs.create-release.outputs.upload_url }}
-          asset_path: ./${{ matrix.name }}
-          asset_name: ${{ matrix.name }}
-          asset_content_type: application/wasm

@@ -45,10 +45,10 @@ help:
 # Installation and setup
 install-deps:
 	@echo "🔧 Installing Rust toolchain and dependencies..."
-	rustup target add wasm32-wasip2
+	# WASM targets disabled - rustup target add wasm32-wasip2
 	rustup component add rustfmt clippy
-	cargo install wasmtime-cli || echo "wasmtime already installed"
-	cargo install wasm-opt || echo "wasm-opt already installed"
+	# WASM tools disabled - cargo install wasmtime-cli || echo "wasmtime already installed"
+	# WASM tools disabled - cargo install wasm-opt || echo "wasm-opt already installed"
 
 # Building targets
 build:
@@ -117,43 +117,44 @@ check-wasm: format-check
 	# cargo check --target wasm32-wasip2 --no-default-features --features wasm-storage
 	# cargo clippy --target wasm32-wasip2 --no-default-features --features wasm-storage
 
-# WASM testing with wasm-pack
+# WASM testing with wasm-pack - TEMPORARILY DISABLED
 test-wasm-pack:
-	@echo "🧪 Running wasm-pack tests..."
-	wasm-pack test --headless --chrome --firefox
+	@echo "❌ WASM tests are temporarily disabled"
+	@exit 1
 
 test-wasm-node:
-	@echo "🧪 Running WASM tests in Node.js..."
-	wasm-pack test --node
+	@echo "❌ WASM tests are temporarily disabled"
+	@exit 1
 
 test-wasm-browser:
-	@echo "🧪 Running WASM tests in browser..."
-	wasm-pack test --headless --chrome
+	@echo "❌ WASM tests are temporarily disabled"
+	@exit 1
 
-# Build WASM packages
+# Build WASM packages - TEMPORARILY DISABLED
 build-wasm-web:
-	@echo "🌐 Building WASM for web..."
-	wasm-pack build --target web --out-dir pkg-web --release
+	@echo "❌ WASM builds are temporarily disabled"
+	@exit 1
 
 build-wasm-node:
-	@echo "📦 Building WASM for Node.js..."
-	wasm-pack build --target nodejs --out-dir pkg-node --release
+	@echo "❌ WASM builds are temporarily disabled"
+	@exit 1
 
 build-wasm-bundler:
-	@echo "📦 Building WASM for bundlers..."
-	wasm-pack build --target bundler --out-dir pkg-bundler --release
+	@echo "❌ WASM builds are temporarily disabled"
+	@exit 1
 
-build-wasm-all: build-wasm-web build-wasm-node build-wasm-bundler
-	@echo "✅ Built WASM for all targets"
+build-wasm-all:
+	@echo "❌ WASM builds are temporarily disabled"
+	@exit 1
 
-# WASM Component Model builds (WASIP2)
+# WASM Component Model builds (WASIP2) - TEMPORARILY DISABLED
 wasm-component:
-	@echo "🔧 Building WASM component with Infisical support..."
-	./build-wasm.sh
+	@echo "❌ WASM component builds are temporarily disabled"
+	@exit 1
 
 wasm-component-dev:
-	@echo "🔧 Building WASM component (development)..."
-	cargo component build --target wasm32-wasip2 --features "infisical,wasi-keyvalue"
+	@echo "❌ WASM component builds are temporarily disabled"
+	@exit 1
 
 # Infisical integration testing
 infisical-test:
@@ -164,37 +165,20 @@ infisical-example:
 	@echo "🔐 Running Infisical example..."
 	RUST_LOG=debug cargo run --features "infisical" --example infisical_client
 
-# WASM size optimization
-optimize-wasm: build-wasm-web
-	@echo "⚡ Optimizing WASM size..."
-	@if command -v wasm-opt >/dev/null 2>&1; then \
-		wasm-opt -Oz pkg-web/loxone_mcp_rust_bg.wasm -o pkg-web/loxone_mcp_rust_optimized.wasm; \
-		echo "Original size: $$(ls -lh pkg-web/loxone_mcp_rust_bg.wasm | awk '{print $$5}')"; \
-		echo "Optimized size: $$(ls -lh pkg-web/loxone_mcp_rust_optimized.wasm | awk '{print $$5}')"; \
-	else \
-		echo "⚠️ wasm-opt not found. Install binaryen for size optimization."; \
-	fi
+# WASM size optimization - TEMPORARILY DISABLED
+optimize-wasm:
+	@echo "❌ WASM optimization is temporarily disabled"
+	@exit 1
 
-# WASM environment setup
+# WASM environment setup - TEMPORARILY DISABLED
 setup-wasm-env:
-	@echo "🔧 Setting up WASM development environment..."
-	rustup target add wasm32-unknown-unknown wasm32-wasip2
-	@if ! command -v wasm-pack >/dev/null 2>&1; then \
-		echo "Installing wasm-pack..."; \
-		curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh; \
-	else \
-		echo "✅ wasm-pack already installed"; \
-	fi
-	@if ! command -v wasm-opt >/dev/null 2>&1; then \
-		echo "⚠️ wasm-opt not found. Install binaryen for optimization:"; \
-		echo "   https://github.com/WebAssembly/binaryen/releases"; \
-	else \
-		echo "✅ wasm-opt available"; \
-	fi
+	@echo "❌ WASM environment setup is temporarily disabled"
+	@exit 1
 
-# Complete WASM workflow
-wasm-workflow: setup-wasm-env check-wasm build-wasm-all test-wasm-pack optimize-wasm
-	@echo "🎉 Complete WASM workflow completed successfully"
+# Complete WASM workflow - TEMPORARILY DISABLED
+wasm-workflow:
+	@echo "❌ WASM workflow is temporarily disabled"
+	@exit 1
 
 # Running applications
 run-native:
@@ -225,11 +209,9 @@ run-wasm-optimized:
 
 run-inspector:
 	@echo "🔍 Running with MCP Inspector..."
-	@if command -v npx >/dev/null 2>&1; then \
-		npx @modelcontextprotocol/inspector wasmtime target/wasm32-wasip2/release/loxone_mcp_rust.wasm; \
-	else \
-		echo "❌ npx not found. Install Node.js to use MCP Inspector."; \
-	fi
+	@echo "❌ WASM runtime is temporarily disabled"
+	@echo "   Use 'cargo run -- http' and test with MCP Inspector web interface instead"
+	@exit 1
 
 # Benchmarking
 bench:
@@ -242,8 +224,8 @@ docs:
 	cargo doc --workspace --all-features --no-deps --open
 
 docs-wasm:
-	@echo "📚 Generating WASM documentation..."
-	cargo doc --target wasm32-wasip2 --no-default-features --features wasm-storage --no-deps
+	@echo "❌ WASM documentation is temporarily disabled"
+	@exit 1
 
 # Size analysis
 size-analysis:
@@ -275,6 +257,7 @@ clean:
 clean-wasm:
 	@echo "🧹 Cleaning WASM artifacts..."
 	rm -rf target/wasm32-wasip2
+	rm -rf pkg-web pkg-node pkg-bundler
 
 # Release preparation
 prepare-release: clean build-all test size-analysis
@@ -282,7 +265,7 @@ prepare-release: clean build-all test size-analysis
 	@echo "✅ Release preparation complete"
 
 # CI/CD commands (matches GitHub Actions)
-ci-check: format-check lint test security docs check-wasm
+ci-check: format-check lint test security docs
 	@echo "🤖 CI checks completed successfully"
 
 # Individual CI jobs (matches GitHub Actions workflows)
