@@ -177,7 +177,8 @@ pub struct Tool {
 #[serde(rename_all = "camelCase")]
 pub struct ListToolsResult {
     pub tools: Vec<Tool>,
-    pub next_cursor: String, // Changed from Option<String> to String
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
 }
 
 /// Pagination parameters
@@ -305,6 +306,7 @@ pub struct Annotations {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListResourcesResult {
     pub resources: Vec<Resource>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
@@ -397,6 +399,7 @@ pub struct PromptArgument {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ListPromptsResult {
     pub prompts: Vec<Prompt>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
 }
 
@@ -503,8 +506,8 @@ pub struct ResourceTemplate {
 pub struct ListResourceTemplatesResult {
     #[serde(rename = "resourceTemplates")]
     pub resource_templates: Vec<ResourceTemplate>,
-    #[serde(rename = "nextCursor")]
-    pub next_cursor: String, // Changed from Option<String> to String
+    #[serde(rename = "nextCursor", skip_serializing_if = "Option::is_none")]
+    pub next_cursor: Option<String>,
 }
 
 /// Subscribe request parameters
