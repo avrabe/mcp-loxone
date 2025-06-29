@@ -66,7 +66,7 @@ loxone-mcp-rust/
 │   │   ├── handlers.rs      # Request handlers
 │   │   ├── resources.rs     # Resource definitions
 │   │   └── rmcp_impl.rs     # RMCP implementation
-│   ├── tools/               # MCP tools (30+ commands)
+│   ├── tools/               # MCP tools (17 commands)
 │   │   ├── audio.rs         # Audio control tools
 │   │   ├── climate.rs       # Climate control tools
 │   │   ├── devices.rs       # Device control tools

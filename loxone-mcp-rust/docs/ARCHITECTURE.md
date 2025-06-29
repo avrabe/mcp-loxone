@@ -18,8 +18,9 @@ This document describes the architecture of the Loxone MCP Server implementation
         └────────────┬────────────┘
                      │
         ┌────────────┴────────────┐
-        │    Tool Adapters       │
-        │   (34 MCP Tools)       │
+        │  Tool Adapters +       │
+        │ Resource Handlers      │
+        │ (17 Tools, 25+ Rsrc)  │
         └────────────┬────────────┘
                      │
         ┌────────────┴────────────┐
@@ -291,7 +292,7 @@ Currently disabled due to tokio limitations. Future implementation would require
 src/
 ├── server/          # MCP protocol handling
 ├── tools/           # Tool implementations
-│   └── adapters.rs  # All 34 tools
+│   └── adapters.rs  # All 17 tools + resource routing
 ├── client/          # Loxone communication
 ├── security/        # Auth and validation
 ├── performance/     # Monitoring and metrics

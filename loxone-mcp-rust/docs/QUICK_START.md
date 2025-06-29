@@ -165,7 +165,7 @@ cargo run -- stdio
 
 ## 🎯 Next Steps
 
-1. **Explore Tools**: See [API Reference](API_REFERENCE.md) for all 30+ tools
+1. **Explore Tools**: See [API Reference](API_REFERENCE.md) for all 17 tools and 25+ resources
 2. **Production Setup**: Check [Deployment Guide](DEPLOYMENT.md)
 3. **Customize**: Read [Development Guide](DEVELOPMENT.md)
 4. **Monitor**: Setup [Dashboard](../monitoring/README.md)
