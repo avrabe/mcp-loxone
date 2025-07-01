@@ -1,6 +1,6 @@
 [package]
 name = "pulseengine-mcp-cli"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,8 +14,8 @@ categories = ["command-line-interface", "api-bindings", "development-tools"]
 rust-version = "1.70"
 
 [dependencies]
-pulseengine-mcp-protocol = "0.2.0"
-pulseengine-mcp-logging = "0.2.0"
+pulseengine-mcp-protocol = "0.3.0"
+pulseengine-mcp-logging = "0.3.0"
 
 # Core dependencies
 serde = { workspace = true }
@@ -30,7 +30,7 @@ toml = { workspace = true, optional = true }
 url = { workspace = true, optional = true }
 
 # Derive macro (separate crate due to proc macro requirements)
-pulseengine-mcp-cli-derive = { version = "0.2.0", path = "../mcp-cli-derive", optional = true }
+pulseengine-mcp-cli-derive = { version = "0.3.0", path = "../mcp-cli-derive", optional = true }
 
 [features]
 default = ["cli", "derive"]

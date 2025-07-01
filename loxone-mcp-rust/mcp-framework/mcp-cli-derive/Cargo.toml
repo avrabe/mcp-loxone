@@ -1,6 +1,6 @@
 [package]
 name = "pulseengine-mcp-cli-derive"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
@@ -23,8 +23,8 @@ thiserror = { workspace = true }
 async-trait = { workspace = true }
 
 # Framework dependencies (for generated code references)
-pulseengine-mcp-protocol = { version = "0.2.0", path = "../mcp-protocol" }
-pulseengine-mcp-server = { version = "0.2.0", path = "../mcp-server" }
+pulseengine-mcp-protocol = { version = "0.3.0", path = "../mcp-protocol" }
+pulseengine-mcp-server = { version = "0.3.0", path = "../mcp-server" }
 
 [dev-dependencies]
 trybuild = "1.0"

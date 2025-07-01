@@ -11,9 +11,9 @@ path = "src/main.rs"
 
 [dependencies]
 # MCP Framework crates (published versions, local paths via workspace patch)
-pulseengine-mcp-protocol = "0.2.0"
+pulseengine-mcp-protocol = "0.3.0"
 pulseengine-mcp-server = "0.2.0"
-pulseengine-mcp-transport = "0.2.0"
+pulseengine-mcp-transport = "0.3.0"
 
 # Core dependencies
 tokio = { version = "1.0", features = ["full"] }

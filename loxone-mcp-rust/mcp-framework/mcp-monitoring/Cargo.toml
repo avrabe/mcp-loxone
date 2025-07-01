@@ -1,6 +1,6 @@
 [package]
 name = "pulseengine-mcp-monitoring"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
@@ -14,7 +14,7 @@ categories = ["development-tools::profiling", "web-programming"]
 rust-version = "1.70"
 
 [dependencies]
-pulseengine-mcp-protocol = "0.2.0"
+pulseengine-mcp-protocol = "0.3.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }
