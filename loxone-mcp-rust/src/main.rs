@@ -391,15 +391,16 @@ async fn main() -> Result<()> {
         TransportCommand::StreamableHttp { port, enable_cors } => {
             info!("Starting Streamable HTTP transport on port {}", port);
 
-            // Use framework's streamable HTTP transport
-            let streamable =
-                pulseengine_mcp_transport::streamable_http::StreamableHttpTransport::new(*port);
-
             if *enable_cors {
                 info!("CORS enabled for Streamable HTTP transport");
             }
 
-            Box::new(streamable)
+            // Use framework's create_transport function for consistency
+            create_transport(pulseengine_mcp_transport::TransportConfig::StreamableHttp {
+                port: *port,
+                host: None,
+            })
+            .map_err(|e| loxone_mcp_rust::LoxoneError::connection(e.to_string()))?
         }
     };
 
