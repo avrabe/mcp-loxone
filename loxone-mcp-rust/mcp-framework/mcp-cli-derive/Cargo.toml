@@ -23,7 +23,7 @@ thiserror = { workspace = true }
 async-trait = { workspace = true }
 
 # Framework dependencies (for generated code references)
-pulseengine-mcp-protocol = { version = "0.3.0", path = "../mcp-protocol" }
+pulseengine-mcp-protocol = { version = "0.3.0" }
 pulseengine-mcp-server = { version = "0.3.0", path = "../mcp-server" }
 
 [dev-dependencies]
