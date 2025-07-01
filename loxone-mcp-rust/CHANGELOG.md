@@ -5,6 +5,51 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-06-30
+
+### Added
+
+#### MCP Inspector Compatibility Enhancement
+- **NEW: `StreamableHttp` transport variant** - Added MCP Inspector compatibility to the PulseEngine framework
+  - Added `TransportConfig::StreamableHttp` enum variant with port and host configuration
+  - Added `TransportConfig::streamable_http(port)` helper method for easy one-line configuration
+  - Updated `create_transport()` function to handle StreamableHttp transport creation
+  - Implements required `/sse` and `/messages` endpoints for MCP Inspector connectivity
+  - Maintains full backward compatibility with existing HTTP transport usage
+
+#### Framework Integration
+- **Enhanced Developer Experience** - Framework applications can now enable MCP Inspector support with a single line change:
+  - **Before**: `TransportConfig::http(3000)` (not Inspector compatible)
+  - **After**: `TransportConfig::streamable_http(3000)` (Inspector compatible)
+  - No breaking changes to existing applications
+  - Framework-level solution eliminates need to bypass `create_transport()`
+
+### Changed
+- Updated all framework package versions from `0.2.0` to `0.3.0` for consistency
+- Enhanced transport layer documentation with Inspector compatibility examples
+
+### Technical Details
+- **StreamableHttp Transport**: Implements the streamable-http protocol that MCP Inspector expects
+- **Session Management**: Automatic session creation and management via `Mcp-Session-Id` headers  
+- **Endpoint Support**: 
+  - `GET /sse?sessionId=<id>` - Session establishment for Inspector
+  - `POST /messages` - MCP message exchange endpoint
+  - `GET /` - Basic server status endpoint
+- **Framework Integration**: Seamless integration with PulseEngine framework's `create_transport()` function
+
+### Migration Guide
+For applications wanting MCP Inspector compatibility, update transport configuration:
+
+```rust
+// Old (still works, but not Inspector compatible)
+let transport = create_transport(TransportConfig::http(3001))?;
+
+// New (Inspector compatible)
+let transport = create_transport(TransportConfig::streamable_http(3001))?;
+```
+
+This change enables MCP Inspector connectivity while maintaining full backward compatibility.
+
 ## [0.2.0] - 2025-06-29
 
 This is a major release that introduces significant improvements to the MCP framework architecture, code quality, and developer experience.
