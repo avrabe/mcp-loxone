@@ -11,6 +11,9 @@ pub enum TransportConfig {
     /// HTTP transport with Server-Sent Events
     Http { port: u16, host: Option<String> },
 
+    /// Streamable HTTP transport (MCP Inspector compatible)
+    StreamableHttp { port: u16, host: Option<String> },
+
     /// WebSocket transport
     WebSocket { port: u16, host: Option<String> },
 }
@@ -30,6 +33,11 @@ impl TransportConfig {
     /// Create HTTP transport configuration
     pub fn http(port: u16) -> Self {
         Self::Http { port, host: None }
+    }
+
+    /// Create Streamable HTTP transport configuration (MCP Inspector compatible)
+    pub fn streamable_http(port: u16) -> Self {
+        Self::StreamableHttp { port, host: None }
     }
 
     /// Create WebSocket transport configuration

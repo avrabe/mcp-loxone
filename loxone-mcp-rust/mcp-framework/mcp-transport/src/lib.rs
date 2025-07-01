@@ -76,6 +76,9 @@ pub fn create_transport(
     match config {
         TransportConfig::Stdio => Ok(Box::new(stdio::StdioTransport::new())),
         TransportConfig::Http { port, .. } => Ok(Box::new(http::HttpTransport::new(port))),
+        TransportConfig::StreamableHttp { port, .. } => Ok(Box::new(
+            streamable_http::StreamableHttpTransport::new(port),
+        )),
         TransportConfig::WebSocket { port, .. } => {
             Ok(Box::new(websocket::WebSocketTransport::new(port)))
         }
