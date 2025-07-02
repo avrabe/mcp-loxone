@@ -1,167 +1,340 @@
 # Contributing to Loxone MCP Server
 
-Thank you for your interest in contributing to the Loxone MCP Server! This document provides guidelines and instructions for contributing.
+Thank you for your interest in contributing to the Loxone MCP Server project. This guide will help you get started.
 
 ## Code of Conduct
 
-By participating in this project, you agree to abide by our Code of Conduct:
-- Be respectful and inclusive
-- Welcome newcomers and help them get started
-- Focus on constructive criticism
-- Respect differing viewpoints and experiences
+By participating in this project, you agree to maintain a respectful and inclusive environment for all contributors.
 
 ## Getting Started
 
-1. Fork the repository
-2. Clone your fork:
+### Prerequisites
+
+- Rust 1.70 or higher
+- Git
+- A Loxone Miniserver (for testing)
+
+### Development Setup
+
+1. **Fork and clone the repository**:
    ```bash
-   git clone https://github.com/avrabe/mcp-loxone.git
-   cd mcp-loxone
+   git clone https://github.com/yourusername/loxone-mcp-rust
+   cd loxone-mcp-rust
    ```
 
-3. Set up the development environment:
+2. **Install development dependencies**:
    ```bash
-   # Install uv if you haven't already
-   curl -LsSf https://astral.sh/uv/install.sh | sh
+   # Install Rust toolchain components
+   rustup component add rustfmt clippy
    
-   # Create virtual environment and install dependencies
-   uv venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   uv pip install -r requirements.txt
-   uv pip install -e ".[dev]"
+   # Install development tools
+   cargo install cargo-watch cargo-audit
    ```
 
-4. Set up pre-commit hooks:
+3. **Set up pre-commit hooks** (optional):
    ```bash
-   pre-commit install
+   cp .githooks/pre-commit .git/hooks/
+   chmod +x .git/hooks/pre-commit
    ```
 
 ## Development Workflow
 
-1. Create a new branch for your feature or fix:
-   ```bash
-   git checkout -b feature/your-feature-name
-   # or
-   git checkout -b fix/your-bug-fix
-   ```
+### 1. Create a Feature Branch
 
-2. Make your changes following the coding standards
+```bash
+git checkout -b feature/your-feature-name
+```
 
-3. Run tests and linting:
-   ```bash
-   # Run linting
-   ruff check src/
-   ruff format src/
-   
-   # Run type checking
-   mypy src/
-   
-   # Run tests (when available)
-   pytest tests/
-   ```
+### 2. Make Your Changes
 
-4. Commit your changes using conventional commits:
-   ```bash
-   git commit -m "feat: add new control for climate devices"
-   # or
-   git commit -m "fix: correct rolladen position calculation"
-   ```
+Follow the coding standards and ensure your changes:
+- Have appropriate tests
+- Pass all existing tests
+- Include documentation updates
+- Follow Rust idioms
 
-## Conventional Commits
+### 3. Run Quality Checks
 
-We use [Conventional Commits](https://www.conventionalcommits.org/) for our commit messages:
+Before committing:
 
-- `feat:` New feature
-- `fix:` Bug fix
-- `docs:` Documentation changes
-- `style:` Code style changes (formatting, etc.)
-- `refactor:` Code refactoring
-- `perf:` Performance improvements
-- `test:` Test additions or modifications
-- `chore:` Maintenance tasks
-- `ci:` CI/CD changes
+```bash
+# Format code
+cargo fmt
 
-## Pull Request Process
+# Run linter
+cargo clippy -- -D warnings
 
-1. Update documentation if needed
-2. Add tests for new functionality
-3. Ensure all tests pass and code is properly formatted
-4. Update the CHANGELOG.md with your changes
-5. Create a pull request with a clear description
-6. Wait for code review and address feedback
+# Run tests
+cargo test
 
-## Code Standards
+# Check for security issues
+cargo audit
+```
 
-### Python Style
-- Follow PEP 8 with a line length of 100 characters
-- Use type hints where possible
-- Document functions and classes with docstrings
-- Keep functions focused and small
+### 4. Commit Your Changes
 
-### Security
-- Never commit credentials or sensitive data
-- Use the keychain for credential storage
-- Validate all user inputs
-- Follow security best practices
-
-### Testing
-- Write tests for new functionality
-- Maintain or increase code coverage
-- Test with actual Loxone hardware when possible
-
-## Project Structure
+Write clear, descriptive commit messages:
 
 ```
-mcp-loxone/
-├── src/
-│   └── loxone_mcp/
-│       ├── __init__.py
-│       ├── server.py       # Main MCP server
-│       ├── secrets.py      # Credential management
-│       ├── loxone_client.py    # WebSocket client
-│       └── loxone_http_client.py # HTTP client
-├── tests/              # Test files
-├── docs/               # Documentation
-└── examples/           # Usage examples
+feat: add support for scene activation
+
+- Implement get_light_scenes tool
+- Add set_light_scene for scene control
+- Include tests for scene validation
+```
+
+Commit message format:
+- `feat:` New features
+- `fix:` Bug fixes
+- `docs:` Documentation changes
+- `test:` Test additions/changes
+- `refactor:` Code refactoring
+- `chore:` Maintenance tasks
+
+### 5. Submit a Pull Request
+
+1. Push to your fork
+2. Create a pull request against `main`
+3. Fill out the PR template
+4. Wait for review
+
+## Coding Standards
+
+### Rust Style
+
+Follow the official Rust style guide:
+
+```rust
+// Good
+pub fn control_device(uuid: &str, command: &str) -> Result<()> {
+    validate_uuid(uuid)?;
+    // Implementation
+}
+
+// Avoid
+pub fn ControlDevice(UUID: &str, cmd: &str) -> Result<()> {
+    // Non-idiomatic naming
+}
+```
+
+### Error Handling
+
+Use the custom error types:
+
+```rust
+use crate::error::{LoxoneError, Result};
+
+fn process_command(cmd: &str) -> Result<()> {
+    if cmd.is_empty() {
+        return Err(LoxoneError::validation("Command cannot be empty"));
+    }
+    // Process command
+    Ok(())
+}
+```
+
+### Documentation
+
+Document all public APIs:
+
+```rust
+/// Controls a Loxone device by UUID.
+///
+/// # Arguments
+/// * `uuid` - The device UUID in Loxone format
+/// * `command` - Command to send (e.g., "on", "off", "50")
+///
+/// # Returns
+/// * `Ok(())` on success
+/// * `Err(LoxoneError)` on failure
+///
+/// # Example
+/// ```
+/// control_device("0f869a3f-0155-8b3f-ffff403fb0c34b9e", "on")?;
+/// ```
+pub fn control_device(uuid: &str, command: &str) -> Result<()> {
+    // Implementation
+}
+```
+
+### Testing
+
+Write tests for new functionality:
+
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_uuid_validation() {
+        assert!(validate_uuid("0f869a3f-0155-8b3f-ffff403fb0c34b9e").is_ok());
+        assert!(validate_uuid("invalid-uuid").is_err());
+    }
+
+    #[tokio::test]
+    async fn test_device_control() {
+        let client = MockClient::new();
+        let result = control_device_with_client(&client, "uuid", "on").await;
+        assert!(result.is_ok());
+    }
+}
 ```
 
 ## Adding New Features
 
-When adding new device controls:
+### Adding a New MCP Tool
 
-1. Add the control function in `server.py`
-2. Use the `@mcp.tool()` decorator
-3. Include proper type hints and docstring
-4. Handle errors gracefully
-5. Add corresponding tests
+1. **Add to `src/tools/adapters.rs`**:
+   ```rust
+   pub async fn my_new_tool(
+       context: ToolContext,
+       params: MyToolParams,
+   ) -> ToolResult {
+       // Implementation
+   }
+   ```
 
-Example:
-```python
-@mcp.tool()
-async def control_new_device(
-    room: str,
-    device: Optional[str] = None,
-    action: str = "default"
-) -> Dict[str, Any]:
-    """
-    Control a new type of device.
-    
-    Args:
-        room: Room name (partial match)
-        device: Specific device name (optional)
-        action: Action to perform
-    
-    Returns:
-        Result of the control operation
-    """
-    # Implementation here
+2. **Define parameters**:
+   ```rust
+   #[derive(Debug, Deserialize, JsonSchema)]
+   pub struct MyToolParams {
+       #[serde(description = "Parameter description")]
+       pub param_name: String,
+   }
+   ```
+
+3. **Register in tool system**:
+   ```rust
+   Tool::new("my_new_tool")
+       .description("Tool description")
+       .parameter("param_name", ParameterType::String, "Parameter description")
+       .handler(my_new_tool)
+   ```
+
+4. **Add tests**:
+   ```rust
+   #[test]
+   fn test_my_new_tool() {
+       // Test implementation
+   }
+   ```
+
+5. **Update documentation**:
+   - Add to `docs/tools_reference.md`
+   - Update README if significant feature
+
+### Adding Device Support
+
+For new Loxone device types:
+
+1. Check device type in Miniserver structure
+2. Add filtering logic in relevant tools
+3. Test with actual device
+4. Document device-specific behavior
+
+## Testing
+
+### Unit Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run specific test
+cargo test test_name
+
+# Run with output
+cargo test -- --nocapture
 ```
 
-## Questions?
+### Integration Tests
 
-If you have questions:
-1. Check existing issues and discussions
-2. Read the documentation
-3. Create a new issue with the question label
+```bash
+# Requires configured Loxone credentials
+cargo test --test integration_tests
+```
 
-Thank you for contributing!
+### Manual Testing
+
+1. Build the server: `cargo build`
+2. Run with test credentials
+3. Use MCP Inspector or curl to test tools
+4. Verify Miniserver state changes
+
+## Documentation
+
+### Where to Document
+
+- **API Changes**: Update `docs/tools_reference.md`
+- **Architecture**: Update `docs/architecture.md`
+- **Security**: Update `docs/security.md`
+- **Examples**: Add to relevant tool documentation
+
+### Documentation Style
+
+- Use clear, concise language
+- Include code examples
+- Explain rationale for design decisions
+- Keep formatting consistent
+
+## Performance Considerations
+
+### Benchmarking
+
+For performance-critical changes:
+
+```rust
+#[bench]
+fn bench_cache_lookup(b: &mut Bencher) {
+    let cache = build_test_cache();
+    b.iter(|| {
+        cache.get("test_key")
+    });
+}
+```
+
+### Optimization Guidelines
+
+- Profile before optimizing
+- Maintain readability
+- Document performance tricks
+- Add benchmarks for regressions
+
+## Security
+
+### Security Review
+
+All PRs touching security-sensitive areas require:
+
+1. Careful review of input validation
+2. Authentication/authorization checks
+3. No hardcoded credentials
+4. Proper error messages (no info leakage)
+
+### Reporting Security Issues
+
+See [security.md](docs/security.md) for vulnerability reporting.
+
+## Release Process
+
+1. Update version in `Cargo.toml`
+2. Update CHANGELOG.md
+3. Create release PR
+4. After merge, tag release
+5. GitHub Actions builds releases
+
+## Getting Help
+
+- **Questions**: Open a GitHub issue
+- **Discussions**: GitHub Discussions
+- **Real-time**: Community chat (if available)
+
+## Recognition
+
+Contributors are recognized in:
+- GitHub contributors page
+- CHANGELOG.md (for significant contributions)
+- Release notes
+
+Thank you for contributing to make Loxone home automation more accessible!
