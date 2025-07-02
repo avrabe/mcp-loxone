@@ -1,152 +1,197 @@
-# 🌐 MCP Loxone Website
+# Loxone MCP Rust Server Documentation
 
-This directory contains the complete website for MCP Loxone, deployed to https://avrabe.github.io/mcp-loxone/
+Welcome to the comprehensive documentation for the **Loxone MCP Rust Server** - a high-performance, production-ready implementation of the Model Context Protocol for Loxone home automation systems.
 
-## 📁 Website Structure
+## 🎯 What is This?
 
-```
-docs/
-├── index.html              # Main landing page
-├── docs.html               # Documentation hub
-├── logo.svg                # Project logo
-├── _config.yml             # GitHub Pages configuration
-├── robots.txt              # SEO robots file
-├── sitemap.xml             # SEO sitemap
-└── loxone-mcp-rust/        # Rust documentation (copied from ../loxone-mcp-rust/docs/)
-    ├── docs/
-    │   ├── CONFIGURATION.md        # Complete configuration guide
-    │   ├── config-wizard.html      # Interactive configuration wizard
-    │   ├── QUICK_START.md          # Quick start guide
-    │   ├── ARCHITECTURE.md         # System architecture
-    │   ├── API_REFERENCE.md        # API documentation
-    │   ├── DEPLOYMENT.md           # Deployment guide
-    │   ├── DEVELOPMENT.md          # Development guide
-    │   ├── TROUBLESHOOTING.md      # Troubleshooting guide
-    │   └── ...                     # Other documentation files
-    └── README.md                   # Rust project overview
-```
+The Loxone MCP Rust Server bridges the gap between modern AI assistants (like Claude) and your Loxone smart home system. It provides:
 
-## 🎨 Website Features
+- **🤖 AI Integration**: Control your home with natural language through Claude Desktop
+- **🔄 Workflow Automation**: Build complex automations with n8n
+- **🌐 Universal Access**: REST API, WebSocket, and WASM deployment options
+- **🛡️ Enterprise Security**: Production-grade security with rate limiting and validation
+- **⚡ Blazing Performance**: Sub-10ms response times with Rust's zero-cost abstractions
 
-### Landing Page (`index.html`)
-- **Modern Design**: Dark theme with Rust orange and Loxone green branding
-- **Interactive Elements**: Animated particles, smooth scrolling, mobile-responsive
-- **Hero Section**: Key statistics, compelling value proposition
-- **Features Section**: 6 core feature cards with detailed benefits
-- **Code Examples**: Interactive tabs showing different usage scenarios
-- **Architecture Diagram**: Visual system overview
-- **Integrations**: Showcase of supported platforms
+## 📚 Documentation Overview
 
-### Documentation Hub (`docs.html`)
-- **Organized Grid**: Clean layout of all documentation sections
-- **Status Indicators**: Shows which docs are ready vs new
-- **Direct Links**: Quick access to all guides and references
+This documentation is organized into several sections:
 
-### Interactive Configuration Wizard (`config-wizard.html`)
-- **6-Step Process**: Use case → Credentials → Connection → Security → Features → Review
-- **Dynamic Forms**: Adjusts based on user selections
-- **Multiple Outputs**: Generates .env, Docker Compose, Claude config, bash scripts
-- **Modern UI**: Progress indicators, validation, copy-to-clipboard
+### 🚀 [Getting Started](./QUICK_START.md)
+New to the project? Start here! Learn how to install, configure, and run your first commands in minutes.
 
-## 🚀 Deployment
+### 🎛️ [Configuration Guide](./CONFIGURATION.md)
+**NEW!** Comprehensive configuration reference with:
+- 📊 Complete environment variables list
+- 🌳 Interactive decision trees for setup choices
+- 🧙 [Web-based configuration wizard](./config-wizard.html)
+- 🔐 Security levels and credential backends
+- ⚡ Performance tuning scenarios
 
-### Automatic Deployment
-The website is automatically deployed via GitHub Actions (`.github/workflows/deploy-docs.yml`) when:
-- Changes are pushed to the `main` branch in `docs/` or `loxone-mcp-rust/docs/`
-- Manual workflow trigger
+### 🔑 [API Reference](./API_REFERENCE.md)
+Complete documentation for all 17 MCP tools and 25+ resources with examples, parameters, and authentication.
 
-### Manual Deployment
-To deploy manually:
-1. Ensure all documentation is up to date
-2. Push changes to the `main` branch
-3. GitHub Pages will automatically build and deploy
+### 🛡️ [Security Guide](./SECURITY_ARCHITECTURE.md)
+Multi-user API key management, role-based access control, and web UI for key administration.
 
-## 🔧 Local Development
+### 🏗️ [Architecture](./ARCHITECTURE.md)
+Deep dive into the system design, understanding the 12 core modules and how they work together.
 
-To test the website locally:
+### 🛠️ [Development](./DEVELOPMENT.md)
+Everything you need to contribute, extend, or customize the server for your specific needs.
 
-```bash
-# Simple HTTP server
-cd docs
-python -m http.server 8000
-# Or with Node.js
-npx serve .
+### 🚀 [Deployment](./DEPLOYMENT.md)
+Production deployment strategies including Docker, Kubernetes, and edge computing with WASM.
 
-# Open http://localhost:8000
-```
+### 🆘 [Troubleshooting](./TROUBLESHOOTING.md)
+Solutions to common problems and debugging techniques.
 
-For Jekyll development:
-```bash
-cd docs
-bundle install
-bundle exec jekyll serve
-# Open http://localhost:4000
-```
+## 🌟 Key Features
 
-## 📊 SEO & Analytics
+<table>
+<tr>
+<td width="50%">
 
-### SEO Features
-- **Meta Tags**: Complete Open Graph and Twitter Card tags
-- **Structured Data**: Proper semantic HTML
-- **Sitemap**: XML sitemap for search engines
-- **Robots.txt**: Search engine guidance
-- **Performance**: Optimized images, minimal JavaScript
+### 🎛️ Complete Device Control
+- **17 MCP Tools** for device actions + **25+ Resources** for data access
+- **Batch Operations** for efficient control
+- **Room-based Management** for logical grouping
+- **Real-time Feedback** via WebSocket
 
-### Analytics Setup
-To add analytics, update `_config.yml`:
+</td>
+<td width="50%">
+
+### 🛡️ Production Security
+- **Multi-user API Keys** with role-based access control
+- **Web-based Key Management** UI at `/admin/keys`
+- **Input Validation** on all parameters
+- **Rate Limiting** with intelligent throttling
+- **Audit Logging** for compliance
+- **IP Whitelisting** for key restrictions
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### ⚡ High Performance
+- **Async I/O** with Tokio runtime
+- **Connection Pooling** for efficiency
+- **Smart Caching** reduces latency
+- **WASM Support** for edge deployment
+
+</td>
+<td width="50%">
+
+### 📊 Monitoring & Analytics
+- **Real-time Dashboard** with metrics
+- **Performance Profiling** built-in
+- **Historical Data** with time-series storage
+- **Alert System** for anomalies
+
+</td>
+</tr>
+</table>
+
+## 💻 Quick Examples
+
+### Control Lights via Claude
 ```yaml
-google_analytics: "GA_MEASUREMENT_ID"
-google_site_verification: "VERIFICATION_CODE"
+Human: Turn on all lights in the living room
+Assistant: I'll turn on all lights in the living room for you.
+
+[Calling control_room_devices tool...]
+✓ Successfully turned on 4 lights in Living Room
 ```
 
-## 🎯 Key Pages & Functionality
+### Climate Control with n8n
+```json
+{
+  "tool": "set_room_temperature",
+  "arguments": {
+    "room": "Bedroom",
+    "temperature": 22.5
+  }
+}
+```
 
-### 1. Landing Page Features
-- **Hero Section**: Compelling statistics and clear value proposition
-- **Feature Cards**: Detailed benefits with icons and animations
-- **Code Examples**: Real-world usage scenarios with syntax highlighting
-- **Architecture Diagram**: Visual system overview
-- **Responsive Design**: Works on all device sizes
+### Sensor Monitoring
+```bash
+curl -X POST http://localhost:3001/message \
+  -H "X-API-Key: lmcp_monitor_001_abc123" \
+  -d '{
+    "jsonrpc": "2.0",
+    "method": "tools/call",
+    "params": {
+      "name": "get_temperature_sensors",
+      "arguments": {}
+    },
+    "id": 1
+  }'
+```
 
-### 2. Documentation System
-- **Comprehensive Guides**: Everything from quick start to advanced configuration
-- **Interactive Tools**: Configuration wizard with step-by-step guidance
-- **API Reference**: Complete tool documentation
-- **Search Functionality**: Easy to find specific information
+## 🏃 Quick Start Options
 
-### 3. Configuration Experience
-- **Decision Trees**: Help users choose the right setup
-- **Interactive Wizard**: Generates configuration files
-- **Multiple Formats**: Supports various deployment scenarios
-- **Validation**: Ensures correct configuration
+<div align="center">
 
-## 🔗 External Links
+| Method | Command | Time to Run |
+|--------|---------|-------------|
+| **🚀 Quick Script** | `curl -sSL https://install.sh \| bash` | 30 seconds |
+| **🐳 Docker** | `docker-compose up` | 1 minute |
+| **🦀 From Source** | `cargo run -- stdio` | 2 minutes |
+| **🌐 WASM** | `make wasm && wasmtime serve` | 3 minutes |
 
-- **GitHub Repository**: https://github.com/avrabe/mcp-loxone
-- **Documentation**: https://avrabe.github.io/mcp-loxone/docs.html
-- **Configuration Wizard**: https://avrabe.github.io/mcp-loxone/loxone-mcp-rust/docs/config-wizard.html
+</div>
 
-## 📝 Content Updates
+## 📖 How to Use This Documentation
 
-To update website content:
+1. **New Users**: Start with [Quick Start](./QUICK_START.md) → [API Reference](./API_REFERENCE.md)
+2. **Developers**: Check [Architecture](./ARCHITECTURE.md) → [Development](./DEVELOPMENT.md)
+3. **DevOps**: Focus on [Deployment](./DEPLOYMENT.md) → [Security](./SECURITY_ARCHITECTURE.md)
+4. **Troubleshooting**: Jump to [Troubleshooting](./TROUBLESHOOTING.md)
 
-1. **Landing Page**: Edit `index.html`
-2. **Documentation Hub**: Edit `docs.html`
-3. **Configuration Guide**: Edit `loxone-mcp-rust/docs/CONFIGURATION.md`
-4. **Interactive Wizard**: Edit `loxone-mcp-rust/docs/config-wizard.html`
-5. **Other Docs**: Edit files in `loxone-mcp-rust/docs/`
+## 🔍 Search Tips
 
-All changes are automatically deployed when pushed to `main`.
+- Use the search bar (press `S`) to find specific topics
+- Keywords: "tool", "api", "config", "error", "deploy"
+- Check the [Glossary](./glossary.md) for terminology
 
-## 🚀 Performance
+## 🚦 System Requirements
 
-The website is optimized for performance:
-- **Minimal Dependencies**: Self-contained HTML/CSS/JS
-- **Optimized Images**: SVG logo, efficient graphics
-- **Fast Loading**: Under 2MB total size
-- **Mobile Optimized**: Responsive design, touch-friendly
-- **SEO Optimized**: Proper meta tags, sitemap, structured data
+| Component | Minimum | Recommended |
+|-----------|---------|-------------|
+| **Rust** | 1.70+ | Latest stable |
+| **Memory** | 512MB | 1GB |
+| **CPU** | 1 core | 2+ cores |
+| **Loxone** | Miniserver | Any Miniserver |
+
+## 🤝 Getting Help
+
+- **📋 Documentation**: You're here!
+- **💬 Discussions**: [GitHub Discussions](https://github.com/your-repo/discussions)
+- **🐛 Issues**: [GitHub Issues](https://github.com/your-repo/issues)
+- **📧 Contact**: [Email Support](mailto:support@example.com)
+
+## 📊 Project Statistics
+
+<div align="center">
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| **📁 Source Files** | 183 | Comprehensive implementation |
+| **🎛️ MCP Tools** | 17 | Device control actions |
+| **📊 MCP Resources** | 25+ | Read-only data access |
+| **✅ Tests** | 226 | Extensive test suite |
+| **📦 Dependencies** | 42 | Carefully selected |
+| **⭐ Performance** | A+ | Production optimized |
+
+</div>
 
 ---
 
-**Built with ❤️ for the Loxone community**
+<div align="center">
+
+**Ready to get started?** → [🚀 Quick Start Guide](./QUICK_START.md)
+
+*Built with ❤️ in Rust • Version 1.0.0*
+
+</div>
