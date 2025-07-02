@@ -5,222 +5,317 @@ SPDX-License-Identifier: MIT
 Copyright (c) 2025 Ralf Anton Beier
 -->
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with this **Rust-based** Loxone MCP server project.
 
-## Common Development Commands
+## 🦀 Rust Project Overview
+
+This is a **Rust implementation** of a Model Context Protocol (MCP) server for Loxone home automation systems. The project consists of:
+
+- **Rust codebase** across multiple modules
+- **17 working MCP tools** for device control and state modification
+- **25+ MCP resources** for read-only data access with caching
+- **Enterprise security** with API key authentication and role-based access
+- **Production-ready** with comprehensive monitoring and dashboards
+- **WASM compilation support** (temporarily disabled)
+
+## 🛠️ Common Development Commands
 
 ### Setup & Installation
 ```bash
-# Install dependencies
-uv sync
+# Install Rust toolchain (if needed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Configure Loxone credentials (one-time setup with Infisical support)
-uvx --from . loxone-mcp setup
-# Or directly:
-./setup.sh
+# Clone and setup development environment
+git clone <repo> && cd mcp-loxone-gen1
+./dev-env.sh
 
-# Verify existing credentials
-uvx --from . loxone-mcp verify
-
-# Migrate existing keychain credentials to Infisical
-uvx --from . loxone-mcp migrate
-
-# Clear all stored credentials (if needed)
-uvx --from . loxone-mcp clear
+# Install dependencies and build
+cargo build
 ```
 
-### Infisical Integration (Optional)
-For team/production environments, you can use Infisical for centralized credential management:
-
+### Credential Configuration
 ```bash
-# Configure Infisical (set these environment variables)
-export INFISICAL_PROJECT_ID="your-project-id"
-export INFISICAL_ENVIRONMENT="dev"  # or staging, prod
-export INFISICAL_CLIENT_ID="your-client-id"
-export INFISICAL_CLIENT_SECRET="your-client-secret"
+# Setup Loxone credentials using environment variables (recommended for development)
+export LOXONE_USER="your-username"
+export LOXONE_PASS="your-password"
+export LOXONE_HOST="your-miniserver-ip"
 
-# Optional: Self-hosted Infisical
-export INFISICAL_HOST="https://your-infisical-instance.com"
+# Alternative: Interactive credential setup
+cargo run --bin loxone-mcp-setup
 
-# Run setup - will automatically use Infisical if configured
-uvx --from . loxone-mcp setup
+# Verify credentials work
+cargo run --bin loxone-mcp-verify
+```
 
-# Migrate existing keychain credentials to Infisical
-uvx --from . loxone-mcp migrate
+### Authentication Management
+```bash
+# Create API keys for secure access
+cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin
+cargo run --bin loxone-mcp-auth create --name "Dev Key" --role operator --expires 30
+
+# List and manage API keys
+cargo run --bin loxone-mcp-auth list
+cargo run --bin loxone-mcp-auth show key_id
+cargo run --bin loxone-mcp-auth update key_id --ip-whitelist "192.168.1.0/24"
+
+# Security validation and audit
+cargo run --bin loxone-mcp-auth security --check-only
+cargo run --bin loxone-mcp-auth audit --limit 50
 ```
 
 ### Running the Server
 ```bash
 # Development mode with MCP Inspector (recommended for testing)
-uv run mcp dev src/loxone_mcp/server.py
+cargo run --bin loxone-mcp-server -- stdio
+# Or for n8n/web clients:
+cargo run --bin loxone-mcp-server -- http --port 3001
 
-# Direct execution
-uvx --from . loxone-mcp-server
-# Or:
-uv run python -m loxone_mcp
+# Quick development server with hot reload
+make dev-run
+
+# Production build
+cargo build --release
 ```
 
-### Testing
+### Testing & Code Quality
 ```bash
-# Run the test suite
-uv run pytest tests/ -v --cov=loxone_mcp --cov-report=term-missing
+# Run the comprehensive test suite
+cargo test --lib --verbose
 
-# Basic integration test
-uv run python test_server.py
+# Code formatting and linting
+cargo fmt
+cargo clippy -- -W clippy::all
 
-# Validate MCP implementation (for CI)
-uv run python validate_mcp.py
-```
+# Security audit
+cargo audit
 
-### Code Quality
-**IMPORTANT**: Always run these checks before adding files to git:
-```bash
-# Format all code
-uv run ruff format src/ tests/
-
-# Run linting with fix
-uv run ruff check src/ tests/ --fix
-
-# Type checking
-uv run mypy src/
-
-# Run all checks before committing
+# Run all quality checks
 make check
 ```
 
-Individual commands:
+### WASM Compilation
 ```bash
-# Run linting
-uv run ruff check src/ tests/
-# Or use make:
-make lint
+# Build for WebAssembly (WASIP2 target)
+make wasm
 
-# Format code
-uv run ruff format src/ tests/
-# Or use make:
-make format
+# Or manually:
+cargo build --target wasm32-wasip2 --release
 
-# Type checking
-uv run mypy src/
-# Or use make:
-make type-check
-
-# Security checks
-make security
+# Test WASM binary
+wasmtime target/wasm32-wasip2/release/loxone-mcp-server.wasm
 ```
 
-### Building & Publishing
+### Docker Development
 ```bash
-# Build distribution packages
-uv build
+# Build and run with Docker Compose
+docker-compose up --build
 
-# Clean build artifacts
-make clean
+# Development with live reload
+docker-compose -f docker-compose.dev.yml up
+
+# Production deployment
+docker build -t loxone-mcp:latest .
+docker run -p 3001:3001 loxone-mcp:latest
 ```
 
-## High-Level Architecture
+## 🏗️ Project Architecture
 
-### Project Structure
-The codebase implements a Model Context Protocol (MCP) server for controlling Loxone home automation systems. Key components:
-
-1. **MCP Server** (`src/loxone_mcp/server.py`):
-   - Built with FastMCP framework
-   - Implements tools for device control (lights, rolladen/blinds) and sensor monitoring
-   - Manages connection lifecycle and caching
-   - Room-based organization of devices
-   - Configurable sensor management without hardcoded UUIDs
-
-2. **Loxone Clients**:
-   - `loxone_http_client.py`: Primary HTTP-based client using basic auth
-   - `loxone_client.py`: WebSocket client (for future encrypted auth support)
-   - Both implement async communication with the Miniserver
-
-3. **Credential Management** (`credentials.py`, `infisical_credentials.py`):
-   - **Enhanced Infisical Integration**: Team-friendly credential management
-   - **Multi-Backend Support**: Infisical → Keychain → Environment variables
-   - **Backward Compatibility**: Maintains existing keychain workflow
-   - **Migration Tools**: Easy transition from keychain to Infisical
-   - **CLI Commands**: setup, verify, clear, migrate
-
-4. **Sensor Configuration** (`sensor_config.py`):
-   - Configurable sensor management without hardcoded UUIDs
-   - JSON-based configuration file (`sensor_config.json`)
-   - Tools for adding/removing/discovering sensors dynamically
-   - Separates sensor logic from main server code
-
-### Key Design Patterns
-
-1. **Server Context Pattern**:
-   - Global `ServerContext` dataclass holds connection and cached data
-   - Devices and rooms are parsed once at startup from structure file
-   - Sensor configuration manager provides clean separation of concerns
-
-2. **Device Abstraction**:
-   - `LoxoneDevice` dataclass represents any controllable device
-   - Devices have UUID, name, type, room assignment, and states
-   - Control methods filter by device type (e.g., "Jalousie" for blinds)
-
-3. **Configurable Sensor Management**:
-   - No hardcoded UUIDs in server code
-   - All sensor UUIDs stored in `sensor_config.json`
-   - Runtime sensor discovery and configuration
-   - Separates sensor logic from main server implementation
-
-4. **Tool Organization**:
-   - Tools organized by functionality: room queries, device control, sensor management
-   - Each tool has clear single responsibility
-   - Tools handle both specific device and room-wide operations
-
-### Important Implementation Details
-
-1. **Authentication**: Classic Miniservers use basic HTTP auth. The WebSocket client exists for future encrypted auth support but HTTP is currently used.
-
-2. **State Management**: Device states are fetched on-demand via HTTP requests. The structure is cached at startup but states are always fresh.
-
-3. **Sensor Configuration**: Sensors are configured via `sensor_config.json` with no hardcoded UUIDs. Configuration includes discovery tools and runtime management.
-
-4. **Error Handling**: Connection errors, auth failures, and missing devices are handled gracefully with informative error messages.
-
-5. **Logging**: Controlled via `LOXONE_LOG_LEVEL` environment variable (default: INFO).
-
-## Adding New Features
-
-When adding support for new device types:
-1. Check the device type in the structure file
-2. Add filtering logic in server.py
-3. Create appropriate MCP tools following existing patterns
-4. Test with MCP Inspector before integration
-
-## Sensor Management
-
-The server uses a configurable sensor system:
-1. **Configuration**: Edit `sensor_config.json` to add/remove sensors
-2. **Discovery**: Use `discover_new_sensors()` tool to find working sensor UUIDs
-3. **Management**: Use `add_sensor()`, `remove_sensor()`, `list_configured_sensors()` tools
-4. **Monitoring**: Use `get_all_door_window_sensors()` for real-time status
-
-Example sensor configuration:
-```json
-{
-  "sensors": [
-    {
-      "uuid": "0CD8C06B.855703.I2",
-      "name": "Kitchen Window",
-      "type": "door_window", 
-      "room": "Kitchen",
-      "description": "Main kitchen window",
-      "enabled": true
-    }
-  ]
-}
+### Directory Structure
+```
+src/
+├── server/          # MCP protocol implementation (10+ files)
+├── tools/           # 30+ Loxone device tools (audio, climate, etc.)
+├── client/          # HTTP/WebSocket clients (7 files)
+├── config/          # Credential management (7 files)
+├── security/        # Input validation, CORS, rate limiting
+├── performance/     # Monitoring, profiling, metrics
+├── monitoring/      # Dashboard, InfluxDB integration
+├── history/         # Time-series data storage
+├── wasm/           # WebAssembly optimizations
+├── validation/      # Request/response validation
+├── discovery/       # Network device discovery
+└── main.rs         # Binary entry points
 ```
 
-## Dependencies
+### Key Modules
+1. **Server** (`src/server/`): Core MCP protocol implementation with resource management
+2. **Tools** (`src/tools/`): 30+ MCP tools for device control and monitoring
+3. **Client** (`src/client/`): HTTP and WebSocket clients for Loxone communication
+4. **Security** (`src/security/`): Production-grade security with rate limiting and validation
+5. **Performance** (`src/performance/`): Real-time monitoring and profiling
+6. **WASM** (`src/wasm/`): WebAssembly compilation optimizations
 
-Core dependencies:
-- `fastmcp`: MCP server framework
-- `httpx`: Async HTTP client
-- `keyring`: Secure credential storage
-- `websockets` & `aiohttp`: For future WebSocket support
+### MCP Tools Available
+- **Audio**: Volume control, zone management
+- **Climate**: Temperature, HVAC control
+- **Devices**: Lights, switches, dimmers
+- **Energy**: Power monitoring, consumption tracking
+- **Rooms**: Room-based device organization
+- **Security**: Alarm systems, access control
+- **Sensors**: Temperature, motion, door/window sensors
+- **Weather**: Weather station integration
+- **Workflows**: Automation and scene control
 
-Development tools are configured in `pyproject.toml` with ruff for linting/formatting and mypy for type checking.
+## 🔧 Development Guidelines
+
+### Adding New Features
+1. **New MCP Tools**: Add to `src/tools/` following existing patterns
+2. **Client Extensions**: Extend `src/client/` for new communication methods
+3. **Security Features**: Add to `src/security/` with comprehensive validation
+4. **Performance Monitoring**: Extend `src/performance/` for new metrics
+
+### Code Style
+- Follow Rust 2021 edition conventions
+- Use `cargo fmt` for consistent formatting
+- Address all `cargo clippy` warnings
+- Write comprehensive tests for new functionality
+- Document public APIs with rustdoc comments
+
+### Testing Strategy
+- **Unit tests**: Test individual functions and modules
+- **Integration tests**: Test MCP protocol compliance
+- **Security tests**: Test input validation and sanitization
+- **Performance tests**: Benchmark critical paths
+- **WASM tests**: Verify WebAssembly compatibility
+
+## 🚀 Deployment Options
+
+### Native Binary
+```bash
+# Build optimized release
+cargo build --release
+
+# Run production server
+./target/release/loxone-mcp-server http --port 3001
+```
+
+### WebAssembly (Edge/Browser)
+```bash
+# Build WASM component
+make wasm
+
+# Deploy to edge runtime
+wasmtime --serve target/wasm32-wasip2/release/loxone-mcp-server.wasm
+```
+
+### Docker Container
+```bash
+# Multi-stage production build
+docker build -t loxone-mcp:latest .
+
+# Run with environment configuration
+docker run -e LOXONE_HOST=192.168.1.10 -p 3001:3001 loxone-mcp:latest
+```
+
+## 🛡️ Security Considerations
+
+### Credential Management
+- Use environment variables for development
+- Production: Infisical or secure secret management
+- Never commit credentials to version control
+- Rotate credentials regularly
+
+### Input Validation
+- All user inputs are validated against injection attacks
+- UUID, IP address, and parameter validation built-in
+- Rate limiting prevents abuse
+- CORS policies configurable for web deployment
+
+### Network Security
+- TLS/HTTPS recommended for production
+- IP whitelisting available
+- Request size limits prevent DoS
+- Audit logging for security events
+
+## 📊 Performance Optimization
+
+### Development Profiling
+```bash
+# Enable performance monitoring
+export LOXONE_PERFORMANCE_MODE=development
+
+# Run with profiling
+cargo run --release --features profiling
+
+# Generate performance reports
+cargo bench
+```
+
+### WASM Optimization
+```bash
+# Optimize for size
+cargo build --target wasm32-wasip2 --release
+
+# Check binary size
+ls -lh target/wasm32-wasip2/release/loxone-mcp-server.wasm
+
+# Strip debug symbols
+wasm-strip target/wasm32-wasip2/release/loxone-mcp-server.wasm
+```
+
+## 🤝 Contributing
+
+### Before Committing Changes
+**IMPORTANT**: Always run these checks before adding files to git:
+```bash
+# Format all code
+cargo fmt --all
+
+# Run clippy with CI settings
+cargo clippy --all --all-features -- -D warnings
+
+# Run tests
+cargo test --lib --verbose
+
+# Security audit
+cargo audit
+```
+
+Alternatively, run all checks at once:
+```bash
+make check
+```
+
+### Before Submitting Changes
+1. Run full test suite: `cargo test`
+2. Check formatting: `cargo fmt --check`
+3. Run linting: `cargo clippy`
+4. Update documentation if needed
+5. Test WASM compilation: `make wasm`
+6. Verify Docker build: `docker build .`
+
+### Documentation Updates
+- Update relevant markdown files in `docs/`
+- Update CHANGELOG.md for user-facing changes
+- Update inline rustdoc for API changes
+- Test examples in documentation
+
+## 📚 Additional Resources
+
+- **API Documentation**: `cargo doc --open`
+- **Architecture Guide**: `docs/ARCHITECTURE.md`
+- **Deployment Guide**: `docs/DEPLOYMENT.md`
+- **Troubleshooting**: `docs/TROUBLESHOOTING.md`
+- **Examples**: See `examples/` directory
+
+## 🔍 Debugging & Troubleshooting
+
+### Common Issues
+- **Build failures**: Check Rust version with `rustc --version`
+- **WASM issues**: Ensure `wasm32-wasip2` target installed
+- **Credential errors**: Verify environment variables
+- **Connection issues**: Check Loxone Miniserver accessibility
+
+### Debug Logging
+```bash
+# Enable debug logging
+export RUST_LOG=debug
+export LOXONE_LOG_LEVEL=debug
+
+# Run with verbose output
+cargo run -- --verbose
+```
+
+---
+
+**Important**: This is a Rust project with WASM support, not a Python project. All commands and development workflows are Rust-based using Cargo, not Python tools like `uv` or `pip`.

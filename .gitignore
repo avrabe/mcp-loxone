@@ -99,3 +99,5 @@ package-lock.json
 loxone-mcp-rust/target/
 loxone-mcp-rust/loxone-mcp/
 loxone-mcp-rust/dont-commit.env
+.DS_Store
+**/.DS_Store
