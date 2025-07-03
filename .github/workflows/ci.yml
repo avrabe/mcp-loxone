@@ -18,9 +18,6 @@ jobs:
   rust-lint:
     name: Rust Lint & Format
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -32,8 +29,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Check Rust formatting
         run: cargo fmt --all -- --check
@@ -52,9 +47,6 @@ jobs:
     strategy:
       matrix:
         rust: ["1.75", "stable"]
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -65,8 +57,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Run unit tests
         run: cargo test --lib --verbose
@@ -96,9 +86,6 @@ jobs:
             target: x86_64-apple-darwin
           - os: windows-latest
             target: x86_64-pc-windows-msvc
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -110,8 +97,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Build debug binary
         run: cargo build --verbose
@@ -148,14 +133,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-binary-${{ matrix.target }}
-          path: loxone-mcp-rust/target/release/loxone-mcp-server*
+          path: target/release/loxone-mcp-server*
 
   rust-security:
     name: Rust Security Audit
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -166,8 +148,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Install cargo-audit
         run: cargo install cargo-audit
@@ -222,14 +202,11 @@ jobs:
   #       uses: actions/upload-artifact@v4
   #       with:
   #         name: rust-wasm-binary
-  #         path: loxone-mcp-rust/target/wasm32-wasip2/release/*.wasm
+  #         path: target/wasm32-wasip2/release/*.wasm
 
   rust-performance:
     name: Rust Performance Tests
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -240,8 +217,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Install cargo-criterion
         run: cargo install cargo-criterion || echo "Failed to install cargo-criterion, skipping"
@@ -265,9 +240,6 @@ jobs:
   rust-documentation:
     name: Rust Documentation
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./loxone-mcp-rust
     steps:
       - uses: actions/checkout@v4
       
@@ -278,8 +250,6 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Generate documentation
         run: cargo doc --all-features --no-deps --verbose
@@ -297,7 +267,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: rust-documentation
-          path: loxone-mcp-rust/target/doc/
+          path: target/doc/
 
   # Rust integration test
   integration-test:
@@ -314,31 +284,27 @@ jobs:
 
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: loxone-mcp-rust
 
       - name: Build Rust binary
-        run: |
-          cd loxone-mcp-rust
-          cargo build --release
+        run: cargo build --release
 
       - name: Test Rust MCP server functionality
         run: |
           echo "=== Rust MCP Server Tests ==="
-          ./loxone-mcp-rust/target/release/loxone-mcp-server --help | head -10
+          ./target/release/loxone-mcp-server --help | head -10
           echo "✅ Rust MCP server help command works"
 
       - name: Test server startup modes
         run: |
           echo "=== Testing different server modes ==="
           # Test that different modes are recognized (will fail on credentials but should parse args)
-          timeout 5s ./loxone-mcp-rust/target/release/loxone-mcp-server stdio || echo "✅ stdio mode recognized"
-          timeout 5s ./loxone-mcp-rust/target/release/loxone-mcp-server http || echo "✅ http mode recognized"
+          timeout 5s ./target/release/loxone-mcp-server stdio || echo "✅ stdio mode recognized"
+          timeout 5s ./target/release/loxone-mcp-server http || echo "✅ http mode recognized"
           echo "✅ Server mode parsing functional"
 
       - name: Validate MCP protocol compliance
         run: |
           echo "=== MCP Protocol Validation ==="
           # Basic validation that server can start and respond to help
-          ./loxone-mcp-rust/target/release/loxone-mcp-server --version 2>/dev/null || echo "Version check attempted"
+          ./target/release/loxone-mcp-server --version 2>/dev/null || echo "Version check attempted"
           echo "✅ Rust MCP server integration tests completed"
