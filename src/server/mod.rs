@@ -1,23 +1,7 @@
-//! Legacy server module - framework migration complete
+//! Server module for MCP components
 //!
-//! This module previously contained the LoxoneMcpServer implementation.
-//! All functionality has been migrated to framework_integration::backend::LoxoneBackend.
-
-// Legacy imports - commented out during framework migration
-// use crate::client::{ClientContext, LoxoneClient};
-// use crate::config::{ServerConfig};
-// use crate::error::{LoxoneError, Result};
-// use std::sync::Arc;
-// use tracing::{info};
-// use health_check::{HealthCheckConfig, HealthChecker};
-// use loxone_batch_executor::LoxoneBatchExecutor;
-// use rate_limiter::{RateLimitConfig, RateLimitMiddleware};
-// use request_coalescing::{CoalescingConfig, RequestCoalescer};
-// use response_cache::ToolResponseCache;
-// use schema_validation::SchemaValidator;
-
-// Legacy context builders disabled during framework migration
-// pub mod context_builders;
+//! This module contains active server components that work alongside
+//! the framework_integration::backend::LoxoneBackend implementation.
 // Legacy modules temporarily disabled during framework migration
 // pub mod handlers;
 pub mod health_check;
@@ -41,9 +25,6 @@ pub mod subscription;
 
 pub use models::*;
 pub use request_context::*;
-
-// Legacy LoxoneMcpServer removed - framework migration complete
-// All functionality now handled by framework_integration::backend::LoxoneBackend
 
 /// Dummy metrics collector for HTTP transport compatibility
 pub struct DummyMetricsCollector;

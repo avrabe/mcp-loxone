@@ -23,8 +23,7 @@ pub mod discovery;
 pub mod error;
 pub mod framework_integration;
 pub mod health;
-// Legacy HTTP transport disabled during framework migration
-// pub mod http_transport;
+// pub mod http_transport; // Disabled during framework migration - use framework's HTTP transport instead
 pub mod logging;
 pub mod mcp_consent;
 pub mod monitoring;
