@@ -64,7 +64,6 @@ pub fn tool_response_to_content(response: ToolResponse) -> Content {
     )
 }
 
-
 /// Create tool context directly from dependencies (no server wrapper)
 pub fn create_tool_context_direct(
     client: &Arc<dyn crate::client::LoxoneClient>,
