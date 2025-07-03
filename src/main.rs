@@ -303,9 +303,11 @@ async fn main() -> Result<()> {
 
             // Add auth middleware if not in dev mode
             if !dev_mode {
-                let mut auth_config = pulseengine_mcp_auth::AuthConfig::default();
                 // Disable auth for now to avoid API key creation issues
-                auth_config.enabled = false;
+                let auth_config = pulseengine_mcp_auth::AuthConfig {
+                    enabled: false,
+                    ..Default::default()
+                };
                 let auth_manager = Arc::new(
                     AuthenticationManager::new(auth_config)
                         .await
