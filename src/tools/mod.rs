@@ -20,7 +20,6 @@ pub mod workflows;
 
 use crate::client::{ClientContext, LoxoneClient};
 use crate::error::{LoxoneError, Result};
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -140,30 +139,6 @@ pub struct ToolContext {
 }
 
 impl ToolContext {
-    /// Create new tool context (legacy - use with_services instead)
-    #[deprecated(note = "Use with_services for service-layer architecture")]
-    pub fn new(_client: Arc<dyn LoxoneClient>, _context: Arc<ClientContext>) -> Self {
-        // This will panic in debug builds to encourage migration
-        #[cfg(debug_assertions)]
-        panic!("Use ToolContext::with_services instead of ::new");
-
-        #[cfg(not(debug_assertions))]
-        {
-            let sensor_registry = Arc::new(crate::services::SensorTypeRegistry::new());
-            let value_resolver = Arc::new(crate::services::UnifiedValueResolver::new(
-                _client.clone(),
-                sensor_registry,
-            ));
-
-            Self {
-                client: _client,
-                context: _context,
-                value_resolver,
-                state_manager: None,
-            }
-        }
-    }
-
     /// Create tool context with unified services (recommended)
     pub fn with_services(
         client: Arc<dyn LoxoneClient>,

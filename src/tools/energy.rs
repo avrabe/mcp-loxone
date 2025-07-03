@@ -11,7 +11,6 @@
 //! Use the corresponding resources for energy data retrieval instead.
 
 use anyhow::Result;
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -20,11 +19,7 @@ use crate::tools::ToolContext;
 // READ-ONLY TOOL REMOVED:
 // get_energy_consumption() → Use resource: loxone://energy/consumption
 #[allow(dead_code)]
-async fn _removed_get_energy_consumption(
-    // #[description = "Get current energy consumption"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+async fn _removed_get_energy_consumption(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let _client = &ctx.client;
 
     // TODO: Implement get_status method in LoxoneClient
@@ -36,15 +31,10 @@ async fn _removed_get_energy_consumption(
     }))
 }
 
-// #[tool(name = "get_power_meters")] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_power_meters() → Use resource: loxone://energy/meters
 #[allow(dead_code)]
-async fn _removed_get_power_meters(
-    // #[description = "Get list of power meters"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+async fn _removed_get_power_meters(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let devices = ctx.context.devices.read().await;
     let meters: Vec<Value> = devices
         .values()
@@ -66,15 +56,10 @@ async fn _removed_get_power_meters(
     }))
 }
 
-// #[tool(name = "get_solar_production")] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_solar_production() → Use resource: loxone://energy/solar
 #[allow(dead_code)]
-async fn _removed_get_solar_production(
-    // #[description = "Get solar panel production data"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+async fn _removed_get_solar_production(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let _client = &ctx.client;
 
     // TODO: Implement get_status method in LoxoneClient
@@ -86,12 +71,7 @@ async fn _removed_get_solar_production(
     }))
 }
 
-// #[tool(name = "optimize_energy_usage")] // TODO: Re-enable when rmcp API is clarified
-pub async fn optimize_energy_usage(
-    // #[description = "Trigger energy optimization routines"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+pub async fn optimize_energy_usage(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let client = &ctx.client;
 
     client.send_command("energy/optimize", "optimize").await?;

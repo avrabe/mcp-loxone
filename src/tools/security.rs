@@ -6,7 +6,6 @@
 //! - loxone://security/zones - Security zones
 
 use anyhow::Result;
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde_json::{json, Value};
 use std::sync::Arc;
 
@@ -15,11 +14,7 @@ use crate::tools::ToolContext;
 // READ-ONLY TOOL REMOVED:
 // get_alarm_status() → Use resource: loxone://security/status
 #[allow(dead_code)]
-async fn _removed_get_alarm_status(
-    // #[description = "Get current alarm system status"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+async fn _removed_get_alarm_status(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let _client = &ctx.client;
 
     // TODO: Implement get_status method in LoxoneClient
@@ -31,12 +26,7 @@ async fn _removed_get_alarm_status(
     }))
 }
 
-// #[tool(name = "arm_alarm")] // TODO: Re-enable when rmcp API is clarified
-pub async fn arm_alarm(
-    // #[description = "Arm the alarm system"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+pub async fn arm_alarm(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let client = &ctx.client;
 
     client.send_command("alarm/arm", "arm").await?;
@@ -47,12 +37,7 @@ pub async fn arm_alarm(
     }))
 }
 
-// #[tool(name = "disarm_alarm")] // TODO: Re-enable when rmcp API is clarified
-pub async fn disarm_alarm(
-    // #[description = "Disarm the alarm system"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+pub async fn disarm_alarm(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let client = &ctx.client;
 
     client.send_command("alarm/disarm", "disarm").await?;
@@ -63,15 +48,10 @@ pub async fn disarm_alarm(
     }))
 }
 
-// #[tool(name = "get_security_cameras")] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_security_cameras() → Use resource: loxone://security/cameras
 #[allow(dead_code)]
-async fn _removed_get_security_cameras(
-    // #[description = "Get list of security cameras"] // TODO: Re-enable when rmcp API is clarified
-    _input: Value,
-    ctx: Arc<ToolContext>,
-) -> Result<Value> {
+async fn _removed_get_security_cameras(_input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let devices = ctx.context.devices.read().await;
     let cameras: Vec<Value> = devices
         .values()

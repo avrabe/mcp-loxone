@@ -8,7 +8,6 @@
 
 use crate::tools::{ActionAliases, ToolContext, ToolResponse};
 // use crate::validation::ToolParameterValidator; // Temporarily disabled
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 // use std::collections::HashMap; // Unused after cleanup
 
@@ -42,14 +41,7 @@ pub struct DeviceControlResult {
 // This function provided read-only data access and violated MCP patterns.
 
 /// Control a specific device
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn control_device(
-    context: ToolContext,
-    // #[description("Device name or UUID")] // TODO: Re-enable when rmcp API is clarified
-    device: String,
-    // #[description("Action to perform (on/off/up/down/stop/dim)")] // TODO: Re-enable when rmcp API is clarified
-    action: String,
-) -> ToolResponse {
+pub async fn control_device(context: ToolContext, device: String, action: String) -> ToolResponse {
     // Temporarily disabled validation
     // if let Err(e) = ToolParameterValidator::validate_device_control(&device, &action) {
     //     return ToolResponse::error(e.to_string());
@@ -129,12 +121,9 @@ pub async fn control_device(
 }
 
 /// Control multiple devices with the same action
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn control_multiple_devices(
     context: ToolContext,
-    // #[description("List of device names or UUIDs")] // TODO: Re-enable when rmcp API is clarified
     devices: Vec<String>,
-    // #[description("Action to perform on all devices")] // TODO: Re-enable when rmcp API is clarified
     action: String,
 ) -> ToolResponse {
     // use crate::validation::InputValidator; // Temporarily disabled

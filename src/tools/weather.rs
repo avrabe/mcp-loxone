@@ -12,7 +12,6 @@
 //! Use the corresponding resources for weather data retrieval instead.
 
 use crate::tools::{ToolContext, ToolResponse};
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -76,7 +75,6 @@ pub struct ForecastPoint {
 }
 
 /// Get current weather data
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_weather_data() → Use resource: loxone://weather/current
 #[allow(dead_code)]
@@ -176,7 +174,6 @@ async fn _removed_get_weather_data(context: ToolContext) -> ToolResponse {
 }
 
 /// Get outdoor environmental conditions
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_outdoor_conditions() → Use resource: loxone://weather/outdoor-conditions
 #[allow(dead_code)]
@@ -210,13 +207,11 @@ async fn _removed_get_outdoor_conditions(context: ToolContext) -> ToolResponse {
 }
 
 /// Get daily weather forecast
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_weather_forecast_daily() → Use resource: loxone://weather/forecast-daily
 #[allow(dead_code)]
 async fn _removed_get_weather_forecast_daily(
     _context: ToolContext,
-    // #[description("Number of days to forecast")] // TODO: Re-enable when rmcp API is clarified
     days: Option<u32>,
 ) -> ToolResponse {
     let forecast_days = days.unwrap_or(7).min(14); // Limit to 14 days
@@ -257,13 +252,11 @@ async fn _removed_get_weather_forecast_daily(
 }
 
 /// Get hourly weather forecast
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_weather_forecast_hourly() → Use resource: loxone://weather/forecast-hourly
 #[allow(dead_code)]
 async fn _removed_get_weather_forecast_hourly(
     _context: ToolContext,
-    // #[description("Number of hours to forecast")] // TODO: Re-enable when rmcp API is clarified
     hours: Option<u32>,
 ) -> ToolResponse {
     let forecast_hours = hours.unwrap_or(24).min(72); // Limit to 72 hours

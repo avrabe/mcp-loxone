@@ -15,7 +15,6 @@ pub use crate::tools::sensors_unified::{
 };
 
 use crate::tools::{ToolContext, ToolResponse};
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -552,10 +551,8 @@ pub struct SensorStatistics {
 }
 
 /// Discover new sensors by monitoring WebSocket traffic
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn discover_new_sensors(
     context: ToolContext,
-    // #[description("Discovery duration in seconds")] // TODO: Re-enable when rmcp API is clarified
     duration_seconds: Option<u64>,
 ) -> ToolResponse {
     let duration = std::time::Duration::from_secs(duration_seconds.unwrap_or(60));
@@ -725,12 +722,9 @@ pub async fn discover_new_sensors(
 }
 
 /// List all discovered sensors
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn list_discovered_sensors(
     context: ToolContext,
-    // #[description("Filter by sensor type")] // TODO: Re-enable when rmcp API is clarified
     sensor_type: Option<String>,
-    // #[description("Filter by room")] // TODO: Re-enable when rmcp API is clarified
     room: Option<String>,
 ) -> ToolResponse {
     // This would normally load from the sensor discovery cache
@@ -831,12 +825,7 @@ pub async fn list_discovered_sensors(
 }
 
 /// Get detailed sensor information
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn get_sensor_details(
-    context: ToolContext,
-    // #[description("Sensor UUID or name")] // TODO: Re-enable when rmcp API is clarified
-    sensor_id: String,
-) -> ToolResponse {
+pub async fn get_sensor_details(context: ToolContext, sensor_id: String) -> ToolResponse {
     // Find the sensor
     let device = match context.find_device(&sensor_id).await {
         Ok(device) => device,
@@ -880,7 +869,6 @@ pub async fn get_sensor_details(
 }
 
 /// Get sensor categories overview
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn get_sensor_categories(context: ToolContext) -> ToolResponse {
     let devices = match context.context.get_devices_by_category("sensors").await {
         Ok(devices) => devices,

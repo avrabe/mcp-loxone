@@ -7,7 +7,6 @@
 //! - loxone://climate/sensors - Temperature sensor readings
 
 use crate::tools::{DeviceFilter, ToolContext, ToolResponse};
-// use rmcp::tool; // TODO: Re-enable when rmcp API is clarified
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -75,7 +74,6 @@ pub struct ClimateStatistics {
 }
 
 /// Get comprehensive climate control overview
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_climate_control() → Use resource: loxone://climate/overview
 #[allow(dead_code)]
@@ -175,7 +173,6 @@ async fn _removed_get_climate_control(context: ToolContext) -> ToolResponse {
 }
 
 /// Get climate status for a specific room
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_room_climate() → Use resource: loxone://climate/rooms/{room}
 #[allow(dead_code)]
@@ -243,11 +240,9 @@ async fn _removed_get_room_climate(context: ToolContext, room_name: String) -> T
 }
 
 /// Set target temperature for a room
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 pub async fn set_room_temperature(
     context: ToolContext,
     room_name: String,
-    // #[description("Target temperature in Celsius")] // TODO: Re-enable when rmcp API is clarified
     temperature: f64,
 ) -> ToolResponse {
     // Validate temperature range
@@ -316,7 +311,6 @@ pub async fn set_room_temperature(
 }
 
 /// Get temperature readings from all sensors
-// #[tool] // TODO: Re-enable when rmcp API is clarified
 // READ-ONLY TOOL REMOVED:
 // get_temperature_readings() → Use resource: loxone://climate/sensors
 #[allow(dead_code)]
@@ -409,13 +403,7 @@ async fn _removed_get_temperature_readings(context: ToolContext) -> ToolResponse
 }
 
 /// Control heating/cooling mode for a room
-// #[tool] // TODO: Re-enable when rmcp API is clarified
-pub async fn set_room_mode(
-    context: ToolContext,
-    room_name: String,
-    // #[description("Mode: heating, cooling, auto, off")] // TODO: Re-enable when rmcp API is clarified
-    mode: String,
-) -> ToolResponse {
+pub async fn set_room_mode(context: ToolContext, room_name: String, mode: String) -> ToolResponse {
     // Validate mode
     let valid_modes = ["heating", "cooling", "auto", "off"];
     if !valid_modes.contains(&mode.as_str()) {
