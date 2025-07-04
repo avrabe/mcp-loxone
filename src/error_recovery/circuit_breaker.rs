@@ -363,18 +363,21 @@ impl CircuitBreaker {
                 // Apply exponential backoff if enabled
                 if self.config.exponential_backoff {
                     state.consecutive_timeouts += 1;
-                    let new_timeout = state.current_timeout.num_seconds() as f64
+                    let new_timeout_ms = state.current_timeout.num_milliseconds() as f64
                         * self
                             .config
                             .backoff_multiplier
                             .powi(state.consecutive_timeouts as i32);
-                    let new_timeout = Duration::seconds(new_timeout as i64);
+                    let new_timeout = Duration::milliseconds(new_timeout_ms as i64);
 
                     state.current_timeout = if new_timeout > self.config.max_timeout_duration {
                         self.config.max_timeout_duration
                     } else {
                         new_timeout
                     };
+                    
+                    // Update stats with new timeout
+                    state.stats.current_timeout = state.current_timeout;
 
                     warn!(
                         "Circuit breaker reopened with timeout {:?} (backoff x{})",
@@ -411,6 +414,9 @@ impl CircuitBreaker {
     pub async fn get_stats(&self) -> CircuitBreakerStats {
         let state = self.state.read().await;
         let mut stats = state.stats.clone();
+
+        // Update current timeout from state (important for exponential backoff)
+        stats.current_timeout = state.current_timeout;
 
         // Calculate time until transition for open state
         if state.current_state == CircuitState::Open {
@@ -495,11 +501,12 @@ impl CircuitBreaker {
     /// Get error type for tracking
     fn get_error_type(&self, error: &LoxoneError) -> String {
         // Extract error type from LoxoneError
-        match error {
-            _ if error.to_string().contains("connection") => "connection".to_string(),
-            _ if error.to_string().contains("timeout") => "timeout".to_string(),
-            _ if error.to_string().contains("unavailable") => "service_unavailable".to_string(),
-            _ if error.to_string().contains("rate") => "rate_limit".to_string(),
+        let error_str = error.to_string().to_lowercase();
+        match true {
+            _ if error_str.contains("connection") => "connection".to_string(),
+            _ if error_str.contains("timeout") => "timeout".to_string(),
+            _ if error_str.contains("unavailable") => "service_unavailable".to_string(),
+            _ if error_str.contains("rate") => "rate_limit".to_string(),
             _ => "unknown".to_string(),
         }
     }
@@ -591,6 +598,7 @@ mod tests {
         let config = CircuitBreakerConfig {
             failure_threshold: 3,
             timeout_duration: Duration::milliseconds(100),
+            failure_window: Duration::seconds(60), // Make sure window is long enough
             ..Default::default()
         };
 
@@ -605,6 +613,10 @@ mod tests {
                 .record_failure(&LoxoneError::connection("test error"))
                 .await;
         }
+        
+        // Should now be open
+        let stats = breaker.get_stats().await;
+        assert_eq!(stats.state, CircuitState::Open);
 
         // Should now be open
         assert!(!breaker.should_allow_request().await);
@@ -654,8 +666,9 @@ mod tests {
             .record_failure(&LoxoneError::connection("test"))
             .await;
 
-        // Check that timeout has increased
+        // Check that timeout has increased (should be 100ms * 2.0 = 200ms)
         let stats = breaker.get_stats().await;
-        assert!(stats.current_timeout > Duration::milliseconds(100));
+        assert_eq!(stats.current_timeout, Duration::milliseconds(200), 
+                   "Timeout should double from 100ms to 200ms with backoff multiplier 2.0");
     }
 }
