@@ -36,6 +36,7 @@ pub mod middleware;
 pub mod models;
 pub mod security;
 pub mod storage;
+pub mod token_validator;
 pub mod validation;
 
 pub use manager::AuthenticationManager;

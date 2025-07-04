@@ -1,6 +1,9 @@
 //! Security hardening and production security measures
 
 pub mod cors;
+pub mod encryption;
+pub mod enhanced_cors;
+pub mod enhanced_validation;
 pub mod headers;
 pub mod input_sanitization;
 pub mod key_store;

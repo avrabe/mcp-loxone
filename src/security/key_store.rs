@@ -371,8 +371,24 @@ impl KeyStore {
                 let allowed = key.ip_whitelist.iter().any(|allowed| {
                     // Support CIDR notation
                     if allowed.contains('/') {
-                        // TODO: Implement CIDR matching
-                        allowed.starts_with(&ip_str)
+                        // Implement CIDR matching
+                        match (parse_cidr(allowed), ip) {
+                            (Some((network, prefix_len)), std::net::IpAddr::V4(ip_v4)) => {
+                                if let std::net::IpAddr::V4(net_v4) = network {
+                                    check_ipv4_in_cidr(ip_v4, net_v4, prefix_len)
+                                } else {
+                                    false
+                                }
+                            }
+                            (Some((network, prefix_len)), std::net::IpAddr::V6(ip_v6)) => {
+                                if let std::net::IpAddr::V6(net_v6) = network {
+                                    check_ipv6_in_cidr(ip_v6, net_v6, prefix_len)
+                                } else {
+                                    false
+                                }
+                            }
+                            _ => false,
+                        }
                     } else {
                         allowed == &ip_str
                     }
@@ -437,4 +453,53 @@ impl KeyStore {
 pub fn default_key_store_path() -> PathBuf {
     // Use current directory as fallback instead of dirs crate
     PathBuf::from(".").join("loxone-mcp").join("keys.toml")
+}
+
+/// Parse CIDR notation (e.g., "192.168.1.0/24") into network address and prefix length
+fn parse_cidr(cidr: &str) -> Option<(std::net::IpAddr, u8)> {
+    let parts: Vec<&str> = cidr.split('/').collect();
+    if parts.len() != 2 {
+        return None;
+    }
+
+    let ip_addr = parts[0].parse::<std::net::IpAddr>().ok()?;
+    let prefix_len = parts[1].parse::<u8>().ok()?;
+
+    Some((ip_addr, prefix_len))
+}
+
+/// Check if an IPv4 address is within a CIDR range
+fn check_ipv4_in_cidr(ip: std::net::Ipv4Addr, network: std::net::Ipv4Addr, prefix_len: u8) -> bool {
+    if prefix_len > 32 {
+        return false;
+    }
+
+    let ip_bits = u32::from(ip);
+    let network_bits = u32::from(network);
+    let mask = if prefix_len == 0 {
+        0
+    } else {
+        !((1u32 << (32 - prefix_len)) - 1)
+    };
+
+    (ip_bits & mask) == (network_bits & mask)
+}
+
+/// Check if an IPv6 address is within a CIDR range
+fn check_ipv6_in_cidr(ip: std::net::Ipv6Addr, network: std::net::Ipv6Addr, prefix_len: u8) -> bool {
+    if prefix_len > 128 {
+        return false;
+    }
+
+    let ip_bits = u128::from(ip);
+    let network_bits = u128::from(network);
+    let mask = if prefix_len == 0 {
+        0
+    } else if prefix_len == 128 {
+        !0u128
+    } else {
+        !((1u128 << (128 - prefix_len)) - 1)
+    };
+
+    (ip_bits & mask) == (network_bits & mask)
 }
