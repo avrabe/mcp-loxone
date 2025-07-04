@@ -516,7 +516,7 @@ impl TursoClient {
 
         let rows_affected = result;
         info!("Cleaned up {} old weather data records", rows_affected);
-        Ok(rows_affected as u64)
+        Ok(rows_affected)
     }
 }
 
