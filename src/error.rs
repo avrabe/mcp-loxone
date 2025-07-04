@@ -37,6 +37,10 @@ pub enum LoxoneError {
     #[error("Credential error: {0}")]
     Credentials(String),
 
+    /// Database errors
+    #[error("Database error: {0}")]
+    Database(String),
+
     /// Cryptographic errors
     #[error("Crypto error: {0}")]
     Crypto(String),
@@ -422,6 +426,11 @@ impl LoxoneError {
         Self::Credentials(msg.into())
     }
 
+    /// Create a database error
+    pub fn database<S: Into<String>>(msg: S) -> Self {
+        Self::Database(msg.into())
+    }
+
     /// Create a device control error
     pub fn device_control<S: Into<String>>(msg: S) -> Self {
         Self::DeviceControl(msg.into())
@@ -536,6 +545,7 @@ impl LoxoneError {
             #[cfg(feature = "websocket")]
             LoxoneError::WebSocket(_) => ErrorCode::ConnectionLost,
             LoxoneError::Crypto(_) => ErrorCode::InternalError,
+            LoxoneError::Database(_) => ErrorCode::InternalError,
             #[cfg(target_arch = "wasm32")]
             LoxoneError::Wasm(_) => ErrorCode::InternalError,
         }
@@ -964,6 +974,7 @@ impl pulseengine_mcp_logging::ErrorClassification for LoxoneError {
             LoxoneError::Network(_) => "network_error",
             LoxoneError::ExternalService(_) => "external_service_error",
             LoxoneError::Parsing(_) => "parsing_error",
+            LoxoneError::Database(_) => "database_error",
         }
     }
 
