@@ -507,7 +507,11 @@ mod tests {
 
         // Test successful operation
         let result = manager
-            .execute_with_resilience("test-service", || async { Ok("success") }, Some("fallback"))
+            .execute_with_resilience(
+                "test-service",
+                || async { Ok("success".to_string()) },
+                Some("fallback".to_string()),
+            )
             .await;
 
         assert!(result.is_ok());
@@ -523,10 +527,10 @@ mod tests {
                     let failure_count = failure_count_clone.clone();
                     async move {
                         failure_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-                        Err::<&str, _>(LoxoneError::connection("test failure"))
+                        Err::<String, _>(LoxoneError::connection("test failure"))
                     }
                 },
-                Some("fallback"),
+                Some("fallback".to_string()),
             )
             .await;
 
