@@ -3,6 +3,7 @@
 //! This module provides HTTP-based communication with Loxone
 //! Miniservers using token-based authentication (recommended for V9+).
 
+use crate::auth::token_validator::{TokenValidationResult, TokenValidator, ValidationConfig};
 use crate::client::{
     auth::TokenAuthClient,
     command_queue::{CommandPriority, CommandQueue, QueuedCommand},
@@ -56,6 +57,9 @@ pub struct TokenHttpClient {
 
     /// Command queue for handling commands during disconnection
     command_queue: Option<Arc<CommandQueue>>,
+
+    /// Enhanced token validator for security
+    token_validator: Arc<TokenValidator>,
 }
 
 impl TokenHttpClient {
@@ -92,6 +96,15 @@ impl TokenHttpClient {
                 .build(),
         );
 
+        // Create enhanced token validator
+        let validation_config = ValidationConfig {
+            max_token_age: 28800, // 8 hours
+            strict_ip_validation: true,
+            advanced_threat_detection: true,
+            ..ValidationConfig::default()
+        };
+        let token_validator = Arc::new(TokenValidator::new(validation_config));
+
         let client = Self {
             client,
             base_url: config.url.clone(),
@@ -104,6 +117,7 @@ impl TokenHttpClient {
             last_refresh: Arc::new(RwLock::new(None)),
             consent_manager: None,
             command_queue: None,
+            token_validator,
         };
 
         // Test authentication during construction to enable fallback
@@ -119,21 +133,74 @@ impl TokenHttpClient {
             .map_err(|e| LoxoneError::connection(format!("Invalid URL path {path}: {e}")))
     }
 
+    /// Validate current token with enhanced security checks
+    async fn validate_current_token(&self, client_ip: Option<&str>) -> Result<bool> {
+        let auth = self.auth_client.read().await;
+
+        if let Some(token_obj) = auth.get_token() {
+            let token_str = &token_obj.token;
+
+            match self
+                .token_validator
+                .validate_token(token_str, client_ip, None)
+                .await?
+            {
+                TokenValidationResult::Valid(validated) => {
+                    debug!(
+                        "Token validation successful, security level: {:?}",
+                        validated.security_level
+                    );
+                    Ok(true)
+                }
+                TokenValidationResult::Invalid(error) => {
+                    warn!(
+                        "Token validation failed: {} ({})",
+                        error.reason, error.error_code
+                    );
+                    Ok(false)
+                }
+                TokenValidationResult::Expired => {
+                    info!("Token expired, will refresh");
+                    Ok(false)
+                }
+                TokenValidationResult::Revoked => {
+                    error!("Token was revoked, re-authentication required");
+                    Ok(false)
+                }
+                TokenValidationResult::Suspicious(activity) => {
+                    error!(
+                        "Suspicious token activity detected: {} (risk: {})",
+                        activity.details, activity.risk_score
+                    );
+                    Ok(false)
+                }
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
     /// Ensure we have a valid authentication token
     async fn ensure_authenticated(&self) -> Result<()> {
-        let mut auth = self.auth_client.write().await;
+        let auth = self.auth_client.write().await;
 
-        // Check if we need to authenticate
-        if !auth.is_authenticated() {
-            info!(
-                "Performing initial token authentication to {}",
-                self.base_url
-            );
+        // First check with enhanced validation
+        let needs_auth = if auth.is_authenticated() {
+            // Drop the write lock temporarily to call validate_current_token
+            drop(auth);
+            !self.validate_current_token(None).await?
+        } else {
+            true
+        };
+
+        if needs_auth {
+            let mut auth = self.auth_client.write().await;
+            info!("Performing token authentication to {}", self.base_url);
             match auth
                 .authenticate(&self.credentials.username, &self.credentials.password)
                 .await
             {
-                Ok(_) => info!("✅ Authentication successful"),
+                Ok(_) => info!("✅ Enhanced authentication successful"),
                 Err(e) => {
                     error!("❌ Authentication failed: {}", e);
                     return Err(e);
@@ -152,6 +219,7 @@ impl TokenHttpClient {
 
             if should_refresh {
                 info!("Proactively refreshing authentication token");
+                let mut auth = self.auth_client.write().await;
                 match auth.refresh_token().await {
                     Ok(()) => {
                         *self.last_refresh.write().await = Some(std::time::Instant::now());
@@ -167,6 +235,103 @@ impl TokenHttpClient {
         }
 
         Ok(())
+    }
+
+    /// Get security statistics from the token validator
+    pub async fn get_security_stats(&self) -> crate::auth::token_validator::SecurityStats {
+        self.token_validator.get_security_stats().await
+    }
+
+    /// Revoke a specific token by its JTI
+    pub async fn revoke_token(&self, jti: &str) -> Result<()> {
+        self.token_validator.revoke_token(jti).await?;
+        info!("Token revoked: {}", jti);
+        Ok(())
+    }
+
+    /// Cleanup expired token validation data
+    pub async fn cleanup_token_data(&self) {
+        self.token_validator.cleanup_expired_data().await;
+    }
+
+    /// Enhanced request method with token validation
+    #[allow(dead_code)]
+    async fn authenticated_request(
+        &self,
+        endpoint: &str,
+        client_ip: Option<&str>,
+    ) -> Result<LoxoneResponse> {
+        // Ensure authentication with enhanced validation
+        self.ensure_authenticated().await?;
+
+        // Validate token again with client IP if provided
+        if let Some(ip) = client_ip {
+            if !self.validate_current_token(Some(ip)).await? {
+                return Err(LoxoneError::authentication(
+                    "Token validation failed for client IP",
+                ));
+            }
+        }
+
+        // Get auth parameters
+        let auth = self.auth_client.read().await;
+        let token = auth
+            .get_token()
+            .ok_or_else(|| LoxoneError::authentication("No token available"))?;
+
+        // Build authenticated URL
+        let separator = if endpoint.contains('?') { "&" } else { "?" };
+        let url = format!(
+            "{}/jdev/{}{}autht={}&user={}",
+            self.base_url,
+            endpoint,
+            separator,
+            token.token,
+            urlencoding::encode(&self.credentials.username)
+        );
+
+        // Make request with timeout
+        let response = self
+            .client
+            .get(&url)
+            .timeout(self.config.timeout)
+            .send()
+            .await
+            .map_err(|e| LoxoneError::connection(format!("Request failed: {}", e)))?;
+
+        let text = response
+            .text()
+            .await
+            .map_err(|e| LoxoneError::connection(format!("Failed to read response: {}", e)))?;
+
+        // Parse response
+        let parsed: serde_json::Value =
+            serde_json::from_str(&text).map_err(|e| LoxoneError::Json(e))?;
+
+        // Check for Loxone error response
+        if let Some(ll) = parsed.get("LL") {
+            if let Some(code) = ll.get("Code").and_then(|c| c.as_i64()) {
+                if code != 200 {
+                    let control = ll
+                        .get("control")
+                        .and_then(|c| c.as_str())
+                        .unwrap_or("unknown");
+                    let value = ll
+                        .get("value")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("unknown error");
+                    return Err(LoxoneError::authentication(format!(
+                        "Server error {}: {} - {}",
+                        code, control, value
+                    )));
+                }
+            }
+        }
+
+        Ok(LoxoneResponse {
+            code: 200,
+            value: parsed,
+        })
     }
 
     /// Execute HTTP request with token authentication and retry logic

@@ -1,21 +1,45 @@
 //! Loxone client implementations for HTTP and WebSocket communication
 
+pub mod adaptive_pool;
 #[cfg(feature = "crypto-openssl")]
 pub mod auth;
+pub mod client_factory;
 pub mod command_queue;
 pub mod connection_pool;
 pub mod http_client;
+pub mod load_balancer;
+pub mod pool_health_monitor;
 pub mod streaming_parser;
 #[cfg(feature = "crypto-openssl")]
 pub mod token_http_client;
 #[cfg(feature = "websocket")]
 pub mod websocket_client;
+#[cfg(feature = "websocket")]
+pub mod websocket_resilience;
 
+pub use adaptive_pool::{
+    AdaptiveConnectionGuard, AdaptiveConnectionPool, AdaptivePoolBuilder, PoolStatistics,
+};
+pub use client_factory::{
+    AdaptiveClientFactory, ClientFactory, EncryptionLevel, ServerCapabilities, StaticClientFactory,
+};
 pub use http_client::LoxoneHttpClient;
+pub use load_balancer::{
+    LoadBalancer, LoadBalancingStatistics, LoadBalancingStrategy, WeightMethod,
+};
+pub use pool_health_monitor::{
+    AlertThresholds, HealthAlert, HealthMetrics, HealthMonitorConfig, HealthStatus,
+    PoolHealthMonitor,
+};
 #[cfg(feature = "crypto-openssl")]
 pub use token_http_client::TokenHttpClient;
 #[cfg(feature = "websocket")]
 pub use websocket_client::LoxoneWebSocketClient;
+#[cfg(feature = "websocket")]
+pub use websocket_resilience::{
+    MessagePriority, MessageType, ResilienceEvent, ResilienceStatistics, ResilientMessage,
+    WebSocketResilienceConfig, WebSocketResilienceManager,
+};
 
 use crate::config::{credentials::LoxoneCredentials, LoxoneConfig};
 use crate::error::Result;
