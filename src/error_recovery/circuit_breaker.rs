@@ -375,7 +375,7 @@ impl CircuitBreaker {
                     } else {
                         new_timeout
                     };
-                    
+
                     // Update stats with new timeout
                     state.stats.current_timeout = state.current_timeout;
 
@@ -613,7 +613,7 @@ mod tests {
                 .record_failure(&LoxoneError::connection("test error"))
                 .await;
         }
-        
+
         // Should now be open
         let stats = breaker.get_stats().await;
         assert_eq!(stats.state, CircuitState::Open);
@@ -668,7 +668,10 @@ mod tests {
 
         // Check that timeout has increased (should be 100ms * 2.0 = 200ms)
         let stats = breaker.get_stats().await;
-        assert_eq!(stats.current_timeout, Duration::milliseconds(200), 
-                   "Timeout should double from 100ms to 200ms with backoff multiplier 2.0");
+        assert_eq!(
+            stats.current_timeout,
+            Duration::milliseconds(200),
+            "Timeout should double from 100ms to 200ms with backoff multiplier 2.0"
+        );
     }
 }

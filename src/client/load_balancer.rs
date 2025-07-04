@@ -589,28 +589,32 @@ mod tests {
         // Note: This is a simplified version for testing
         // Create a mock client for testing
         struct MockClient;
-        
+
         #[async_trait::async_trait]
         impl LoxoneClient for MockClient {
             async fn connect(&mut self) -> Result<()> {
                 Ok(())
             }
-            
+
             async fn is_connected(&self) -> Result<bool> {
                 Ok(true)
             }
-            
+
             async fn disconnect(&mut self) -> Result<()> {
                 Ok(())
             }
-            
-            async fn send_command(&self, _uuid: &str, _command: &str) -> Result<crate::client::LoxoneResponse> {
+
+            async fn send_command(
+                &self,
+                _uuid: &str,
+                _command: &str,
+            ) -> Result<crate::client::LoxoneResponse> {
                 Ok(crate::client::LoxoneResponse {
                     code: 200,
                     value: serde_json::json!("OK"),
                 })
             }
-            
+
             async fn get_structure(&self) -> Result<crate::client::LoxoneStructure> {
                 Ok(crate::client::LoxoneStructure {
                     last_modified: "2024-01-01T00:00:00Z".to_string(),
@@ -620,28 +624,34 @@ mod tests {
                     global_states: std::collections::HashMap::new(),
                 })
             }
-            
-            async fn get_device_states(&self, _uuids: &[String]) -> Result<std::collections::HashMap<String, serde_json::Value>> {
+
+            async fn get_device_states(
+                &self,
+                _uuids: &[String],
+            ) -> Result<std::collections::HashMap<String, serde_json::Value>> {
                 Ok(std::collections::HashMap::new())
             }
-            
-            async fn get_state_values(&self, _state_uuids: &[String]) -> Result<std::collections::HashMap<String, serde_json::Value>> {
+
+            async fn get_state_values(
+                &self,
+                _state_uuids: &[String],
+            ) -> Result<std::collections::HashMap<String, serde_json::Value>> {
                 Ok(std::collections::HashMap::new())
             }
-            
+
             async fn get_system_info(&self) -> Result<serde_json::Value> {
                 Ok(serde_json::json!({}))
             }
-            
+
             async fn health_check(&self) -> Result<bool> {
                 Ok(true)
             }
-            
+
             fn as_any(&self) -> &dyn std::any::Any {
                 self
             }
         }
-        
+
         Arc::new(AdaptiveConnection {
             id: id.to_string(),
             client: Box::new(MockClient),
