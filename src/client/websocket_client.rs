@@ -179,8 +179,7 @@ pub struct EventFilter {
 /// Advanced event filter with regex pattern support
 /// Note: This struct cannot be serialized due to Regex fields
 #[cfg(feature = "websocket")]
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 pub struct AdvancedEventFilter {
     /// Basic filter (for backward compatibility)
     pub basic_filter: EventFilter,
@@ -262,7 +261,6 @@ impl EventFilter {
     }
 }
 
-
 impl AdvancedEventFilter {
     /// Create a new advanced filter from a basic filter
     pub fn from_basic(basic_filter: EventFilter) -> Self {
@@ -292,9 +290,10 @@ impl AdvancedEventFilter {
     pub fn with_device_name_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
         let full_pattern = format!("{flags}{pattern}");
-        self.device_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
-            LoxoneError::config(format!("Invalid device name regex pattern: {e}"))
-        })?);
+        self.device_name_pattern =
+            Some(Regex::new(&full_pattern).map_err(|e| {
+                LoxoneError::config(format!("Invalid device name regex pattern: {e}"))
+            })?);
         Ok(self)
     }
 
@@ -313,9 +312,10 @@ impl AdvancedEventFilter {
     pub fn with_state_name_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
         let full_pattern = format!("{flags}{pattern}");
-        self.state_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
-            LoxoneError::config(format!("Invalid state name regex pattern: {e}"))
-        })?);
+        self.state_name_pattern =
+            Some(Regex::new(&full_pattern).map_err(|e| {
+                LoxoneError::config(format!("Invalid state name regex pattern: {e}"))
+            })?);
         Ok(self)
     }
 

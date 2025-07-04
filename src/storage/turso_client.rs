@@ -389,9 +389,9 @@ impl TursoClient {
             let device_uuid: String = row
                 .get(0)
                 .map_err(|e| LoxoneError::database(format!("Failed to get device_uuid: {e}")))?;
-            let parameter_name: String = row.get(1).map_err(|e| {
-                LoxoneError::database(format!("Failed to get parameter_name: {e}"))
-            })?;
+            let parameter_name: String = row
+                .get(1)
+                .map_err(|e| LoxoneError::database(format!("Failed to get parameter_name: {e}")))?;
             let value: f64 = row
                 .get(2)
                 .map_err(|e| LoxoneError::database(format!("Failed to get value: {e}")))?;
@@ -401,9 +401,9 @@ impl TursoClient {
             let timestamp: i64 = row
                 .get(4)
                 .map_err(|e| LoxoneError::database(format!("Failed to get timestamp: {e}")))?;
-            let quality_score: f64 = row.get(5).map_err(|e| {
-                LoxoneError::database(format!("Failed to get quality_score: {e}"))
-            })?;
+            let quality_score: f64 = row
+                .get(5)
+                .map_err(|e| LoxoneError::database(format!("Failed to get quality_score: {e}")))?;
 
             results.push(WeatherDataPoint {
                 device_uuid,
@@ -455,9 +455,9 @@ impl TursoClient {
             .await
             .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {e}")))?
         {
-            let hour_timestamp: i64 = row.get(0).map_err(|e| {
-                LoxoneError::database(format!("Failed to get hour_timestamp: {e}"))
-            })?;
+            let hour_timestamp: i64 = row
+                .get(0)
+                .map_err(|e| LoxoneError::database(format!("Failed to get hour_timestamp: {e}")))?;
             let min_value: f64 = row
                 .get(1)
                 .map_err(|e| LoxoneError::database(format!("Failed to get min_value: {e}")))?;
@@ -492,9 +492,10 @@ impl TursoClient {
         debug!("Syncing database with remote");
 
         // Create a new connection to trigger sync
-        let _sync_conn = self.database.connect().map_err(|e| {
-            LoxoneError::database(format!("Failed to create sync connection: {e}"))
-        })?;
+        let _sync_conn = self
+            .database
+            .connect()
+            .map_err(|e| LoxoneError::database(format!("Failed to create sync connection: {e}")))?;
 
         info!("Database sync completed");
         Ok(())

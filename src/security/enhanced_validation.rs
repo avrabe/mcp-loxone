@@ -906,12 +906,7 @@ impl EnhancedValidator {
             Value::Array(arr) => {
                 structure.insert(path.to_string(), format!("array[{}]", arr.len()));
                 if let Some(first) = arr.first() {
-                    self.extract_structure(
-                        first,
-                        &format!("{path}[]"),
-                        structure,
-                        characteristics,
-                    );
+                    self.extract_structure(first, &format!("{path}[]"), structure, characteristics);
                 }
             }
             Value::String(s) => {

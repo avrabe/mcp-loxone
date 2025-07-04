@@ -305,8 +305,7 @@ impl TokenHttpClient {
             .map_err(|e| LoxoneError::connection(format!("Failed to read response: {e}")))?;
 
         // Parse response
-        let parsed: serde_json::Value =
-            serde_json::from_str(&text).map_err(LoxoneError::Json)?;
+        let parsed: serde_json::Value = serde_json::from_str(&text).map_err(LoxoneError::Json)?;
 
         // Check for Loxone error response
         if let Some(ll) = parsed.get("LL") {

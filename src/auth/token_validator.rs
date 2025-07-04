@@ -312,9 +312,7 @@ impl TokenValidator {
         // Decode payload (simplified - real implementation should verify signature)
         let payload = general_purpose::URL_SAFE_NO_PAD
             .decode(parts[1])
-            .map_err(|e| {
-                LoxoneError::authentication(format!("Failed to decode payload: {e}"))
-            })?;
+            .map_err(|e| LoxoneError::authentication(format!("Failed to decode payload: {e}")))?;
 
         let claims: JwtClaims = serde_json::from_slice(&payload)
             .map_err(|e| LoxoneError::authentication(format!("Failed to parse claims: {e}")))?;

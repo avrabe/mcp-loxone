@@ -588,7 +588,7 @@ mod tests {
         // Create a mock client for testing
         use crate::client::LoxoneClient;
         use crate::error::Result;
-        
+
         struct MockClient;
 
         #[async_trait::async_trait]

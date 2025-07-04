@@ -559,7 +559,9 @@ impl AdaptiveConnectionPool {
         &self,
     ) -> Option<tokio::sync::broadcast::Receiver<crate::client::pool_health_monitor::HealthAlert>>
     {
-        self.get_health_monitor().await.map(|monitor| monitor.subscribe_to_alerts())
+        self.get_health_monitor()
+            .await
+            .map(|monitor| monitor.subscribe_to_alerts())
     }
 
     /// Generate health report

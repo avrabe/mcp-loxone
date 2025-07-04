@@ -481,17 +481,11 @@ pub async fn get_multizone_status(context: ToolContext) -> ToolResponse {
         let climate_device = parse_climate_device(device);
 
         if let Some(zone) = &climate_device.zone {
-            zones
-                .entry(zone.clone())
-                .or_default()
-                .push(climate_device);
+            zones.entry(zone.clone()).or_default().push(climate_device);
         } else if let Some(room) = &climate_device.room {
             // Auto-assign to zone based on room
             let auto_zone = determine_zone_from_room(room);
-            zones
-                .entry(auto_zone)
-                .or_default()
-                .push(climate_device);
+            zones.entry(auto_zone).or_default().push(climate_device);
         } else {
             unzoned_devices.push(climate_device);
         }

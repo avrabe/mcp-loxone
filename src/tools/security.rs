@@ -174,10 +174,7 @@ pub async fn get_security_system_status(_input: Value, ctx: Arc<ToolContext>) ->
     let mut room_zones: HashMap<String, Vec<&LoxoneDevice>> = HashMap::new();
     for device in &security_devices {
         if let Some(room) = &device.room {
-            room_zones
-                .entry(room.clone())
-                .or_default()
-                .push(device);
+            room_zones.entry(room.clone()).or_default().push(device);
         }
     }
 
@@ -663,7 +660,10 @@ pub async fn control_motion_detectors(input: Value, ctx: Arc<ToolContext>) -> Re
                     Ok(format!("No status available for: {}", detector.name))
                 }
             }
-            _ => Err(LoxoneError::validation(format!("Invalid action: {}", request.action))),
+            _ => Err(LoxoneError::validation(format!(
+                "Invalid action: {}",
+                request.action
+            ))),
         };
 
         match result {
