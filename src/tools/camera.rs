@@ -154,7 +154,7 @@ pub async fn start_camera_stream(
             let stream_quality = quality.unwrap_or_else(|| "medium".to_string());
             let stream_format = format.unwrap_or_else(|| "rtsp".to_string());
 
-            let command = format!("stream/start/{}/{}", stream_quality, stream_format);
+            let command = format!("stream/start/{stream_quality}/{stream_format}");
 
             match context.send_device_command(&camera.uuid, &command).await {
                 Ok(response) => {
@@ -241,7 +241,7 @@ pub async fn control_ptz_camera(
                     serialize_position(pos.clone())
                 )
             } else {
-                format!("{}/{}", normalized_action, ptz_speed)
+                format!("{normalized_action}/{ptz_speed}")
             };
 
             match context.send_device_command(&camera.uuid, &command).await {
@@ -286,9 +286,9 @@ pub async fn control_camera_recording(
             let command = match normalized_action.as_str() {
                 "start" => {
                     if let Some(dur) = duration {
-                        format!("record/start/{}/{}", record_quality, dur)
+                        format!("record/start/{record_quality}/{dur}")
                     } else {
-                        format!("record/start/{}", record_quality)
+                        format!("record/start/{record_quality}")
                     }
                 }
                 "stop" => "record/stop".to_string(),
@@ -444,7 +444,7 @@ pub async fn control_motion_detection(
                         serialize_motion_zones(detection_zones.clone())
                     )
                 } else {
-                    format!("motion/enable/{}", sens)
+                    format!("motion/enable/{sens}")
                 }
             } else {
                 "motion/disable".to_string()
@@ -496,7 +496,7 @@ pub async fn control_night_vision(
             let command = if let Some(sens) = sensitivity {
                 format!("nightvision/{}/{}", normalized_mode, sens.clamp(1, 100))
             } else {
-                format!("nightvision/{}", normalized_mode)
+                format!("nightvision/{normalized_mode}")
             };
 
             match context.send_device_command(&camera.uuid, &command).await {
@@ -694,8 +694,7 @@ async fn find_camera_device(
     }
 
     Err(format!(
-        "Camera device '{}' not found. Use get_camera_devices to see available cameras",
-        identifier
+        "Camera device '{identifier}' not found. Use get_camera_devices to see available cameras"
     ))
 }
 
@@ -951,7 +950,7 @@ fn normalize_night_vision_mode(mode: &str) -> String {
 fn serialize_position(position: HashMap<String, f64>) -> String {
     position
         .iter()
-        .map(|(k, v)| format!("{}={}", k, v))
+        .map(|(k, v)| format!("{k}={v}"))
         .collect::<Vec<_>>()
         .join("&")
 }
@@ -983,7 +982,7 @@ fn serialize_setting_value(value: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Array(arr) => arr
             .iter()
-            .map(|v| serialize_setting_value(v))
+            .map(serialize_setting_value)
             .collect::<Vec<_>>()
             .join(","),
         _ => serde_json::to_string(value).unwrap_or_default(),
@@ -999,10 +998,10 @@ fn extract_stream_url(response: &Value, camera_uuid: &str, format: &str) -> Stri
 
     // Generate default stream URL based on format
     match format.to_lowercase().as_str() {
-        "rtsp" => format!("rtsp://loxone/camera/{}/stream", camera_uuid),
-        "http" => format!("http://loxone/camera/{}/stream.mjpeg", camera_uuid),
-        "webrtc" => format!("webrtc://loxone/camera/{}/stream", camera_uuid),
-        _ => format!("stream://loxone/camera/{}", camera_uuid),
+        "rtsp" => format!("rtsp://loxone/camera/{camera_uuid}/stream"),
+        "http" => format!("http://loxone/camera/{camera_uuid}/stream.mjpeg"),
+        "webrtc" => format!("webrtc://loxone/camera/{camera_uuid}/stream"),
+        _ => format!("stream://loxone/camera/{camera_uuid}"),
     }
 }
 
@@ -1014,5 +1013,5 @@ fn extract_snapshot_url(response: &Value, camera_uuid: &str) -> String {
     }
 
     // Generate default snapshot URL
-    format!("http://loxone/camera/{}/snapshot.jpg", camera_uuid)
+    format!("http://loxone/camera/{camera_uuid}/snapshot.jpg")
 }

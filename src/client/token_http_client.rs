@@ -297,16 +297,16 @@ impl TokenHttpClient {
             .timeout(self.config.timeout)
             .send()
             .await
-            .map_err(|e| LoxoneError::connection(format!("Request failed: {}", e)))?;
+            .map_err(|e| LoxoneError::connection(format!("Request failed: {e}")))?;
 
         let text = response
             .text()
             .await
-            .map_err(|e| LoxoneError::connection(format!("Failed to read response: {}", e)))?;
+            .map_err(|e| LoxoneError::connection(format!("Failed to read response: {e}")))?;
 
         // Parse response
         let parsed: serde_json::Value =
-            serde_json::from_str(&text).map_err(|e| LoxoneError::Json(e))?;
+            serde_json::from_str(&text).map_err(LoxoneError::Json)?;
 
         // Check for Loxone error response
         if let Some(ll) = parsed.get("LL") {
@@ -321,8 +321,7 @@ impl TokenHttpClient {
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown error");
                     return Err(LoxoneError::authentication(format!(
-                        "Server error {}: {} - {}",
-                        code, control, value
+                        "Server error {code}: {control} - {value}"
                     )));
                 }
             }

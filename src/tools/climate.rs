@@ -483,14 +483,14 @@ pub async fn get_multizone_status(context: ToolContext) -> ToolResponse {
         if let Some(zone) = &climate_device.zone {
             zones
                 .entry(zone.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(climate_device);
         } else if let Some(room) = &climate_device.room {
             // Auto-assign to zone based on room
             let auto_zone = determine_zone_from_room(room);
             zones
                 .entry(auto_zone)
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(climate_device);
         } else {
             unzoned_devices.push(climate_device);
@@ -1159,7 +1159,7 @@ pub async fn create_zone_schedule(
     // Validate schedule entries
     for entry in &schedule_entries {
         // Validate days
-        if entry.days.iter().any(|&d| d < 1 || d > 7) {
+        if entry.days.iter().any(|&d| !(1..=7).contains(&d)) {
             return ToolResponse::error(
                 "Invalid day in schedule. Days must be 1-7 (Mon-Sun)".to_string(),
             );
@@ -1190,7 +1190,7 @@ pub async fn create_zone_schedule(
     let command = format!("schedule/set/{}", urlencoding::encode(&schedule_json));
 
     match client
-        .send_command(&format!("zone/{}", zone_name), &command)
+        .send_command(&format!("zone/{zone_name}"), &command)
         .await
     {
         Ok(_) => {
@@ -1210,7 +1210,7 @@ pub async fn create_zone_schedule(
                 ),
             )
         }
-        Err(e) => ToolResponse::error(format!("Failed to create schedule: {}", e)),
+        Err(e) => ToolResponse::error(format!("Failed to create schedule: {e}")),
     }
 }
 
@@ -1239,7 +1239,7 @@ pub async fn synchronize_zones(
     // Get master zone settings
     let master_state = match get_zone_state(&context, &master_zone).await {
         Ok(state) => state,
-        Err(e) => return ToolResponse::error(format!("Failed to get master zone state: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to get master zone state: {e}")),
     };
 
     let mut sync_results = Vec::new();
@@ -1250,20 +1250,20 @@ pub async fn synchronize_zones(
         // Sync temperature with offset
         if let Some(master_temp) = master_state.target_temperature {
             let slave_temp = master_temp + sync_settings.slave_offset;
-            sync_commands.push(("temperature", format!("setpoint/{}", slave_temp)));
+            sync_commands.push(("temperature", format!("setpoint/{slave_temp}")));
         }
 
         // Sync mode
         if sync_settings.sync_modes {
             let mode_str = format!("{:?}", master_state.mode).to_lowercase();
-            sync_commands.push(("mode", format!("mode/{}", mode_str)));
+            sync_commands.push(("mode", format!("mode/{mode_str}")));
         }
 
         // Apply sync commands
         let mut success = true;
         for (cmd_type, command) in sync_commands {
             if let Err(e) = client
-                .send_command(&format!("zone/{}", slave_zone), &command)
+                .send_command(&format!("zone/{slave_zone}"), &command)
                 .await
             {
                 success = false;
@@ -1408,10 +1408,10 @@ pub async fn control_air_quality(
 
     // Set target CO2 level
     if let Some(co2) = target_co2 {
-        if co2 < 400 || co2 > 2000 {
+        if !(400..=2000).contains(&co2) {
             return ToolResponse::error("CO2 target must be between 400-2000 ppm".to_string());
         }
-        commands.push(("co2_target", format!("ventilation/co2/{}", co2)));
+        commands.push(("co2_target", format!("ventilation/co2/{co2}")));
     }
 
     // Set minimum fresh air percentage
@@ -1419,7 +1419,7 @@ pub async fn control_air_quality(
         if fresh_air > 100 {
             return ToolResponse::error("Fresh air percentage must be 0-100".to_string());
         }
-        commands.push(("fresh_air", format!("ventilation/fresh_air/{}", fresh_air)));
+        commands.push(("fresh_air", format!("ventilation/fresh_air/{fresh_air}")));
     }
 
     // Enable/disable boost mode
@@ -1436,7 +1436,7 @@ pub async fn control_air_quality(
     let mut results = Vec::new();
     for (cmd_type, command) in &commands {
         match client
-            .send_command(&format!("zone/{}", zone_name), command)
+            .send_command(&format!("zone/{zone_name}"), command)
             .await
         {
             Ok(_) => results.push(json!({
@@ -1464,7 +1464,7 @@ pub async fn control_air_quality(
 
     ToolResponse::success_with_message(
         response_data,
-        format!("Updated air quality settings for zone '{}'", zone_name),
+        format!("Updated air quality settings for zone '{zone_name}'"),
     )
 }
 

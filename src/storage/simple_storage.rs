@@ -12,6 +12,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, info};
 
+/// Type alias for complex weather data storage structure
+type WeatherDataStore = Arc<RwLock<HashMap<String, HashMap<String, Vec<SimpleWeatherDataPoint>>>>>;
+
 /// Simple weather data point
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SimpleWeatherDataPoint {
@@ -54,7 +57,7 @@ struct CachedMapping {
 pub struct SimpleWeatherStorage {
     config: SimpleWeatherStorageConfig,
     /// Weather data storage: device_uuid -> parameter_name -> Vec<data_points>
-    data: Arc<RwLock<HashMap<String, HashMap<String, Vec<SimpleWeatherDataPoint>>>>>,
+    data: WeatherDataStore,
     /// Cache for UUID index to device UUID mapping
     uuid_cache: Arc<RwLock<HashMap<u32, CachedMapping>>>,
     /// Device structure cache for UUID resolution
@@ -157,7 +160,7 @@ impl SimpleWeatherStorage {
         let device_uuid = self
             .resolve_from_structure(uuid_index)
             .await
-            .unwrap_or_else(|| format!("unknown_device_{}", uuid_index));
+            .unwrap_or_else(|| format!("unknown_device_{uuid_index}"));
 
         // Update cache
         self.update_uuid_cache(uuid_index, &device_uuid).await;

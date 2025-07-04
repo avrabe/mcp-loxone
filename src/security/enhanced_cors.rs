@@ -255,8 +255,10 @@ impl Default for EnhancedCorsConfig {
 impl EnhancedCorsConfig {
     /// Create production-ready CORS configuration
     pub fn production() -> Self {
-        let mut config = Self::default();
-        config.base = CorsConfig::restrictive();
+        let mut config = Self {
+            base: CorsConfig::restrictive(),
+            ..Default::default()
+        };
         config.security_policies.block_malicious_origins = true;
         config.security_policies.enforce_https_credentials = true;
         config.context_validation.detect_suspicious_patterns = true;
@@ -265,8 +267,10 @@ impl EnhancedCorsConfig {
 
     /// Create development-friendly CORS configuration
     pub fn development() -> Self {
-        let mut config = Self::default();
-        config.base = CorsConfig::permissive();
+        let mut config = Self {
+            base: CorsConfig::permissive(),
+            ..Default::default()
+        };
         config.security_policies.block_malicious_origins = false;
         config.security_policies.enforce_https_credentials = false;
         config.context_validation.detect_suspicious_patterns = false;
@@ -276,7 +280,7 @@ impl EnhancedCorsConfig {
     /// Add trusted origin pattern
     pub fn add_trusted_pattern(&mut self, pattern: String) -> Result<()> {
         Regex::new(&pattern)
-            .map_err(|e| LoxoneError::invalid_input(format!("Invalid regex pattern: {}", e)))?;
+            .map_err(|e| LoxoneError::invalid_input(format!("Invalid regex pattern: {e}")))?;
         self.dynamic_origins.trusted_patterns.push(pattern);
         Ok(())
     }
@@ -294,7 +298,7 @@ impl EnhancedCorsConfig {
         // Validate regex patterns
         for pattern in &self.dynamic_origins.trusted_patterns {
             Regex::new(pattern).map_err(|e| {
-                LoxoneError::invalid_input(format!("Invalid regex pattern '{}': {}", pattern, e))
+                LoxoneError::invalid_input(format!("Invalid regex pattern '{pattern}': {e}"))
             })?;
         }
 
@@ -318,7 +322,7 @@ impl EnhancedCorsMiddleware {
         let mut origin_patterns = Vec::new();
         for pattern in &config.dynamic_origins.trusted_patterns {
             let regex = Regex::new(pattern).map_err(|e| {
-                LoxoneError::invalid_input(format!("Failed to compile regex '{}': {}", pattern, e))
+                LoxoneError::invalid_input(format!("Failed to compile regex '{pattern}': {e}"))
             })?;
             origin_patterns.push(regex);
         }

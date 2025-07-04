@@ -173,7 +173,7 @@ pub async fn control_door_lock(
 
             let normalized_action = normalize_door_action(&action);
             let command = if let Some(dur) = duration {
-                format!("{}/{}", normalized_action, dur)
+                format!("{normalized_action}/{dur}")
             } else {
                 normalized_action
             };
@@ -218,7 +218,7 @@ pub async fn set_intercom_volume(
 
     match find_intercom_device(&context, &device_name).await {
         Ok(device) => {
-            let command = format!("volume/{}", volume);
+            let command = format!("volume/{volume}");
             match context.send_device_command(&device.uuid, &command).await {
                 Ok(response) => ToolResponse::success(json!({
                     "device": device.name,
@@ -253,9 +253,9 @@ pub async fn start_intercom_call(
         Ok(device) => {
             let video_flag = enable_video.unwrap_or(true);
             let command = if video_flag {
-                format!("call_video/{}", target)
+                format!("call_video/{target}")
             } else {
-                format!("call_audio/{}", target)
+                format!("call_audio/{target}")
             };
 
             match context.send_device_command(&device.uuid, &command).await {
@@ -480,8 +480,7 @@ async fn find_intercom_device(
     }
 
     Err(format!(
-        "Intercom device '{}' not found. Use get_intercom_devices to see available devices",
-        identifier
+        "Intercom device '{identifier}' not found. Use get_intercom_devices to see available devices"
     ))
 }
 
@@ -633,7 +632,7 @@ fn serialize_camera_params(params: HashMap<String, Value>) -> String {
                 Value::Bool(b) => b.to_string(),
                 _ => serde_json::to_string(v).unwrap_or_default(),
             };
-            format!("{}={}", k, value_str)
+            format!("{k}={value_str}")
         })
         .collect::<Vec<_>>()
         .join("&")
@@ -712,7 +711,7 @@ pub async fn broadcast_announcement(
                 "timestamp": chrono::Utc::now().to_rfc3339()
             }))
         }
-        Err(e) => ToolResponse::error(format!("Failed to broadcast announcement: {}", e)),
+        Err(e) => ToolResponse::error(format!("Failed to broadcast announcement: {e}")),
     }
 }
 
@@ -867,7 +866,7 @@ fn serialize_setting_value(value: &Value) -> String {
         Value::Bool(b) => b.to_string(),
         Value::Array(arr) => arr
             .iter()
-            .map(|v| serialize_setting_value(v))
+            .map(serialize_setting_value)
             .collect::<Vec<_>>()
             .join(","),
         _ => serde_json::to_string(value).unwrap_or_default(),

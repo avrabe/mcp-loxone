@@ -180,6 +180,7 @@ pub struct EventFilter {
 /// Note: This struct cannot be serialized due to Regex fields
 #[cfg(feature = "websocket")]
 #[derive(Debug, Clone)]
+#[derive(Default)]
 pub struct AdvancedEventFilter {
     /// Basic filter (for backward compatibility)
     pub basic_filter: EventFilter,
@@ -261,18 +262,6 @@ impl EventFilter {
     }
 }
 
-impl Default for AdvancedEventFilter {
-    fn default() -> Self {
-        Self {
-            basic_filter: EventFilter::default(),
-            device_name_pattern: None,
-            room_name_pattern: None,
-            state_name_pattern: None,
-            value_pattern: None,
-            case_insensitive: false,
-        }
-    }
-}
 
 impl AdvancedEventFilter {
     /// Create a new advanced filter from a basic filter
@@ -302,9 +291,9 @@ impl AdvancedEventFilter {
     /// Add regex pattern for device names
     pub fn with_device_name_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
-        let full_pattern = format!("{}{}", flags, pattern);
+        let full_pattern = format!("{flags}{pattern}");
         self.device_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
-            LoxoneError::config(format!("Invalid device name regex pattern: {}", e))
+            LoxoneError::config(format!("Invalid device name regex pattern: {e}"))
         })?);
         Ok(self)
     }
@@ -312,10 +301,10 @@ impl AdvancedEventFilter {
     /// Add regex pattern for room names
     pub fn with_room_name_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
-        let full_pattern = format!("{}{}", flags, pattern);
+        let full_pattern = format!("{flags}{pattern}");
         self.room_name_pattern =
             Some(Regex::new(&full_pattern).map_err(|e| {
-                LoxoneError::config(format!("Invalid room name regex pattern: {}", e))
+                LoxoneError::config(format!("Invalid room name regex pattern: {e}"))
             })?);
         Ok(self)
     }
@@ -323,9 +312,9 @@ impl AdvancedEventFilter {
     /// Add regex pattern for state names
     pub fn with_state_name_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
-        let full_pattern = format!("{}{}", flags, pattern);
+        let full_pattern = format!("{flags}{pattern}");
         self.state_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
-            LoxoneError::config(format!("Invalid state name regex pattern: {}", e))
+            LoxoneError::config(format!("Invalid state name regex pattern: {e}"))
         })?);
         Ok(self)
     }
@@ -333,10 +322,10 @@ impl AdvancedEventFilter {
     /// Add regex pattern for device values (matches string representation of value)
     pub fn with_value_pattern(mut self, pattern: &str) -> Result<Self> {
         let flags = if self.case_insensitive { "(?i)" } else { "" };
-        let full_pattern = format!("{}{}", flags, pattern);
+        let full_pattern = format!("{flags}{pattern}");
         self.value_pattern = Some(
             Regex::new(&full_pattern)
-                .map_err(|e| LoxoneError::config(format!("Invalid value regex pattern: {}", e)))?,
+                .map_err(|e| LoxoneError::config(format!("Invalid value regex pattern: {e}")))?,
         );
         Ok(self)
     }
@@ -647,7 +636,7 @@ impl LoxoneWebSocketClient {
 
     /// Disable weather data storage
     pub async fn disable_weather_storage(&mut self) {
-        if let Some(_) = self.weather_storage.take() {
+        if self.weather_storage.take().is_some() {
             info!("Weather data storage disabled");
         }
     }
@@ -2058,6 +2047,7 @@ impl LoxoneWebSocketClient {
     }
 
     /// Store structured weather data
+    #[allow(clippy::too_many_arguments)]
     async fn store_structured_weather_data(
         station_id: u32,
         temperature: f64,
@@ -2265,7 +2255,7 @@ impl LoxoneWebSocketClient {
         {
             let mut manager = self.encryption_manager.write().await;
             manager.add_session(session).map_err(|e| {
-                LoxoneError::connection(&format!("Failed to add encryption session: {}", e))
+                LoxoneError::connection(format!("Failed to add encryption session: {e}"))
             })?;
         }
 
@@ -2298,7 +2288,7 @@ impl LoxoneWebSocketClient {
 
             session
                 .encrypt_message(message)
-                .map_err(|e| LoxoneError::connection(&format!("Encryption failed: {}", e)))?
+                .map_err(|e| LoxoneError::connection(format!("Encryption failed: {e}")))?
         };
 
         // Send encrypted message via WebSocket
@@ -2306,7 +2296,7 @@ impl LoxoneWebSocketClient {
             use tokio_tungstenite::tungstenite::Message;
 
             let json_payload = serde_json::to_string(&encrypted_msg).map_err(|e| {
-                LoxoneError::connection(&format!("Failed to serialize encrypted message: {}", e))
+                LoxoneError::connection(format!("Failed to serialize encrypted message: {e}"))
             })?;
 
             let mut stream_guard = stream.lock().await;
@@ -2314,7 +2304,7 @@ impl LoxoneWebSocketClient {
                 .send(Message::Text(json_payload))
                 .await
                 .map_err(|e| {
-                    LoxoneError::connection(&format!("Failed to send encrypted message: {}", e))
+                    LoxoneError::connection(format!("Failed to send encrypted message: {e}"))
                 })?;
 
             debug!("Sent encrypted message: {} bytes", message.len());
@@ -2347,7 +2337,7 @@ impl LoxoneWebSocketClient {
 
             session
                 .decrypt_message(encrypted_msg)
-                .map_err(|e| LoxoneError::connection(&format!("Decryption failed: {}", e)))?
+                .map_err(|e| LoxoneError::connection(format!("Decryption failed: {e}")))?
         };
 
         debug!("Decrypted message: {} bytes", plaintext.len());
@@ -2483,7 +2473,7 @@ impl LoxoneClient for LoxoneWebSocketClient {
         } else {
             // Implement WebSocket command sending based on Loxone protocol
             // Format: "jdev/sps/io/{uuid}/{command}"
-            let ws_command = format!("jdev/sps/io/{}/{}", uuid, command);
+            let ws_command = format!("jdev/sps/io/{uuid}/{command}");
             debug!("Sending WebSocket command: {}", ws_command);
 
             // Send command via WebSocket
@@ -2514,8 +2504,7 @@ impl LoxoneClient for LoxoneWebSocketClient {
                     Err(e) => {
                         error!("Failed to send WebSocket command: {}", e);
                         Err(LoxoneError::connection(format!(
-                            "WebSocket command failed: {}",
-                            e
+                            "WebSocket command failed: {e}"
                         )))
                     }
                 }

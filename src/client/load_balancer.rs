@@ -4,8 +4,6 @@
 //! connections optimally across available pool connections.
 
 use crate::client::adaptive_pool::AdaptiveConnection;
-use crate::client::LoxoneClient;
-use crate::error::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -588,6 +586,9 @@ mod tests {
 
         // Note: This is a simplified version for testing
         // Create a mock client for testing
+        use crate::client::LoxoneClient;
+        use crate::error::Result;
+        
         struct MockClient;
 
         #[async_trait::async_trait]

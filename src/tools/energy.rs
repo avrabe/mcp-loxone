@@ -236,7 +236,7 @@ pub async fn control_battery_storage(input: Value, ctx: Arc<ToolContext>) -> Res
 
     // Set mode if specified
     if let Some(mode) = &request.mode {
-        let mode_command = format!("mode/{}", mode);
+        let mode_command = format!("mode/{mode}");
         if let Err(e) = client.send_command(&battery_id, &mode_command).await {
             warn!("Failed to set battery mode: {}", e);
         }
@@ -362,6 +362,7 @@ pub async fn manage_ev_charging(input: Value, ctx: Arc<ToolContext>) -> Result<V
 }
 
 /// Respond to smart grid demand response events
+#[allow(clippy::redundant_pattern_matching)]
 pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Result<Value> {
     let client = &ctx.client;
 
@@ -434,10 +435,10 @@ pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Resu
             let delay_hours = (request.duration_minutes.unwrap_or(120) / 60) as i32;
 
             if let Ok(_) = client
-                .send_command("scheduler/flexible", &format!("delay/{}", delay_hours))
+                .send_command("scheduler/flexible", &format!("delay/{delay_hours}"))
                 .await
             {
-                actions_taken.push(format!("Shifted flexible loads by {} hours", delay_hours));
+                actions_taken.push(format!("Shifted flexible loads by {delay_hours} hours"));
             }
 
             // Pause non-critical operations
@@ -508,7 +509,7 @@ pub async fn set_energy_pricing(input: Value, ctx: Arc<ToolContext>) -> Result<V
     // Update current price
     let price_cents = (current_price * 100.0) as i32;
     client
-        .send_command("energy/pricing", &format!("current/{}", price_cents))
+        .send_command("energy/pricing", &format!("current/{price_cents}"))
         .await?;
 
     // Update price forecast if provided
@@ -535,7 +536,7 @@ pub async fn set_energy_pricing(input: Value, ctx: Arc<ToolContext>) -> Result<V
         };
 
         client
-            .send_command("energy/optimize", &format!("price_tier/{}", price_tier))
+            .send_command("energy/optimize", &format!("price_tier/{price_tier}"))
             .await?;
     }
 
@@ -597,7 +598,7 @@ pub async fn configure_load_priority(input: Value, ctx: Arc<ToolContext>) -> Res
                 // Set category if provided
                 if let Some(ref category) = load.category {
                     let _ = client
-                        .send_command(&load.device_id, &format!("category/{}", category))
+                        .send_command(&load.device_id, &format!("category/{category}"))
                         .await;
                 }
 
@@ -792,6 +793,7 @@ pub async fn optimize_energy_usage(input: Value, ctx: Arc<ToolContext>) -> Resul
         #[serde(default)]
         target_savings_percent: Option<f64>,
         #[serde(default)]
+        #[allow(dead_code)]
         allow_comfort_reduction: Option<bool>,
     }
 

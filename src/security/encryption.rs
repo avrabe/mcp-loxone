@@ -184,7 +184,7 @@ impl EncryptionSession {
 
         Ok(EncryptedMessage {
             payload: general_purpose::STANDARD.encode(&encrypted_data),
-            iv: general_purpose::STANDARD.encode(&iv),
+            iv: general_purpose::STANDARD.encode(iv),
             session_id: self.session_id.clone(),
             timestamp: chrono::Utc::now(),
             metadata: None,
@@ -270,7 +270,7 @@ pub fn encrypt_aes_cbc(
         }
 
         // Encrypt the block
-        let mut encrypted_block = GenericArray::from_slice(&block).clone();
+        let mut encrypted_block = *GenericArray::from_slice(&block);
         cipher.encrypt_block(&mut encrypted_block);
 
         // Store the encrypted block
@@ -302,7 +302,7 @@ pub fn decrypt_aes_cbc(
 
     for chunk in ciphertext.chunks(16) {
         // Decrypt the block
-        let mut decrypted_block = GenericArray::from_slice(chunk).clone();
+        let mut decrypted_block = *GenericArray::from_slice(chunk);
         cipher.decrypt_block(&mut decrypted_block);
 
         // XOR with previous ciphertext block (or IV for first block)
@@ -357,7 +357,7 @@ pub fn derive_loxone_key(
     use sha2::{Digest, Sha256};
 
     let mut key = [0u8; 32];
-    let credential_data = format!("{}:{}", username, password);
+    let credential_data = format!("{username}:{password}");
 
     // Simplified key derivation - in production, use proper PBKDF2
     let mut hasher = Sha256::new();
@@ -368,7 +368,7 @@ pub fn derive_loxone_key(
     let mut hash = hasher.finalize();
     for _ in 0..1000 {
         let mut hasher = Sha256::new();
-        hasher.update(&hash);
+        hasher.update(hash);
         hash = hasher.finalize();
     }
 
@@ -393,7 +393,7 @@ pub async fn perform_key_exchange(
     let session = EncryptionSession::new((request.session_duration / 3600) as u32);
 
     // In real implementation, encrypt the session key with client's public key
-    let encrypted_key = general_purpose::STANDARD.encode(&session.key);
+    let encrypted_key = general_purpose::STANDARD.encode(session.key);
 
     Ok(KeyExchangeResponse {
         status: "success".to_string(),

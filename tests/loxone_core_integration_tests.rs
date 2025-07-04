@@ -7,8 +7,7 @@
 //! - MCP protocol compliance
 //! - Error handling and resilience
 
-use loxone_mcp_rust::{LoxoneBackend, LoxoneError, Result, ServerConfig};
-use std::sync::Arc;
+use loxone_mcp_rust::{LoxoneBackend, LoxoneError, ServerConfig};
 use tokio::time::{timeout, Duration};
 
 mod common;
@@ -32,7 +31,7 @@ async fn test_offline_mode() {
     assert!(backend.is_ok());
 
     // Offline mode should work without network connectivity
-    let backend = backend.unwrap();
+    let _backend = backend.unwrap();
     // Backend should be created but not connected to real Loxone system
 }
 

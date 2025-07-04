@@ -434,6 +434,12 @@ pub struct RetryBuilder {
     policy: RetryPolicy,
 }
 
+impl Default for RetryBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl RetryBuilder {
     /// Create new retry builder
     pub fn new() -> Self {

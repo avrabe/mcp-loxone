@@ -6,6 +6,7 @@
 pub mod test_helpers {
     use loxone_mcp_rust::config::ServerConfig;
 
+    #[allow(dead_code)]
     pub fn create_test_config() -> ServerConfig {
         // Return a minimal valid config for testing
         ServerConfig::default()

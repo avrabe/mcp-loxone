@@ -118,6 +118,12 @@ struct CachedFallback {
     expires_at: chrono::DateTime<chrono::Utc>,
 }
 
+impl Default for ResilienceManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResilienceManager {
     /// Create new resilience manager
     pub fn new() -> Self {
@@ -272,8 +278,7 @@ impl ResilienceManager {
                         info!("Using cached fallback for service: {}", service_name);
                         return serde_json::from_value(cached.value.clone()).map_err(|e| {
                             LoxoneError::internal(format!(
-                                "Failed to deserialize cached value: {}",
-                                e
+                                "Failed to deserialize cached value: {e}"
                             ))
                         });
                     }

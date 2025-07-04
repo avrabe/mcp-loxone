@@ -862,7 +862,7 @@ impl WebSocketResilienceManager {
 
         // Establish actual WebSocket connection
         let (ws_stream, _) = connect_async(url).await.map_err(|e| {
-            crate::error::LoxoneError::connection(format!("WebSocket connection failed: {}", e))
+            crate::error::LoxoneError::connection(format!("WebSocket connection failed: {e}"))
         })?;
 
         let (mut ws_sender, mut ws_receiver) = ws_stream.split();

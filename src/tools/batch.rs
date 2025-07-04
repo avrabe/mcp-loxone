@@ -199,13 +199,13 @@ pub async fn execute_batch_operation(
 
     // Validate batch operation
     if let Err(validation_error) = validate_batch_operation(&batch_operation) {
-        return ToolResponse::error(format!("Invalid batch operation: {}", validation_error));
+        return ToolResponse::error(format!("Invalid batch operation: {validation_error}"));
     }
 
     // Resolve device UUIDs for all commands
     let resolved_commands = match resolve_batch_devices(&context, &batch_operation.commands).await {
         Ok(commands) => commands,
-        Err(e) => return ToolResponse::error(format!("Failed to resolve devices: {}", e)),
+        Err(e) => return ToolResponse::error(format!("Failed to resolve devices: {e}")),
     };
 
     // Execute based on mode
@@ -299,7 +299,7 @@ pub async fn create_room_batch_operation(
         .collect();
 
     if room_devices.is_empty() {
-        return ToolResponse::error(format!("No devices found in room '{}'", room_name));
+        return ToolResponse::error(format!("No devices found in room '{room_name}'"));
     }
 
     // Filter devices by type if specified
@@ -316,7 +316,7 @@ pub async fn create_room_batch_operation(
     let mut batch_commands = Vec::new();
     for (index, device) in filtered_devices.iter().enumerate() {
         batch_commands.push(BatchCommand {
-            id: format!("cmd_{}", index),
+            id: format!("cmd_{index}"),
             device: device.name.clone(),
             command: command_template.clone(),
             parameters: None,
@@ -330,7 +330,7 @@ pub async fn create_room_batch_operation(
 
     let batch_operation = BatchOperation {
         id: format!("room_batch_{}", chrono::Utc::now().timestamp()),
-        name: format!("Room {} - {}", room_name, command_template),
+        name: format!("Room {room_name} - {command_template}"),
         commands: batch_commands,
         execution_mode: execution_mode.unwrap_or(ExecutionMode::Parallel),
         error_strategy: ErrorStrategy::Continue,

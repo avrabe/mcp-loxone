@@ -32,7 +32,7 @@ async fn test_loxone_endpoint(
 
     for endpoint in endpoints {
         let protocol = if port == 443 { "https" } else { "http" };
-        let url = format!("{}://{}:{}{}", protocol, ip, port, endpoint);
+        let url = format!("{protocol}://{ip}:{port}{endpoint}");
 
         if let Ok(response) = client.get(&url).send().await {
             if response.status().is_success() {
@@ -47,7 +47,7 @@ async fn test_loxone_endpoint(
                     let device_info = json!({
                         "ip": ip,
                         "port": port,
-                        "hostname": extract_hostname(&text).unwrap_or_else(|| format!("Miniserver-{}", ip)),
+                        "hostname": extract_hostname(&text).unwrap_or_else(|| format!("Miniserver-{ip}")),
                         "device_type": "Miniserver",
                         "version": extract_version(&text).unwrap_or("Unknown".to_string()),
                         "serial": extract_serial(&text).unwrap_or("Unknown".to_string()),
@@ -422,13 +422,13 @@ pub async fn discover_network_devices(
         let scan_range = 1..=50u8;
 
         for host in scan_range {
-            let target_ip = format!("{}.{}", base, host);
+            let target_ip = format!("{base}.{host}");
 
             // Test Loxone-specific ports: 80 (HTTP), 443 (HTTPS), 7777 (WebSocket)
             for port in [80u16, 443, 7777] {
                 match tokio::time::timeout(
                     std::time::Duration::from_millis(500),
-                    tokio::net::TcpStream::connect(format!("{}:{}", target_ip, port)),
+                    tokio::net::TcpStream::connect(format!("{target_ip}:{port}")),
                 )
                 .await
                 {
@@ -538,7 +538,7 @@ pub async fn get_discovery_statistics(
                         "device_name": device.name,
                         "device_type": device.device_type,
                         "discovery_method": "network_scan",
-                        "status": if hour_offset < 2 { "online" } else { "online" }, // Most recent = online
+                        "status": "online", // All simulated devices are online
                         "response_time_ms": 100 + (hour_offset * 10).min(300), // Slightly higher latency for older data
                         "signal_strength": (100 - hour_offset * 2).max(70) // Signal strength decreases over time
                     }));

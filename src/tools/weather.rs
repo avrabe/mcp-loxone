@@ -206,8 +206,8 @@ pub async fn calibrate_weather_sensor(
             }
             device
         }
-        Ok(None) => return ToolResponse::error(format!("Device {} not found", device_uuid)),
-        Err(e) => return ToolResponse::error(format!("Failed to get device: {}", e)),
+        Ok(None) => return ToolResponse::error(format!("Device {device_uuid} not found")),
+        Err(e) => return ToolResponse::error(format!("Failed to get device: {e}")),
     };
 
     // Apply calibration offsets to device
@@ -215,25 +215,25 @@ pub async fn calibrate_weather_sensor(
     let mut applied_calibrations = HashMap::new();
 
     if let Some(temp_offset) = temperature_offset {
-        let command = format!("calibrate/temperature/{}", temp_offset);
+        let command = format!("calibrate/temperature/{temp_offset}");
         calibration_commands.push(command.clone());
         applied_calibrations.insert("temperature_offset".to_string(), temp_offset);
     }
 
     if let Some(humid_offset) = humidity_offset {
-        let command = format!("calibrate/humidity/{}", humid_offset);
+        let command = format!("calibrate/humidity/{humid_offset}");
         calibration_commands.push(command.clone());
         applied_calibrations.insert("humidity_offset".to_string(), humid_offset);
     }
 
     if let Some(press_offset) = pressure_offset {
-        let command = format!("calibrate/pressure/{}", press_offset);
+        let command = format!("calibrate/pressure/{press_offset}");
         calibration_commands.push(command.clone());
         applied_calibrations.insert("pressure_offset".to_string(), press_offset);
     }
 
     if let Some(wind_factor) = wind_speed_factor {
-        let command = format!("calibrate/wind_speed/{}", wind_factor);
+        let command = format!("calibrate/wind_speed/{wind_factor}");
         calibration_commands.push(command.clone());
         applied_calibrations.insert("wind_speed_factor".to_string(), wind_factor);
     }
@@ -303,8 +303,8 @@ pub async fn reset_weather_calibration(context: ToolContext, device_uuid: String
             }
             device
         }
-        Ok(None) => return ToolResponse::error(format!("Device {} not found", device_uuid)),
-        Err(e) => return ToolResponse::error(format!("Failed to get device: {}", e)),
+        Ok(None) => return ToolResponse::error(format!("Device {device_uuid} not found")),
+        Err(e) => return ToolResponse::error(format!("Failed to get device: {e}")),
     };
 
     // Reset all calibrations to default values

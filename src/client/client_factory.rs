@@ -79,6 +79,12 @@ pub struct AdaptiveClientFactory {
     fallback_chain: Vec<AuthMethod>,
 }
 
+impl Default for AdaptiveClientFactory {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl AdaptiveClientFactory {
     /// Create new adaptive client factory
     pub fn new() -> Self {
@@ -147,7 +153,7 @@ impl AdaptiveClientFactory {
                 let port = config.url.port().unwrap_or(80);
                 match timeout(
                     Duration::from_secs(2),
-                    tokio::net::TcpStream::connect(format!("{}:{}", host, port)),
+                    tokio::net::TcpStream::connect(format!("{host}:{port}")),
                 )
                 .await
                 {
@@ -195,8 +201,7 @@ impl AdaptiveClientFactory {
             }
             #[allow(unreachable_patterns)]
             _ => Err(LoxoneError::config(format!(
-                "Authentication method {:?} not supported",
-                method
+                "Authentication method {method:?} not supported"
             ))),
         }
     }

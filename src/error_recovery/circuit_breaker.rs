@@ -405,7 +405,7 @@ impl CircuitBreaker {
             CircuitBreakerEventType::FailureRecorded,
             state.current_state,
             state.current_state,
-            format!("Operation failed: {}", error_type),
+            format!("Operation failed: {error_type}"),
         )
         .await;
     }
@@ -471,7 +471,7 @@ impl CircuitBreaker {
             CircuitBreakerEventType::StateChanged,
             old_state,
             new_state,
-            format!("State transition: {:?} -> {:?}", old_state, new_state),
+            format!("State transition: {old_state:?} -> {new_state:?}"),
         )
         .await;
     }

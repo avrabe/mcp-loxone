@@ -304,7 +304,7 @@ impl AdaptiveConnectionPool {
         stats.active_connections += 1;
         *stats
             .auth_distribution
-            .entry(format!("{:?}", auth_method))
+            .entry(format!("{auth_method:?}"))
             .or_insert(0) += 1;
 
         info!(
@@ -559,11 +559,7 @@ impl AdaptiveConnectionPool {
         &self,
     ) -> Option<tokio::sync::broadcast::Receiver<crate::client::pool_health_monitor::HealthAlert>>
     {
-        if let Some(monitor) = self.get_health_monitor().await {
-            Some(monitor.subscribe_to_alerts())
-        } else {
-            None
-        }
+        self.get_health_monitor().await.map(|monitor| monitor.subscribe_to_alerts())
     }
 
     /// Generate health report
@@ -657,6 +653,12 @@ pub struct AdaptivePoolBuilder {
     loxone_config: Option<LoxoneConfig>,
     credentials: Option<LoxoneCredentials>,
     client_factory: Option<Arc<dyn ClientFactory>>,
+}
+
+impl Default for AdaptivePoolBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl AdaptivePoolBuilder {

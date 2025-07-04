@@ -408,7 +408,7 @@ pub async fn control_playlist(
             urlencoding::encode(val)
         )
     } else {
-        format!("playlist/{}", normalized_action)
+        format!("playlist/{normalized_action}")
     };
 
     match context.send_device_command(&device.uuid, &command).await {

@@ -12,6 +12,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{debug, warn};
 
+/// Type alias for failed attempts tracking
+type FailedAttemptsMap = Arc<RwLock<HashMap<String, (u32, DateTime<Utc>)>>>;
+
 /// JWT token claims structure
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JwtClaims {
@@ -52,7 +55,7 @@ pub struct LoxoneClaims {
 /// Token validation result
 #[derive(Debug, Clone)]
 pub enum TokenValidationResult {
-    Valid(ValidatedToken),
+    Valid(Box<ValidatedToken>),
     Invalid(ValidationError),
     Expired,
     Revoked,
@@ -162,7 +165,7 @@ pub struct TokenValidator {
     /// Recent token hashes for replay detection
     recent_tokens: Arc<RwLock<HashMap<String, DateTime<Utc>>>>,
     /// Failed validation attempts per IP
-    failed_attempts: Arc<RwLock<HashMap<String, (u32, DateTime<Utc>)>>>,
+    failed_attempts: FailedAttemptsMap,
 }
 
 impl TokenValidator {
@@ -210,7 +213,7 @@ impl TokenValidator {
             Err(e) => {
                 self.record_failed_attempt(client_ip).await;
                 return Ok(TokenValidationResult::Invalid(ValidationError {
-                    reason: format!("Token parsing failed: {}", e),
+                    reason: format!("Token parsing failed: {e}"),
                     error_code: "TOKEN_PARSE_ERROR".to_string(),
                     severity: SecurityLevel::High,
                 }));
@@ -256,7 +259,7 @@ impl TokenValidator {
                 if token_ip != client_ip {
                     return Ok(TokenValidationResult::Suspicious(SuspiciousActivity {
                         activity_type: SuspiciousActivityType::UnusualLocation,
-                        details: format!("IP mismatch: token={}, client={}", token_ip, client_ip),
+                        details: format!("IP mismatch: token={token_ip}, client={client_ip}"),
                         risk_score: 80,
                     }));
                 }
@@ -282,12 +285,12 @@ impl TokenValidator {
             self.clear_failed_attempts(ip).await;
         }
 
-        Ok(TokenValidationResult::Valid(ValidatedToken {
+        Ok(TokenValidationResult::Valid(Box::new(ValidatedToken {
             claims,
             token_hash,
             validation_time: Utc::now(),
             security_level,
-        }))
+        })))
     }
 
     /// Revoke a token by JTI
@@ -310,11 +313,11 @@ impl TokenValidator {
         let payload = general_purpose::URL_SAFE_NO_PAD
             .decode(parts[1])
             .map_err(|e| {
-                LoxoneError::authentication(&format!("Failed to decode payload: {}", e))
+                LoxoneError::authentication(format!("Failed to decode payload: {e}"))
             })?;
 
         let claims: JwtClaims = serde_json::from_slice(&payload)
-            .map_err(|e| LoxoneError::authentication(&format!("Failed to parse claims: {}", e)))?;
+            .map_err(|e| LoxoneError::authentication(format!("Failed to parse claims: {e}")))?;
 
         Ok(claims)
     }

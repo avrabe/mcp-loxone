@@ -372,6 +372,7 @@ impl KeyStore {
                     // Support CIDR notation
                     if allowed.contains('/') {
                         // Implement CIDR matching
+                        #[allow(clippy::collapsible_match)]
                         match (parse_cidr(allowed), ip) {
                             (Some((network, prefix_len)), std::net::IpAddr::V4(ip_v4)) => {
                                 if let std::net::IpAddr::V4(net_v4) = network {

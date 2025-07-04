@@ -176,7 +176,7 @@ pub async fn get_security_system_status(_input: Value, ctx: Arc<ToolContext>) ->
         if let Some(room) = &device.room {
             room_zones
                 .entry(room.clone())
-                .or_insert_with(Vec::new)
+                .or_default()
                 .push(device);
         }
     }
@@ -248,7 +248,7 @@ pub async fn arm_security_system(input: Value, ctx: Arc<ToolContext>) -> Result<
         // Arm specific zones
         for zone_id in zone_ids {
             match client
-                .send_command(&zone_id, &format!("arm/{}", arm_mode))
+                .send_command(&zone_id, &format!("arm/{arm_mode}"))
                 .await
             {
                 Ok(_) => {
@@ -263,7 +263,7 @@ pub async fn arm_security_system(input: Value, ctx: Arc<ToolContext>) -> Result<
     } else {
         // Arm entire system
         client
-            .send_command("security/arm", &format!("arm/{}", arm_mode))
+            .send_command("security/arm", &format!("arm/{arm_mode}"))
             .await
             .map_err(|e| anyhow!("Failed to arm security system: {}", e))?;
         armed_zones.push("all".to_string());
@@ -288,6 +288,7 @@ pub async fn disarm_security_system(input: Value, ctx: Arc<ToolContext>) -> Resu
         #[serde(default)]
         zones: Option<Vec<String>>,
         #[serde(default)]
+        #[allow(dead_code)]
         access_code: Option<String>,
         #[serde(default)]
         user_id: Option<String>,
@@ -340,6 +341,7 @@ pub async fn control_door_lock(input: Value, ctx: Arc<ToolContext>) -> Result<Va
         lock_id: String,
         action: String, // "lock", "unlock", "toggle"
         #[serde(default)]
+        #[allow(dead_code)]
         access_code: Option<String>,
         #[serde(default)]
         user_id: Option<String>,
@@ -392,7 +394,7 @@ pub async fn control_door_lock(input: Value, ctx: Arc<ToolContext>) -> Result<Va
 
     // If auto-lock delay is specified, set it
     if let Some(delay) = request.auto_lock_delay {
-        let delay_command = format!("autolock/{}", delay);
+        let delay_command = format!("autolock/{delay}");
         if let Err(e) = client.send_command(&request.lock_id, &delay_command).await {
             warn!("Failed to set auto-lock delay: {}", e);
         }
@@ -525,8 +527,10 @@ pub async fn manage_access_codes(input: Value, ctx: Arc<ToolContext>) -> Result<
         #[serde(default)]
         code_slot: Option<u32>,
         #[serde(default)]
+        #[allow(dead_code)]
         expires_at: Option<DateTime<Utc>>,
         #[serde(default)]
+        #[allow(dead_code)]
         permanent: Option<bool>,
     }
 
@@ -544,7 +548,7 @@ pub async fn manage_access_codes(input: Value, ctx: Arc<ToolContext>) -> Result<
                 .code
                 .ok_or_else(|| anyhow!("Code required for add action"))?;
             let slot = request.code_slot.unwrap_or(1);
-            let command = format!("addcode/{}/{}", slot, code);
+            let command = format!("addcode/{slot}/{code}");
 
             client
                 .send_command(&request.lock_id, &command)
@@ -563,7 +567,7 @@ pub async fn manage_access_codes(input: Value, ctx: Arc<ToolContext>) -> Result<
             let slot = request
                 .code_slot
                 .ok_or_else(|| anyhow!("Code slot required for remove action"))?;
-            let command = format!("removecode/{}", slot);
+            let command = format!("removecode/{slot}");
 
             client
                 .send_command(&request.lock_id, &command)
@@ -605,6 +609,7 @@ pub async fn control_motion_detectors(input: Value, ctx: Arc<ToolContext>) -> Re
         detector_id: Option<String>,
         action: String, // "enable", "disable", "test", "status"
         #[serde(default)]
+        #[allow(dead_code)]
         sensitivity: Option<u32>, // 1-100
     }
 
@@ -658,7 +663,7 @@ pub async fn control_motion_detectors(input: Value, ctx: Arc<ToolContext>) -> Re
                     Ok(format!("No status available for: {}", detector.name))
                 }
             }
-            _ => Err(LoxoneError::validation(format!("Invalid action: {}", request.action)).into()),
+            _ => Err(LoxoneError::validation(format!("Invalid action: {}", request.action))),
         };
 
         match result {

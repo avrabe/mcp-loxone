@@ -159,7 +159,7 @@ impl WeatherStorage {
         } else if let Ok(Some(uuid)) = self.resolve_from_database(uuid_index).await {
             uuid
         } else {
-            format!("unknown_device_{}", uuid_index)
+            format!("unknown_device_{uuid_index}")
         };
 
         // Update cache

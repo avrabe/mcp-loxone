@@ -226,6 +226,7 @@ struct RequestPattern {
 
 /// Value characteristic for pattern learning
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 struct ValueCharacteristic {
     /// Data type
     data_type: String,
@@ -540,8 +541,7 @@ impl EnhancedValidator {
                 "Checksum validation passed".to_string()
             } else {
                 format!(
-                    "Checksum mismatch: expected {}, got {}",
-                    expected_checksum, calculated_checksum
+                    "Checksum mismatch: expected {expected_checksum}, got {calculated_checksum}"
                 )
             },
             severity: if passed {
@@ -747,6 +747,7 @@ impl EnhancedValidator {
     }
 
     /// Calculate data complexity
+    #[allow(clippy::only_used_in_recursion)]
     fn calculate_complexity(&self, value: &Value, depth: usize) -> usize {
         match value {
             Value::Object(obj) => {
@@ -802,8 +803,7 @@ impl EnhancedValidator {
                                 anomalies.push(DetectedAnomaly {
                                     anomaly_type: AnomalyType::UnusualValue,
                                     location: field.clone(),
-                                    description: format!("Value length {} significantly different from historical range {}-{}", 
-                                        min_len, hist_min, hist_max),
+                                    description: format!("Value length {min_len} significantly different from historical range {hist_min}-{hist_max}"),
                                     deviation_score: 40.0,
                                 });
                                 anomaly_score += 40.0;
@@ -869,7 +869,7 @@ impl EnhancedValidator {
 
         self.extract_structure(data, "", &mut field_structure, &mut value_characteristics);
 
-        let pattern_str = format!("{:?}", field_structure);
+        let pattern_str = format!("{field_structure:?}");
         let mut hasher = Sha256::new();
         hasher.update(pattern_str.as_bytes());
         let pattern_hash = hex::encode(hasher.finalize());
@@ -883,6 +883,7 @@ impl EnhancedValidator {
     }
 
     /// Extract structure from value
+    #[allow(clippy::only_used_in_recursion)]
     fn extract_structure(
         &self,
         value: &Value,
@@ -897,7 +898,7 @@ impl EnhancedValidator {
                     let new_path = if path.is_empty() {
                         key.clone()
                     } else {
-                        format!("{}.{}", path, key)
+                        format!("{path}.{key}")
                     };
                     self.extract_structure(val, &new_path, structure, characteristics);
                 }
@@ -907,7 +908,7 @@ impl EnhancedValidator {
                 if let Some(first) = arr.first() {
                     self.extract_structure(
                         first,
-                        &format!("{}[]", path),
+                        &format!("{path}[]"),
                         structure,
                         characteristics,
                     );
@@ -1074,7 +1075,7 @@ impl EnhancedValidator {
     ) -> Option<String> {
         // Block if risk score is too high
         if risk_score >= 80.0 {
-            return Some(format!("High risk score: {:.1}", risk_score));
+            return Some(format!("High risk score: {risk_score:.1}"));
         }
 
         // Block on critical security failures
@@ -1256,7 +1257,7 @@ mod tests {
                 client_ip: Some("127.0.0.1".to_string()),
                 input_type: Some("test".to_string()),
                 checksum: None,
-                nonce: Some(format!("nonce-{}", i)),
+                nonce: Some(format!("nonce-{i}")),
                 last_request_time: None,
                 user_agent: None,
                 request_id: None,

@@ -73,7 +73,7 @@ impl TursoClient {
                     .build()
                     .await
                     .map_err(|e| {
-                        LoxoneError::database(format!("Failed to connect to Turso: {}", e))
+                        LoxoneError::database(format!("Failed to connect to Turso: {e}"))
                     })?;
 
             // Enable sync if configured
@@ -86,7 +86,7 @@ impl TursoClient {
                     )
                     .build()
                     .await
-                    .map_err(|e| LoxoneError::database(format!("Failed to setup sync: {}", e)))?;
+                    .map_err(|e| LoxoneError::database(format!("Failed to setup sync: {e}")))?;
 
                     Arc::new(sync_db)
                 } else {
@@ -101,14 +101,14 @@ impl TursoClient {
                 .build()
                 .await
                 .map_err(|e| {
-                    LoxoneError::database(format!("Failed to open local database: {}", e))
+                    LoxoneError::database(format!("Failed to open local database: {e}"))
                 })?;
             Arc::new(db)
         };
 
         let connection = database
             .connect()
-            .map_err(|e| LoxoneError::database(format!("Failed to create connection: {}", e)))?;
+            .map_err(|e| LoxoneError::database(format!("Failed to create connection: {e}")))?;
 
         let client = Self {
             database,
@@ -152,7 +152,7 @@ impl TursoClient {
         "#;
 
         conn.execute(weather_schema, ()).await.map_err(|e| {
-            LoxoneError::database(format!("Failed to create weather_data table: {}", e))
+            LoxoneError::database(format!("Failed to create weather_data table: {e}"))
         })?;
 
         // Device mapping table for UUID index resolution
@@ -167,7 +167,7 @@ impl TursoClient {
         "#;
 
         conn.execute(device_mapping_schema, ()).await.map_err(|e| {
-            LoxoneError::database(format!("Failed to create device_uuid_mapping table: {}", e))
+            LoxoneError::database(format!("Failed to create device_uuid_mapping table: {e}"))
         })?;
 
         // Weather aggregation table for efficient queries
@@ -192,7 +192,7 @@ impl TursoClient {
         conn.execute(weather_aggregation_schema, ())
             .await
             .map_err(|e| {
-                LoxoneError::database(format!("Failed to create weather_aggregation table: {}", e))
+                LoxoneError::database(format!("Failed to create weather_aggregation table: {e}"))
             })?;
 
         // Create indexes for better performance
@@ -214,6 +214,7 @@ impl TursoClient {
     }
 
     /// Store weather data point
+    #[allow(clippy::too_many_arguments)]
     pub async fn store_weather_data(
         &self,
         device_uuid: &str,
@@ -244,7 +245,7 @@ impl TursoClient {
             ),
         )
         .await
-        .map_err(|e| LoxoneError::database(format!("Failed to store weather data: {}", e)))?;
+        .map_err(|e| LoxoneError::database(format!("Failed to store weather data: {e}")))?;
 
         // Update aggregation data
         self.update_aggregation(device_uuid, parameter_name, value, timestamp)
@@ -286,7 +287,7 @@ impl TursoClient {
             ),
         )
         .await
-        .map_err(|e| LoxoneError::database(format!("Failed to update aggregation: {}", e)))?;
+        .map_err(|e| LoxoneError::database(format!("Failed to update aggregation: {e}")))?;
 
         Ok(())
     }
@@ -321,7 +322,7 @@ impl TursoClient {
             ),
         )
         .await
-        .map_err(|e| LoxoneError::database(format!("Failed to store device mapping: {}", e)))?;
+        .map_err(|e| LoxoneError::database(format!("Failed to store device mapping: {e}")))?;
 
         Ok(())
     }
@@ -335,19 +336,19 @@ impl TursoClient {
         let mut rows = conn
             .prepare(query_sql)
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {}", e)))?
+            .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {e}")))?
             .query(libsql::params![uuid_index as i64])
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to execute query: {}", e)))?;
+            .map_err(|e| LoxoneError::database(format!("Failed to execute query: {e}")))?;
 
         if let Some(row) = rows
             .next()
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {e}")))?
         {
             let device_uuid: String = row
                 .get(0)
-                .map_err(|e| LoxoneError::database(format!("Failed to get device_uuid: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get device_uuid: {e}")))?;
             Ok(Some(device_uuid))
         } else {
             Ok(None)
@@ -366,42 +367,42 @@ impl TursoClient {
         let mut rows = if let Some(param) = parameter_name {
             conn.prepare("SELECT device_uuid, parameter_name, value, unit, timestamp, quality_score FROM weather_data WHERE device_uuid = ?1 AND parameter_name = ?2 ORDER BY timestamp DESC LIMIT ?3")
                 .await
-                .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {}", e)))?
+                .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {e}")))?
                 .query(libsql::params![device_uuid, param, limit as i64])
                 .await
-                .map_err(|e| LoxoneError::database(format!("Failed to execute query: {}", e)))?
+                .map_err(|e| LoxoneError::database(format!("Failed to execute query: {e}")))?
         } else {
             conn.prepare("SELECT device_uuid, parameter_name, value, unit, timestamp, quality_score FROM weather_data WHERE device_uuid = ?1 ORDER BY timestamp DESC LIMIT ?2")
                 .await
-                .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {}", e)))?
+                .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {e}")))?
                 .query(libsql::params![device_uuid, limit as i64])
                 .await
-                .map_err(|e| LoxoneError::database(format!("Failed to execute query: {}", e)))?
+                .map_err(|e| LoxoneError::database(format!("Failed to execute query: {e}")))?
         };
 
         let mut results = Vec::new();
         while let Some(row) = rows
             .next()
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {e}")))?
         {
             let device_uuid: String = row
                 .get(0)
-                .map_err(|e| LoxoneError::database(format!("Failed to get device_uuid: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get device_uuid: {e}")))?;
             let parameter_name: String = row.get(1).map_err(|e| {
-                LoxoneError::database(format!("Failed to get parameter_name: {}", e))
+                LoxoneError::database(format!("Failed to get parameter_name: {e}"))
             })?;
             let value: f64 = row
                 .get(2)
-                .map_err(|e| LoxoneError::database(format!("Failed to get value: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get value: {e}")))?;
             let unit: String = row
                 .get(3)
-                .map_err(|e| LoxoneError::database(format!("Failed to get unit: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get unit: {e}")))?;
             let timestamp: i64 = row
                 .get(4)
-                .map_err(|e| LoxoneError::database(format!("Failed to get timestamp: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get timestamp: {e}")))?;
             let quality_score: f64 = row.get(5).map_err(|e| {
-                LoxoneError::database(format!("Failed to get quality_score: {}", e))
+                LoxoneError::database(format!("Failed to get quality_score: {e}"))
             })?;
 
             results.push(WeatherDataPoint {
@@ -438,7 +439,7 @@ impl TursoClient {
         let mut rows = conn
             .prepare(query_sql)
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {}", e)))?
+            .map_err(|e| LoxoneError::database(format!("Failed to prepare query: {e}")))?
             .query((
                 device_uuid,
                 parameter_name,
@@ -446,29 +447,29 @@ impl TursoClient {
                 end_time as i64,
             ))
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to execute query: {}", e)))?;
+            .map_err(|e| LoxoneError::database(format!("Failed to execute query: {e}")))?;
 
         let mut results = Vec::new();
         while let Some(row) = rows
             .next()
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {}", e)))?
+            .map_err(|e| LoxoneError::database(format!("Failed to fetch row: {e}")))?
         {
             let hour_timestamp: i64 = row.get(0).map_err(|e| {
-                LoxoneError::database(format!("Failed to get hour_timestamp: {}", e))
+                LoxoneError::database(format!("Failed to get hour_timestamp: {e}"))
             })?;
             let min_value: f64 = row
                 .get(1)
-                .map_err(|e| LoxoneError::database(format!("Failed to get min_value: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get min_value: {e}")))?;
             let max_value: f64 = row
                 .get(2)
-                .map_err(|e| LoxoneError::database(format!("Failed to get max_value: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get max_value: {e}")))?;
             let avg_value: f64 = row
                 .get(3)
-                .map_err(|e| LoxoneError::database(format!("Failed to get avg_value: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get avg_value: {e}")))?;
             let sample_count: i64 = row
                 .get(4)
-                .map_err(|e| LoxoneError::database(format!("Failed to get sample_count: {}", e)))?;
+                .map_err(|e| LoxoneError::database(format!("Failed to get sample_count: {e}")))?;
 
             results.push(WeatherAggregation {
                 hour_timestamp: hour_timestamp as u32,
@@ -492,7 +493,7 @@ impl TursoClient {
 
         // Create a new connection to trigger sync
         let _sync_conn = self.database.connect().map_err(|e| {
-            LoxoneError::database(format!("Failed to create sync connection: {}", e))
+            LoxoneError::database(format!("Failed to create sync connection: {e}"))
         })?;
 
         info!("Database sync completed");
@@ -510,7 +511,7 @@ impl TursoClient {
         let result = conn
             .execute(delete_sql, libsql::params![cutoff_timestamp as i64])
             .await
-            .map_err(|e| LoxoneError::database(format!("Failed to cleanup old data: {}", e)))?;
+            .map_err(|e| LoxoneError::database(format!("Failed to cleanup old data: {e}")))?;
 
         let rows_affected = result;
         info!("Cleaned up {} old weather data records", rows_affected);
