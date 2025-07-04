@@ -248,8 +248,8 @@ tempfile = { version = "3.8" }
 toml = "0.8.23"
 
 # Turso database support
-libsql = { version = "0.6", optional = true }
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "json"], optional = true }
+libsql = { version = "0.9", optional = true }
+sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "json"], optional = true }
 
 # Additional native dependencies
 # keyring = { version = "2.0", optional = true } # Uses unmaintained dependencies (derivative, instant)

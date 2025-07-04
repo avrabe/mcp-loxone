@@ -1,0 +1,14 @@
+# Cargo audit configuration
+
+[advisories]
+# Ignore vulnerabilities that don't affect our usage
+
+# RSA timing side-channel vulnerability in sqlx-mysql
+# We don't use MySQL functionality, only SQLite
+# No fix is available for this vulnerability
+ignore = ["RUSTSEC-2023-0071"]
+
+# Instant crate is unmaintained but still works
+# This is a transitive dependency through influxdb2
+# Not a security vulnerability, just maintenance status
+# ignore = ["RUSTSEC-2024-0384"]
