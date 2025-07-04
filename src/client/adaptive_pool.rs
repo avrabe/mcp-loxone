@@ -751,7 +751,6 @@ impl AdaptivePoolBuilder {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::client::client_factory::StaticClientFactory;
 
     #[tokio::test]
     async fn test_adaptive_pool_builder() {

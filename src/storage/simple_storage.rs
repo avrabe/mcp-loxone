@@ -142,7 +142,12 @@ impl SimpleWeatherStorage {
             if let Some(cached) = cache.get(&uuid_index) {
                 let age = Utc::now().timestamp() as u64 - cached.cached_at.timestamp() as u64;
                 if age < self.config.cache_ttl_seconds {
-                    debug!("UUID cache hit for index {}", uuid_index);
+                    debug!(
+                        "UUID cache hit for index {}: {} ({:?})",
+                        uuid_index,
+                        cached.device_uuid,
+                        cached.device_name.as_deref().unwrap_or("unknown")
+                    );
                     return Ok(cached.device_uuid.clone());
                 }
             }
@@ -265,6 +270,21 @@ impl SimpleWeatherStorage {
         } else {
             Ok(Vec::new())
         }
+    }
+
+    /// Get cached device information
+    pub async fn get_device_info(
+        &self,
+        uuid_index: u32,
+    ) -> Option<(String, Option<String>, Option<String>)> {
+        let cache = self.uuid_cache.read().await;
+        cache.get(&uuid_index).map(|c| {
+            (
+                c.device_uuid.clone(),
+                c.device_name.clone(),
+                c.device_type.clone(),
+            )
+        })
     }
 
     /// Get weather data for specific parameter

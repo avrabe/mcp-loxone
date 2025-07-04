@@ -234,12 +234,21 @@ pub async fn control_battery_storage(input: Value, ctx: Arc<ToolContext>) -> Res
         }
     }
 
+    // Set mode if specified
+    if let Some(mode) = &request.mode {
+        let mode_command = format!("mode/{}", mode);
+        if let Err(e) = client.send_command(&battery_id, &mode_command).await {
+            warn!("Failed to set battery mode: {}", e);
+        }
+    }
+
     Ok(json!({
         "status": "success",
         "battery_id": battery_id,
         "action": request.action,
         "power_kw": request.power_kw,
         "target_soc": request.target_soc,
+        "mode": request.mode,
         "timestamp": Utc::now()
     }))
 }
@@ -383,15 +392,18 @@ pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Resu
     match request.event_type.as_str() {
         "reduce_load" => {
             let target = request.target_reduction_kw.unwrap_or(5.0);
+            let priority = request.priority_level.unwrap_or(4); // Default to all priorities
 
             // Priority 1: Reduce EV charging
-            if let Ok(_) = client.send_command("ev/all", "reduce_power/50").await {
-                actions_taken.push("Reduced EV charging power by 50%".to_string());
-                reduction_achieved_kw += 5.5; // Assuming 11kW charger reduced to 5.5kW
+            if priority >= 1 {
+                if let Ok(_) = client.send_command("ev/all", "reduce_power/50").await {
+                    actions_taken.push("Reduced EV charging power by 50%".to_string());
+                    reduction_achieved_kw += 5.5; // Assuming 11kW charger reduced to 5.5kW
+                }
             }
 
             // Priority 2: Defer water heating
-            if reduction_achieved_kw < target {
+            if priority >= 2 && reduction_achieved_kw < target {
                 if let Ok(_) = client.send_command("water_heater", "defer").await {
                     actions_taken.push("Deferred water heating".to_string());
                     reduction_achieved_kw += 3.0;
@@ -399,7 +411,10 @@ pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Resu
             }
 
             // Priority 3: Reduce HVAC
-            if reduction_achieved_kw < target && request.exclude_critical != Some(true) {
+            if priority >= 3
+                && reduction_achieved_kw < target
+                && request.exclude_critical != Some(true)
+            {
                 if let Ok(_) = client.send_command("hvac/all", "eco_mode").await {
                     actions_taken.push("Set HVAC to eco mode".to_string());
                     reduction_achieved_kw += 2.0;
@@ -407,7 +422,7 @@ pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Resu
             }
 
             // Priority 4: Dim non-essential lighting
-            if reduction_achieved_kw < target {
+            if priority >= 4 && reduction_achieved_kw < target {
                 if let Ok(_) = client.send_command("lights/non_essential", "dim/50").await {
                     actions_taken.push("Dimmed non-essential lighting by 50%".to_string());
                     reduction_achieved_kw += 0.5;
@@ -460,6 +475,8 @@ pub async fn handle_demand_response(input: Value, ctx: Arc<ToolContext>) -> Resu
         "actions_taken": actions_taken,
         "reduction_achieved_kw": reduction_achieved_kw,
         "duration_minutes": request.duration_minutes,
+        "priority_level": request.priority_level,
+        "exclude_critical": request.exclude_critical,
         "timestamp": Utc::now()
     }))
 }
@@ -573,8 +590,16 @@ pub async fn configure_load_priority(input: Value, ctx: Arc<ToolContext>) -> Res
                 configured.push(json!({
                     "device_id": load.device_id,
                     "priority": load.priority,
+                    "category": load.category.clone(),
                     "status": "configured"
                 }));
+
+                // Set category if provided
+                if let Some(ref category) = load.category {
+                    let _ = client
+                        .send_command(&load.device_id, &format!("category/{}", category))
+                        .await;
+                }
 
                 // Set additional flags
                 if let Some(true) = load.can_defer {
@@ -593,6 +618,7 @@ pub async fn configure_load_priority(input: Value, ctx: Arc<ToolContext>) -> Res
                 configured.push(json!({
                     "device_id": load.device_id,
                     "priority": load.priority,
+                    "category": load.category.clone(),
                     "status": "failed",
                     "error": e.to_string()
                 }));

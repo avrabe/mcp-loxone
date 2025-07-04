@@ -1231,7 +1231,6 @@ pub trait ResourceHandler {
 
 /// Implementation of ResourceHandler for ResourceManager  
 // Temporarily disabled - resource handlers need to be reimplemented
-
 #[cfg(test)]
 mod tests {
     use super::*;

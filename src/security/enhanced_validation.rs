@@ -195,6 +195,7 @@ pub struct DetectedAnomaly {
 pub enum AnomalyType {
     UnusualStructure,
     UnexpectedValue,
+    UnusualValue,
     TimingAnomaly,
     FrequencyAnomaly,
     SequenceAnomaly,
@@ -625,15 +626,32 @@ impl EnhancedValidator {
             }
         }
 
+        // Check for burst patterns
+        if !limiter.requests.is_empty() {
+            let recent_burst_threshold = Duration::from_secs(1);
+            let recent_requests = limiter
+                .requests
+                .iter()
+                .filter(|t| now.duration_since(**t).unwrap_or_default() < recent_burst_threshold)
+                .count();
+
+            if recent_requests > 5 {
+                limiter.burst_count = limiter.burst_count.saturating_add(1);
+            } else if recent_requests == 0 {
+                limiter.burst_count = limiter.burst_count.saturating_sub(1);
+            }
+        }
+
         // Check rate limit
         if limiter.requests.len() >= limiter.config.max_requests as usize {
             SecurityValidation {
                 validation_type: ValidationType::RateLimit,
                 passed: false,
                 details: format!(
-                    "Rate limit exceeded: {} requests in {:?}",
+                    "Rate limit exceeded: {} requests in {:?} (burst count: {})",
                     limiter.requests.len(),
-                    limiter.config.window_duration
+                    limiter.config.window_duration,
+                    limiter.burst_count
                 ),
                 severity: ValidationSeverity::Warning,
             }
@@ -644,11 +662,16 @@ impl EnhancedValidator {
                 validation_type: ValidationType::RateLimit,
                 passed: true,
                 details: format!(
-                    "Rate limit OK: {}/{} requests",
+                    "Rate limit OK: {}/{} requests (burst count: {})",
                     limiter.requests.len(),
-                    limiter.config.max_requests
+                    limiter.config.max_requests,
+                    limiter.burst_count
                 ),
-                severity: ValidationSeverity::Info,
+                severity: if limiter.burst_count > 3 {
+                    ValidationSeverity::Warning
+                } else {
+                    ValidationSeverity::Info
+                },
             }
         }
     }
@@ -766,6 +789,29 @@ impl EnhancedValidator {
                 deviation_score: 80.0,
             });
             anomaly_score += 80.0;
+        } else if !pattern_match.is_empty() {
+            // Check value characteristics against historical patterns
+            for hist_pattern in pattern_match {
+                for (field, char) in &pattern.value_characteristics {
+                    if let Some(hist_char) = hist_pattern.value_characteristics.get(field) {
+                        // Check if value lengths are significantly different
+                        if char.data_type == "string" {
+                            let (min_len, max_len) = char.length_range;
+                            let (hist_min, hist_max) = hist_char.length_range;
+                            if min_len > hist_max * 2 || max_len < hist_min / 2 {
+                                anomalies.push(DetectedAnomaly {
+                                    anomaly_type: AnomalyType::UnusualValue,
+                                    location: field.clone(),
+                                    description: format!("Value length {} significantly different from historical range {}-{}", 
+                                        min_len, hist_min, hist_max),
+                                    deviation_score: 40.0,
+                                });
+                                anomaly_score += 40.0;
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Check timing anomalies
@@ -915,14 +961,27 @@ impl EnhancedValidator {
         pattern: &RequestPattern,
         patterns: &'a VecDeque<RequestPattern>,
     ) -> Vec<&'a RequestPattern> {
+        let now = SystemTime::now();
         patterns
             .iter()
             .filter(|p| {
-                // Simple similarity check - in production use more sophisticated algorithms
-                p.field_structure.len() == pattern.field_structure.len()
+                // Check if pattern is recent (within 24 hours)
+                let age_ok = now
+                    .duration_since(p.timestamp)
+                    .map(|d| d.as_secs() < 86400)
+                    .unwrap_or(false);
+
+                // Check pattern hash for exact matches
+                let hash_match = p.pattern_hash == pattern.pattern_hash;
+
+                // Check structure similarity
+                let structure_match = p.field_structure.len() == pattern.field_structure.len()
                     && p.field_structure
                         .keys()
-                        .all(|k| pattern.field_structure.contains_key(k))
+                        .all(|k| pattern.field_structure.contains_key(k));
+
+                // Pattern matches if hash matches OR structure matches (and is recent)
+                age_ok && (hash_match || structure_match)
             })
             .collect()
     }

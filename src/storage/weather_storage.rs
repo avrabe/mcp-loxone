@@ -141,7 +141,13 @@ impl WeatherStorage {
             if let Some(cached) = cache.get(&uuid_index) {
                 let age = Utc::now().timestamp() as u64 - cached.cached_at.timestamp() as u64;
                 if age < self.config.cache_ttl_seconds {
-                    debug!("UUID cache hit for index {}", uuid_index);
+                    debug!(
+                        "UUID cache hit for index {}: {} ({:?} - {:?})",
+                        uuid_index,
+                        cached.device_uuid,
+                        cached.device_name.as_deref().unwrap_or("unknown"),
+                        cached.device_type.as_deref().unwrap_or("unknown")
+                    );
                     return Ok(cached.device_uuid.clone());
                 }
             }

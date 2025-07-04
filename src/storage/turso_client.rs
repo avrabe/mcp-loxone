@@ -490,8 +490,10 @@ impl TursoClient {
 
         debug!("Syncing database with remote");
 
-        // libsql automatically handles sync when configured
-        // This method can be used to trigger manual sync if needed
+        // Create a new connection to trigger sync
+        let _sync_conn = self.database.connect().map_err(|e| {
+            LoxoneError::database(format!("Failed to create sync connection: {}", e))
+        })?;
 
         info!("Database sync completed");
         Ok(())
