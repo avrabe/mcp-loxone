@@ -4,10 +4,14 @@
 //! room management, sensor monitoring, and system capabilities.
 
 pub mod audio;
+pub mod batch;
+pub mod camera;
 pub mod climate;
 pub mod devices;
+pub mod discovery;
 pub mod documentation;
 pub mod energy;
+pub mod intercom;
 pub mod lighting;
 pub mod rolladen;
 pub mod rooms;
@@ -16,7 +20,6 @@ pub mod sensors;
 pub mod sensors_unified;
 pub mod value_helpers;
 pub mod weather;
-pub mod workflows;
 
 use crate::client::{ClientContext, LoxoneClient};
 use crate::error::{LoxoneError, Result};
