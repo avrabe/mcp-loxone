@@ -34,6 +34,10 @@ dirs = "5.0"
 sha2 = "0.10"
 base64 = "0.22"
 rand = "0.8"
+aes = "0.8"
+cbc = "0.1"
+pbkdf2 = "0.12"
+hex = "0.4"
 
 # Keyring
 keyring = { version = "3.5" }
@@ -243,13 +247,17 @@ lz4 = "1.24"
 tempfile = { version = "3.8" }
 toml = "0.8.23"
 
+# Turso database support
+libsql = { version = "0.6", optional = true }
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "json"], optional = true }
+
 # Additional native dependencies
 # keyring = { version = "2.0", optional = true } # Uses unmaintained dependencies (derivative, instant)
 socket2 = { version = "0.5", optional = true }
 dirs = "5.0"  # For default storage directory
 
 [features]
-default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration"]
+default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration", "turso"]
 
 # Framework features (now default)
 framework-migration = [
@@ -274,6 +282,7 @@ discovery = ["socket2", "mdns-sd"] # Network discovery with modern mDNS implemen
 mdns = ["mdns-sd"] # Feature gate for mDNS functionality (restored with mdns-sd crate)
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
+turso = ["libsql", "sqlx"]  # Turso database support for weather data storage
 wasm = []  # Feature flag for WASM compilation
 test-utils = []  # Enables mock utilities for integration tests
 
