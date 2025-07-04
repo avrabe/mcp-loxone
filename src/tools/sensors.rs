@@ -524,6 +524,15 @@ pub enum SensorType {
     /// Noise/chatty sensor (frequent updates)
     Noisy,
 
+    /// Humidity sensor
+    Humidity,
+
+    /// Air quality sensor (CO2, VOC, etc.)
+    AirQuality,
+
+    /// Energy meter sensor
+    Energy,
+
     /// Unknown/unclassified
     Unknown,
 }
@@ -750,6 +759,9 @@ pub async fn list_discovered_sensors(
                 SensorType::Temperature => filter_type == "temperature",
                 SensorType::Light => filter_type == "light",
                 SensorType::Noisy => filter_type == "noisy",
+                SensorType::Humidity => filter_type == "humidity",
+                SensorType::AirQuality => filter_type == "air_quality",
+                SensorType::Energy => filter_type == "energy",
                 SensorType::Unknown => filter_type == "unknown",
             };
             if !type_match {

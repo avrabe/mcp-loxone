@@ -6,6 +6,7 @@
 pub mod admin_api;
 pub mod admin_keys_ui;
 pub mod cache_api;
+pub mod cors_middleware;
 pub mod dashboard_api;
 pub mod dashboard_data_unified;
 pub mod dashboard_performance;
@@ -16,10 +17,11 @@ pub mod state_api;
 
 use crate::auth::AuthenticationManager;
 use crate::error::{LoxoneError, Result};
+use crate::http_transport::cors_middleware::AxumCorsMiddleware;
 use crate::performance::{
     middleware::PerformanceMiddleware, PerformanceConfig, PerformanceMonitor,
 };
-use crate::security::{middleware::SecurityMiddleware, SecurityConfig};
+use crate::security::{enhanced_cors::EnhancedCorsConfig, middleware::SecurityMiddleware, SecurityConfig};
 use crate::server::LoxoneMcpServer;
 // Legacy support removed - framework is now default
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
@@ -213,6 +215,8 @@ pub struct HttpServerConfig {
     pub security_config: Option<SecurityConfig>,
     /// Performance monitoring configuration
     pub performance_config: Option<PerformanceConfig>,
+    /// CORS configuration
+    pub cors_config: Option<EnhancedCorsConfig>,
     /// Development mode flag (bypasses auth)
     pub dev_mode: bool,
     /// InfluxDB configuration (optional)
@@ -243,10 +247,20 @@ impl Default for HttpServerConfig {
             Some(PerformanceConfig::development())
         };
 
+        // Determine CORS config based on environment
+        let cors_config = if std::env::var("DISABLE_CORS").is_ok() {
+            None
+        } else if dev_mode {
+            Some(EnhancedCorsConfig::development())
+        } else {
+            Some(EnhancedCorsConfig::production())
+        };
+
         Self {
             port: 3001,
             security_config,
             performance_config,
+            cors_config,
             dev_mode,
             #[cfg(feature = "influxdb")]
             influx_config: None,
@@ -266,6 +280,8 @@ pub struct HttpTransportServer {
     security_middleware: Option<Arc<SecurityMiddleware>>,
     /// Performance middleware
     performance_middleware: Option<Arc<PerformanceMiddleware>>,
+    /// CORS middleware
+    cors_middleware: Option<Arc<AxumCorsMiddleware>>,
     /// Metrics collector
     #[cfg(feature = "influxdb")]
     metrics_collector: Arc<MetricsCollector>,
@@ -333,12 +349,30 @@ impl HttpTransportServer {
             None
         };
 
+        // Initialize CORS middleware if configured
+        let cors_middleware = if let Some(cors_config) = config.cors_config {
+            match AxumCorsMiddleware::new(cors_config) {
+                Ok(middleware) => {
+                    info!("🌐 Enhanced CORS middleware enabled");
+                    Some(Arc::new(middleware))
+                }
+                Err(e) => {
+                    warn!("Failed to initialize CORS middleware: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("⚠️ CORS middleware disabled");
+            None
+        };
+
         Ok(Self {
             mcp_server,
             auth_manager,
             rate_limiter: EnhancedRateLimiter::with_defaults(),
             security_middleware,
             performance_middleware,
+            cors_middleware,
             #[cfg(feature = "influxdb")]
             metrics_collector,
             #[cfg(feature = "influxdb")]
@@ -634,6 +668,16 @@ impl HttpTransportServer {
                     performance_middleware.clone(),
                     crate::performance::middleware::performance_middleware_handler,
                 ))
+        } else {
+            app
+        };
+
+        // Add CORS middleware if enabled (should be one of the first middleware layers)
+        let app = if let Some(cors_middleware) = &self.cors_middleware {
+            app.layer(axum::middleware::from_fn_with_state(
+                cors_middleware.clone(),
+                cors_middleware::cors_middleware,
+            ))
         } else {
             app
         };

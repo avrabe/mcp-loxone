@@ -290,7 +290,65 @@ make check
 - Update inline rustdoc for API changes
 - Test examples in documentation
 
-## 📚 Additional Resources
+## 📚 Official Loxone Documentation References
+
+### Core Protocol Documentation
+- **Communication Protocol**: [CommunicatingWithMiniserver.pdf](https://www.loxone.com/wp-content/uploads/datasheets/CommunicatingWithMiniserver.pdf)
+  - Authentication methods (HTTP Basic Auth, Token Auth, WebSocket encryption)
+  - Binary WebSocket protocol specification
+  - HTTP API endpoints and commands
+  - Connection establishment and session management
+
+- **Structure File Format**: [StructureFile.pdf](https://www.loxone.com/wp-content/uploads/datasheets/StructureFile.pdf)
+  - JSON schema for Loxone structure files
+  - Device types, categories, and control blocks
+  - Room organization and UUID hierarchies
+  - State management and value types
+
+- **API Commands Reference**: [API-Commands.pdf](https://www.loxone.com/wp-content/uploads/datasheets/API-Commands.pdf)
+  - Complete command reference for device control
+  - Parameter syntax and response formats
+  - Error codes and status messages
+  - Rate limiting and usage guidelines
+
+- **Network Configuration**: [Loxone_PortsDomains.pdf](https://www.loxone.com/wp-content/uploads/datasheets/Loxone_PortsDomains.pdf)
+  - Required network ports and firewall settings
+  - Cloud service endpoints and domains
+  - Security protocols and certificate management
+  - Remote access configuration
+
+- **PMS Access API**: [pms-access-api.zip](https://www.loxone.com/dede/wp-content/uploads/sites/2/2025/04/pms-access-api.zip)
+  - Property Management System integration
+  - Extended API for commercial applications
+  - Advanced device control and monitoring
+
+### Implementation Status vs Official Documentation
+
+#### ✅ **Fully Implemented** (95%+ Coverage)
+- **HTTP Basic Authentication** - Complete with credential management
+- **WebSocket Connection** - Binary protocol with token refresh
+- **Structure File Parsing** - JSON parsing with device categorization
+- **Device Control Commands** - Lights, blinds, climate, audio controls
+- **Real-time State Updates** - WebSocket event filtering with regex
+- **Room Organization** - Device grouping and room-based operations
+- **Binary Message Parsing** - All message types (0x00000000-0x07000000)
+
+#### 🔄 **Partially Implemented** (60-90% Coverage)
+- **Token Authentication** - JWT implemented but needs encryption key handling
+- **Advanced Device Types** - Intercom, cameras added; missing some specialty devices
+- **Batch Operations** - Framework complete but needs optimization
+- **Weather Integration** - External APIs added; missing Loxone weather station protocol
+- **Security Features** - Input validation present; missing full CORS implementation
+
+#### ❌ **Missing/Needs Implementation** (0-40% Coverage)
+- **Encrypted WebSocket Communication** - AES encryption for sensitive data
+- **Advanced Binary Protocols** - Some specialized message formats
+- **PMS Integration** - Commercial property management features
+- **Full Cloud API** - Remote access through Loxone Cloud
+- **Device Discovery Protocol** - Automatic Miniserver detection
+- **Advanced Error Recovery** - Connection resilience and failover
+
+### Additional Resources
 
 - **API Documentation**: `cargo doc --open`
 - **Architecture Guide**: `docs/ARCHITECTURE.md`

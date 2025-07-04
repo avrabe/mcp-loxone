@@ -7,7 +7,6 @@ use std::time::Duration;
 use url::Url;
 
 #[tokio::test]
-#[ignore] // TODO: Fix token auth test - currently fails due to forced basic auth in main.rs
 async fn test_token_auth_selection() {
     let config = LoxoneConfig {
         url: Url::parse("http://192.168.1.100").unwrap(),
