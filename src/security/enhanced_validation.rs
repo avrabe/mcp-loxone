@@ -406,7 +406,7 @@ impl EnhancedValidator {
         // Template injection patterns
         pattern_matchers.insert(
             "template_injection".to_string(),
-            Regex::new(r"(?i)(\{\{|\}\}|<%|%>|\${|})")?,
+            Regex::new(r"(?i)(\{\{|\}\}|<%|%>|\$\{)")?,
         );
 
         Ok(Self {
@@ -1208,7 +1208,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_nonce_validation() {
-        let config = EnhancedValidationConfig::default();
+        let config = EnhancedValidationConfig::development();
         let validator = EnhancedValidator::new(config).await.unwrap();
 
         let data = json!({"test": "data"});
@@ -1238,7 +1238,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_rate_limiting() {
-        let mut config = EnhancedValidationConfig::default();
+        let mut config = EnhancedValidationConfig::development();
         config.input_rate_limits.insert(
             "test".to_string(),
             RateLimitConfig {
