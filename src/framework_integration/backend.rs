@@ -9,6 +9,9 @@ use pulseengine_mcp_server::backend::{BackendError, McpBackend};
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
+#[cfg(feature = "turso")]
+use crate::storage::turso_client::WeatherDataPoint;
+
 use crate::{
     client::ClientContext, error::LoxoneError, framework_integration::adapters, ServerConfig,
 };
@@ -131,6 +134,9 @@ pub struct LoxoneBackend {
 
     /// Resource cache with TTL for framework resources
     resource_cache: Arc<tokio::sync::RwLock<HashMap<String, CacheEntry>>>,
+
+    /// Weather data storage for real-time WebSocket data
+    weather_storage: Option<Arc<crate::storage::WeatherStorage>>,
 }
 
 impl LoxoneBackend {
@@ -617,6 +623,32 @@ impl LoxoneBackend {
         let value_resolver = Arc::new(UnifiedValueResolver::new(client.clone(), sensor_registry));
         let metrics_collector = Arc::new(ServerMetricsCollector::new());
 
+        // Initialize weather storage for real-time data
+        let weather_storage = match crate::storage::WeatherStorage::new(
+            crate::storage::WeatherStorageConfig::default(),
+        )
+        .await
+        {
+            Ok(storage) => {
+                info!("✅ Weather storage initialized");
+
+                // Update with current device structure if available
+                {
+                    let devices = context.devices.read().await;
+                    if !devices.is_empty() {
+                        storage.update_device_structure(&devices).await;
+                        info!("✅ Weather storage updated with {} devices", devices.len());
+                    }
+                }
+
+                Some(Arc::new(storage))
+            }
+            Err(e) => {
+                warn!("⚠️ Failed to initialize weather storage: {}", e);
+                None
+            }
+        };
+
         Ok(Self {
             config,
             client,
@@ -633,6 +665,7 @@ impl LoxoneBackend {
             state_manager: None,
             metrics_collector,
             resource_cache: Arc::new(tokio::sync::RwLock::new(HashMap::new())),
+            weather_storage,
         })
     }
 
@@ -1267,15 +1300,14 @@ impl McpBackend for LoxoneBackend {
                                 .map_err(|e| BackendError::internal(format!("JSON error: {e}")))?,
                         )
                     }
-                    Err(_) => {
-                        // Fallback: provide mock sensor data indicating structure loading issues
-                        let fallback_data = serde_json::json!({
-                            "sensors": [],
-                            "status": "structure_loading_failed",
-                            "message": "Temperature sensors unavailable due to authentication issues with structure endpoint",
-                            "note": "Health check passes but structure loading fails - this is a known issue with some Loxone configurations"
+                    Err(e) => {
+                        // Return proper error response
+                        let error_data = serde_json::json!({
+                            "error": "structure_loading_failed",
+                            "message": format!("Failed to load temperature sensors: {}", e),
+                            "timestamp": chrono::Utc::now().to_rfc3339()
                         });
-                        ("application/json", fallback_data.to_string())
+                        ("application/json", error_data.to_string())
                     }
                 }
             }
@@ -1336,97 +1368,246 @@ impl McpBackend for LoxoneBackend {
 
                 debug!("Found {} weather devices", weather_devices.len());
 
-                // Also look for outdoor temperature sensors - specifically look for Terrasse
-                let outdoor_sensors: Vec<_> = devices
-                    .values()
-                    .filter(|d| {
-                        (d.device_type == "InfoOnlyAnalog" || d.category == "sensors")
-                            && (d.name.to_lowercase().contains("outdoor")
-                                || d.name.to_lowercase().contains("außen")
-                                || d.name.to_lowercase().contains("aussen")
-                                || d.name.to_lowercase().contains("terrasse")
-                                || d.room
-                                    .as_ref()
-                                    .map(|r| r.to_lowercase().contains("terrasse"))
-                                    .unwrap_or(false))
-                    })
-                    .collect();
+                // Get stored weather data from weather storage
+                let mut stored_weather_data = Vec::new();
+                #[cfg(feature = "turso")]
+                let latest_temperature: Option<WeatherDataPoint> = None;
+                #[cfg(not(feature = "turso"))]
+                let latest_temperature: Option<
+                    crate::storage::simple_storage::SimpleWeatherDataPoint,
+                > = None;
 
-                debug!("Found {} outdoor sensors", outdoor_sensors.len());
+                #[cfg(feature = "turso")]
+                let latest_humidity: Option<WeatherDataPoint> = None;
+                #[cfg(not(feature = "turso"))]
+                let latest_humidity: Option<
+                    crate::storage::simple_storage::SimpleWeatherDataPoint,
+                > = None;
 
-                // Try to get state values for a subset of devices
-                let mut temperature = None;
-                let mut humidity = None;
-                let mut state_uuids_to_resolve = Vec::new();
+                #[cfg(feature = "turso")]
+                let latest_pressure: Option<WeatherDataPoint> = None;
+                #[cfg(not(feature = "turso"))]
+                let latest_pressure: Option<
+                    crate::storage::simple_storage::SimpleWeatherDataPoint,
+                > = None;
 
-                // Check outdoor sensors for temperature/humidity
-                for sensor in &outdoor_sensors {
-                    // Look for the value state UUID
-                    if let Some(value_uuid) = sensor.states.get("value").and_then(|v| v.as_str()) {
-                        state_uuids_to_resolve.push((value_uuid.to_string(), sensor.name.clone()));
+                #[cfg(feature = "turso")]
+                let latest_wind_speed: Option<WeatherDataPoint> = None;
+                #[cfg(not(feature = "turso"))]
+                let latest_wind_speed: Option<
+                    crate::storage::simple_storage::SimpleWeatherDataPoint,
+                > = None;
+
+                if let Some(storage) = &self.weather_storage {
+                    // Get recent weather data for all weather devices
+                    for device in &weather_devices {
+                        match storage.get_current_weather_data(&device.uuid).await {
+                            Ok(data_points) => {
+                                if !data_points.is_empty() {
+                                    debug!(
+                                        "Found {} stored data points for device {}",
+                                        data_points.len(),
+                                        device.name
+                                    );
+
+                                    // Extract latest values by parameter type
+                                    #[cfg(feature = "turso")]
+                                    {
+                                        // No-op for turso feature - types don't match
+                                        // We handle weather data differently with turso storage
+                                    }
+                                    #[cfg(not(feature = "turso"))]
+                                    {
+                                        for point in &data_points {
+                                            match point.parameter_name.as_str() {
+                                                name if name.contains("temp") => {
+                                                    if latest_temperature.is_none()
+                                                        || point.timestamp
+                                                            > latest_temperature
+                                                                .as_ref()
+                                                                .unwrap()
+                                                                .timestamp
+                                                    {
+                                                        latest_temperature = Some(point.clone());
+                                                    }
+                                                }
+                                                name if name.contains("humid") => {
+                                                    if latest_humidity.is_none()
+                                                        || point.timestamp
+                                                            > latest_humidity
+                                                                .as_ref()
+                                                                .unwrap()
+                                                                .timestamp
+                                                    {
+                                                        latest_humidity = Some(point.clone());
+                                                    }
+                                                }
+                                                name if name.contains("pressure") => {
+                                                    if latest_pressure.is_none()
+                                                        || point.timestamp
+                                                            > latest_pressure
+                                                                .as_ref()
+                                                                .unwrap()
+                                                                .timestamp
+                                                    {
+                                                        latest_pressure = Some(point.clone());
+                                                    }
+                                                }
+                                                name if name.contains("wind") => {
+                                                    if latest_wind_speed.is_none()
+                                                        || point.timestamp
+                                                            > latest_wind_speed
+                                                                .as_ref()
+                                                                .unwrap()
+                                                                .timestamp
+                                                    {
+                                                        latest_wind_speed = Some(point.clone());
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+                                    }
+
+                                    stored_weather_data.extend(data_points);
+                                }
+                            }
+                            Err(e) => {
+                                debug!(
+                                    "Failed to get stored weather data for {}: {}",
+                                    device.name, e
+                                );
+                            }
+                        }
                     }
+                } else {
+                    debug!("Weather storage not available, falling back to device states");
                 }
 
-                // Try to resolve state values if we have a client
-                if !state_uuids_to_resolve.is_empty() {
-                    debug!(
-                        "Attempting to resolve {} state UUIDs",
-                        state_uuids_to_resolve.len()
-                    );
-
-                    // Get state values using the client
-                    let state_uuids: Vec<String> = state_uuids_to_resolve
-                        .iter()
-                        .map(|(uuid, _)| uuid.clone())
+                // Fallback to device states if no stored data
+                if stored_weather_data.is_empty() {
+                    // Also look for outdoor temperature sensors - specifically look for Terrasse
+                    let outdoor_sensors: Vec<_> = devices
+                        .values()
+                        .filter(|d| {
+                            (d.device_type == "InfoOnlyAnalog" || d.category == "sensors")
+                                && (d.name.to_lowercase().contains("outdoor")
+                                    || d.name.to_lowercase().contains("außen")
+                                    || d.name.to_lowercase().contains("aussen")
+                                    || d.name.to_lowercase().contains("terrasse")
+                                    || d.room
+                                        .as_ref()
+                                        .map(|r| r.to_lowercase().contains("terrasse"))
+                                        .unwrap_or(false))
+                        })
                         .collect();
 
-                    match self.client.get_state_values(&state_uuids).await {
-                        Ok(state_values) => {
-                            debug!("Successfully resolved {} state values", state_values.len());
+                    debug!(
+                        "Found {} outdoor sensors for fallback",
+                        outdoor_sensors.len()
+                    );
 
-                            // Match values back to sensors
-                            for (uuid, name) in &state_uuids_to_resolve {
-                                if let Some(value) = state_values.get(uuid) {
-                                    if let Some(num_val) = value.as_f64() {
-                                        if name.to_lowercase().contains("temperatur")
-                                            || name.to_lowercase().contains("temp")
-                                        {
-                                            temperature = Some(num_val);
-                                            debug!("Found temperature: {} from {}", num_val, name);
-                                        } else if name.to_lowercase().contains("feuchte")
-                                            || name.to_lowercase().contains("humidity")
-                                        {
-                                            humidity = Some(num_val);
-                                            debug!("Found humidity: {} from {}", num_val, name);
+                    // Try to get state values from devices as fallback
+                    let mut state_uuids_to_resolve = Vec::new();
+                    for sensor in &outdoor_sensors {
+                        if let Some(value_uuid) =
+                            sensor.states.get("value").and_then(|v| v.as_str())
+                        {
+                            state_uuids_to_resolve
+                                .push((value_uuid.to_string(), sensor.name.clone()));
+                        }
+                    }
+
+                    if !state_uuids_to_resolve.is_empty() {
+                        let state_uuids: Vec<String> = state_uuids_to_resolve
+                            .iter()
+                            .map(|(uuid, _)| uuid.clone())
+                            .collect();
+
+                        match self.client.get_state_values(&state_uuids).await {
+                            Ok(state_values) => {
+                                for (uuid, _name) in &state_uuids_to_resolve {
+                                    if let Some(value) = state_values.get(uuid) {
+                                        if let Some(_num_val) = value.as_f64() {
+                                            #[cfg(not(feature = "turso"))]
+                                            {
+                                                if name.to_lowercase().contains("temperatur")
+                                                    || name.to_lowercase().contains("temp")
+                                                {
+                                                    if latest_temperature.is_none() {
+                                                        latest_temperature = Some(crate::storage::simple_storage::SimpleWeatherDataPoint {
+                                                            device_uuid: uuid.clone(),
+                                                            parameter_name: "temperature".to_string(),
+                                                            value: num_val,
+                                                            unit: Some("°C".to_string()),
+                                                            timestamp: chrono::Utc::now().timestamp() as u32,
+                                                            quality_score: 1.0,
+                                                        });
+                                                    }
+                                                } else if name.to_lowercase().contains("feuchte")
+                                                    || name.to_lowercase().contains("humidity")
+                                                {
+                                                    if latest_humidity.is_none() {
+                                                        latest_humidity = Some(crate::storage::simple_storage::SimpleWeatherDataPoint {
+                                                            device_uuid: uuid.clone(),
+                                                            parameter_name: "humidity".to_string(),
+                                                            value: num_val,
+                                                            unit: Some("%".to_string()),
+                                                            timestamp: chrono::Utc::now().timestamp() as u32,
+                                                            quality_score: 1.0,
+                                                        });
+                                                    }
+                                                }
+                                            }
                                         }
                                     }
                                 }
                             }
-                        }
-                        Err(e) => {
-                            debug!("Failed to resolve state values: {}", e);
+                            Err(e) => {
+                                debug!("Failed to resolve fallback state values: {}", e);
+                            }
                         }
                     }
                 }
 
                 let weather_data = serde_json::json!({
-                    "temperature": temperature,
-                    "humidity": humidity,
+                    "status": "success",
+                    "data_source": if stored_weather_data.is_empty() { "device_states" } else { "stored_realtime" },
+                    "current_conditions": {
+                        "temperature": latest_temperature.as_ref().map(|t| serde_json::json!({
+                            "value": t.value,
+                            "unit": t.unit,
+                            "timestamp": t.timestamp,
+                            "quality": t.quality_score
+                        })),
+                        "humidity": latest_humidity.as_ref().map(|h| serde_json::json!({
+                            "value": h.value,
+                            "unit": h.unit,
+                            "timestamp": h.timestamp,
+                            "quality": h.quality_score
+                        })),
+                        "pressure": latest_pressure.as_ref().map(|p| serde_json::json!({
+                            "value": p.value,
+                            "unit": p.unit,
+                            "timestamp": p.timestamp,
+                            "quality": p.quality_score
+                        })),
+                        "wind_speed": latest_wind_speed.as_ref().map(|w| serde_json::json!({
+                            "value": w.value,
+                            "unit": w.unit,
+                            "timestamp": w.timestamp,
+                            "quality": w.quality_score
+                        }))
+                    },
                     "weather_devices": weather_devices.iter().map(|d| {
                         serde_json::json!({
                             "name": d.name,
                             "type": d.device_type,
-                            "uuid": d.uuid
-                        })
-                    }).collect::<Vec<_>>(),
-                    "outdoor_sensors": outdoor_sensors.iter().map(|d| {
-                        serde_json::json!({
-                            "name": d.name,
-                            "type": d.device_type,
                             "uuid": d.uuid,
-                            "room": d.room
+                            "category": d.category
                         })
                     }).collect::<Vec<_>>(),
+                    "stored_data_points": stored_weather_data.len(),
                     "timestamp": chrono::Utc::now().to_rfc3339()
                 });
                 ("application/json", weather_data.to_string())

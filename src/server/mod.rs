@@ -15,10 +15,9 @@ pub mod response_cache;
 // pub mod response_optimization; // Disabled for legacy cleanup
 // pub mod rmcp_impl;
 pub mod schema_validation;
-pub mod workflow_engine;
 
-// Legacy MCP Resources disabled during framework migration
-// pub mod resources;
+// Legacy MCP Resources enabled for weather storage integration
+pub mod resources;
 
 /// Real-time resource subscription system for MCP
 pub mod subscription;

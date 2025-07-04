@@ -12,10 +12,21 @@ use std::sync::Arc;
 pub async fn get_rooms_json(State(context): State<Arc<ClientContext>>) -> Json<Value> {
     let rooms = context.rooms.read().await;
     let devices = context.devices.read().await;
-    // TODO: Fix when sensor_readings is available in ClientContext
-    // let sensor_readings = context.sensor_readings.read().await;
-    let sensor_readings: std::collections::HashMap<String, serde_json::Value> =
+    // Get sensor data from devices that have sensor capabilities
+    let mut sensor_readings: std::collections::HashMap<String, serde_json::Value> =
         std::collections::HashMap::new();
+    
+    // Extract sensor data from device states
+    for device in devices.values() {
+        if device.device_type.contains("Sensor") || device.device_type.contains("Weather") {
+            sensor_readings.insert(device.uuid.clone(), serde_json::json!({
+                "name": device.name,
+                "type": device.device_type,
+                "room": device.room,
+                "states": device.states
+            }));
+        }
+    }
 
     let mut room_data = Vec::new();
 
@@ -29,24 +40,32 @@ pub async fn get_rooms_json(State(context): State<Arc<ClientContext>>) -> Json<V
         // Get sensor data for this room
         let room_sensors: Vec<_> = sensor_readings
             .iter()
-            .filter(|(_, _reading)| {
-                // TODO: Fix when sensor structure is available
-                false // reading.location.as_ref() == Some(&room.name) || reading.name.contains(&room.name)
+            .filter(|(_, reading)| {
+                reading
+                    .get("room")
+                    .and_then(|r| r.as_str())
+                    .map(|room_name| room_name == room.name)
+                    .unwrap_or(false)
             })
             .collect();
 
         // Extract temperature and humidity if available
-        let current_temp: Option<f64> = None;
-        let current_humidity: Option<f64> = None;
+        let mut current_temp: Option<f64> = None;
+        let mut current_humidity: Option<f64> = None;
 
-        // TODO: Fix when sensor readings are available
-        // for (_, sensor) in &room_sensors {
-        //     if sensor.sensor_type == crate::tools::sensors::SensorType::Temperature {
-        //         current_temp = Some(sensor.value);
-        //     } else if sensor.sensor_type == crate::tools::sensors::SensorType::Humidity {
-        //         current_humidity = Some(sensor.value);
-        //     }
-        // }
+        // Extract sensor values from room devices
+        for device in &room_devices {
+            if device.device_type.contains("Temperature") || device.device_type.contains("Weather") {
+                if let Some(temp_value) = device.states.get("value").and_then(|v| v.as_f64()) {
+                    current_temp = Some(temp_value);
+                }
+            }
+            if device.device_type.contains("Humidity") || device.device_type.contains("Weather") {
+                if let Some(humidity_value) = device.states.get("humidity").and_then(|v| v.as_f64()) {
+                    current_humidity = Some(humidity_value);
+                }
+            }
+        }
 
         // Count active devices (simplified - consider "on" state)
         let active_count = room_devices
@@ -104,24 +123,53 @@ pub async fn get_devices_json(State(context): State<Arc<ClientContext>>) -> Json
 }
 
 /// Get current sensor readings
-pub async fn get_sensors_json(State(_context): State<Arc<ClientContext>>) -> Json<Value> {
-    // TODO: Fix when sensor_readings is available in ClientContext
-    // let sensor_readings = context.sensor_readings.read().await;
-    let sensor_readings: std::collections::HashMap<String, serde_json::Value> =
-        std::collections::HashMap::new();
-
-    let sensor_data: Vec<_> = sensor_readings
-        .keys()
-        .map(|uuid| {
+pub async fn get_sensors_json(State(context): State<Arc<ClientContext>>) -> Json<Value> {
+    let devices = context.devices.read().await;
+    
+    // Filter devices to get sensor-related ones
+    let sensor_data: Vec<_> = devices
+        .values()
+        .filter(|device| {
+            device.device_type.contains("Sensor") || 
+            device.device_type.contains("Weather") ||
+            device.device_type.contains("Temperature") ||
+            device.device_type.contains("Humidity") ||
+            device.device_type.contains("Motion") ||
+            device.device_type.contains("Light")
+        })
+        .map(|device| {
+            // Extract primary value from device states
+            let value = device.states.get("value")
+                .and_then(|v| v.as_f64())
+                .unwrap_or(0.0);
+            
+            // Determine unit based on device type
+            let unit = if device.device_type.contains("Temperature") {
+                "°C"
+            } else if device.device_type.contains("Humidity") {
+                "%"
+            } else if device.device_type.contains("Light") {
+                "lux"
+            } else {
+                "unknown"
+            };
+            
+            // Determine status based on connection state
+            let status = if device.states.contains_key("active") {
+                "online"
+            } else {
+                "unknown"
+            };
+            
             json!({
-                "uuid": uuid,
-                "name": "Unknown", // reading.name,
-                "type": "unknown", // reading.sensor_type,
-                "value": 0.0, // reading.value,
-                "unit": "unknown", // reading.unit,
-                "location": "unknown", // reading.location,
-                "timestamp": chrono::Utc::now(), // reading.timestamp,
-                "status": "unknown", // reading.status,
+                "uuid": device.uuid,
+                "name": device.name,
+                "type": device.device_type,
+                "value": value,
+                "unit": unit,
+                "location": device.room,
+                "timestamp": chrono::Utc::now(),
+                "status": status,
             })
         })
         .collect();
@@ -139,11 +187,26 @@ pub async fn get_sensors_json(State(_context): State<Arc<ClientContext>>) -> Jso
 pub async fn get_dashboard_json(State(context): State<Arc<ClientContext>>) -> Json<Value> {
     let rooms = context.rooms.read().await;
     let devices = context.devices.read().await;
-    // TODO: Fix when sensor_readings is available in ClientContext
-    // let sensor_readings = context.sensor_readings.read().await;
-    let sensor_readings: std::collections::HashMap<String, serde_json::Value> =
-        std::collections::HashMap::new();
     let capabilities = context.capabilities.read().await;
+    
+    // Extract sensor data from devices
+    let sensor_readings: std::collections::HashMap<String, serde_json::Value> = devices
+        .values()
+        .filter(|device| {
+            device.device_type.contains("Sensor") || 
+            device.device_type.contains("Weather") ||
+            device.device_type.contains("Temperature") ||
+            device.device_type.contains("Humidity")
+        })
+        .map(|device| {
+            (device.uuid.clone(), serde_json::json!({
+                "name": device.name,
+                "type": device.device_type,
+                "room": device.room,
+                "states": device.states
+            }))
+        })
+        .collect();
 
     // Process rooms with full data
     let mut room_data = Vec::new();
@@ -155,9 +218,12 @@ pub async fn get_dashboard_json(State(context): State<Arc<ClientContext>>) -> Js
 
         let room_sensors: Vec<_> = sensor_readings
             .iter()
-            .filter(|(_, _reading)| {
-                // TODO: Fix when sensor structure is available
-                false // reading.location.as_ref() == Some(&room.name) || reading.name.contains(&room.name)
+            .filter(|(_, reading)| {
+                reading
+                    .get("room")
+                    .and_then(|r| r.as_str())
+                    .map(|room_name| room_name == room.name)
+                    .unwrap_or(false)
             })
             .collect();
 
@@ -193,8 +259,13 @@ pub async fn get_dashboard_json(State(context): State<Arc<ClientContext>>) -> Js
         "sensors": {
             "total": sensor_readings.len(),
             "active": sensor_readings.iter()
-                // .filter(|(_, r)| r.status == crate::tools::sensors::SensorStatus::Online)
-                .filter(|_| true) // TODO: Fix when SensorStatus is available
+                .filter(|(_, reading)| {
+                    reading
+                        .get("states")
+                        .and_then(|states| states.get("active"))
+                        .and_then(|active| active.as_bool())
+                        .unwrap_or(true) // Assume active if no status info
+                })
                 .count(),
         }
     }))

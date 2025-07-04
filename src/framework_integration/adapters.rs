@@ -168,10 +168,11 @@ pub async fn handle_tool_call_direct(
                             "temperature parameter required for set_temperature action".to_string(),
                         )
                     })?;
-                    Ok(crate::tools::climate::set_room_temperature(
+                    Ok(crate::tools::climate::set_temperature(
                         tool_context,
                         room_name,
                         temperature,
+                        Some(false), // room mode, not zone mode
                     )
                     .await)
                 }
@@ -308,47 +309,13 @@ pub async fn handle_tool_call_direct(
         // Security tools
         "get_security_status" => {
             // Security functions take raw JSON input
-            Ok(crate::tools::security::arm_alarm(
+            Ok(crate::tools::security::get_security_system_status(
                 params.arguments.clone().unwrap_or_default(),
                 Arc::new(tool_context),
             )
             .await
             .map(ToolResponse::success)
             .unwrap_or_else(|e| ToolResponse::error(e.to_string())))
-        }
-
-        // Workflow tools
-        "execute_scene" => {
-            // Parse workflow execution parameters
-            use crate::tools::workflows::ExecuteWorkflowParams;
-            let workflow_params: ExecuteWorkflowParams = serde_json::from_value(
-                params.arguments.clone().unwrap_or_default(),
-            )
-            .map_err(|e| LoxoneError::validation(format!("Invalid workflow parameters: {e}")))?;
-
-            Ok(
-                crate::tools::workflows::execute_workflow_demo(tool_context, workflow_params)
-                    .await
-                    .map(ToolResponse::success)
-                    .unwrap_or_else(|e| ToolResponse::error(e.to_string())),
-            )
-        }
-        "create_custom_scene" => {
-            // Parse workflow creation parameters
-            use crate::tools::workflows::CreateWorkflowParams;
-            let workflow_params: CreateWorkflowParams = serde_json::from_value(
-                params.arguments.clone().unwrap_or_default(),
-            )
-            .map_err(|e| {
-                LoxoneError::validation(format!("Invalid workflow creation parameters: {e}"))
-            })?;
-
-            Ok(
-                crate::tools::workflows::create_workflow(tool_context, workflow_params)
-                    .await
-                    .map(ToolResponse::success)
-                    .unwrap_or_else(|e| ToolResponse::error(e.to_string())),
-            )
         }
 
         _ => {

@@ -21,6 +21,7 @@ pub mod config;
 pub mod crypto;
 pub mod discovery;
 pub mod error;
+pub mod error_recovery;
 pub mod framework_integration;
 pub mod health;
 // pub mod http_transport; // Disabled during framework migration - use framework's HTTP transport instead
@@ -33,6 +34,7 @@ pub mod security;
 pub mod server;
 pub mod services;
 pub mod shared_styles;
+pub mod storage;
 pub mod tools;
 pub mod validation;
 

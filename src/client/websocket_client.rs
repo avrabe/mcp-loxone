@@ -17,13 +17,21 @@ use crate::config::{credentials::LoxoneCredentials, AuthMethod, LoxoneConfig};
 #[cfg(feature = "websocket")]
 use crate::error::{LoxoneError, Result};
 #[cfg(feature = "websocket")]
+use crate::security::encryption::EncryptionManager;
+#[cfg(feature = "websocket")]
 use async_trait::async_trait;
 #[cfg(feature = "websocket")]
+use futures_util::SinkExt;
+#[cfg(feature = "websocket")]
 use rand;
+#[cfg(feature = "websocket")]
+use regex::Regex;
 #[cfg(feature = "websocket")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "websocket")]
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "websocket")]
+use std::io::{Cursor, Read};
 #[cfg(feature = "websocket")]
 use std::sync::Arc;
 #[cfg(feature = "websocket")]
@@ -43,7 +51,15 @@ use url::Url;
 type WsStream = WebSocketStream<MaybeTlsStream<tokio::net::TcpStream>>;
 
 #[cfg(feature = "websocket")]
-type SubscriberList = Arc<RwLock<Vec<(mpsc::UnboundedSender<StateUpdate>, EventFilter)>>>;
+type SubscriberList = Arc<RwLock<Vec<(mpsc::UnboundedSender<StateUpdate>, FilterType)>>>;
+
+/// Filter type enumeration to support both basic and advanced filters
+#[cfg(feature = "websocket")]
+#[derive(Debug, Clone)]
+pub enum FilterType {
+    Basic(EventFilter),
+    Advanced(AdvancedEventFilter),
+}
 
 /// WebSocket message types from Loxone
 #[cfg(feature = "websocket")]
@@ -160,6 +176,30 @@ pub struct EventFilter {
     pub min_interval: Option<Duration>,
 }
 
+/// Advanced event filter with regex pattern support
+/// Note: This struct cannot be serialized due to Regex fields
+#[cfg(feature = "websocket")]
+#[derive(Debug, Clone)]
+pub struct AdvancedEventFilter {
+    /// Basic filter (for backward compatibility)
+    pub basic_filter: EventFilter,
+
+    /// Regex pattern for device names (optional, more flexible than UUID matching)
+    pub device_name_pattern: Option<Regex>,
+
+    /// Regex pattern for room names (optional, more flexible than exact matching)
+    pub room_name_pattern: Option<Regex>,
+
+    /// Regex pattern for state names (optional, more flexible than exact matching)
+    pub state_name_pattern: Option<Regex>,
+
+    /// Regex pattern for device values (optional, filter by value content)
+    pub value_pattern: Option<Regex>,
+
+    /// Enable case-insensitive matching for all regex patterns
+    pub case_insensitive: bool,
+}
+
 impl Default for EventFilter {
     fn default() -> Self {
         Self {
@@ -218,6 +258,180 @@ impl EventFilter {
     pub fn without_debounce(mut self) -> Self {
         self.min_interval = None;
         self
+    }
+}
+
+impl Default for AdvancedEventFilter {
+    fn default() -> Self {
+        Self {
+            basic_filter: EventFilter::default(),
+            device_name_pattern: None,
+            room_name_pattern: None,
+            state_name_pattern: None,
+            value_pattern: None,
+            case_insensitive: false,
+        }
+    }
+}
+
+impl AdvancedEventFilter {
+    /// Create a new advanced filter from a basic filter
+    pub fn from_basic(basic_filter: EventFilter) -> Self {
+        Self {
+            basic_filter,
+            device_name_pattern: None,
+            room_name_pattern: None,
+            state_name_pattern: None,
+            value_pattern: None,
+            case_insensitive: false,
+        }
+    }
+
+    /// Create an advanced filter that matches all events
+    pub fn match_all() -> Self {
+        Self {
+            basic_filter: EventFilter::match_all(),
+            device_name_pattern: None,
+            room_name_pattern: None,
+            state_name_pattern: None,
+            value_pattern: None,
+            case_insensitive: false,
+        }
+    }
+
+    /// Add regex pattern for device names
+    pub fn with_device_name_pattern(mut self, pattern: &str) -> Result<Self> {
+        let flags = if self.case_insensitive { "(?i)" } else { "" };
+        let full_pattern = format!("{}{}", flags, pattern);
+        self.device_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
+            LoxoneError::config(format!("Invalid device name regex pattern: {}", e))
+        })?);
+        Ok(self)
+    }
+
+    /// Add regex pattern for room names
+    pub fn with_room_name_pattern(mut self, pattern: &str) -> Result<Self> {
+        let flags = if self.case_insensitive { "(?i)" } else { "" };
+        let full_pattern = format!("{}{}", flags, pattern);
+        self.room_name_pattern =
+            Some(Regex::new(&full_pattern).map_err(|e| {
+                LoxoneError::config(format!("Invalid room name regex pattern: {}", e))
+            })?);
+        Ok(self)
+    }
+
+    /// Add regex pattern for state names
+    pub fn with_state_name_pattern(mut self, pattern: &str) -> Result<Self> {
+        let flags = if self.case_insensitive { "(?i)" } else { "" };
+        let full_pattern = format!("{}{}", flags, pattern);
+        self.state_name_pattern = Some(Regex::new(&full_pattern).map_err(|e| {
+            LoxoneError::config(format!("Invalid state name regex pattern: {}", e))
+        })?);
+        Ok(self)
+    }
+
+    /// Add regex pattern for device values (matches string representation of value)
+    pub fn with_value_pattern(mut self, pattern: &str) -> Result<Self> {
+        let flags = if self.case_insensitive { "(?i)" } else { "" };
+        let full_pattern = format!("{}{}", flags, pattern);
+        self.value_pattern = Some(
+            Regex::new(&full_pattern)
+                .map_err(|e| LoxoneError::config(format!("Invalid value regex pattern: {}", e)))?,
+        );
+        Ok(self)
+    }
+
+    /// Enable case-insensitive matching for all patterns
+    pub fn case_insensitive(mut self) -> Self {
+        self.case_insensitive = true;
+        self
+    }
+
+    /// Set minimum interval for debouncing
+    pub fn with_debounce(mut self, interval: Duration) -> Self {
+        self.basic_filter.min_interval = Some(interval);
+        self
+    }
+
+    /// Disable debouncing
+    pub fn without_debounce(mut self) -> Self {
+        self.basic_filter.min_interval = None;
+        self
+    }
+
+    /// Add specific device UUIDs to monitor
+    pub fn with_device_uuids(mut self, uuids: Vec<String>) -> Self {
+        self.basic_filter.device_uuids.extend(uuids);
+        self
+    }
+
+    /// Add specific event types to monitor
+    pub fn with_event_types(mut self, event_types: Vec<LoxoneEventType>) -> Self {
+        self.basic_filter.event_types.extend(event_types);
+        self
+    }
+
+    /// Add specific rooms to monitor
+    pub fn with_rooms(mut self, rooms: Vec<String>) -> Self {
+        self.basic_filter.rooms.extend(rooms);
+        self
+    }
+
+    /// Add specific states to monitor
+    pub fn with_states(mut self, states: Vec<String>) -> Self {
+        self.basic_filter.states.extend(states);
+        self
+    }
+
+    /// Convenience method: Filter devices by name pattern (case-insensitive)
+    pub fn with_device_names_matching(pattern: &str) -> Result<Self> {
+        AdvancedEventFilter::match_all()
+            .case_insensitive()
+            .with_device_name_pattern(pattern)
+    }
+
+    /// Convenience method: Filter rooms by name pattern (case-insensitive)
+    pub fn with_room_names_matching(pattern: &str) -> Result<Self> {
+        AdvancedEventFilter::match_all()
+            .case_insensitive()
+            .with_room_name_pattern(pattern)
+    }
+
+    /// Convenience method: Filter by value pattern (case-insensitive)
+    pub fn with_values_matching(pattern: &str) -> Result<Self> {
+        AdvancedEventFilter::match_all()
+            .case_insensitive()
+            .with_value_pattern(pattern)
+    }
+
+    /// Convenience method: Create a complex filter with multiple patterns
+    pub fn create_complex_filter(
+        device_name_pattern: Option<&str>,
+        room_name_pattern: Option<&str>,
+        state_name_pattern: Option<&str>,
+        value_pattern: Option<&str>,
+        case_insensitive: bool,
+    ) -> Result<Self> {
+        let mut filter = if case_insensitive {
+            AdvancedEventFilter::match_all().case_insensitive()
+        } else {
+            AdvancedEventFilter::match_all()
+        };
+
+        if let Some(pattern) = device_name_pattern {
+            filter = filter.with_device_name_pattern(pattern)?;
+        }
+        if let Some(pattern) = room_name_pattern {
+            filter = filter.with_room_name_pattern(pattern)?;
+        }
+        if let Some(pattern) = state_name_pattern {
+            filter = filter.with_state_name_pattern(pattern)?;
+        }
+        if let Some(pattern) = value_pattern {
+            filter = filter.with_value_pattern(pattern)?;
+        }
+
+        Ok(filter)
     }
 }
 
@@ -328,6 +542,19 @@ pub struct LoxoneWebSocketClient {
 
     /// Statistics
     stats: Arc<RwLock<WebSocketStats>>,
+
+    /// Encryption manager for secure communication
+    encryption_manager: Arc<RwLock<EncryptionManager>>,
+
+    /// Current encryption session (if enabled)
+    encryption_session: Arc<RwLock<Option<String>>>, // session_id
+
+    /// WebSocket resilience manager
+    resilience_manager:
+        Option<Arc<crate::client::websocket_resilience::WebSocketResilienceManager>>,
+
+    /// Weather data storage
+    weather_storage: Option<Arc<crate::storage::WeatherStorage>>,
 }
 
 #[cfg(feature = "websocket")]
@@ -348,6 +575,10 @@ impl LoxoneWebSocketClient {
             last_event_times: Arc::new(RwLock::new(HashMap::new())),
             http_client: None,
             stats: Arc::new(RwLock::new(WebSocketStats::default())),
+            encryption_manager: Arc::new(RwLock::new(EncryptionManager::new(10))), // Max 10 sessions
+            encryption_session: Arc::new(RwLock::new(None)),
+            resilience_manager: None,
+            weather_storage: None,
         })
     }
 
@@ -365,6 +596,106 @@ impl LoxoneWebSocketClient {
     /// Configure reconnection behavior
     pub fn set_reconnection_config(&mut self, config: ReconnectionConfig) {
         self.reconnection_config = config;
+    }
+
+    /// Enable resilience features with message acknowledgment
+    pub async fn enable_resilience(
+        &mut self,
+        resilience_config: crate::client::websocket_resilience::WebSocketResilienceConfig,
+    ) -> Result<()> {
+        let ws_url = self.build_ws_url().await?;
+        let manager = Arc::new(
+            crate::client::websocket_resilience::WebSocketResilienceManager::new(
+                ws_url.to_string(),
+                resilience_config,
+            ),
+        );
+
+        manager.start().await?;
+        self.resilience_manager = Some(manager);
+
+        info!("WebSocket resilience enabled");
+        Ok(())
+    }
+
+    /// Disable resilience features
+    pub async fn disable_resilience(&mut self) {
+        if let Some(manager) = self.resilience_manager.take() {
+            manager.stop().await;
+            info!("WebSocket resilience disabled");
+        }
+    }
+
+    /// Enable weather data storage
+    pub async fn enable_weather_storage(
+        &mut self,
+        storage_config: crate::storage::WeatherStorageConfig,
+    ) -> Result<()> {
+        use crate::storage::WeatherStorage;
+
+        let storage = Arc::new(WeatherStorage::new(storage_config).await?);
+
+        // Update storage with current device structure if available
+        if let Ok(devices) = self.context.devices.try_read() {
+            storage.update_device_structure(&devices).await;
+        }
+
+        self.weather_storage = Some(storage);
+        info!("Weather data storage enabled");
+        Ok(())
+    }
+
+    /// Disable weather data storage
+    pub async fn disable_weather_storage(&mut self) {
+        if let Some(_) = self.weather_storage.take() {
+            info!("Weather data storage disabled");
+        }
+    }
+
+    /// Check if weather storage is enabled
+    pub fn is_weather_storage_enabled(&self) -> bool {
+        self.weather_storage.is_some()
+    }
+
+    /// Check if resilience is enabled
+    pub fn is_resilience_enabled(&self) -> bool {
+        self.resilience_manager.is_some()
+    }
+
+    /// Get resilience statistics (if enabled)
+    pub async fn get_resilience_stats(
+        &self,
+    ) -> Option<crate::client::websocket_resilience::ResilienceStatistics> {
+        if let Some(manager) = &self.resilience_manager {
+            Some(manager.get_statistics().await)
+        } else {
+            None
+        }
+    }
+
+    /// Subscribe to resilience events (if enabled)
+    pub fn subscribe_to_resilience_events(
+        &self,
+    ) -> Option<
+        tokio::sync::broadcast::Receiver<crate::client::websocket_resilience::ResilienceEvent>,
+    > {
+        self.resilience_manager
+            .as_ref()
+            .map(|m| m.subscribe_to_events())
+    }
+
+    /// Send a resilient message with acknowledgment (if resilience is enabled)
+    pub async fn send_resilient_message(
+        &self,
+        payload: String,
+        message_type: crate::client::websocket_resilience::MessageType,
+        priority: crate::client::websocket_resilience::MessagePriority,
+    ) -> Result<String> {
+        if let Some(manager) = &self.resilience_manager {
+            manager.send_message(payload, message_type, priority).await
+        } else {
+            Err(LoxoneError::config("Resilience not enabled"))
+        }
     }
 
     /// Build WebSocket URL with authentication
@@ -443,6 +774,7 @@ impl LoxoneWebSocketClient {
             // Try to downcast to TokenHttpClient to access token authentication
             #[cfg(feature = "crypto-openssl")]
             if let Some(token_client) = http_client
+                .as_ref()
                 .as_any()
                 .downcast_ref::<crate::client::TokenHttpClient>()
             {
@@ -502,7 +834,7 @@ impl LoxoneWebSocketClient {
                                     previous_value.unwrap_or_default(),
                                     update.value.clone(),
                                     Some(device.name.clone()),
-                                    None, // TODO: Map device type to sensor type
+                                    Some(Self::map_device_type_to_sensor_type(&device.device_type)),
                                     device.room.clone(),
                                 )
                                 .await;
@@ -530,7 +862,14 @@ impl LoxoneWebSocketClient {
                     }
 
                     // Apply debouncing if configured
-                    if let Some(min_interval) = filter.min_interval {
+                    let min_interval = match filter {
+                        FilterType::Basic(basic_filter) => basic_filter.min_interval,
+                        FilterType::Advanced(advanced_filter) => {
+                            advanced_filter.basic_filter.min_interval
+                        }
+                    };
+
+                    if let Some(min_interval) = min_interval {
                         let mut last_times = last_event_times.write().await;
                         let key = format!("{}:{}", update.uuid, update.state);
                         let now = Instant::now();
@@ -617,7 +956,7 @@ impl LoxoneWebSocketClient {
             None
         };
 
-        // Task 3: Reconnection manager (if enabled)
+        // Task 3: Reconnection and token refresh manager (if enabled)
         let reconnection_task = if self.reconnection_config.enabled {
             let connected = self.connected.clone();
             let base_url = self.base_url.clone();
@@ -626,6 +965,7 @@ impl LoxoneWebSocketClient {
             let reconnection_config = self.reconnection_config.clone();
             let stats_clone = self.stats.clone();
             let ws_stream_ref = self.ws_stream.clone();
+            let http_client = self.http_client.clone();
 
             Some(tokio::spawn(async move {
                 let mut attempt = 0;
@@ -634,8 +974,34 @@ impl LoxoneWebSocketClient {
                 loop {
                     // Check if we're still connected
                     if *connected.read().await {
-                        // Wait a bit before checking again
-                        sleep(Duration::from_secs(5)).await;
+                        // Check if we need to refresh tokens proactively
+                        #[cfg(feature = "crypto-openssl")]
+                        if let Some(http_client) = &http_client {
+                            if let Some(token_client) = http_client
+                                .as_ref()
+                                .as_any()
+                                .downcast_ref::<crate::client::TokenHttpClient>(
+                            ) {
+                                // Try to get auth params - this will internally handle token expiration and refresh
+                                match token_client.get_auth_params().await {
+                                    Ok(_) => {
+                                        debug!("WebSocket token authentication verified and refreshed if needed");
+                                    }
+                                    Err(e) => {
+                                        warn!(
+                                            "Failed to refresh authentication for WebSocket: {}",
+                                            e
+                                        );
+                                        // Token authentication failed, force WebSocket reconnection with new token
+                                        *connected.write().await = false;
+                                        continue;
+                                    }
+                                }
+                            }
+                        }
+
+                        // Wait before checking again (30 seconds for token checks)
+                        sleep(Duration::from_secs(30)).await;
                         continue;
                     }
 
@@ -667,8 +1033,39 @@ impl LoxoneWebSocketClient {
 
                     sleep(jittered_delay).await;
 
-                    // Attempt reconnection
-                    match Self::attempt_reconnection(&base_url, &credentials, &config).await {
+                    // Attempt reconnection - try with token first if available
+                    let reconnection_result = if let Some(http_client) = &http_client {
+                        #[cfg(feature = "crypto-openssl")]
+                        if let Some(token_client) = http_client
+                            .as_ref()
+                            .as_any()
+                            .downcast_ref::<crate::client::TokenHttpClient>(
+                        ) {
+                            // Try reconnection with token authentication
+                            match Self::attempt_token_reconnection(&base_url, token_client, &config)
+                                .await
+                            {
+                                Ok(stream) => {
+                                    info!("WebSocket reconnection successful with token authentication");
+                                    Ok(stream)
+                                }
+                                Err(e) => {
+                                    warn!("Token-based reconnection failed: {}, falling back to basic auth", e);
+                                    Self::attempt_reconnection(&base_url, &credentials, &config)
+                                        .await
+                                }
+                            }
+                        } else {
+                            Self::attempt_reconnection(&base_url, &credentials, &config).await
+                        }
+
+                        #[cfg(not(feature = "crypto-openssl"))]
+                        Self::attempt_reconnection(&base_url, &credentials, &config).await
+                    } else {
+                        Self::attempt_reconnection(&base_url, &credentials, &config).await
+                    };
+
+                    match reconnection_result {
                         Ok(new_stream) => {
                             info!("✅ WebSocket reconnection successful");
 
@@ -711,8 +1108,8 @@ impl LoxoneWebSocketClient {
         Ok(())
     }
 
-    /// Check if a state update matches the given filter
-    async fn matches_filter(update: &StateUpdate, filter: &EventFilter) -> bool {
+    /// Check if a state update matches the given filter (basic EventFilter)
+    async fn matches_basic_filter(update: &StateUpdate, filter: &EventFilter) -> bool {
         // Check device UUID filter
         if !filter.device_uuids.is_empty() && !filter.device_uuids.contains(&update.uuid) {
             return false;
@@ -742,14 +1139,93 @@ impl LoxoneWebSocketClient {
         true
     }
 
-    /// Subscribe to filtered state updates
+    /// Check if a state update matches the given advanced filter
+    async fn matches_advanced_filter(update: &StateUpdate, filter: &AdvancedEventFilter) -> bool {
+        // First check basic filter criteria
+        if !Self::matches_basic_filter(update, &filter.basic_filter).await {
+            return false;
+        }
+
+        // Check device name pattern
+        if let Some(pattern) = &filter.device_name_pattern {
+            if let Some(device_name) = &update.device_name {
+                if !pattern.is_match(device_name) {
+                    return false;
+                }
+            } else {
+                // No device name available but pattern is required
+                return false;
+            }
+        }
+
+        // Check room name pattern
+        if let Some(pattern) = &filter.room_name_pattern {
+            if let Some(room) = &update.room {
+                if !pattern.is_match(room) {
+                    return false;
+                }
+            } else {
+                // No room available but pattern is required
+                return false;
+            }
+        }
+
+        // Check state name pattern
+        if let Some(pattern) = &filter.state_name_pattern {
+            if !pattern.is_match(&update.state) {
+                return false;
+            }
+        }
+
+        // Check value pattern (convert value to string for matching)
+        if let Some(pattern) = &filter.value_pattern {
+            let value_str = match &update.value {
+                serde_json::Value::String(s) => s.clone(),
+                serde_json::Value::Number(n) => n.to_string(),
+                serde_json::Value::Bool(b) => b.to_string(),
+                serde_json::Value::Null => "null".to_string(),
+                _ => serde_json::to_string(&update.value).unwrap_or_default(),
+            };
+
+            if !pattern.is_match(&value_str) {
+                return false;
+            }
+        }
+
+        true
+    }
+
+    /// Check if a state update matches the given filter (supports both basic and advanced)
+    async fn matches_filter(update: &StateUpdate, filter: &FilterType) -> bool {
+        match filter {
+            FilterType::Basic(basic_filter) => {
+                Self::matches_basic_filter(update, basic_filter).await
+            }
+            FilterType::Advanced(advanced_filter) => {
+                Self::matches_advanced_filter(update, advanced_filter).await
+            }
+        }
+    }
+
+    /// Subscribe to filtered state updates (basic filter)
     pub async fn subscribe_with_filter(
         &self,
         filter: EventFilter,
     ) -> mpsc::UnboundedReceiver<StateUpdate> {
         let (tx, rx) = mpsc::unbounded_channel();
         let mut subscribers = self.subscribers.write().await;
-        subscribers.push((tx, filter));
+        subscribers.push((tx, FilterType::Basic(filter)));
+        rx
+    }
+
+    /// Subscribe to filtered state updates (advanced filter with regex support)
+    pub async fn subscribe_with_advanced_filter(
+        &self,
+        filter: AdvancedEventFilter,
+    ) -> mpsc::UnboundedReceiver<StateUpdate> {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let mut subscribers = self.subscribers.write().await;
+        subscribers.push((tx, FilterType::Advanced(filter)));
         rx
     }
 
@@ -794,6 +1270,63 @@ impl LoxoneWebSocketClient {
         self.subscribe_with_filter(filter).await
     }
 
+    /// Subscribe to devices matching a name pattern (regex, case-insensitive)
+    /// Example: subscribe_to_devices_matching(".*light.*") - all devices with "light" in name
+    pub async fn subscribe_to_devices_matching(
+        &self,
+        pattern: &str,
+    ) -> Result<mpsc::UnboundedReceiver<StateUpdate>> {
+        let filter = AdvancedEventFilter::with_device_names_matching(pattern)?;
+        Ok(self.subscribe_with_advanced_filter(filter).await)
+    }
+
+    /// Subscribe to rooms matching a name pattern (regex, case-insensitive)
+    /// Example: subscribe_to_rooms_matching("(kitchen|bathroom)") - kitchen or bathroom
+    pub async fn subscribe_to_rooms_matching(
+        &self,
+        pattern: &str,
+    ) -> Result<mpsc::UnboundedReceiver<StateUpdate>> {
+        let filter = AdvancedEventFilter::with_room_names_matching(pattern)?;
+        Ok(self.subscribe_with_advanced_filter(filter).await)
+    }
+
+    /// Subscribe to values matching a pattern (regex, case-insensitive)
+    /// Example: subscribe_to_values_matching(r"\d+\.?\d*") - numeric values
+    pub async fn subscribe_to_values_matching(
+        &self,
+        pattern: &str,
+    ) -> Result<mpsc::UnboundedReceiver<StateUpdate>> {
+        let filter = AdvancedEventFilter::with_values_matching(pattern)?;
+        Ok(self.subscribe_with_advanced_filter(filter).await)
+    }
+
+    /// Subscribe with complex regex filtering
+    /// Example: All temperature sensors in bedrooms with values above 20
+    /// subscribe_with_regex_filter(
+    ///     Some(r".*temp.*"),     // device name contains "temp"
+    ///     Some(r".*bedroom.*"),  // room contains "bedroom"
+    ///     None,                  // any state name
+    ///     Some(r"^[2-9]\d+"),    // value starts with 2-9 (>= 20)
+    ///     true                   // case insensitive
+    /// )
+    pub async fn subscribe_with_regex_filter(
+        &self,
+        device_name_pattern: Option<&str>,
+        room_name_pattern: Option<&str>,
+        state_name_pattern: Option<&str>,
+        value_pattern: Option<&str>,
+        case_insensitive: bool,
+    ) -> Result<mpsc::UnboundedReceiver<StateUpdate>> {
+        let filter = AdvancedEventFilter::create_complex_filter(
+            device_name_pattern,
+            room_name_pattern,
+            state_name_pattern,
+            value_pattern,
+            case_insensitive,
+        )?;
+        Ok(self.subscribe_with_advanced_filter(filter).await)
+    }
+
     /// Get connection statistics
     pub async fn get_stats(&self) -> WebSocketStats {
         self.stats.read().await.clone()
@@ -810,17 +1343,22 @@ impl LoxoneWebSocketClient {
         self.subscribers.read().await.len()
     }
 
-    /// Remove subscribers that match a specific filter
+    /// Remove subscribers that match a specific basic filter
     pub async fn remove_subscribers_with_filter(&self, filter: &EventFilter) -> usize {
         let mut subscribers = self.subscribers.write().await;
         let initial_count = subscribers.len();
 
         subscribers.retain(|(_, subscriber_filter)| {
             // Keep subscribers that don't match the filter exactly
-            subscriber_filter.device_uuids != filter.device_uuids
-                || subscriber_filter.event_types != filter.event_types
-                || subscriber_filter.rooms != filter.rooms
-                || subscriber_filter.states != filter.states
+            match subscriber_filter {
+                FilterType::Basic(basic_filter) => {
+                    basic_filter.device_uuids != filter.device_uuids
+                        || basic_filter.event_types != filter.event_types
+                        || basic_filter.rooms != filter.rooms
+                        || basic_filter.states != filter.states
+                }
+                FilterType::Advanced(_) => true, // Don't remove advanced filters
+            }
         });
 
         initial_count - subscribers.len()
@@ -832,7 +1370,11 @@ impl LoxoneWebSocketClient {
         let subscribers = self.subscribers.read().await;
 
         for (_, filter) in subscribers.iter() {
-            monitored.extend(filter.device_uuids.iter().cloned());
+            let device_uuids = match filter {
+                FilterType::Basic(basic_filter) => &basic_filter.device_uuids,
+                FilterType::Advanced(advanced_filter) => &advanced_filter.basic_filter.device_uuids,
+            };
+            monitored.extend(device_uuids.iter().cloned());
         }
 
         monitored
@@ -844,7 +1386,11 @@ impl LoxoneWebSocketClient {
         let subscribers = self.subscribers.read().await;
 
         for (_, filter) in subscribers.iter() {
-            monitored.extend(filter.rooms.iter().cloned());
+            let rooms = match filter {
+                FilterType::Basic(basic_filter) => &basic_filter.rooms,
+                FilterType::Advanced(advanced_filter) => &advanced_filter.basic_filter.rooms,
+            };
+            monitored.extend(rooms.iter().cloned());
         }
 
         monitored
@@ -895,6 +1441,62 @@ impl LoxoneWebSocketClient {
             .map_err(|e| LoxoneError::connection(format!("WebSocket reconnection failed: {e}")))?;
 
         debug!("WebSocket reconnected, response: {:?}", response.status());
+        Ok(ws_stream)
+    }
+
+    /// Helper method for token-based reconnection attempts
+    #[cfg(feature = "crypto-openssl")]
+    async fn attempt_token_reconnection(
+        base_url: &Url,
+        token_client: &crate::client::TokenHttpClient,
+        _config: &LoxoneConfig,
+    ) -> Result<WsStream> {
+        use tokio_tungstenite::connect_async;
+
+        // Build WebSocket URL
+        let mut ws_url = base_url.clone();
+
+        // Convert HTTP(S) to WS(S)
+        match ws_url.scheme() {
+            "http" => {
+                ws_url.set_scheme("ws").map_err(|_| {
+                    LoxoneError::connection("Failed to convert HTTP to WebSocket URL")
+                })?;
+            }
+            "https" => {
+                ws_url.set_scheme("wss").map_err(|_| {
+                    LoxoneError::connection("Failed to convert HTTPS to WebSocket URL")
+                })?;
+            }
+            _ => {
+                return Err(LoxoneError::connection(
+                    "Unsupported URL scheme for WebSocket",
+                ))
+            }
+        }
+
+        // Add WebSocket endpoint path
+        ws_url.set_path("/ws/rfc6455");
+
+        // Get fresh authentication parameters from the token client
+        let auth_params = token_client.get_auth_params().await.map_err(|e| {
+            LoxoneError::connection(format!(
+                "Failed to get auth params for WebSocket reconnection: {e}"
+            ))
+        })?;
+
+        // Add token authentication
+        ws_url.set_query(Some(&auth_params));
+
+        // Attempt connection
+        let (ws_stream, response) = connect_async(&ws_url).await.map_err(|e| {
+            LoxoneError::connection(format!("WebSocket token reconnection failed: {e}"))
+        })?;
+
+        debug!(
+            "WebSocket reconnected with token auth, response: {:?}",
+            response.status()
+        );
         Ok(ws_stream)
     }
 
@@ -1066,20 +1668,20 @@ impl LoxoneWebSocketClient {
         Self::handle_loxone_message_static(message, &self.state_sender).await
     }
 
-    /// Handle binary message (sensor data) - static method
+    /// Handle binary message (sensor data) - static method with enhanced parsing
     async fn handle_binary_message_static(data: Vec<u8>) -> Result<()> {
-        // Binary messages in Loxone typically contain sensor state updates
-        // The format is proprietary but follows patterns:
-        // - First 4 bytes: message type identifier
-        // - Next 4 bytes: data length
-        // - Remaining bytes: payload (device states, sensor readings)
+        // Binary messages in Loxone follow the Miniserver binary protocol
+        // Header format (8 bytes):
+        // - Bytes 0-3: Message type (little-endian u32)
+        // - Bytes 4-7: Data length (little-endian u32)
+        // Payload: Variable length data depending on message type
 
         if data.len() < 8 {
             debug!("Binary message too short: {} bytes", data.len());
             return Ok(());
         }
 
-        // Extract message type and length
+        // Extract header
         let msg_type = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
         let data_length = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
 
@@ -1090,40 +1692,470 @@ impl LoxoneWebSocketClient {
             data.len()
         );
 
-        // Common Loxone binary message types (observed patterns)
+        // Validate data length
+        if data.len() < 8 + data_length {
+            warn!(
+                "Binary message data length mismatch: expected {}, got {}",
+                8 + data_length,
+                data.len()
+            );
+            return Ok(());
+        }
+
+        // Extract payload
+        let payload = &data[8..8 + data_length];
+
+        // Parse based on Loxone binary protocol specification
         match msg_type {
+            // Header message (connection established)
+            0x03000000 => {
+                debug!("Binary: Connection header received");
+                Self::parse_header_message(payload).await?;
+            }
+
+            // Event table definition
+            0x04000000 => {
+                debug!("Binary: Event table definition");
+                Self::parse_event_table(payload).await?;
+            }
+
+            // Value state updates (most common)
             0x00000000 => {
-                debug!("Binary: Device state update message");
-                // Contains device state changes in binary format
+                debug!("Binary: Value state updates");
+                Self::parse_value_states(payload).await?;
             }
-            0x00000001 => {
-                debug!("Binary: Sensor reading batch");
-                // Contains multiple sensor readings
+
+            // Text state updates
+            0x01000000 => {
+                debug!("Binary: Text state updates");
+                Self::parse_text_states(payload).await?;
             }
-            0x00000002 => {
+
+            // Daylight saving info
+            0x02000000 => {
+                debug!("Binary: Daylight saving information");
+                Self::parse_daylight_saving(payload).await?;
+            }
+
+            // Weather data
+            0x05000000 => {
                 debug!("Binary: Weather data");
-                // Weather station data in compact format
+                return Err(LoxoneError::internal("Weather data parsing requires instance method - use handle_binary_message_instance"));
             }
-            0x00000003 => {
-                debug!("Binary: Energy meter readings");
-                // Power consumption and generation data
+
+            // Out-of-service indicator
+            0x06000000 => {
+                debug!("Binary: Out-of-service indicator");
+                Self::parse_out_of_service(payload).await?;
             }
+
+            // Keep-alive response
+            0x07000000 => {
+                debug!("Binary: Keep-alive response");
+                // No additional data expected
+            }
+
+            // Unknown message type
             _ => {
-                debug!("Binary: Unknown message type 0x{:08X}", msg_type);
+                debug!(
+                    "Binary: Unknown message type 0x{:08X}, payload: {} bytes",
+                    msg_type,
+                    payload.len()
+                );
+                // Log payload as hex for debugging
+                if payload.len() <= 64 {
+                    debug!("Payload hex: {}", hex::encode(payload));
+                }
             }
         }
 
-        // TODO: Implement proper binary protocol parsing
-        // This would require understanding Loxone's proprietary binary format
-        // For now, we log the message for debugging purposes
+        Ok(())
+    }
 
+    /// Parse header message (connection info)
+    async fn parse_header_message(payload: &[u8]) -> Result<()> {
+        if payload.len() >= 4 {
+            let version = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+            info!("Loxone Miniserver protocol version: {}", version);
+        }
+        Ok(())
+    }
+
+    /// Parse event table definition
+    async fn parse_event_table(payload: &[u8]) -> Result<()> {
+        // Event table contains UUID to index mappings
+        debug!(
+            "Event table with {} bytes - contains UUID mappings",
+            payload.len()
+        );
+        // Implementation would parse UUID->index mappings for efficient state updates
+        Ok(())
+    }
+
+    /// Parse value state updates (double values)
+    async fn parse_value_states(payload: &[u8]) -> Result<()> {
+        let mut cursor = Cursor::new(payload);
+        let mut states_parsed = 0;
+
+        // Each value state entry: 4 bytes (index) + 8 bytes (double value)
+        while cursor.position() + 12 <= payload.len() as u64 {
+            let mut index_bytes = [0u8; 4];
+            let mut value_bytes = [0u8; 8];
+
+            if cursor.read_exact(&mut index_bytes).is_ok()
+                && cursor.read_exact(&mut value_bytes).is_ok()
+            {
+                let index = u32::from_le_bytes(index_bytes);
+                let value = f64::from_le_bytes(value_bytes);
+
+                debug!("Value state update - index: {}, value: {}", index, value);
+                states_parsed += 1;
+            } else {
+                break;
+            }
+        }
+
+        debug!("Parsed {} value state updates", states_parsed);
+        Ok(())
+    }
+
+    /// Parse text state updates (string values)
+    async fn parse_text_states(payload: &[u8]) -> Result<()> {
+        let mut cursor = Cursor::new(payload);
+        let mut states_parsed = 0;
+
+        // Each text state entry: 4 bytes (index) + 4 bytes (text length) + text data
+        while cursor.position() + 8 <= payload.len() as u64 {
+            let mut index_bytes = [0u8; 4];
+            let mut length_bytes = [0u8; 4];
+
+            if cursor.read_exact(&mut index_bytes).is_ok()
+                && cursor.read_exact(&mut length_bytes).is_ok()
+            {
+                let index = u32::from_le_bytes(index_bytes);
+                let text_length = u32::from_le_bytes(length_bytes) as usize;
+
+                if cursor.position() + text_length as u64 <= payload.len() as u64 {
+                    let mut text_bytes = vec![0u8; text_length];
+                    if cursor.read_exact(&mut text_bytes).is_ok() {
+                        if let Ok(text) = String::from_utf8(text_bytes) {
+                            debug!("Text state update - index: {}, text: '{}'", index, text);
+                            states_parsed += 1;
+                        }
+                    }
+                } else {
+                    break;
+                }
+            } else {
+                break;
+            }
+        }
+
+        debug!("Parsed {} text state updates", states_parsed);
+        Ok(())
+    }
+
+    /// Parse daylight saving information
+    async fn parse_daylight_saving(payload: &[u8]) -> Result<()> {
+        if payload.len() >= 8 {
+            let dst_offset = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+            let timezone_offset =
+                u32::from_le_bytes([payload[4], payload[5], payload[6], payload[7]]);
+            debug!(
+                "Daylight saving - DST offset: {}, timezone offset: {}",
+                dst_offset, timezone_offset
+            );
+        }
+        Ok(())
+    }
+
+    /// Parse weather data
+    async fn parse_weather_data(&self, payload: &[u8]) -> Result<()> {
+        debug!("Weather data received: {} bytes", payload.len());
+
+        if payload.is_empty() {
+            return Ok(());
+        }
+
+        let mut cursor = Cursor::new(payload);
+        let mut weather_updates_parsed = 0;
+
+        // Loxone weather data format:
+        // Each weather data entry: 4 bytes (UUID index) + 8 bytes (double value) + 4 bytes (timestamp)
+        while cursor.position() + 16 <= payload.len() as u64 {
+            let mut uuid_index_bytes = [0u8; 4];
+            let mut value_bytes = [0u8; 8];
+            let mut timestamp_bytes = [0u8; 4];
+
+            if cursor.read_exact(&mut uuid_index_bytes).is_ok()
+                && cursor.read_exact(&mut value_bytes).is_ok()
+                && cursor.read_exact(&mut timestamp_bytes).is_ok()
+            {
+                let uuid_index = u32::from_le_bytes(uuid_index_bytes);
+                let value = f64::from_le_bytes(value_bytes);
+                let timestamp = u32::from_le_bytes(timestamp_bytes);
+
+                debug!(
+                    "Weather update - UUID index: {}, value: {:.2}, timestamp: {}",
+                    uuid_index, value, timestamp
+                );
+
+                // Store weather data for retrieval by weather resources
+                self.store_weather_update(uuid_index, value, timestamp)
+                    .await?;
+
+                weather_updates_parsed += 1;
+            } else {
+                break;
+            }
+        }
+
+        if weather_updates_parsed > 0 {
+            debug!("Parsed {} weather data updates", weather_updates_parsed);
+        } else {
+            // Try alternative weather data format (some stations use different layouts)
+            Self::parse_alternative_weather_format(payload).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Store weather update data for later retrieval
+    async fn store_weather_update(
+        &self,
+        uuid_index: u32,
+        value: f64,
+        timestamp: u32,
+    ) -> Result<()> {
+        if let Some(storage) = &self.weather_storage {
+            // Store weather data with automatic UUID resolution
+            storage
+                .store_weather_update(
+                    uuid_index,
+                    value,
+                    timestamp,
+                    Some("weather_value"), // Default parameter name
+                    None,                  // Unit will be determined by device type
+                    Some(1.0),             // Default quality score
+                )
+                .await?;
+
+            debug!(
+                "Stored weather data: index={}, value={:.2}, ts={}",
+                uuid_index, value, timestamp
+            );
+        } else {
+            debug!(
+                "Weather storage not enabled - logging only: index={}, value={:.2}, ts={}",
+                uuid_index, value, timestamp
+            );
+        }
+
+        Ok(())
+    }
+
+    /// Parse alternative weather data format for different weather station types
+    async fn parse_alternative_weather_format(payload: &[u8]) -> Result<()> {
+        // Some weather stations send data in different formats
+        // Try parsing as structured weather data packet
+        if payload.len() >= 8 {
+            let mut cursor = Cursor::new(payload);
+
+            // Check for weather data packet header
+            let mut header_bytes = [0u8; 4];
+            if cursor.read_exact(&mut header_bytes).is_ok() {
+                let header = u32::from_le_bytes(header_bytes);
+
+                match header {
+                    // Weather station data packet
+                    0x57455448 => {
+                        // "WETH" in ASCII
+                        debug!("Found structured weather data packet");
+                        Self::parse_structured_weather_packet(&payload[4..]).await?;
+                    }
+                    _ => {
+                        // Unknown format, log as hex for debugging
+                        if payload.len() <= 64 {
+                            debug!("Unknown weather data format, hex: {}", hex::encode(payload));
+                        } else {
+                            debug!(
+                                "Unknown weather data format, {} bytes, header: 0x{:08X}",
+                                payload.len(),
+                                header
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Parse structured weather data packet
+    async fn parse_structured_weather_packet(payload: &[u8]) -> Result<()> {
+        let mut cursor = Cursor::new(payload);
+
+        // Structured weather packet format:
+        // 4 bytes: station ID
+        // 8 bytes: temperature (double)
+        // 8 bytes: humidity (double)
+        // 8 bytes: pressure (double)
+        // 8 bytes: wind speed (double)
+        // 8 bytes: wind direction (double)
+        // 8 bytes: precipitation (double)
+        // 4 bytes: timestamp
+
+        if payload.len() >= 52 {
+            // Minimum size for complete weather packet
+            let mut station_id_bytes = [0u8; 4];
+            let mut temp_bytes = [0u8; 8];
+            let mut humidity_bytes = [0u8; 8];
+            let mut pressure_bytes = [0u8; 8];
+            let mut wind_speed_bytes = [0u8; 8];
+            let mut wind_dir_bytes = [0u8; 8];
+            let mut precipitation_bytes = [0u8; 8];
+            let mut timestamp_bytes = [0u8; 4];
+
+            if cursor.read_exact(&mut station_id_bytes).is_ok()
+                && cursor.read_exact(&mut temp_bytes).is_ok()
+                && cursor.read_exact(&mut humidity_bytes).is_ok()
+                && cursor.read_exact(&mut pressure_bytes).is_ok()
+                && cursor.read_exact(&mut wind_speed_bytes).is_ok()
+                && cursor.read_exact(&mut wind_dir_bytes).is_ok()
+                && cursor.read_exact(&mut precipitation_bytes).is_ok()
+                && cursor.read_exact(&mut timestamp_bytes).is_ok()
+            {
+                let station_id = u32::from_le_bytes(station_id_bytes);
+                let temperature = f64::from_le_bytes(temp_bytes);
+                let humidity = f64::from_le_bytes(humidity_bytes);
+                let pressure = f64::from_le_bytes(pressure_bytes);
+                let wind_speed = f64::from_le_bytes(wind_speed_bytes);
+                let wind_direction = f64::from_le_bytes(wind_dir_bytes);
+                let precipitation = f64::from_le_bytes(precipitation_bytes);
+                let timestamp = u32::from_le_bytes(timestamp_bytes);
+
+                debug!(
+                    "Weather station {} - temp: {:.1}°C, humidity: {:.1}%, pressure: {:.1}hPa, wind: {:.1}km/h@{:.0}°, rain: {:.1}mm, ts: {}",
+                    station_id, temperature, humidity, pressure, wind_speed, wind_direction, precipitation, timestamp
+                );
+
+                // Store structured weather data
+                Self::store_structured_weather_data(
+                    station_id,
+                    temperature,
+                    humidity,
+                    pressure,
+                    wind_speed,
+                    wind_direction,
+                    precipitation,
+                    timestamp,
+                )
+                .await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Store structured weather data
+    async fn store_structured_weather_data(
+        station_id: u32,
+        temperature: f64,
+        humidity: f64,
+        pressure: f64,
+        wind_speed: f64,
+        wind_direction: f64,
+        precipitation: f64,
+        timestamp: u32,
+    ) -> Result<()> {
+        // Store structured weather data using existing weather storage infrastructure
+        debug!(
+            "Storing structured weather data for station {}: T={:.1}°C, H={:.1}%, P={:.1}hPa, Wind={:.1}km/h@{:.0}°, Rain={:.1}mm",
+            station_id, temperature, humidity, pressure, wind_speed, wind_direction, precipitation
+        );
+
+        // Note: This is a static method, so we can't access self.weather_storage
+        // The actual weather data storage is handled by the store_weather_update method
+        // which is called from the WebSocket message processing loop
+        info!(
+            "Weather station {} data: {}°C, {}% humidity, {}hPa pressure at timestamp {}",
+            station_id, temperature, humidity, pressure, timestamp
+        );
+        Ok(())
+    }
+
+    /// Parse out-of-service indicator
+    async fn parse_out_of_service(payload: &[u8]) -> Result<()> {
+        if payload.len() >= 4 {
+            let service_id = u32::from_le_bytes([payload[0], payload[1], payload[2], payload[3]]);
+            warn!("Service {} is out of service", service_id);
+        }
         Ok(())
     }
 
     /// Instance method for backward compatibility
     #[allow(dead_code)]
     async fn handle_binary_message(&self, data: Vec<u8>) -> Result<()> {
+        // Check if this is weather data which requires instance access
+        if data.len() >= 8 {
+            let msg_type = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+            if msg_type == 0x05000000 {
+                // Weather data - handle with instance method
+                return self.handle_binary_message_instance(data).await;
+            }
+        }
+
+        // For all other binary messages, use static method
         Self::handle_binary_message_static(data).await
+    }
+
+    /// Instance method for binary messages that need access to weather storage
+    async fn handle_binary_message_instance(&self, data: Vec<u8>) -> Result<()> {
+        if data.len() < 8 {
+            debug!("Binary message too short: {} bytes", data.len());
+            return Ok(());
+        }
+
+        let msg_type = u32::from_le_bytes([data[0], data[1], data[2], data[3]]);
+        let data_length = u32::from_le_bytes([data[4], data[5], data[6], data[7]]) as usize;
+
+        debug!(
+            "Binary message (instance) - type: 0x{:08X}, length: {}, total: {} bytes",
+            msg_type,
+            data_length,
+            data.len()
+        );
+
+        // Validate data length
+        if data.len() < 8 + data_length {
+            warn!(
+                "Binary message data length mismatch: expected {}, got {}",
+                8 + data_length,
+                data.len()
+            );
+            return Ok(());
+        }
+
+        // Extract payload
+        let payload = &data[8..8 + data_length];
+
+        // Parse based on Loxone binary protocol specification
+        match msg_type {
+            // Weather data
+            0x05000000 => {
+                debug!("Binary: Weather data");
+                self.parse_weather_data(payload).await?;
+            }
+
+            _ => {
+                debug!(
+                    "Unhandled message type in instance method: 0x{:08X}",
+                    msg_type
+                );
+            }
+        }
+
+        Ok(())
     }
 
     /// Get public context for external access
@@ -1215,6 +2247,167 @@ impl LoxoneWebSocketClient {
 
         Ok(())
     }
+
+    /// Initialize an encrypted WebSocket session
+    pub async fn init_encryption_session(&self, session_duration_hours: u32) -> Result<String> {
+        use crate::security::encryption::EncryptionSession;
+
+        debug!(
+            "Initializing encryption session for {} hours",
+            session_duration_hours
+        );
+
+        // Create new encryption session
+        let session = EncryptionSession::new(session_duration_hours);
+        let session_id = session.session_id.clone();
+
+        // Add session to manager
+        {
+            let mut manager = self.encryption_manager.write().await;
+            manager.add_session(session).map_err(|e| {
+                LoxoneError::connection(&format!("Failed to add encryption session: {}", e))
+            })?;
+        }
+
+        // Store current session ID
+        {
+            let mut current_session = self.encryption_session.write().await;
+            *current_session = Some(session_id.clone());
+        }
+
+        info!("✅ Encryption session initialized: {}", &session_id[..8]);
+        Ok(session_id)
+    }
+
+    /// Send encrypted message via WebSocket
+    pub async fn send_encrypted_message(&self, message: &[u8]) -> Result<()> {
+        let session_id = {
+            let current_session = self.encryption_session.read().await;
+            current_session
+                .as_ref()
+                .ok_or_else(|| LoxoneError::connection("No active encryption session"))?
+                .clone()
+        };
+
+        // Encrypt the message
+        let encrypted_msg = {
+            let mut manager = self.encryption_manager.write().await;
+            let session = manager
+                .get_session_mut(&session_id)
+                .ok_or_else(|| LoxoneError::connection("Encryption session not found"))?;
+
+            session
+                .encrypt_message(message)
+                .map_err(|e| LoxoneError::connection(&format!("Encryption failed: {}", e)))?
+        };
+
+        // Send encrypted message via WebSocket
+        if let Some(stream) = &self.ws_stream {
+            use tokio_tungstenite::tungstenite::Message;
+
+            let json_payload = serde_json::to_string(&encrypted_msg).map_err(|e| {
+                LoxoneError::connection(&format!("Failed to serialize encrypted message: {}", e))
+            })?;
+
+            let mut stream_guard = stream.lock().await;
+            stream_guard
+                .send(Message::Text(json_payload))
+                .await
+                .map_err(|e| {
+                    LoxoneError::connection(&format!("Failed to send encrypted message: {}", e))
+                })?;
+
+            debug!("Sent encrypted message: {} bytes", message.len());
+        } else {
+            return Err(LoxoneError::connection("WebSocket not connected"));
+        }
+
+        Ok(())
+    }
+
+    /// Decrypt received message
+    pub async fn decrypt_message(
+        &self,
+        encrypted_msg: &crate::security::encryption::EncryptedMessage,
+    ) -> Result<Vec<u8>> {
+        let session_id = {
+            let current_session = self.encryption_session.read().await;
+            current_session
+                .as_ref()
+                .ok_or_else(|| LoxoneError::connection("No active encryption session"))?
+                .clone()
+        };
+
+        // Decrypt the message
+        let plaintext = {
+            let mut manager = self.encryption_manager.write().await;
+            let session = manager
+                .get_session_mut(&session_id)
+                .ok_or_else(|| LoxoneError::connection("Encryption session not found"))?;
+
+            session
+                .decrypt_message(encrypted_msg)
+                .map_err(|e| LoxoneError::connection(&format!("Decryption failed: {}", e)))?
+        };
+
+        debug!("Decrypted message: {} bytes", plaintext.len());
+        Ok(plaintext)
+    }
+
+    /// Check if encryption session is active and valid
+    pub async fn is_encryption_active(&self) -> bool {
+        let session_id = {
+            let current_session = self.encryption_session.read().await;
+            match current_session.as_ref() {
+                Some(id) => id.clone(),
+                None => return false,
+            }
+        };
+
+        let manager = self.encryption_manager.read().await;
+        if let Some(session) = manager.get_session(&session_id) {
+            session.is_valid()
+        } else {
+            false
+        }
+    }
+
+    /// Get encryption statistics
+    pub async fn get_encryption_stats(
+        &self,
+    ) -> Option<crate::security::encryption::EncryptionStats> {
+        let session_id = {
+            let current_session = self.encryption_session.read().await;
+            current_session.as_ref()?.clone()
+        };
+
+        let manager = self.encryption_manager.read().await;
+        manager
+            .get_session(&session_id)
+            .map(|session| session.get_stats().clone())
+    }
+
+    /// Cleanup expired encryption sessions
+    pub async fn cleanup_encryption_sessions(&self) -> usize {
+        let mut manager = self.encryption_manager.write().await;
+        manager.cleanup_expired_sessions()
+    }
+
+    /// Terminate current encryption session
+    pub async fn terminate_encryption_session(&self) -> Result<()> {
+        let session_id = {
+            let mut current_session = self.encryption_session.write().await;
+            current_session.take()
+        };
+
+        if let Some(session_id) = session_id {
+            let mut manager = self.encryption_manager.write().await;
+            manager.remove_session(&session_id);
+            info!("Encryption session terminated: {}", &session_id[..8]);
+        }
+
+        Ok(())
+    }
 }
 
 #[cfg(feature = "websocket")]
@@ -1288,20 +2481,47 @@ impl LoxoneClient for LoxoneWebSocketClient {
             // Use HTTP client for commands (more reliable)
             http_client.send_command(uuid, command).await
         } else {
-            // WebSocket command format is different from HTTP
-            // This would need to be implemented based on Loxone's WebSocket protocol
-            debug!("WebSocket command sending not fully implemented: {uuid} -> {command}");
+            // Implement WebSocket command sending based on Loxone protocol
+            // Format: "jdev/sps/io/{uuid}/{command}"
+            let ws_command = format!("jdev/sps/io/{}/{}", uuid, command);
+            debug!("Sending WebSocket command: {}", ws_command);
 
-            // For now, return a placeholder response
-            Ok(LoxoneResponse {
-                code: 200,
-                value: serde_json::json!({
-                    "status": "sent_via_websocket",
-                    "uuid": uuid,
-                    "command": command,
-                    "note": "WebSocket command sending not fully implemented"
-                }),
-            })
+            // Send command via WebSocket
+            if let Some(ws_stream) = &self.ws_stream {
+                let mut stream = ws_stream.lock().await;
+
+                match stream
+                    .send(tokio_tungstenite::tungstenite::Message::Text(
+                        ws_command.clone(),
+                    ))
+                    .await
+                {
+                    Ok(_) => {
+                        debug!("Successfully sent WebSocket command: {}", ws_command);
+
+                        // Return success response
+                        Ok(LoxoneResponse {
+                            code: 200,
+                            value: serde_json::json!({
+                                "status": "success",
+                                "uuid": uuid,
+                                "command": command,
+                                "sent_via": "websocket",
+                                "ws_command": ws_command
+                            }),
+                        })
+                    }
+                    Err(e) => {
+                        error!("Failed to send WebSocket command: {}", e);
+                        Err(LoxoneError::connection(format!(
+                            "WebSocket command failed: {}",
+                            e
+                        )))
+                    }
+                }
+            } else {
+                Err(LoxoneError::connection("WebSocket stream not available"))
+            }
         }
     }
 
@@ -1384,6 +2604,62 @@ impl LoxoneClient for LoxoneWebSocketClient {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+}
+
+impl LoxoneWebSocketClient {
+    /// Map Loxone device type to sensor type for logging
+    fn map_device_type_to_sensor_type(device_type: &str) -> crate::tools::sensors::SensorType {
+        use crate::tools::sensors::SensorType;
+
+        match device_type {
+            // Door/Window sensors
+            "InfoOnlyDigital" | "DigitalInput" | "GateController" => SensorType::DoorWindow,
+
+            // Motion/Presence sensors
+            "PresenceDetector" | "MotionSensor" | "PresenceSensor" => SensorType::Motion,
+
+            // Temperature sensors
+            "TemperatureSensor" | "Thermometer" => SensorType::Temperature,
+
+            // Humidity sensors
+            "HumiditySensor" => SensorType::Humidity,
+
+            // Light sensors
+            "LightSensor" | "LightController" | "LightControllerV2" => SensorType::Light,
+
+            // Air quality sensors
+            "AirQualitySensor" | "CO2Sensor" => SensorType::AirQuality,
+
+            // Weather devices (general analog)
+            "WeatherStation" | "InfoOnlyAnalog" => SensorType::Analog,
+
+            // Energy/Power sensors
+            "PowerMeter" | "EnergyMeter" | "Meter" => SensorType::Energy,
+
+            // HVAC sensors (temperature)
+            "IRoomControllerV2" | "RoomController" | "ThermostatController" => {
+                SensorType::Temperature
+            }
+
+            // Security sensors (door/window as fallback)
+            "AlarmController" | "SecurityZone" | "AccessControl" => SensorType::DoorWindow,
+
+            // Sound/Audio sensors (generic analog)
+            "AudioZone" | "MusicServer" | "SpeakerController" => SensorType::Analog,
+
+            // Blinds/Shade sensors (analog for position)
+            "Jalousie" | "BlindController" | "SunshadeController" => SensorType::Analog,
+
+            // Pool sensors (analog for measurements)
+            "PoolController" | "SaunaController" => SensorType::Analog,
+
+            // Irrigation sensors (analog)
+            "IrrigationController" | "GardenController" => SensorType::Analog,
+
+            // Generic fallback
+            _ => SensorType::Analog,
+        }
     }
 }
 

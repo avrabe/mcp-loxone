@@ -16,7 +16,7 @@ use loxone_mcp_rust::{LoxoneBackend, Result, ServerConfig as LoxoneServerConfig}
 
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
-use tracing::{info, warn};
+use tracing::info;
 
 /// Loxone MCP Server Configuration
 #[derive(Parser, Debug)]
@@ -242,8 +242,7 @@ async fn main() -> Result<()> {
                     server_config.loxone.username = config.loxone_user.clone().unwrap();
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
-                    // Force basic auth for classic Gen1 Miniservers to avoid account lockout
-                    server_config.loxone.auth_method = loxone_mcp_rust::config::AuthMethod::Basic;
+                    // Let the adaptive client factory handle auth method selection based on server capabilities
                     server_config
                 }
             }
@@ -264,8 +263,7 @@ async fn main() -> Result<()> {
                     server_config.loxone.username = config.loxone_user.clone().unwrap();
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
-                    // Force basic auth for classic Gen1 Miniservers to avoid account lockout
-                    server_config.loxone.auth_method = loxone_mcp_rust::config::AuthMethod::Basic;
+                    // Let the adaptive client factory handle auth method selection based on server capabilities
                     server_config
                 }
             }
@@ -314,12 +312,35 @@ async fn main() -> Result<()> {
                         .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?,
                 );
 
-                // TODO: Implement API key creation once framework API is clarified
-                if let Some(_key_name) = api_key {
-                    warn!("API key creation not implemented yet - authentication disabled");
-                }
+                // Configure API key authentication if provided
+                if let Some(key) = api_key {
+                    if key.len() < 32 {
+                        return Err(loxone_mcp_rust::LoxoneError::config(
+                            "API key must be at least 32 characters for security",
+                        ));
+                    }
 
-                stack = stack.with_auth(auth_manager);
+                    info!(
+                        "API key authentication configured (key length: {} chars)",
+                        key.len()
+                    );
+
+                    // Enable auth when API key is provided
+                    let auth_config = pulseengine_mcp_auth::AuthConfig {
+                        ..Default::default()
+                    };
+
+                    let auth_manager = Arc::new(
+                        AuthenticationManager::new(auth_config)
+                            .await
+                            .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?,
+                    );
+
+                    stack = stack.with_auth(auth_manager);
+                } else {
+                    // No API key provided, use the previously configured auth manager
+                    stack = stack.with_auth(auth_manager);
+                }
             }
 
             // Add monitoring
