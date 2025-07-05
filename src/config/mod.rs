@@ -458,6 +458,9 @@ impl ServerConfig {
         config.loxone.max_connections = Some(1);
         config.loxone.auth_method = AuthMethod::Basic; // Simple auth for dev mode
 
+        // Use environment variables for credentials in dev mode
+        config.credentials = CredentialStore::Environment;
+
         // Disable features that require real Loxone connection
         config.features.enable_websocket = false;
         config.features.enable_caching = false;
@@ -477,6 +480,9 @@ impl ServerConfig {
         config.loxone.verify_ssl = false;
         config.loxone.max_connections = Some(1);
         config.loxone.auth_method = AuthMethod::Basic;
+
+        // Use environment variables for credentials in offline mode
+        config.credentials = CredentialStore::Environment;
 
         // Disable features that require Loxone connection
         config.features.enable_websocket = false;

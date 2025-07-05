@@ -15,6 +15,10 @@ mod common;
 /// Test basic server initialization and configuration
 #[tokio::test]
 async fn test_server_initialization() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
     let backend = LoxoneBackend::initialize(config).await;
 
@@ -25,6 +29,10 @@ async fn test_server_initialization() {
 /// Test offline mode functionality
 #[tokio::test]
 async fn test_offline_mode() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::offline_mode();
     let backend = LoxoneBackend::initialize(config).await;
 
@@ -40,7 +48,9 @@ async fn test_offline_mode() {
 async fn test_config_validation() {
     // Test invalid configuration
     let mut config = ServerConfig::default();
-    config.loxone.url = "invalid-url".parse().unwrap();
+    config.loxone.url = "http://invalid-host-that-does-not-exist.local"
+        .parse()
+        .unwrap();
 
     let backend_result = LoxoneBackend::initialize(config).await;
     // Should handle invalid URL gracefully
@@ -50,6 +60,10 @@ async fn test_config_validation() {
 /// Test weather data storage integration
 #[tokio::test]
 async fn test_weather_storage_integration() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
 
     // This tests the weather storage pipeline without requiring actual Loxone connection
@@ -95,6 +109,10 @@ fn test_device_type_classification() {
 /// Test MCP protocol compliance
 #[tokio::test]
 async fn test_mcp_protocol_compliance() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
     let backend = LoxoneBackend::initialize(config).await;
 
@@ -110,6 +128,10 @@ async fn test_mcp_protocol_compliance() {
 /// Test concurrent operations
 #[tokio::test]
 async fn test_concurrent_operations() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
 
     // Test multiple backend initializations can happen concurrently
@@ -131,6 +153,10 @@ async fn test_concurrent_operations() {
 /// Test memory usage and cleanup
 #[tokio::test]
 async fn test_memory_cleanup() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
 
     // Create and drop multiple backends to test cleanup
@@ -148,6 +174,10 @@ async fn test_memory_cleanup() {
 /// Integration test for the complete weather data pipeline
 #[tokio::test]
 async fn test_weather_pipeline_integration() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
     let backend = LoxoneBackend::initialize(config).await;
 
@@ -164,6 +194,10 @@ async fn test_weather_pipeline_integration() {
 /// Test resource system integration
 #[tokio::test]
 async fn test_resource_system() {
+    // Set up test environment with dummy credentials
+    std::env::set_var("LOXONE_USERNAME", "test");
+    std::env::set_var("LOXONE_PASSWORD", "test");
+
     let config = ServerConfig::dev_mode();
     let backend = LoxoneBackend::initialize(config).await;
 
