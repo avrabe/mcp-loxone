@@ -1,14 +1,13 @@
-//! Common test utilities
+//! Common test utilities and mock infrastructure
 //!
-//! NOTE: Temporarily simplified due to API changes - needs full update for rmcp 0.1.2
+//! This module provides shared testing infrastructure including:
+//! - Loxone API mocking with WireMock
+//! - Test fixtures and utilities
+//! - Environment isolation helpers
+//! - Container-based testing support
 
-#[cfg(test)]
-pub mod test_helpers {
-    use loxone_mcp_rust::config::ServerConfig;
+pub mod loxone_mock;
+pub mod test_fixtures;
 
-    #[allow(dead_code)]
-    pub fn create_test_config() -> ServerConfig {
-        // Return a minimal valid config for testing
-        ServerConfig::default()
-    }
-}
+pub use loxone_mock::*;
+pub use test_fixtures::*;
