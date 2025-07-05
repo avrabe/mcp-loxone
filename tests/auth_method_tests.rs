@@ -7,6 +7,7 @@ use std::time::Duration;
 use url::Url;
 
 #[tokio::test]
+#[ignore = "Requires actual Loxone Miniserver connection"]
 async fn test_token_auth_selection() {
     let config = LoxoneConfig {
         url: Url::parse("http://192.168.1.100").unwrap(),
@@ -46,6 +47,7 @@ async fn test_token_auth_selection() {
 }
 
 #[tokio::test]
+#[ignore = "Requires actual Loxone Miniserver connection"]
 async fn test_basic_auth_selection() {
     let config = LoxoneConfig {
         url: Url::parse("http://192.168.1.100").unwrap(),
