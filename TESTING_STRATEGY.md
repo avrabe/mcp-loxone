@@ -7,8 +7,9 @@ This document outlines the comprehensive testing strategy for the Loxone MCP pro
 ### Previous Issues
 1. **Race Conditions**: Environment variable interference between concurrent tests
 2. **External Dependencies**: Tests requiring real Loxone hardware, Ollama instances, API keys
-3. **Disabled Tests**: 80% of integration tests disabled with placeholder implementations
-4. **Complex Environment Management**: Broken `ENV_TEST_MUTEX` and `TestEnvironment` patterns
+3. **Disabled Tests**: 80% of integration tests disabled due to framework migration from rmcp to pulseengine-mcp
+4. **Framework Migration**: Tests written for old rmcp API, now using pulseengine-mcp 0.3.1 framework
+5. **Complex Environment Management**: Broken `ENV_TEST_MUTEX` and `TestEnvironment` patterns
 
 ### Solutions Implemented
 1. **Modern Dependencies**: Added wiremock, mockall, serial_test, temp-env, rstest, testcontainers
@@ -236,6 +237,34 @@ let config = LoxoneConfig { /* manual setup */ };
 #[rstest]
 fn test_function(test_loxone_config: LoxoneConfig) {
     // Use provided config
+}
+```
+
+### Step 5: Update Framework API Usage
+Update disabled tests for pulseengine-mcp framework:
+
+```rust
+// Before (rmcp API - disabled)
+#[tokio::test]
+async fn test_placeholder() {
+    // TODO: Re-implement for rmcp 0.1.2 API
+    let test_val = 1 + 1;
+    assert_eq!(test_val, 2);
+}
+
+// After (pulseengine-mcp API)
+use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use pulseengine_mcp_protocol::{Request, Response};
+
+#[tokio::test]
+async fn test_mcp_protocol_compliance() {
+    let mock_server = MockLoxoneServer::start().await;
+    let config = test_server_config_with_url(mock_server.url());
+    let backend = LoxoneBackend::initialize(config).await.unwrap();
+    
+    // Test MCP protocol compliance with framework
+    let capabilities = backend.get_capabilities().await.unwrap();
+    assert!(!capabilities.tools.is_empty());
 }
 ```
 
