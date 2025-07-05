@@ -342,13 +342,12 @@ pub fn print_security_warnings(checks: &[SecurityCheck]) {
                 path,
                 fix_command,
             } => {
-                eprintln!("⚠️  SECURITY WARNING:");
-                eprintln!("Permissions {current:o} for '{path}' are too open.");
-                eprintln!(
+                tracing::warn!("⚠️  SECURITY WARNING:");
+                tracing::warn!("Permissions {current:o} for '{path}' are too open.");
+                tracing::warn!(
                     "It is recommended that your credential files are NOT accessible by others."
                 );
-                eprintln!("Run: {fix_command}");
-                eprintln!();
+                tracing::warn!("Run: {fix_command}");
             }
             SecurityCheck::Unchecked { reason } => {
                 debug!("Security check skipped: {}", reason);
