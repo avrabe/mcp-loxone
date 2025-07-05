@@ -4,9 +4,8 @@
 //! for testing without requiring actual hardware.
 
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use wiremock::{
-    matchers::{method, path, path_regex, query_param},
+    matchers::{method, path, path_regex},
     Mock, MockServer, ResponseTemplate,
 };
 
@@ -31,13 +30,13 @@ impl MockLoxoneServer {
     async fn setup_default_mocks(&self) {
         // Mock structure file endpoint
         self.mock_structure_file().await;
-        
+
         // Mock authentication endpoints
         self.mock_auth_endpoints().await;
-        
+
         // Mock device state endpoints
         self.mock_device_states().await;
-        
+
         // Mock device control endpoints
         self.mock_device_controls().await;
     }
@@ -67,7 +66,7 @@ impl MockLoxoneServer {
                     "isFavorite": false
                 },
                 "0cd8c06b-855703-ffff-ffff000000000001": {
-                    "name": "Kitchen", 
+                    "name": "Kitchen",
                     "type": 0,
                     "defaultRating": 0,
                     "isFavorite": false
@@ -84,7 +83,7 @@ impl MockLoxoneServer {
                 },
                 "0cd8c06b-855703-ffff-ffff000000000011": {
                     "name": "Kitchen Light",
-                    "type": "LightController", 
+                    "type": "LightController",
                     "room": "0cd8c06b-855703-ffff-ffff000000000001",
                     "states": {
                         "value": "0cd8c06b-855703-ffff-ffff000000000011"
@@ -93,7 +92,7 @@ impl MockLoxoneServer {
                 "0cd8c06b-855703-ffff-ffff000000000020": {
                     "name": "Living Room Blinds",
                     "type": "Jalousie",
-                    "room": "0cd8c06b-855703-ffff-ffff000000000000", 
+                    "room": "0cd8c06b-855703-ffff-ffff000000000000",
                     "states": {
                         "position": "0cd8c06b-855703-ffff-ffff000000000020",
                         "shadePosition": "0cd8c06b-855703-ffff-ffff000000000021"
@@ -157,7 +156,7 @@ impl MockLoxoneServer {
             .and(path("/jdev/sps/enablebinstatusupdate"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "LL": {
-                    "control": "jdev/sps/enablebinstatusupdate", 
+                    "control": "jdev/sps/enablebinstatusupdate",
                     "value": "enabled",
                     "Code": "200"
                 }
@@ -186,7 +185,7 @@ impl MockLoxoneServer {
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "LL": {
                     "control": "jdev/sps/io/Light/Off",
-                    "value": "0", 
+                    "value": "0",
                     "Code": "200"
                 }
             })))
@@ -210,7 +209,7 @@ impl MockLoxoneServer {
             .and(path_regex(r"/jdev/sps/io/.*/FullDown"))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "LL": {
-                    "control": "jdev/sps/io/Jalousie/FullDown", 
+                    "control": "jdev/sps/io/Jalousie/FullDown",
                     "value": "1",
                     "Code": "200"
                 }
@@ -220,6 +219,7 @@ impl MockLoxoneServer {
     }
 
     /// Add a custom mock endpoint
+    #[allow(dead_code)]
     pub async fn add_mock(&self, mock: Mock) {
         mock.mount(&self.server).await;
     }
@@ -230,7 +230,7 @@ impl MockLoxoneServer {
     }
 
     /// Setup a mock for sensor data
-    pub async fn mock_sensor_data(&self, device_uuid: &str, sensor_type: &str, value: f64) {
+    pub async fn mock_sensor_data(&self, device_uuid: &str, _sensor_type: &str, value: f64) {
         let response = json!({
             "LL": {
                 "value": value,
@@ -246,36 +246,106 @@ impl MockLoxoneServer {
     }
 
     /// Setup a mock for error responses
-    pub async fn mock_error_response(&self, path: &str, error_code: u16, message: &str) {
+    #[allow(dead_code)]
+    pub async fn mock_error_response(&self, endpoint_path: &str, error_code: u16, message: &str) {
         let response = json!({
             "LL": {
-                "control": path,
+                "control": endpoint_path,
                 "value": message,
                 "Code": error_code.to_string()
             }
         });
 
         Mock::given(method("GET"))
-            .and(path(path))
+            .and(path(endpoint_path))
             .respond_with(ResponseTemplate::new(error_code).set_body_json(response))
+            .mount(&self.server)
+            .await;
+    }
+
+    /// Setup WebSocket handshake mock
+    #[allow(dead_code)]
+    pub async fn mock_websocket_handshake(&self) {
+        use wiremock::matchers::header;
+
+        Mock::given(method("GET"))
+            .and(path("/ws/rfc6455"))
+            .and(header("upgrade", "websocket"))
+            .respond_with(
+                ResponseTemplate::new(101)
+                    .insert_header("upgrade", "websocket")
+                    .insert_header("connection", "Upgrade")
+                    .insert_header("sec-websocket-accept", "mock-websocket-key")
+                    .insert_header("sec-websocket-protocol", "rfc6455"),
+            )
+            .mount(&self.server)
+            .await;
+    }
+
+    /// Setup WebSocket binary status update mock
+    #[allow(dead_code)]
+    pub async fn mock_websocket_binary_status(&self) {
+        Mock::given(method("GET"))
+            .and(path("/jdev/sps/enablebinstatusupdate"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "LL": {
+                    "control": "jdev/sps/enablebinstatusupdate",
+                    "value": "Binary status updates enabled via WebSocket",
+                    "Code": "200"
+                }
+            })))
+            .mount(&self.server)
+            .await;
+    }
+
+    /// Setup WebSocket state subscription mock
+    #[allow(dead_code)]
+    pub async fn mock_websocket_state_subscription(&self, state_uuid: &str) {
+        Mock::given(method("GET"))
+            .and(path(format!("/jdev/sps/state/{}", state_uuid)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "LL": {
+                    "control": format!("jdev/sps/state/{}", state_uuid),
+                    "value": "State subscription established",
+                    "Code": "200"
+                }
+            })))
+            .mount(&self.server)
+            .await;
+    }
+
+    /// Setup WebSocket event simulation
+    #[allow(dead_code)]
+    pub async fn mock_websocket_events(&self, event_type: &str, event_data: Value) {
+        Mock::given(method("GET"))
+            .and(path(format!("/ws/events/{}", event_type)))
+            .respond_with(ResponseTemplate::new(200).set_body_json(json!({
+                "LL": {
+                    "control": format!("ws/events/{}", event_type),
+                    "value": event_data,
+                    "Code": "200"
+                }
+            })))
             .mount(&self.server)
             .await;
     }
 }
 
 /// Helper function to create a mock server with common test data
+#[allow(dead_code)]
 pub async fn create_test_loxone_server() -> MockLoxoneServer {
     MockLoxoneServer::start().await
 }
 
 /// Helper function to create a mock server with specific device configurations
+#[allow(dead_code)]
 pub async fn create_mock_server_with_devices(devices: Vec<(&str, &str, &str)>) -> MockLoxoneServer {
     let server = MockLoxoneServer::start().await;
-    
-    for (uuid, name, device_type) in devices {
+
+    for (uuid, _name, device_type) in devices {
         server.mock_sensor_data(uuid, device_type, 1.0).await;
     }
-    
+
     server
 }
 
@@ -289,19 +359,19 @@ mod tests {
         assert!(!mock_server.url().is_empty());
     }
 
-    #[tokio::test] 
+    #[tokio::test]
     async fn test_mock_structure_endpoint() {
         let mock_server = MockLoxoneServer::start().await;
-        
+
         let client = reqwest::Client::new();
         let response = client
             .get(format!("{}/data/LoxAPP3.json", mock_server.url()))
             .send()
             .await
             .unwrap();
-            
+
         assert_eq!(response.status(), 200);
-        
+
         let json: Value = response.json().await.unwrap();
         assert!(json["msInfo"]["serialNr"] == "TEST-12345");
     }

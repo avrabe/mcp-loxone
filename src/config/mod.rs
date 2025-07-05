@@ -223,7 +223,7 @@ pub struct WebSocketConfig {
 }
 
 /// Credential storage options
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CredentialStore {
     /// Use system keyring (not available in WASM)
     #[cfg(feature = "keyring-storage")]

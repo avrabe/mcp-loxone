@@ -11,7 +11,8 @@ use url::Url;
 
 /// Create a test Loxone configuration pointing to a mock server
 #[fixture]
-pub fn test_loxone_config(#[default("http://localhost:8080")] mock_url: &str) -> LoxoneConfig {
+pub fn test_loxone_config(#[default("http://localhost:8080")] mock_url: &str
+) -> LoxoneConfig {
     LoxoneConfig {
         url: Url::parse(mock_url).expect("Valid URL"),
         username: "test_user".to_string(),
@@ -44,6 +45,7 @@ pub fn get_test_env_vars() -> Vec<(&'static str, Option<&'static str>)> {
 }
 
 /// Common test device UUIDs for consistent testing
+#[allow(dead_code)]
 pub struct TestDeviceUuids;
 
 impl TestDeviceUuids {
@@ -55,6 +57,7 @@ impl TestDeviceUuids {
 }
 
 /// Common test room UUIDs
+#[allow(dead_code)]
 pub struct TestRoomUuids;
 
 impl TestRoomUuids {
@@ -64,6 +67,7 @@ impl TestRoomUuids {
 }
 
 /// Helper to run tests with isolated environment
+#[allow(dead_code)]
 pub fn with_test_env<F, R>(test_fn: F) -> R
 where
     F: FnOnce() -> R,
@@ -72,6 +76,7 @@ where
 }
 
 /// Async helper to run tests with isolated environment
+#[allow(dead_code)]
 pub async fn with_test_env_async<F, Fut, R>(test_fn: F) -> R
 where
     F: FnOnce() -> Fut,
@@ -86,6 +91,7 @@ where
 }
 
 /// Sample sensor data for testing
+#[allow(dead_code)]
 pub struct TestSensorData;
 
 impl TestSensorData {
@@ -118,6 +124,7 @@ impl TestSensorData {
 }
 
 /// Sample device control responses
+#[allow(dead_code)]
 pub struct TestControlResponses;
 
 impl TestControlResponses {

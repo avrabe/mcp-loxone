@@ -322,7 +322,7 @@ httpmock = "0.7"             # Alternative HTTP mock server
 mockall = "0.12"             # Trait mocking for dependencies
 
 # Containers & external services
-testcontainers = "0.15"      # Container-based testing
+testcontainers = { version = "0.15", features = ["experimental"] }      # Container-based testing
 testcontainers-modules = "0.3" # Pre-built container modules
 
 # Test utilities
