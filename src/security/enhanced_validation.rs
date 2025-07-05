@@ -322,6 +322,9 @@ impl EnhancedValidationConfig {
         config.crypto_validation.checksum_validation = false;
         config.anomaly_detection.enabled = false;
         config.hardening_policies.ip_blocking_enabled = false;
+        config.hardening_policies.pattern_blocking_enabled = false;
+        config.hardening_policies.command_injection_prevention = false;
+        config.hardening_policies.template_injection_prevention = false;
         config
     }
 
