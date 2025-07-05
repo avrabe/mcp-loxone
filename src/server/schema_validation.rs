@@ -225,7 +225,9 @@ impl SchemaConstraint {
                     )));
                 }
 
-                let str_value = value.as_str().unwrap();
+                let str_value = value.as_str().ok_or_else(|| {
+                    LoxoneError::invalid_input(format!("Field '{}' must be a string", self.field))
+                })?;
 
                 // Length validation
                 if let Some(min_len) = self.min_length {
@@ -281,7 +283,9 @@ impl SchemaConstraint {
                     )));
                 }
 
-                let num_value = value.as_f64().unwrap();
+                let num_value = value.as_f64().ok_or_else(|| {
+                    LoxoneError::invalid_input(format!("Field '{}' must be a number", self.field))
+                })?;
 
                 // Range validation
                 if let Some(min_val) = self.min_value {
@@ -320,7 +324,9 @@ impl SchemaConstraint {
                     )));
                 }
 
-                let array = value.as_array().unwrap();
+                let array = value.as_array().ok_or_else(|| {
+                    LoxoneError::invalid_input(format!("Field '{}' must be an array", self.field))
+                })?;
 
                 // Length validation for arrays
                 if let Some(min_len) = self.min_length {
@@ -424,14 +430,14 @@ pub struct SchemaValidator {
 
 impl SchemaValidator {
     /// Create a new schema validator
-    pub fn new() -> Self {
+    pub fn new() -> Result<Self> {
         let mut validator = Self {
             constraints: HashMap::new(),
         };
 
         // Initialize with standard tool schemas
-        validator.init_standard_schemas();
-        validator
+        validator.init_standard_schemas()?;
+        Ok(validator)
     }
 
     /// Add constraints for a tool
@@ -518,29 +524,25 @@ impl SchemaValidator {
     }
 
     /// Initialize standard schemas for common tools
-    fn init_standard_schemas(&mut self) {
+    fn init_standard_schemas(&mut self) -> Result<()> {
         // Device control schemas
         self.add_tool_constraints(
             "control_device",
             vec![
-                SchemaConstraint::uuid("uuid", true)
-                    .unwrap()
-                    .with_examples(vec![
-                        json!("12345678-1234-1234-1234-123456789abc"),
-                        json!("0CD8C06B.855703.I2"),
-                    ]),
+                SchemaConstraint::uuid("uuid", true)?.with_examples(vec![
+                    json!("12345678-1234-1234-1234-123456789abc"),
+                    json!("0CD8C06B.855703.I2"),
+                ]),
                 SchemaConstraint::device_action("action", true),
             ],
         );
 
         self.add_tool_constraints(
             "get_device_state",
-            vec![SchemaConstraint::uuid("uuid", true)
-                .unwrap()
-                .with_examples(vec![
-                    json!("12345678-1234-1234-1234-123456789abc"),
-                    json!("0CD8C06B.855703.I2"),
-                ])],
+            vec![SchemaConstraint::uuid("uuid", true)?.with_examples(vec![
+                json!("12345678-1234-1234-1234-123456789abc"),
+                json!("0CD8C06B.855703.I2"),
+            ])],
         );
 
         // Room schemas
@@ -559,8 +561,7 @@ impl SchemaValidator {
                     r"^(light|blind|rolladen|jalousie|all)$",
                     "Device type filter",
                     false,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("light"),
                     json!("blind"),
@@ -583,19 +584,19 @@ impl SchemaValidator {
         // Sensor schemas
         self.add_tool_constraints(
             "get_sensor_reading",
-            vec![SchemaConstraint::uuid("sensor_uuid", true)
-                .unwrap()
-                .with_examples(vec![
+            vec![
+                SchemaConstraint::uuid("sensor_uuid", true)?.with_examples(vec![
                     json!("0CD8C06B.855703.A1"),
                     json!("12345678-1234-1234-1234-123456789abc"),
-                ])],
+                ]),
+            ],
         );
 
         // Light control schemas
         self.add_tool_constraints(
             "control_light",
             vec![
-                SchemaConstraint::uuid("uuid", true).unwrap(),
+                SchemaConstraint::uuid("uuid", true)?,
                 SchemaConstraint::device_action("action", true),
                 SchemaConstraint::percentage("brightness", false).with_examples(vec![
                     json!(0),
@@ -611,7 +612,7 @@ impl SchemaValidator {
         self.add_tool_constraints(
             "control_blind",
             vec![
-                SchemaConstraint::uuid("uuid", true).unwrap(),
+                SchemaConstraint::uuid("uuid", true)?,
                 SchemaConstraint::device_action("action", true),
                 SchemaConstraint::percentage("position", false).with_examples(vec![
                     json!(0),
@@ -637,8 +638,7 @@ impl SchemaValidator {
                 r"^[a-zA-Z0-9_-]+$",
                 "Security zone identifier",
                 false,
-            )
-            .unwrap()
+            )?
             .with_examples(vec![json!("main"), json!("perimeter"), json!("internal")])],
         );
 
@@ -691,8 +691,7 @@ impl SchemaValidator {
                     r"^.+$",
                     "Device UUID or name",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("12345678-1234-1234-1234-123456789abc"),
                     json!("Living Room Light"),
@@ -743,8 +742,7 @@ impl SchemaValidator {
                     r"^(lighting|blinds|climate|sensors|audio|security|energy|all)$",
                     "Device category",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("lighting"),
                     json!("blinds"),
@@ -778,8 +776,7 @@ impl SchemaValidator {
                 r"^[a-zA-Z0-9_-]+$",
                 "Device type (e.g., Switch, Jalousie, Dimmer)",
                 false,
-            )
-            .unwrap()
+            )?
             .with_examples(vec![
                 json!("Switch"),
                 json!("Jalousie"),
@@ -822,8 +819,7 @@ impl SchemaValidator {
                     r"^(door_window|motion|analog|temperature|light|noisy|unknown)$",
                     "Sensor type filter",
                     false,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("door_window"),
                     json!("motion"),
@@ -856,8 +852,7 @@ impl SchemaValidator {
                     r"^.+$",
                     "Audio zone name",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("Living Room"),
                     json!("Kitchen"),
@@ -868,8 +863,7 @@ impl SchemaValidator {
                     r"^(play|stop|pause|volume|mute|unmute|next|previous)$",
                     "Audio control action",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("play"),
                     json!("stop"),
@@ -892,8 +886,7 @@ impl SchemaValidator {
                     r"^.+$",
                     "Audio zone name",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![json!("Living Room"), json!("Kitchen")]),
                 SchemaConstraint::percentage("volume", true).with_examples(vec![
                     json!(25),
@@ -919,8 +912,7 @@ impl SchemaValidator {
                     r"^(morning_routine|parallel_demo|conditional_demo|security_check|evening_routine)$",
                     "Predefined workflow name",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("morning_routine"),
                     json!("parallel_demo"),
@@ -956,8 +948,7 @@ impl SchemaValidator {
                     r"^[a-zA-Z0-9_-]*$",
                     "Optional device type filter",
                     false,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("Switch"),
                     json!("Jalousie"),
@@ -975,8 +966,7 @@ impl SchemaValidator {
                     r"^.+$",
                     "Device UUID or name",
                     true,
-                )
-                .unwrap()
+                )?
                 .with_examples(vec![
                     json!("12345678-1234-1234-1234-123456789abc"),
                     json!("0CD8C06B.855703.I2"),
@@ -986,6 +976,8 @@ impl SchemaValidator {
                 SchemaConstraint::room_name("room", false),
             ],
         );
+
+        Ok(())
     }
 
     /// Get all available tool schemas
@@ -1029,7 +1021,7 @@ impl SchemaValidator {
 
 impl Default for SchemaValidator {
     fn default() -> Self {
-        Self::new()
+        Self::new().expect("Failed to create default SchemaValidator")
     }
 }
 
@@ -1084,7 +1076,7 @@ mod tests {
 
     #[test]
     fn test_schema_validator() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
 
         // Valid device control
         let params = json!({
@@ -1115,7 +1107,7 @@ mod tests {
 
     #[test]
     fn test_schema_generation() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         let schema = validator.get_tool_schema("control_device").unwrap();
 
         assert!(schema["type"] == "object");
@@ -1133,7 +1125,7 @@ mod tests {
 
     #[test]
     fn test_defaults_application() {
-        let mut validator = SchemaValidator::new();
+        let mut validator = SchemaValidator::default();
 
         // Add a constraint with default
         validator.add_tool_constraints(

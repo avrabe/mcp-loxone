@@ -233,13 +233,16 @@ async fn main() -> Result<()> {
             } else {
                 {
                     let mut server_config = LoxoneServerConfig::default();
-                    server_config.loxone.url =
-                        format!("http://{}", config.loxone_host.clone().unwrap())
-                            .parse()
-                            .map_err(|e| {
-                                loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
-                            })?;
-                    server_config.loxone.username = config.loxone_user.clone().unwrap();
+                    let host = config.loxone_host.clone().ok_or_else(|| {
+                        loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
+                    })?;
+                    server_config.loxone.url = format!("http://{}", host).parse().map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
+                    })?;
+                    server_config.loxone.username =
+                        config.loxone_user.clone().ok_or_else(|| {
+                            loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER")
+                        })?;
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
                     // Let the adaptive client factory handle auth method selection based on server capabilities
@@ -254,13 +257,16 @@ async fn main() -> Result<()> {
             } else {
                 {
                     let mut server_config = LoxoneServerConfig::default();
-                    server_config.loxone.url =
-                        format!("http://{}", config.loxone_host.clone().unwrap())
-                            .parse()
-                            .map_err(|e| {
-                                loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
-                            })?;
-                    server_config.loxone.username = config.loxone_user.clone().unwrap();
+                    let host = config.loxone_host.clone().ok_or_else(|| {
+                        loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
+                    })?;
+                    server_config.loxone.url = format!("http://{}", host).parse().map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
+                    })?;
+                    server_config.loxone.username =
+                        config.loxone_user.clone().ok_or_else(|| {
+                            loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER")
+                        })?;
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
                     // Let the adaptive client factory handle auth method selection based on server capabilities
@@ -270,10 +276,17 @@ async fn main() -> Result<()> {
         }
         TransportCommand::StreamableHttp { .. } => {
             let mut server_config = LoxoneServerConfig::default();
-            server_config.loxone.url = format!("https://{}", config.loxone_host.clone().unwrap())
+            let host = config
+                .loxone_host
+                .clone()
+                .ok_or_else(|| loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST"))?;
+            server_config.loxone.url = format!("https://{}", host)
                 .parse()
                 .map_err(|e| loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}")))?;
-            server_config.loxone.username = config.loxone_user.clone().unwrap();
+            server_config.loxone.username = config
+                .loxone_user
+                .clone()
+                .ok_or_else(|| loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER"))?;
             server_config.loxone.timeout = std::time::Duration::from_secs(30);
             server_config.loxone.verify_ssl = false;
             server_config

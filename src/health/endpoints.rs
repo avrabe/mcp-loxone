@@ -120,7 +120,7 @@ impl HealthEndpoints {
                 "status": format!("{:?}", status),
                 "timestamp": std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_else(|_| std::time::Duration::from_secs(0))
                     .as_secs(),
                 "alive": !matches!(status, HealthStatus::Unhealthy | HealthStatus::Stopping)
             }),
@@ -148,7 +148,7 @@ impl HealthEndpoints {
                 "status": format!("{:?}", status),
                 "timestamp": std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_else(|_| std::time::Duration::from_secs(0))
                     .as_secs(),
                 "ready": matches!(status, HealthStatus::Healthy | HealthStatus::Warning)
             }),

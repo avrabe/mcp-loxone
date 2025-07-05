@@ -781,14 +781,14 @@ mod tests {
 
     #[tokio::test]
     async fn test_schema_validator_creation() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         assert!(validator.request_schemas.contains_key("initialize"));
         assert!(validator.request_schemas.contains_key("tools/call"));
     }
 
     #[tokio::test]
     async fn test_valid_tool_call_request() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         let context = ValidationContext::new("test".to_string(), Default::default());
 
         let request = json!({
@@ -811,7 +811,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_invalid_tool_call_request() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         let context = ValidationContext::new("test".to_string(), Default::default());
 
         let request = json!({
@@ -833,7 +833,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_string_validation() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         let schema = Schema {
             schema_type: SchemaType::String,
             min_length: Some(3),
@@ -864,7 +864,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_malicious_content_detection() {
-        let validator = SchemaValidator::new();
+        let validator = SchemaValidator::default();
         let schema = Schema {
             schema_type: SchemaType::String,
             ..Default::default()

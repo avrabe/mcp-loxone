@@ -752,14 +752,23 @@ async fn create_credential_manager_for_backend(
                 #[cfg(feature = "infisical")]
                 {
                     if std::env::var("INFISICAL_PROJECT_ID").is_ok() {
-                        Some(CredentialStore::Infisical {
-                            project_id: std::env::var("INFISICAL_PROJECT_ID").unwrap(),
-                            environment: std::env::var("INFISICAL_ENVIRONMENT")
-                                .unwrap_or_else(|_| "dev".to_string()),
-                            client_id: std::env::var("INFISICAL_CLIENT_ID").unwrap(),
-                            client_secret: std::env::var("INFISICAL_CLIENT_SECRET").unwrap(),
-                            host: std::env::var("INFISICAL_HOST").ok(),
-                        })
+                        match (
+                            std::env::var("INFISICAL_PROJECT_ID"),
+                            std::env::var("INFISICAL_CLIENT_ID"),
+                            std::env::var("INFISICAL_CLIENT_SECRET"),
+                        ) {
+                            (Ok(project_id), Ok(client_id), Ok(client_secret)) => {
+                                Some(CredentialStore::Infisical {
+                                    project_id,
+                                    environment: std::env::var("INFISICAL_ENVIRONMENT")
+                                        .unwrap_or_else(|_| "dev".to_string()),
+                                    client_id,
+                                    client_secret,
+                                    host: std::env::var("INFISICAL_HOST").ok(),
+                                })
+                            }
+                            _ => None,
+                        }
                     } else {
                         None
                     }

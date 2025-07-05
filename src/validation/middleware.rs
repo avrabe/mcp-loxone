@@ -40,7 +40,7 @@ impl ValidationMiddleware {
         };
 
         let validator = CompositeValidator::new(config.clone())
-            .add_validator(Box::new(SchemaValidator::new()))
+            .add_validator(Box::new(SchemaValidator::default()))
             .add_validator(Box::new(SanitizerValidator::new(sanitizer_config)))
             .add_validator(Box::new(RulesValidator::new()));
 

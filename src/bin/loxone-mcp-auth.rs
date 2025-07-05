@@ -472,10 +472,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if !yes {
                 print!("Are you sure you want to delete API key '{key_id}'? [y/N]: ");
                 use std::io::{self, Write};
-                io::stdout().flush().unwrap();
+                io::stdout()
+                    .flush()
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
 
                 let mut input = String::new();
-                io::stdin().read_line(&mut input).unwrap();
+                io::stdin()
+                    .read_line(&mut input)
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)?;
                 if !input.trim().to_lowercase().starts_with('y') {
                     println!("❌ Deletion cancelled");
                     return Ok(());

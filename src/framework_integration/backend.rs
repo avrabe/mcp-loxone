@@ -605,7 +605,7 @@ impl LoxoneBackend {
                 crate::server::loxone_batch_executor::LoxoneBatchExecutor::new(client.clone()),
             ),
         ));
-        let schema_validator = Arc::new(SchemaValidator::new());
+        let schema_validator = Arc::new(SchemaValidator::default());
         let resource_monitor = Arc::new(ResourceMonitor::new(Default::default()));
         let response_cache = Arc::new(ToolResponseCache::new());
         let subscription_coordinator = Arc::new(SubscriptionCoordinator::new().await?);
