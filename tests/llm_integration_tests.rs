@@ -14,181 +14,72 @@ use loxone_mcp_rust::sampling::{
     protocol::SamplingProtocolIntegration,
     SamplingMessage, SamplingRequest,
 };
+use serial_test::serial;
 use std::collections::HashMap;
-use std::env;
-use std::sync::{Arc, LazyLock};
-use tokio::sync::Mutex;
+use temp_env::with_vars;
 use tokio::time::Duration;
 
-/// Global mutex to ensure environment-modifying tests run sequentially
-static ENV_TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
-
-/// Test environment configuration for different provider scenarios
-#[derive(Debug, Clone)]
-struct TestEnvironment {
-    vars: HashMap<String, String>,
-}
-
-impl TestEnvironment {
-    /// Clean environment for isolated testing
-    fn clean() -> Self {
-        let mut vars = HashMap::new();
+/// Helper function to create clean environment variables for testing
+fn get_clean_env() -> Vec<(&'static str, Option<&'static str>)> {
+    vec![
         // Explicitly disable cloud providers
-        vars.insert("OPENAI_API_KEY".to_string(), "".to_string());
-        vars.insert("ANTHROPIC_API_KEY".to_string(), "".to_string());
+        ("OPENAI_API_KEY", None),
+        ("ANTHROPIC_API_KEY", None),
         // Set explicit health states
-        vars.insert("OLLAMA_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("OPENAI_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("ANTHROPIC_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        Self { vars }
-    }
-
-    /// Environment with only Ollama enabled
-    fn ollama_only() -> Self {
-        let mut vars = HashMap::new();
-        vars.insert("OLLAMA_ENABLED".to_string(), "true".to_string());
-        vars.insert(
-            "OLLAMA_BASE_URL".to_string(),
-            "http://localhost:11434".to_string(),
-        );
-        vars.insert("OLLAMA_DEFAULT_MODEL".to_string(), "llama3.2".to_string());
-        vars.insert("LLM_ENABLE_FALLBACK".to_string(), "false".to_string());
-        // Set explicit health states
-        vars.insert("OLLAMA_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("OPENAI_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("ANTHROPIC_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        Self { vars }
-    }
-
-    /// Environment with Ollama + OpenAI fallback
-    fn ollama_with_openai_fallback() -> Self {
-        let mut vars = HashMap::new();
-        vars.insert("OLLAMA_ENABLED".to_string(), "true".to_string());
-        vars.insert(
-            "OLLAMA_BASE_URL".to_string(),
-            "http://localhost:11434".to_string(),
-        );
-        vars.insert("OLLAMA_DEFAULT_MODEL".to_string(), "llama3.2".to_string());
-        vars.insert("OPENAI_API_KEY".to_string(), "test-openai-key".to_string());
-        vars.insert("OPENAI_DEFAULT_MODEL".to_string(), "gpt-4o".to_string());
-        vars.insert("LLM_ENABLE_FALLBACK".to_string(), "true".to_string());
-        vars.insert("LLM_PREFER_LOCAL".to_string(), "true".to_string());
-        // Set explicit health states
-        vars.insert("OLLAMA_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("OPENAI_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("ANTHROPIC_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        Self { vars }
-    }
-
-    /// Environment with all providers enabled
-    fn all_providers() -> Self {
-        let mut vars = HashMap::new();
-        vars.insert("OLLAMA_ENABLED".to_string(), "true".to_string());
-        vars.insert(
-            "OLLAMA_BASE_URL".to_string(),
-            "http://localhost:11434".to_string(),
-        );
-        vars.insert("OLLAMA_DEFAULT_MODEL".to_string(), "llama3.2".to_string());
-        vars.insert("OPENAI_API_KEY".to_string(), "test-openai-key".to_string());
-        vars.insert("OPENAI_DEFAULT_MODEL".to_string(), "gpt-4o".to_string());
-        vars.insert(
-            "ANTHROPIC_API_KEY".to_string(),
-            "test-anthropic-key".to_string(),
-        );
-        vars.insert(
-            "ANTHROPIC_DEFAULT_MODEL".to_string(),
-            "claude-3-5-sonnet-20241022".to_string(),
-        );
-        vars.insert("LLM_ENABLE_FALLBACK".to_string(), "true".to_string());
-        vars.insert("LLM_PREFER_LOCAL".to_string(), "true".to_string());
-        // Set explicit health states
-        vars.insert("OLLAMA_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("OPENAI_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        vars.insert("ANTHROPIC_HEALTH_OVERRIDE".to_string(), "true".to_string());
-        Self { vars }
-    }
-
-    /// Environment with health override for testing failures
-    fn with_health_overrides(
-        mut self,
-        ollama_healthy: bool,
-        openai_healthy: bool,
-        anthropic_healthy: bool,
-    ) -> Self {
-        self.vars.insert(
-            "OLLAMA_HEALTH_OVERRIDE".to_string(),
-            ollama_healthy.to_string(),
-        );
-        self.vars.insert(
-            "OPENAI_HEALTH_OVERRIDE".to_string(),
-            openai_healthy.to_string(),
-        );
-        self.vars.insert(
-            "ANTHROPIC_HEALTH_OVERRIDE".to_string(),
-            anthropic_healthy.to_string(),
-        );
-        self
-    }
-
-    /// Apply this environment to the current process
-    fn apply(&self) -> TestEnvGuard {
-        let mut previous_vars = HashMap::new();
-
-        // List of all LLM-related environment variables that need to be managed
-        let llm_env_vars = [
-            "OLLAMA_ENABLED",
-            "OLLAMA_BASE_URL",
-            "OLLAMA_DEFAULT_MODEL",
-            "OLLAMA_HEALTH_OVERRIDE",
-            "OPENAI_API_KEY",
-            "OPENAI_DEFAULT_MODEL",
-            "OPENAI_HEALTH_OVERRIDE",
-            "ANTHROPIC_API_KEY",
-            "ANTHROPIC_DEFAULT_MODEL",
-            "ANTHROPIC_HEALTH_OVERRIDE",
-            "LLM_ENABLE_FALLBACK",
-            "LLM_PREFER_LOCAL",
-        ];
-
-        // Store previous values for all relevant environment variables
-        for key in &llm_env_vars {
-            if let Ok(prev_value) = env::var(key) {
-                previous_vars.insert(key.to_string(), Some(prev_value));
-            } else {
-                previous_vars.insert(key.to_string(), None);
-            }
-        }
-
-        // Clear all LLM-related environment variables first
-        for key in &llm_env_vars {
-            env::remove_var(key);
-        }
-
-        // Set the new values from this environment
-        for (key, value) in &self.vars {
-            if !value.is_empty() {
-                env::set_var(key, value);
-            }
-        }
-
-        TestEnvGuard { previous_vars }
-    }
+        ("OLLAMA_HEALTH_OVERRIDE", Some("true")),
+        ("OPENAI_HEALTH_OVERRIDE", Some("true")),
+        ("ANTHROPIC_HEALTH_OVERRIDE", Some("true")),
+    ]
 }
 
-/// Guard that restores environment variables when dropped
-struct TestEnvGuard {
-    previous_vars: HashMap<String, Option<String>>,
+/// Helper function for Ollama-only environment
+fn get_ollama_only_env() -> Vec<(&'static str, Option<&'static str>)> {
+    vec![
+        ("OLLAMA_ENABLED", Some("true")),
+        ("OLLAMA_BASE_URL", Some("http://localhost:11434")),
+        ("OLLAMA_DEFAULT_MODEL", Some("llama3.2")),
+        ("LLM_ENABLE_FALLBACK", Some("false")),
+        ("OLLAMA_HEALTH_OVERRIDE", Some("true")),
+        ("OPENAI_HEALTH_OVERRIDE", Some("true")),
+        ("ANTHROPIC_HEALTH_OVERRIDE", Some("true")),
+        ("OPENAI_API_KEY", None),
+        ("ANTHROPIC_API_KEY", None),
+    ]
 }
 
-impl Drop for TestEnvGuard {
-    fn drop(&mut self) {
-        for (key, prev_value) in &self.previous_vars {
-            match prev_value {
-                Some(value) => env::set_var(key, value),
-                None => env::remove_var(key),
-            }
-        }
-    }
+/// Helper function for Ollama + OpenAI fallback environment
+fn get_ollama_openai_env() -> Vec<(&'static str, Option<&'static str>)> {
+    vec![
+        ("OLLAMA_ENABLED", Some("true")),
+        ("OLLAMA_BASE_URL", Some("http://localhost:11434")),
+        ("OLLAMA_DEFAULT_MODEL", Some("llama3.2")),
+        ("OPENAI_API_KEY", Some("test-openai-key")),
+        ("OPENAI_DEFAULT_MODEL", Some("gpt-4o")),
+        ("LLM_ENABLE_FALLBACK", Some("true")),
+        ("LLM_PREFER_LOCAL", Some("true")),
+        ("OLLAMA_HEALTH_OVERRIDE", Some("true")),
+        ("OPENAI_HEALTH_OVERRIDE", Some("true")),
+        ("ANTHROPIC_HEALTH_OVERRIDE", Some("true")),
+        ("ANTHROPIC_API_KEY", None),
+    ]
+}
+
+/// Helper function for all providers environment
+fn get_all_providers_env() -> Vec<(&'static str, Option<&'static str>)> {
+    vec![
+        ("OLLAMA_ENABLED", Some("true")),
+        ("OLLAMA_BASE_URL", Some("http://localhost:11434")),
+        ("OLLAMA_DEFAULT_MODEL", Some("llama3.2")),
+        ("OPENAI_API_KEY", Some("test-openai-key")),
+        ("OPENAI_DEFAULT_MODEL", Some("gpt-4o")),
+        ("ANTHROPIC_API_KEY", Some("test-anthropic-key")),
+        ("ANTHROPIC_DEFAULT_MODEL", Some("claude-3-5-sonnet-20241022")),
+        ("LLM_ENABLE_FALLBACK", Some("true")),
+        ("LLM_PREFER_LOCAL", Some("true")),
+        ("OLLAMA_HEALTH_OVERRIDE", Some("true")),
+        ("OPENAI_HEALTH_OVERRIDE", Some("true")),
+        ("ANTHROPIC_HEALTH_OVERRIDE", Some("true")),
+    ]
 }
 
 #[tokio::test]
@@ -241,15 +132,10 @@ async fn test_provider_config_validation() {
 }
 
 #[tokio::test]
-#[ignore = "TODO: Fix race condition - test passes individually but fails when run with other tests"]
+#[serial]
 async fn test_environment_based_configuration_loading() {
-    // TODO: This test has a race condition where OpenAI is enabled when it should be disabled
-    // in the clean environment. The environment variable management between tests may have
-    // interference despite the async mutex. Test passes individually.
-    let _lock = ENV_TEST_MUTEX.lock().await;
     // Test 1: Clean environment - should use defaults
-    {
-        let _guard = TestEnvironment::clean().apply();
+    with_vars(get_clean_env(), || {
         let config = ProviderFactoryConfig::from_env();
 
         assert!(config.ollama.enabled, "Ollama should be enabled by default");
@@ -263,11 +149,10 @@ async fn test_environment_based_configuration_loading() {
         );
         assert_eq!(config.ollama.base_url, "http://localhost:11434");
         assert_eq!(config.ollama.default_model, "llama3.2");
-    }
+    });
 
     // Test 2: Ollama only configuration
-    {
-        let _guard = TestEnvironment::ollama_only().apply();
+    with_vars(get_ollama_only_env(), || {
         let config = ProviderFactoryConfig::from_env();
 
         assert!(config.ollama.enabled);
@@ -276,11 +161,10 @@ async fn test_environment_based_configuration_loading() {
         assert!(!config.selection.enable_fallback);
         assert!(config.is_ollama_primary());
         assert!(!config.has_fallback_providers());
-    }
+    });
 
     // Test 3: Ollama with OpenAI fallback
-    {
-        let _guard = TestEnvironment::ollama_with_openai_fallback().apply();
+    with_vars(get_ollama_openai_env(), || {
         let config = ProviderFactoryConfig::from_env();
 
         assert!(config.ollama.enabled);
@@ -294,11 +178,10 @@ async fn test_environment_based_configuration_loading() {
         assert_eq!(providers.len(), 2);
         assert_eq!(providers[0].0, "ollama");
         assert_eq!(providers[1].0, "openai");
-    }
+    });
 
     // Test 4: All providers enabled
-    {
-        let _guard = TestEnvironment::all_providers().apply();
+    with_vars(get_all_providers_env(), || {
         let config = ProviderFactoryConfig::from_env();
 
         assert!(config.ollama.enabled);
@@ -313,20 +196,14 @@ async fn test_environment_based_configuration_loading() {
         assert_eq!(providers[0].0, "ollama"); // Priority 1
         assert_eq!(providers[1].0, "openai"); // Priority 2
         assert_eq!(providers[2].0, "anthropic"); // Priority 3
-    }
+    });
 }
 
 #[tokio::test]
-#[ignore = "TODO: Fix race condition - test passes individually but fails when run with other tests"]
+#[serial]
 async fn test_sampling_client_manager_initialization() {
-    // TODO: This test has a race condition where it expects "Fallback: 0 available" but gets
-    // different results when run with other tests. The environment variable management between
-    // tests may have interference despite the async mutex. Test passes individually.
-    // Test passes when run individually: cargo test test_sampling_client_manager_initialization
-    let _lock = ENV_TEST_MUTEX.lock().await;
     // Test 1: Manager with default configuration
-    {
-        let _guard = TestEnvironment::clean().apply();
+    with_vars(get_clean_env(), || {
         let config = ProviderFactoryConfig::from_env();
         let manager = SamplingClientManager::new_with_config(config);
 
