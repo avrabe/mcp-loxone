@@ -720,6 +720,7 @@ impl LoxoneError {
             match self {
                 LoxoneError::Authentication(_) => "Authentication failed".to_string(),
                 LoxoneError::Credentials(_) => "Credential access error".to_string(),
+                LoxoneError::Database(_) => "Database operation failed".to_string(),
                 LoxoneError::PermissionDenied(_) => "Access denied".to_string(),
                 LoxoneError::Connection(_) => "Network connection issue".to_string(),
                 LoxoneError::Timeout(_) => "Operation timed out".to_string(),
