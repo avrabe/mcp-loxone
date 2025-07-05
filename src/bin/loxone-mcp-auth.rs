@@ -197,7 +197,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(log_level.parse().unwrap()),
+                .add_directive(log_level.parse().expect("Log level should be valid")),
         )
         .init();
 

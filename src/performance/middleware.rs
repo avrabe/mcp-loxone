@@ -99,25 +99,27 @@ impl PerformanceMiddleware {
 
         // Add timing information
         if let Some(duration) = measurement.timing.get_duration() {
-            headers.insert(
-                "X-Response-Time",
-                format!("{}ms", duration.as_millis()).parse().unwrap(),
-            );
+            if let Ok(header_value) = format!("{}ms", duration.as_millis()).parse() {
+                headers.insert("X-Response-Time", header_value);
+            }
         }
 
         // Add request ID for tracing
-        headers.insert(
-            "X-Request-ID",
-            measurement.context.operation_id.clone().parse().unwrap(),
-        );
+        if let Ok(header_value) = measurement.context.operation_id.clone().parse() {
+            headers.insert("X-Request-ID", header_value);
+        }
 
         // Add performance metrics if available
         if let Some(cpu) = measurement.resource_usage.cpu_usage {
-            headers.insert("X-CPU-Usage", format!("{cpu:.1}").parse().unwrap());
+            if let Ok(header_value) = format!("{cpu:.1}").parse() {
+                headers.insert("X-CPU-Usage", header_value);
+            }
         }
 
         if let Some(memory) = measurement.resource_usage.memory_usage {
-            headers.insert("X-Memory-Usage", format!("{memory}").parse().unwrap());
+            if let Ok(header_value) = format!("{memory}").parse() {
+                headers.insert("X-Memory-Usage", header_value);
+            }
         }
 
         // Add performance score if issues detected
@@ -134,10 +136,9 @@ impl PerformanceMiddleware {
                 .count();
 
             if critical_issues > 0 {
-                headers.insert(
-                    "X-Performance-Warning",
-                    "critical-issues-detected".parse().unwrap(),
-                );
+                if let Ok(header_value) = "critical-issues-detected".parse() {
+                    headers.insert("X-Performance-Warning", header_value);
+                }
             }
         }
     }
@@ -407,7 +408,7 @@ mod tests {
     #[test]
     fn test_extract_operation_info() {
         let method = Method::GET;
-        let uri: Uri = "/api/devices".parse().unwrap();
+        let uri: Uri = "/api/devices".parse().expect("Test URI should be valid");
 
         let (operation_id, operation_type) =
             PerformanceMiddleware::extract_operation_info(&method, &uri);
@@ -419,7 +420,9 @@ mod tests {
     #[test]
     fn test_extract_client_id() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-client-id", "test-client-123".parse().unwrap());
+        if let Ok(header_value) = "test-client-123".parse() {
+            headers.insert("x-client-id", header_value);
+        }
 
         let client_id = PerformanceMiddleware::extract_client_id(&headers);
         assert_eq!(client_id, Some("test-client-123".to_string()));
@@ -428,7 +431,9 @@ mod tests {
     #[test]
     fn test_create_context() {
         let method = Method::POST;
-        let uri: Uri = "/api/devices?room=kitchen".parse().unwrap();
+        let uri: Uri = "/api/devices?room=kitchen"
+            .parse()
+            .expect("Test URI should be valid");
         let headers = HeaderMap::new();
 
         let context = PerformanceMiddleware::create_context(&method, &uri, &headers);

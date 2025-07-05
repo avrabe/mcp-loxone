@@ -18,7 +18,7 @@ use wiremock::{
 };
 
 mod common;
-use common::{ContainerTestEnvironment, MockLoxoneServer, TestDeviceUuids, test_server_config};
+use common::{test_server_config, ContainerTestEnvironment, MockLoxoneServer, TestDeviceUuids};
 
 /// Comprehensive test demonstrating the full testing stack
 #[rstest]

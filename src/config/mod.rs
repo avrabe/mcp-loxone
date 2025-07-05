@@ -283,7 +283,9 @@ pub struct FeatureConfig {
 impl Default for LoxoneConfig {
     fn default() -> Self {
         Self {
-            url: "http://127.0.0.1:80".parse().unwrap(),
+            url: "http://127.0.0.1:80"
+                .parse()
+                .expect("Default URL should be valid"),
             username: "admin".to_string(),
             timeout: Duration::from_secs(30),
             max_retries: 3,
@@ -450,7 +452,9 @@ impl ServerConfig {
         let mut config = Self::default();
 
         // Override with minimal Loxone config for dev mode
-        config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
+        config.loxone.url = "http://localhost:8080"
+            .parse()
+            .expect("Dev mode URL should be valid"); // Dummy URL
         config.loxone.username = "dev".to_string();
         config.loxone.timeout = Duration::from_secs(10);
         config.loxone.max_retries = 1;
@@ -473,7 +477,9 @@ impl ServerConfig {
         let mut config = Self::default();
 
         // Set dummy Loxone config to allow server to start
-        config.loxone.url = "http://localhost:8080".parse().unwrap(); // Dummy URL
+        config.loxone.url = "http://localhost:8080"
+            .parse()
+            .expect("Offline mode URL should be valid"); // Dummy URL
         config.loxone.username = "offline".to_string();
         config.loxone.timeout = Duration::from_secs(5);
         config.loxone.max_retries = 0; // Don't retry in offline mode

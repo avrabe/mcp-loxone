@@ -261,10 +261,9 @@ mod tests {
 
         // Create a request with the API key
         let mut headers = HeaderMap::new();
-        headers.insert(
-            "authorization",
-            format!("Bearer {}", key.secret).parse().unwrap(),
-        );
+        if let Ok(header_value) = format!("Bearer {}", key.secret).parse() {
+            headers.insert("authorization", header_value);
+        }
 
         let _request = Request::builder()
             .method(Method::GET)

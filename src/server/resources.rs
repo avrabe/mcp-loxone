@@ -817,12 +817,9 @@ impl ResourceManager {
                 }
             }
             "limit" => {
-                if value.parse::<u32>().is_err() {
-                    return Err(LoxoneError::invalid_input(
-                        "Parameter 'limit' must be a positive integer",
-                    ));
-                }
-                let limit: u32 = value.parse().unwrap();
+                let limit: u32 = value.parse::<u32>().map_err(|_| {
+                    LoxoneError::invalid_input("Parameter 'limit' must be a positive integer")
+                })?;
                 if limit == 0 || limit > 1000 {
                     return Err(LoxoneError::invalid_input(
                         "Parameter 'limit' must be between 1 and 1000",

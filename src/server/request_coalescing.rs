@@ -4,6 +4,7 @@
 //! reducing load on the Loxone Miniserver and improving response times.
 
 use crate::error::{LoxoneError, Result};
+use crate::utils::safe_mutex_lock;
 use serde_json::Value;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -329,9 +330,13 @@ impl RequestCoalescer {
         let execution_time = start_time.elapsed();
 
         // Update metrics
-        {
-            let mut metrics = self.metrics.lock().unwrap();
-            metrics.batch_executed(batch_size, execution_time);
+        match safe_mutex_lock(&self.metrics, "request coalescing metrics update") {
+            Ok(mut metrics) => {
+                metrics.batch_executed(batch_size, execution_time);
+            }
+            Err(e) => {
+                warn!("Failed to update coalescing metrics: {}", e);
+            }
         }
 
         // Send responses to individual requests
@@ -512,7 +517,14 @@ impl RequestCoalescer {
 
     /// Get current metrics
     pub fn get_metrics(&self) -> CoalescingMetrics {
-        self.metrics.lock().unwrap().clone()
+        match safe_mutex_lock(&self.metrics, "get coalescing metrics") {
+            Ok(metrics) => metrics.clone(),
+            Err(e) => {
+                warn!("Failed to get coalescing metrics: {}", e);
+                // Return default metrics on error
+                CoalescingMetrics::default()
+            }
+        }
     }
 
     /// Start the batch processor background task

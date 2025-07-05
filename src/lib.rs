@@ -36,6 +36,7 @@ pub mod services;
 pub mod shared_styles;
 pub mod storage;
 pub mod tools;
+pub mod utils;
 pub mod validation;
 
 // Test support modules - available for both unit tests and integration tests

@@ -7,6 +7,7 @@ use super::{
     SecurityConfig, SecurityHardeningService,
 };
 use crate::error::{LoxoneError, Result};
+use crate::utils::safe_header_pair;
 use axum::{
     body::Body,
     extract::{Request, State},
@@ -61,10 +62,14 @@ impl SecurityMiddleware {
         let response_headers = response.headers_mut();
 
         for (name, value) in headers {
-            response_headers.insert(
-                header::HeaderName::from_bytes(name.as_bytes()).unwrap(),
-                header::HeaderValue::from_str(&value).unwrap(),
-            );
+            match safe_header_pair(&name, &value) {
+                Ok((header_name, header_value)) => {
+                    response_headers.insert(header_name, header_value);
+                }
+                Err(e) => {
+                    warn!("Failed to apply security header '{}': {}", name, e);
+                }
+            }
         }
     }
 
@@ -234,10 +239,14 @@ pub async fn security_middleware_handler(
                     .unwrap();
 
                 for (name, value) in cors_headers {
-                    response.headers_mut().insert(
-                        header::HeaderName::from_bytes(name.as_bytes()).unwrap(),
-                        header::HeaderValue::from_str(&value).unwrap(),
-                    );
+                    match safe_header_pair(&name, &value) {
+                        Ok((header_name, header_value)) => {
+                            response.headers_mut().insert(header_name, header_value);
+                        }
+                        Err(e) => {
+                            warn!("Failed to apply CORS header '{}': {}", name, e);
+                        }
+                    }
                 }
 
                 return Ok(response);
@@ -272,22 +281,28 @@ pub async fn security_middleware_handler(
             }))
             .into_response();
 
-            response.headers_mut().insert(
-                "X-RateLimit-Limit",
-                header::HeaderValue::from_str("0").unwrap(),
-            );
-            response.headers_mut().insert(
-                "X-RateLimit-Remaining",
-                header::HeaderValue::from_str("0").unwrap(),
-            );
-            response.headers_mut().insert(
-                "X-RateLimit-Reset",
-                header::HeaderValue::from_str(&retry_after.as_secs().to_string()).unwrap(),
-            );
-            response.headers_mut().insert(
-                "Retry-After",
-                header::HeaderValue::from_str(&retry_after.as_secs().to_string()).unwrap(),
-            );
+            if let Ok(limit_header) = header::HeaderValue::from_str("0") {
+                response
+                    .headers_mut()
+                    .insert("X-RateLimit-Limit", limit_header);
+            }
+            if let Ok(remaining_header) = header::HeaderValue::from_str("0") {
+                response
+                    .headers_mut()
+                    .insert("X-RateLimit-Remaining", remaining_header);
+            }
+            if let Ok(reset_header) =
+                header::HeaderValue::from_str(&retry_after.as_secs().to_string())
+            {
+                response
+                    .headers_mut()
+                    .insert("X-RateLimit-Reset", reset_header);
+            }
+            if let Ok(retry_header) =
+                header::HeaderValue::from_str(&retry_after.as_secs().to_string())
+            {
+                response.headers_mut().insert("Retry-After", retry_header);
+            }
 
             *response.status_mut() = StatusCode::TOO_MANY_REQUESTS;
             return Ok(response);
@@ -331,10 +346,14 @@ pub async fn security_middleware_handler(
     {
         super::cors::CorsResult::Allowed(cors_headers) => {
             for (name, value) in cors_headers {
-                response.headers_mut().insert(
-                    header::HeaderName::from_bytes(name.as_bytes()).unwrap(),
-                    header::HeaderValue::from_str(&value).unwrap(),
-                );
+                match safe_header_pair(&name, &value) {
+                    Ok((header_name, header_value)) => {
+                        response.headers_mut().insert(header_name, header_value);
+                    }
+                    Err(e) => {
+                        warn!("Failed to apply CORS header '{}': {}", name, e);
+                    }
+                }
             }
         }
         super::cors::CorsResult::Forbidden => {
@@ -349,10 +368,12 @@ pub async fn security_middleware_handler(
 
     // Add security timing header
     let duration = start_time.elapsed();
-    response.headers_mut().insert(
-        "X-Security-Processing-Time",
-        header::HeaderValue::from_str(&format!("{}ms", duration.as_millis())).unwrap(),
-    );
+    if let Ok(timing_header) = header::HeaderValue::from_str(&format!("{}ms", duration.as_millis()))
+    {
+        response
+            .headers_mut()
+            .insert("X-Security-Processing-Time", timing_header);
+    }
 
     // Log security event
     info!(
@@ -433,7 +454,9 @@ mod tests {
     #[tokio::test]
     async fn test_client_id_extraction() {
         let mut headers = HeaderMap::new();
-        headers.insert("x-client-id", "test-client".parse().unwrap());
+        if let Ok(header_value) = "test-client".parse() {
+            headers.insert("x-client-id", header_value);
+        }
 
         let client_id = SecurityMiddleware::extract_client_id(&headers);
         assert_eq!(client_id, "test-client");

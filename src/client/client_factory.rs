@@ -441,7 +441,9 @@ mod tests {
     #[tokio::test]
     async fn test_capabilities_discovery() {
         let config = LoxoneConfig {
-            url: "http://192.168.1.100".parse().unwrap(),
+            url: "http://192.168.1.100"
+                .parse()
+                .expect("Test URL should be valid"),
             ..Default::default()
         };
 

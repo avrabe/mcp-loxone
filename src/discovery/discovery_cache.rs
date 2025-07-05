@@ -753,7 +753,7 @@ mod tests {
 
     fn create_test_device(ip: &str, serial: &str, name: &str) -> DiscoveredDevice {
         DiscoveredDevice::new(
-            IpAddr::V4(ip.parse::<Ipv4Addr>().unwrap()),
+            IpAddr::V4(ip.parse::<Ipv4Addr>().expect("Test IP should be valid")),
             80,
             serial.to_string(),
             name.to_string(),
@@ -876,7 +876,9 @@ mod tests {
         // Generate some hits and misses
         cache.get_device(&ip).await; // hit
         cache
-            .get_device(&IpAddr::V4("192.168.1.200".parse().unwrap()))
+            .get_device(&IpAddr::V4(
+                "192.168.1.200".parse().expect("Test IP should be valid"),
+            ))
             .await; // miss
 
         let stats = cache.get_statistics().await;

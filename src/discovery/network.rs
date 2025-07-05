@@ -6,6 +6,7 @@
 //! 3. HTTP endpoint scanning (network scan fallback)
 
 use crate::error::{LoxoneError, Result};
+use crate::utils::parse_socket_addr_safe;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -370,7 +371,6 @@ async fn check_loxone_http(
 /// Get local IP address for network scanning
 fn get_local_ip() -> Result<String> {
     use socket2::{Domain, Socket, Type};
-    use std::net::SocketAddr;
 
     // Use configurable DNS server for connectivity check
     let dns_server =
@@ -382,7 +382,8 @@ fn get_local_ip() -> Result<String> {
     let connect_addr = format!("{dns_server}:{dns_port}");
 
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;
-    socket.connect(&connect_addr.parse::<SocketAddr>().unwrap().into())?;
+    let socket_addr = parse_socket_addr_safe(&connect_addr, "DNS server for local IP discovery")?;
+    socket.connect(&socket_addr.into())?;
     let local_addr = socket.local_addr()?;
 
     if let Some(addr) = local_addr.as_socket_ipv4() {

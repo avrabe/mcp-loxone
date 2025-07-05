@@ -610,8 +610,8 @@ mod tests {
         let response = endpoints.handle_metrics().await.unwrap();
         assert_eq!(response.status, 200);
         assert_eq!(
-            response.headers.get("Content-Type").unwrap(),
-            "application/json"
+            response.headers.get("Content-Type").map(|s| s.as_str()),
+            Some("application/json")
         );
         assert!(response.body.is_object());
     }
@@ -629,8 +629,8 @@ mod tests {
         let response = endpoints.handle_metrics().await.unwrap();
         assert_eq!(response.status, 200);
         assert_eq!(
-            response.headers.get("Content-Type").unwrap(),
-            "text/plain; version=0.0.4"
+            response.headers.get("Content-Type").map(|s| s.as_str()),
+            Some("text/plain; version=0.0.4")
         );
         assert!(response.body.is_string());
     }

@@ -759,7 +759,9 @@ mod tests {
     #[tokio::test]
     async fn test_adaptive_pool_builder() {
         let config = LoxoneConfig {
-            url: "http://localhost".parse().unwrap(),
+            url: "http://localhost"
+                .parse()
+                .expect("Test URL should be valid"),
             ..Default::default()
         };
         let credentials = LoxoneCredentials {

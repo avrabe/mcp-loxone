@@ -778,7 +778,7 @@ mod tests {
         assert_ne!(key1, key3);
     }
     */
- // End of legacy tests
+    // End of legacy tests
     #[rstest]
     #[tokio::test]
     async fn test_resource_backend_integration(test_server_config: ServerConfig) {

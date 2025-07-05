@@ -1218,7 +1218,7 @@ mod tests {
     #[ignore] // Ignore this test as it requires actual network access to a specific host
     async fn test_token_client_creation() {
         let config = LoxoneConfig {
-            url: Url::parse("http://192.168.1.100").unwrap(),
+            url: Url::parse("http://192.168.1.100").expect("Test URL should be valid"),
             username: "test".to_string(),
             verify_ssl: false,
             timeout: Duration::from_secs(30),
