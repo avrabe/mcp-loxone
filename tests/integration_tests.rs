@@ -44,7 +44,7 @@ async fn test_device_control_integration() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Once we know the exact MCP tool execution API, test actual device control
     // Backend successfully initialized - ready for device control testing
@@ -67,7 +67,7 @@ async fn test_sensor_monitoring_integration() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Test actual sensor monitoring through MCP tools
     // Backend successfully initialized - ready for sensor monitoring testing

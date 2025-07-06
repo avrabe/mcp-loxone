@@ -11,5 +11,6 @@ pub mod loxone_mock;
 pub mod test_fixtures;
 
 // Re-export key types that are actually used
+#[allow(unused_imports)]
 pub use loxone_mock::MockLoxoneServer;
 // pub use test_fixtures::TestControlResponses; // Unused import

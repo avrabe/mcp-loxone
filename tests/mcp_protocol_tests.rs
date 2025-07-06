@@ -102,10 +102,8 @@ async fn test_mcp_error_handling() {
     let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     // Backend should handle errors gracefully
-    match backend {
-        Ok(_) => (),  // Backend handles errors gracefully in dev mode
-        Err(_) => (), // Backend fails gracefully with proper error
-    }
+    // Either succeeds in dev mode or fails with proper error handling
+    let _ = backend;
 }
 
 // Disabled tests requiring specific MCP framework features

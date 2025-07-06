@@ -576,7 +576,7 @@ mod tests {
 
         for (device_type, action) in device_actions {
             Mock::given(method("GET"))
-                .and(path_regex(&format!(r"/jdev/sps/io/.*/{}$", action)))
+                .and(path_regex(format!(r"/jdev/sps/io/.*/{action}$")))
                 .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
                     "LL": {
                         "control": format!("jdev/sps/io/{}/{}", device_type, action),

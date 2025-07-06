@@ -87,7 +87,7 @@ async fn test_auth_failure_handling() {
     };
 
     // Test that authentication failures are handled gracefully
-    let client = create_client(&config, &credentials).await;
+    let _client = create_client(&config, &credentials).await;
     // Note: This may succeed in client creation but fail on actual API calls
     // The exact behavior depends on the client implementation
 }

@@ -32,7 +32,7 @@ async fn example_handler_usage() -> Result<(), Box<dyn std::error::Error>> {
     let client = create_mock_client();
     let context = create_mock_context();
     let value_resolver = create_mock_value_resolver();
-    let state_manager = create_mock_state_manager();
+    let state_manager = create_mock_state_manager().await;
 
     // OLD WAY: Creating contexts with repeated cloning
     info!("Old way - creating contexts with manual cloning:");
@@ -114,7 +114,7 @@ async fn example_builder_reuse() -> Result<(), Box<dyn std::error::Error>> {
     let client = create_mock_client();
     let context = create_mock_context();
     let value_resolver = create_mock_value_resolver();
-    let state_manager = create_mock_state_manager();
+    let state_manager = create_mock_state_manager().await;
 
     // Create builder once
     let builder = ToolContextBuilder::new(client, context, value_resolver, state_manager);
@@ -265,13 +265,18 @@ fn create_mock_context() -> Arc<loxone_mcp_rust::client::ClientContext> {
 }
 
 fn create_mock_value_resolver() -> Arc<loxone_mcp_rust::services::UnifiedValueResolver> {
-    Arc::new(loxone_mcp_rust::services::UnifiedValueResolver::new())
+    let client = create_mock_client();
+    let sensor_registry = Arc::new(loxone_mcp_rust::services::SensorTypeRegistry::new());
+    Arc::new(loxone_mcp_rust::services::UnifiedValueResolver::new(
+        client,
+        sensor_registry,
+    ))
 }
 
-fn create_mock_state_manager() -> Option<Arc<loxone_mcp_rust::services::StateManager>> {
-    Some(Arc::new(loxone_mcp_rust::services::StateManager::new(
-        create_mock_client(),
-        create_mock_context(),
-        None,
-    )))
+async fn create_mock_state_manager() -> Option<Arc<loxone_mcp_rust::services::StateManager>> {
+    let value_resolver = create_mock_value_resolver();
+    match loxone_mcp_rust::services::StateManager::new(value_resolver).await {
+        Ok(manager) => Some(Arc::new(manager)),
+        Err(_) => None,
+    }
 }

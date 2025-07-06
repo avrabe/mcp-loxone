@@ -49,10 +49,7 @@ async fn test_complete_loxone_workflow(test_server_config: ServerConfig) {
     let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Step 6: Verify backend functionality
-    assert!(
-        true,
-        "Complete workflow: Mock → Environment → Framework → Backend"
-    );
+    println!("✅ Complete workflow: Mock → Environment → Framework → Backend");
 }
 
 /// Test demonstrating error scenarios with mocked failures
@@ -89,8 +86,8 @@ async fn test_error_handling_comprehensive() {
 
         // Verify error handling for this scenario
         match result {
-            Ok(_) => println!("✅ Scenario '{}' handled gracefully", scenario_name),
-            Err(_) => println!("⚠️  Scenario '{}' failed as expected", scenario_name),
+            Ok(_) => println!("✅ Scenario '{scenario_name}' handled gracefully"),
+            Err(_) => println!("⚠️  Scenario '{scenario_name}' failed as expected"),
         }
     }
 }
@@ -123,12 +120,8 @@ async fn test_device_types_parameterized(
 
     let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-    // Test device operations
-    assert!(
-        true,
-        "Device type {} with UUID {} tested successfully",
-        device_type, device_uuid
-    );
+    // Test device operations - backend initialization successful
+    println!("Device type {device_type} with UUID {device_uuid} tested successfully");
 }
 
 /// Test demonstrating custom mock scenarios
@@ -177,7 +170,7 @@ async fn test_concurrent_operations_isolated() {
     // Create multiple concurrent tasks
     let mut tasks = vec![];
 
-    for i in 0..5 {
+    for _i in 0..5 {
         let url = mock_server.url().to_string();
         let task = tokio::spawn(async move {
             let mut config = ServerConfig::dev_mode();
@@ -194,11 +187,10 @@ async fn test_concurrent_operations_isolated() {
 
     // Verify all succeeded
     for (i, result) in results.into_iter().enumerate() {
-        assert!(result.is_ok(), "Concurrent operation {} should succeed", i);
+        assert!(result.is_ok(), "Concurrent operation {i} should succeed");
         assert!(
             result.unwrap().is_ok(),
-            "Backend initialization {} should succeed",
-            i
+            "Backend initialization {i} should succeed"
         );
     }
 }
@@ -242,7 +234,7 @@ mod performance_tests {
         let _ = LoxoneFrameworkBackend::initialize(config).await;
         let duration = start.elapsed();
 
-        println!("Backend initialization took: {:?}", duration);
+        println!("Backend initialization took: {duration:?}");
         assert!(
             duration.as_millis() < 1000,
             "Backend initialization should be fast"

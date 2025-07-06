@@ -10,7 +10,7 @@ use rstest::*;
 use wiremock::{matchers::method, Mock, ResponseTemplate};
 
 mod common;
-use common::{ContainerTestEnvironment, MockLoxoneServer};
+use common::{containers::ContainerTestEnvironment, MockLoxoneServer};
 
 #[rstest]
 #[tokio::test]
