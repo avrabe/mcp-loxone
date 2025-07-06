@@ -5,6 +5,7 @@
 
 use crate::config::ServerConfig;
 use crate::error::{LoxoneError, Result};
+use pulseengine_mcp_server::SimpleBackend;
 use std::sync::Arc;
 use tracing::info;
 
@@ -54,6 +55,16 @@ impl LoxoneFrameworkBackend {
     /// Get uptime in seconds
     pub fn uptime_seconds(&self) -> u64 {
         self.initialized_at.elapsed().as_secs()
+    }
+}
+
+impl SimpleBackend for LoxoneFrameworkBackend {
+    fn name(&self) -> &str {
+        "Loxone MCP Server"
+    }
+
+    fn version(&self) -> &str {
+        env!("CARGO_PKG_VERSION")
     }
 }
 
