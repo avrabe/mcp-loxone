@@ -4,11 +4,8 @@ use pulseengine_mcp_auth::{AuthConfig, AuthenticationManager};
 
 #[tokio::test]
 async fn test_development_auth_config() {
-    // Create a simple auth config for testing
-    let auth_config = AuthConfig {
-        enabled: true,
-        ..Default::default()
-    };
+    // Create a memory-based auth config for testing (avoids file system encryption issues)
+    let auth_config = AuthConfig::memory();
 
     // Create auth manager
     let _auth_manager = AuthenticationManager::new(auth_config)
@@ -21,11 +18,9 @@ async fn test_development_auth_config() {
 
 #[tokio::test]
 async fn test_disabled_auth_config() {
-    // Create a disabled auth config
-    let auth_config = AuthConfig {
-        enabled: false,
-        ..Default::default()
-    };
+    // Create a disabled auth config with memory storage to avoid file system issues
+    let mut auth_config = AuthConfig::memory();
+    auth_config.enabled = false;
 
     // Create auth manager
     let _auth_manager = AuthenticationManager::new(auth_config)
