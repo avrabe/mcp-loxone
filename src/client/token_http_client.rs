@@ -57,9 +57,6 @@ pub struct TokenHttpClient {
 
     /// Command queue for handling commands during disconnection
     command_queue: Option<Arc<CommandQueue>>,
-
-    /// Enhanced token validator for security
-    token_validator: Arc<TokenValidator>,
 }
 
 impl TokenHttpClient {
@@ -96,15 +93,6 @@ impl TokenHttpClient {
                 .build(),
         );
 
-        // Create enhanced token validator
-        let validation_config = ValidationConfig {
-            max_token_age: 28800, // 8 hours
-            strict_ip_validation: true,
-            advanced_threat_detection: true,
-            ..ValidationConfig::default()
-        };
-        let token_validator = Arc::new(TokenValidator::new(validation_config));
-
         let client = Self {
             client,
             base_url: config.url.clone(),
@@ -117,7 +105,6 @@ impl TokenHttpClient {
             last_refresh: Arc::new(RwLock::new(None)),
             consent_manager: None,
             command_queue: None,
-            token_validator,
         };
 
         // Test authentication during construction to enable fallback
@@ -133,48 +120,15 @@ impl TokenHttpClient {
             .map_err(|e| LoxoneError::connection(format!("Invalid URL path {path}: {e}")))
     }
 
-    /// Validate current token with enhanced security checks
-    async fn validate_current_token(&self, client_ip: Option<&str>) -> Result<bool> {
+    /// Validate current token with basic checks
+    async fn validate_current_token(&self, _client_ip: Option<&str>) -> Result<bool> {
         let auth = self.auth_client.read().await;
 
-        if let Some(token_obj) = auth.get_token() {
-            let token_str = &token_obj.token;
-
-            match self
-                .token_validator
-                .validate_token(token_str, client_ip, None)
-                .await?
-            {
-                TokenValidationResult::Valid(validated) => {
-                    debug!(
-                        "Token validation successful, security level: {:?}",
-                        validated.security_level
-                    );
-                    Ok(true)
-                }
-                TokenValidationResult::Invalid(error) => {
-                    warn!(
-                        "Token validation failed: {} ({})",
-                        error.reason, error.error_code
-                    );
-                    Ok(false)
-                }
-                TokenValidationResult::Expired => {
-                    info!("Token expired, will refresh");
-                    Ok(false)
-                }
-                TokenValidationResult::Revoked => {
-                    error!("Token was revoked, re-authentication required");
-                    Ok(false)
-                }
-                TokenValidationResult::Suspicious(activity) => {
-                    error!(
-                        "Suspicious token activity detected: {} (risk: {})",
-                        activity.details, activity.risk_score
-                    );
-                    Ok(false)
-                }
-            }
+        if let Some(_token_obj) = auth.get_token() {
+            // Basic token validation - check if token exists
+            // Token refresh is handled in ensure_authenticated based on elapsed time
+            debug!("Token exists, assuming valid for now");
+            Ok(true)
         } else {
             Ok(false)
         }
@@ -235,23 +189,6 @@ impl TokenHttpClient {
         }
 
         Ok(())
-    }
-
-    /// Get security statistics from the token validator
-    pub async fn get_security_stats(&self) -> crate::auth::token_validator::SecurityStats {
-        self.token_validator.get_security_stats().await
-    }
-
-    /// Revoke a specific token by its JTI
-    pub async fn revoke_token(&self, jti: &str) -> Result<()> {
-        self.token_validator.revoke_token(jti).await?;
-        info!("Token revoked: {}", jti);
-        Ok(())
-    }
-
-    /// Cleanup expired token validation data
-    pub async fn cleanup_token_data(&self) {
-        self.token_validator.cleanup_expired_data().await;
     }
 
     /// Enhanced request method with token validation

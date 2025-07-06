@@ -3,9 +3,7 @@
 //! This example shows how to use the ToolContextBuilder to efficiently create
 //! multiple tool contexts without excessive Arc cloning.
 
-use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
-use loxone_mcp_rust::tools::{ServerContextBuilderExt, ToolContextBuilder};
-use loxone_mcp_rust::ServerConfig;
+use loxone_mcp_rust::tools::ToolContextBuilder;
 use std::sync::Arc;
 use tracing::{info, Level};
 

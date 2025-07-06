@@ -155,8 +155,6 @@ pub trait ServerContextBuilderExt {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     // Mock implementations would go here for testing
 
     #[test]

@@ -47,8 +47,7 @@ async fn test_device_control_integration() {
     let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Once we know the exact MCP tool execution API, test actual device control
-    // For now, verify the backend can be created and is functional
-    assert!(true, "Device control backend integration successful");
+    // Backend successfully initialized - ready for device control testing
 }
 
 #[tokio::test]
@@ -71,7 +70,7 @@ async fn test_sensor_monitoring_integration() {
     let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Test actual sensor monitoring through MCP tools
-    assert!(true, "Sensor monitoring backend integration successful");
+    // Backend successfully initialized - ready for sensor monitoring testing
 }
 
 // Disabled tests that need framework API updates

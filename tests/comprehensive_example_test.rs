@@ -159,7 +159,7 @@ async fn test_custom_mock_scenarios() {
 
     let _backend = LoxoneBackend::initialize(config).await.unwrap();
 
-    assert!(true, "Custom mock scenario tested successfully");
+    // Custom mock scenario completed successfully
 }
 
 /// Test demonstrating concurrent operations with isolation

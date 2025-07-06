@@ -44,10 +44,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test WebSocket upgrade simulation
-                assert!(true, "WebSocket upgrade simulation successful");
+                // Backend successfully initialized with WebSocket upgrade mock
             })
         });
     }
@@ -65,10 +64,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test WebSocket connection simulation
-                assert!(true, "WebSocket connection mock successful");
+                // Backend successfully initialized with WebSocket connection mock
             })
         });
     }
@@ -96,10 +94,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test WebSocket event simulation
-                assert!(true, "WebSocket event simulation successful");
+                // Backend successfully initialized with WebSocket event mock
             })
         });
     }
@@ -168,10 +165,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test binary message simulation
-                assert!(true, "WebSocket binary message simulation successful");
+                // Backend successfully initialized with binary message mock
             })
         });
     }
@@ -206,10 +202,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test auth fallback simulation
-                assert!(true, "WebSocket auth fallback simulation successful");
+                // Backend successfully initialized with auth fallback mock
             })
         });
     }
@@ -241,10 +236,9 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
-                // Test state update simulation
-                assert!(true, "WebSocket state update simulation successful");
+                // Backend successfully initialized with state update mock
             })
         });
     }
