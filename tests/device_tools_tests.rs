@@ -6,9 +6,9 @@ use loxone_mcp_rust::client::LoxoneDevice;
 use loxone_mcp_rust::config::CredentialStore;
 use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
-use rstest::*;
+// use rstest::*; // Unused import
 use serde_json::json;
-use serial_test::serial;
+// use serial_test::serial; // Unused import
 use std::collections::HashMap;
 use wiremock::{
     matchers::{method, path_regex},
@@ -16,7 +16,7 @@ use wiremock::{
 };
 
 mod common;
-use common::{MockLoxoneServer, TestDeviceUuids};
+use common::{test_fixtures::TestDeviceUuids, MockLoxoneServer};
 
 /// Create test devices for testing device logic
 #[allow(dead_code)]

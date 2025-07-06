@@ -221,21 +221,11 @@ impl loxone_mcp_rust::client::LoxoneClient for DemoMockClient {
         &self,
     ) -> loxone_mcp_rust::Result<loxone_mcp_rust::client::LoxoneStructure> {
         Ok(loxone_mcp_rust::client::LoxoneStructure {
-            uuid: "test".to_string(),
-            project: Some("Test Project".to_string()),
-            name: Some("Test Miniserver".to_string()),
-            local_url: Some("http://test.local".to_string()),
-            remote_url: None,
-            temperature_unit: 0,
-            currency: Some("EUR".to_string()),
-            location: None,
-            category_title: Some("Category".to_string()),
-            room_title: Some("Room".to_string()),
-            times: std::collections::HashMap::new(),
-            enums: std::collections::HashMap::new(),
+            last_modified: "2024-01-01T00:00:00Z".to_string(),
             controls: std::collections::HashMap::new(),
             rooms: std::collections::HashMap::new(),
             cats: std::collections::HashMap::new(),
+            global_states: std::collections::HashMap::new(),
         })
     }
 

@@ -48,6 +48,7 @@ pub fn get_test_env_vars() -> Vec<(&'static str, Option<&'static str>)> {
 #[allow(dead_code)]
 pub struct TestDeviceUuids;
 
+#[allow(dead_code)]
 impl TestDeviceUuids {
     pub const LIVING_ROOM_LIGHT: &'static str = "0cd8c06b-855703-ffff-ffff000000000010";
     pub const KITCHEN_LIGHT: &'static str = "0cd8c06b-855703-ffff-ffff000000000011";
@@ -60,6 +61,7 @@ impl TestDeviceUuids {
 #[allow(dead_code)]
 pub struct TestRoomUuids;
 
+#[allow(dead_code)]
 impl TestRoomUuids {
     pub const LIVING_ROOM: &'static str = "0cd8c06b-855703-ffff-ffff000000000000";
     pub const KITCHEN: &'static str = "0cd8c06b-855703-ffff-ffff000000000001";
@@ -94,6 +96,7 @@ where
 #[allow(dead_code)]
 pub struct TestSensorData;
 
+#[allow(dead_code)]
 impl TestSensorData {
     pub fn temperature_reading() -> serde_json::Value {
         serde_json::json!({
@@ -127,6 +130,7 @@ impl TestSensorData {
 #[allow(dead_code)]
 pub struct TestControlResponses;
 
+#[allow(dead_code)]
 impl TestControlResponses {
     pub fn light_on_success() -> serde_json::Value {
         serde_json::json!({
@@ -175,7 +179,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::const_is_empty)]
     fn test_device_uuids() {
+        // Test that UUIDs are valid non-empty strings
         assert!(!TestDeviceUuids::LIVING_ROOM_LIGHT.is_empty());
         assert!(!TestRoomUuids::LIVING_ROOM.is_empty());
     }

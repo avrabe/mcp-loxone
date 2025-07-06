@@ -8,7 +8,9 @@
 //! - Error handling and resilience
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::{LoxoneBackend, LoxoneError, ServerConfig};
+use loxone_mcp_rust::{
+    server::framework_backend::LoxoneFrameworkBackend, LoxoneError, ServerConfig,
+};
 use tokio::time::{timeout, Duration};
 
 mod common;
@@ -21,7 +23,7 @@ async fn test_server_initialization() {
     std::env::set_var("LOXONE_PASSWORD", "test");
 
     let config = ServerConfig::dev_mode();
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     // In dev mode, initialization should succeed even without real Loxone connection
     assert!(backend.is_ok());
@@ -35,7 +37,7 @@ async fn test_offline_mode() {
     std::env::set_var("LOXONE_PASSWORD", "test");
 
     let config = ServerConfig::offline_mode();
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     assert!(backend.is_ok());
 
@@ -61,7 +63,7 @@ async fn test_config_validation() {
     config.loxone.timeout = Duration::from_secs(1); // Set short timeout
     config.loxone.max_retries = 0; // No retries
 
-    let backend_result = LoxoneBackend::initialize(config).await;
+    let backend_result = LoxoneFrameworkBackend::initialize(config).await;
     // Should handle invalid URL gracefully
     assert!(backend_result.is_err() || backend_result.is_ok());
 }
@@ -76,7 +78,7 @@ async fn test_weather_storage_integration() {
     let config = ServerConfig::dev_mode();
 
     // This tests the weather storage pipeline without requiring actual Loxone connection
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
     assert!(backend.is_ok());
 
     // Weather storage should be initialized as part of backend setup
@@ -123,7 +125,7 @@ async fn test_mcp_protocol_compliance() {
     std::env::set_var("LOXONE_PASSWORD", "test");
 
     let config = ServerConfig::dev_mode();
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     assert!(backend.is_ok());
 
@@ -147,7 +149,7 @@ async fn test_concurrent_operations() {
     let tasks: Vec<_> = (0..3)
         .map(|_| {
             let config = config.clone();
-            tokio::spawn(async move { LoxoneBackend::initialize(config).await })
+            tokio::spawn(async move { LoxoneFrameworkBackend::initialize(config).await })
         })
         .collect();
 
@@ -170,7 +172,7 @@ async fn test_memory_cleanup() {
 
     // Create and drop multiple backends to test cleanup
     for _ in 0..5 {
-        let backend = LoxoneBackend::initialize(config.clone()).await;
+        let backend = LoxoneFrameworkBackend::initialize(config.clone()).await;
         assert!(backend.is_ok());
 
         // Backend should be properly dropped when going out of scope
@@ -188,7 +190,7 @@ async fn test_weather_pipeline_integration() {
     std::env::set_var("LOXONE_PASSWORD", "test");
 
     let config = ServerConfig::dev_mode();
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     assert!(backend.is_ok());
 
@@ -208,7 +210,7 @@ async fn test_resource_system() {
     std::env::set_var("LOXONE_PASSWORD", "test");
 
     let config = ServerConfig::dev_mode();
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     assert!(backend.is_ok());
 

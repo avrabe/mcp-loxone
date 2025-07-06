@@ -239,7 +239,7 @@ impl MockLoxoneServer {
         });
 
         Mock::given(method("GET"))
-            .and(path(format!("/jdev/sps/io/{}", device_uuid)))
+            .and(path(format!("/jdev/sps/io/{device_uuid}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(response))
             .mount(&self.server)
             .await;
@@ -302,7 +302,7 @@ impl MockLoxoneServer {
     #[allow(dead_code)]
     pub async fn mock_websocket_state_subscription(&self, state_uuid: &str) {
         Mock::given(method("GET"))
-            .and(path(format!("/jdev/sps/state/{}", state_uuid)))
+            .and(path(format!("/jdev/sps/state/{state_uuid}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "LL": {
                     "control": format!("jdev/sps/state/{}", state_uuid),
@@ -318,7 +318,7 @@ impl MockLoxoneServer {
     #[allow(dead_code)]
     pub async fn mock_websocket_events(&self, event_type: &str, event_data: Value) {
         Mock::given(method("GET"))
-            .and(path(format!("/ws/events/{}", event_type)))
+            .and(path(format!("/ws/events/{event_type}")))
             .respond_with(ResponseTemplate::new(200).set_body_json(json!({
                 "LL": {
                     "control": format!("ws/events/{}", event_type),

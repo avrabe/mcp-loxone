@@ -9,7 +9,7 @@
 //! - pulseengine-mcp framework integration
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use wiremock::{
@@ -18,7 +18,10 @@ use wiremock::{
 };
 
 mod common;
-use common::{test_server_config, ContainerTestEnvironment, MockLoxoneServer, TestDeviceUuids};
+use common::{
+    containers::ContainerTestEnvironment, test_fixtures::test_server_config,
+    test_fixtures::TestDeviceUuids, MockLoxoneServer,
+};
 
 /// Comprehensive test demonstrating the full testing stack
 #[rstest]
@@ -43,7 +46,7 @@ async fn test_complete_loxone_workflow(test_server_config: ServerConfig) {
     config.credentials = CredentialStore::Environment;
 
     // Step 5: Initialize backend using pulseengine-mcp framework
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Step 6: Verify backend functionality
     assert!(
@@ -82,7 +85,7 @@ async fn test_error_handling_comprehensive() {
         config.loxone.timeout = timeout;
         config.credentials = CredentialStore::Environment;
 
-        let result = LoxoneBackend::initialize(config).await;
+        let result = LoxoneFrameworkBackend::initialize(config).await;
 
         // Verify error handling for this scenario
         match result {
@@ -118,7 +121,7 @@ async fn test_device_types_parameterized(
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Test device operations
     assert!(
@@ -157,7 +160,7 @@ async fn test_custom_mock_scenarios() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Custom mock scenario completed successfully
 }
@@ -181,7 +184,7 @@ async fn test_concurrent_operations_isolated() {
             config.loxone.url = url.parse().unwrap();
             config.credentials = CredentialStore::Environment;
 
-            LoxoneBackend::initialize(config).await
+            LoxoneFrameworkBackend::initialize(config).await
         });
         tasks.push(task);
     }
@@ -236,7 +239,7 @@ mod performance_tests {
         config.credentials = CredentialStore::Environment;
 
         let start = Instant::now();
-        let _ = LoxoneBackend::initialize(config).await;
+        let _ = LoxoneFrameworkBackend::initialize(config).await;
         let duration = start.elapsed();
 
         println!("Backend initialization took: {:?}", duration);
