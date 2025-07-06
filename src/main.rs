@@ -238,7 +238,7 @@ async fn main() -> Result<()> {
                     let host = config.loxone_host.clone().ok_or_else(|| {
                         loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
                     })?;
-                    server_config.loxone.url = format!("http://{}", host).parse().map_err(|e| {
+                    server_config.loxone.url = format!("http://{host}").parse().map_err(|e| {
                         loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
                     })?;
                     server_config.loxone.username =
@@ -262,7 +262,7 @@ async fn main() -> Result<()> {
                     let host = config.loxone_host.clone().ok_or_else(|| {
                         loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
                     })?;
-                    server_config.loxone.url = format!("http://{}", host).parse().map_err(|e| {
+                    server_config.loxone.url = format!("http://{host}").parse().map_err(|e| {
                         loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
                     })?;
                     server_config.loxone.username =
@@ -282,7 +282,7 @@ async fn main() -> Result<()> {
                 .loxone_host
                 .clone()
                 .ok_or_else(|| loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST"))?;
-            server_config.loxone.url = format!("https://{}", host)
+            server_config.loxone.url = format!("https://{host}")
                 .parse()
                 .map_err(|e| loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}")))?;
             server_config.loxone.username = config
@@ -336,9 +336,7 @@ async fn main() -> Result<()> {
             // Minimal middleware for stdio
             MiddlewareStack::new()
         }
-        TransportCommand::Http {
-            api_key, dev_mode, ..
-        } => {
+        TransportCommand::Http { api_key, .. } => {
             let mut stack = MiddlewareStack::new();
 
             // Add security middleware

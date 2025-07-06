@@ -943,6 +943,13 @@ impl From<regex::Error> for LoxoneError {
     }
 }
 
+#[cfg(feature = "pulseengine-mcp-server")]
+impl From<pulseengine_mcp_server::backend::BackendError> for LoxoneError {
+    fn from(err: pulseengine_mcp_server::backend::BackendError) -> Self {
+        LoxoneError::connection(format!("Backend error: {err}"))
+    }
+}
+
 // Implement ErrorClassification trait for LoxoneError to work with mcp-logging
 impl pulseengine_mcp_logging::ErrorClassification for LoxoneError {
     fn error_type(&self) -> &str {

@@ -5,7 +5,13 @@
 
 use crate::config::ServerConfig;
 use crate::error::{LoxoneError, Result};
-use pulseengine_mcp_server::SimpleBackend;
+use pulseengine_mcp_protocol::{
+    CallToolRequestParam, CallToolResult, Error as McpError, GetPromptRequestParam,
+    GetPromptResult, Implementation, ListPromptsResult, ListResourcesResult, ListToolsResult,
+    PaginatedRequestParam, ProtocolVersion, ReadResourceRequestParam, ReadResourceResult,
+    ServerCapabilities, ServerInfo, ToolsCapability,
+};
+use pulseengine_mcp_server::McpBackend;
 use std::sync::Arc;
 use tracing::info;
 
@@ -58,13 +64,106 @@ impl LoxoneFrameworkBackend {
     }
 }
 
-impl SimpleBackend for LoxoneFrameworkBackend {
-    fn name(&self) -> &str {
-        "Loxone MCP Server"
+#[async_trait::async_trait]
+impl McpBackend for LoxoneFrameworkBackend {
+    type Error = McpError;
+    type Config = ServerConfig;
+
+    async fn initialize(config: Self::Config) -> std::result::Result<Self, Self::Error> {
+        Self::initialize(config)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string()))
     }
 
-    fn version(&self) -> &str {
-        env!("CARGO_PKG_VERSION")
+    fn get_server_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: ProtocolVersion::default(),
+            capabilities: ServerCapabilities {
+                logging: None,
+                prompts: None,
+                resources: None,
+                tools: Some(ToolsCapability {
+                    list_changed: Some(false),
+                }),
+                sampling: None,
+            },
+            server_info: Implementation {
+                name: "loxone-mcp-rust".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+            },
+            instructions: None,
+        }
+    }
+
+    async fn health_check(&self) -> std::result::Result<(), Self::Error> {
+        if self.is_healthy() {
+            Ok(())
+        } else {
+            Err(McpError::internal_error("Backend health check failed"))
+        }
+    }
+
+    async fn list_tools(
+        &self,
+        _params: PaginatedRequestParam,
+    ) -> std::result::Result<ListToolsResult, Self::Error> {
+        // Return empty list for now - tools will be handled by the actual MCP implementation
+        Ok(ListToolsResult {
+            tools: vec![],
+            next_cursor: None,
+        })
+    }
+
+    async fn call_tool(
+        &self,
+        _request: CallToolRequestParam,
+    ) -> std::result::Result<CallToolResult, Self::Error> {
+        // This should not be called as tools are handled elsewhere
+        Err(McpError::internal_error(
+            "Tool calls not supported through backend",
+        ))
+    }
+
+    async fn list_resources(
+        &self,
+        _request: PaginatedRequestParam,
+    ) -> std::result::Result<ListResourcesResult, Self::Error> {
+        // Return empty list for resources
+        Ok(ListResourcesResult {
+            resources: vec![],
+            next_cursor: None,
+        })
+    }
+
+    async fn read_resource(
+        &self,
+        request: ReadResourceRequestParam,
+    ) -> std::result::Result<ReadResourceResult, Self::Error> {
+        Err(McpError::invalid_params(format!(
+            "Resource not found: {}",
+            request.uri
+        )))
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: PaginatedRequestParam,
+    ) -> std::result::Result<ListPromptsResult, Self::Error> {
+        // Return empty list for prompts
+        Ok(ListPromptsResult {
+            prompts: vec![],
+            next_cursor: None,
+        })
+    }
+
+    async fn get_prompt(
+        &self,
+        request: GetPromptRequestParam,
+    ) -> std::result::Result<GetPromptResult, Self::Error> {
+        Err(McpError::invalid_params(format!(
+            "Prompt not found: {}",
+            request.name
+        )))
     }
 }
 
