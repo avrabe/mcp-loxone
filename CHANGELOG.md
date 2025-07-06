@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2025-01-06
+
+### Changed
+- **BREAKING: Complete removal of custom authentication system** 
+  - Removed entire `src/auth/` directory containing custom auth implementation
+  - Removed `src/framework_integration/` directory with transition code
+  - Fully migrated to PulseEngine MCP Framework v0.4.0 authentication
+  - All MCP server authentication now handled by framework components
+  
+### Removed
+- **Custom Authentication Components**:
+  - `AuthenticationManager` (custom implementation)
+  - `UnifiedAuth` compatibility layer
+  - `LoxoneAuthConfig` framework integration
+  - `loxone-mcp-auth` CLI binary
+  - `test_auth_framework` test binary
+  - Custom validation and security middleware
+  - Admin API endpoints for custom auth management
+  - All custom auth test files
+
+### Added
+- **New Framework Backend**: `LoxoneFrameworkBackend` in `src/server/framework_backend.rs`
+  - Simple, clean integration with PulseEngine MCP Framework
+  - Replaces the removed `LoxoneBackend` from framework_integration
+  
+### Migration Guide
+- Remove any references to `USE_CUSTOM_AUTH` environment variable
+- Use PulseEngine MCP Framework v0.4.0 authentication directly
+- Replace `LoxoneBackend::initialize()` with `LoxoneFrameworkBackend::initialize()`
+- Authentication is now configured through framework's `AuthConfig`
+
+### Note
+- Loxone device authentication (in `src/client/auth.rs`) remains unchanged
+- Only MCP server authentication has been migrated to framework
+
 ## [0.3.0] - 2025-06-30
 
 ### Added

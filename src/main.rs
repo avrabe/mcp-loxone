@@ -12,7 +12,9 @@ use pulseengine_mcp_security::SecurityMiddleware;
 use pulseengine_mcp_server::{middleware::MiddlewareStack, GenericServerHandler};
 use pulseengine_mcp_transport::{create_transport, Transport};
 
-use loxone_mcp_rust::{LoxoneBackend, Result, ServerConfig as LoxoneServerConfig};
+use loxone_mcp_rust::{
+    server::framework_backend::create_loxone_backend, Result, ServerConfig as LoxoneServerConfig,
+};
 
 use clap::{Parser, Subcommand};
 use std::sync::Arc;
@@ -293,9 +295,40 @@ async fn main() -> Result<()> {
         }
     };
 
-    // Initialize Loxone backend
-    let backend = Arc::new(LoxoneBackend::initialize(loxone_config).await?);
-    info!("✅ Loxone backend initialized");
+    // Create framework authentication manager for HTTP transport
+    let framework_auth_manager = match &config.transport {
+        TransportCommand::Http { dev_mode, .. } if !dev_mode => {
+            // Create minimal framework auth configuration
+            let auth_config = pulseengine_mcp_auth::AuthConfig {
+                enabled: true,
+                ..Default::default()
+            };
+
+            let auth_manager = AuthenticationManager::new(auth_config)
+                .await
+                .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?;
+
+            info!("✅ Framework authentication initialized");
+            Some(Arc::new(auth_manager))
+        }
+        _ => {
+            // Create minimal auth manager for other transports
+            let auth_config = pulseengine_mcp_auth::AuthConfig {
+                enabled: false,
+                ..Default::default()
+            };
+
+            let auth_manager = AuthenticationManager::new(auth_config)
+                .await
+                .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?;
+
+            Some(Arc::new(auth_manager))
+        }
+    };
+
+    // Create Loxone framework backend
+    let backend = create_loxone_backend(loxone_config).await?;
+    info!("✅ Loxone framework backend initialized");
 
     // Create middleware stack based on transport
     let middleware = match &config.transport {
@@ -312,20 +345,9 @@ async fn main() -> Result<()> {
             let security_config = pulseengine_mcp_security::SecurityConfig::default();
             stack = stack.with_security(SecurityMiddleware::new(security_config));
 
-            // Add auth middleware if not in dev mode
-            if !dev_mode {
-                // Disable auth for now to avoid API key creation issues
-                let auth_config = pulseengine_mcp_auth::AuthConfig {
-                    enabled: false,
-                    ..Default::default()
-                };
-                let auth_manager = Arc::new(
-                    AuthenticationManager::new(auth_config)
-                        .await
-                        .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?,
-                );
-
-                // Configure API key authentication if provided
+            // Add auth middleware if framework auth was created
+            if let Some(ref auth_manager) = framework_auth_manager {
+                // Configure API key if provided
                 if let Some(key) = api_key {
                     if key.len() < 32 {
                         return Err(loxone_mcp_rust::LoxoneError::config(
@@ -334,26 +356,16 @@ async fn main() -> Result<()> {
                     }
 
                     info!(
-                        "API key authentication configured (key length: {} chars)",
+                        "API key provided for HTTP authentication (key length: {} chars)",
                         key.len()
                     );
-
-                    // Enable auth when API key is provided
-                    let auth_config = pulseengine_mcp_auth::AuthConfig {
-                        ..Default::default()
-                    };
-
-                    let auth_manager = Arc::new(
-                        AuthenticationManager::new(auth_config)
-                            .await
-                            .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?,
-                    );
-
-                    stack = stack.with_auth(auth_manager);
-                } else {
-                    // No API key provided, use the previously configured auth manager
-                    stack = stack.with_auth(auth_manager);
                 }
+
+                // Add framework auth to middleware stack
+                stack = stack.with_auth(auth_manager.clone());
+                info!("Framework authentication middleware added");
+            } else {
+                info!("Development mode - authentication disabled");
             }
 
             // Add monitoring
@@ -381,12 +393,9 @@ async fn main() -> Result<()> {
     };
 
     // Create generic handler with middleware
-    let auth_manager = Arc::new(
-        AuthenticationManager::new(pulseengine_mcp_auth::AuthConfig::default())
-            .await
-            .map_err(|e| loxone_mcp_rust::LoxoneError::config(e.to_string()))?,
-    );
-    let handler = GenericServerHandler::new(backend, auth_manager, middleware);
+    let final_auth_manager =
+        framework_auth_manager.expect("Framework auth manager should be initialized");
+    let handler = GenericServerHandler::new(backend, final_auth_manager, middleware);
 
     // Create and configure transport based on command
     let mut transport: Box<dyn Transport> = match &config.transport {

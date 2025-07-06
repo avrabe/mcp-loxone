@@ -1,7 +1,8 @@
 //! Server module for MCP components
 //!
-//! This module contains active server components that work alongside
-//! the framework_integration::backend::LoxoneBackend implementation.
+//! This module contains active server components that work with the framework.
+
+pub mod framework_backend;
 // Legacy modules temporarily disabled during framework migration
 // pub mod handlers;
 pub mod health_check;
@@ -22,6 +23,7 @@ pub mod resources;
 /// Real-time resource subscription system for MCP
 pub mod subscription;
 
+pub use framework_backend::*;
 pub use models::*;
 pub use request_context::*;
 

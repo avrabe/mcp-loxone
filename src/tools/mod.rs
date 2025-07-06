@@ -7,6 +7,7 @@ pub mod audio;
 pub mod batch;
 pub mod camera;
 pub mod climate;
+pub mod context_builder;
 pub mod devices;
 pub mod discovery;
 pub mod documentation;
@@ -26,6 +27,9 @@ use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+
+// Re-export context builder for convenience
+pub use context_builder::{ServerContextBuilderExt, ToolContextBuilder, ToolContextBuilderRef};
 
 /// Standard MCP tool response format
 #[derive(Debug, Clone, Serialize, Deserialize)]

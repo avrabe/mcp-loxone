@@ -4,7 +4,7 @@
 //! using the pulseengine-mcp framework and mock infrastructure.
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use wiremock::{matchers::method, Mock, ResponseTemplate};
@@ -32,7 +32,7 @@ async fn test_connection_timeout_handling() {
     config.loxone.timeout = std::time::Duration::from_millis(100); // Very short timeout
     config.credentials = CredentialStore::Environment;
 
-    let result = LoxoneBackend::initialize(config).await;
+    let result = LoxoneFrameworkBackend::initialize(config).await;
 
     // Should handle timeout gracefully
     match result {
@@ -59,7 +59,7 @@ async fn test_invalid_server_response() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let result = LoxoneBackend::initialize(config).await;
+    let result = LoxoneFrameworkBackend::initialize(config).await;
 
     // Should handle malformed responses gracefully
     assert!(
@@ -92,7 +92,7 @@ async fn test_authentication_failure_recovery() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let result = LoxoneBackend::initialize(config).await;
+    let result = LoxoneFrameworkBackend::initialize(config).await;
 
     // Should handle auth failures gracefully
     match result {
@@ -116,7 +116,7 @@ async fn test_network_unreachable() {
     config.loxone.timeout = std::time::Duration::from_millis(500);
     config.loxone.max_retries = 0;
 
-    let result = LoxoneBackend::initialize(config).await;
+    let result = LoxoneFrameworkBackend::initialize(config).await;
 
     // Should handle unreachable hosts gracefully
     match result {
@@ -151,7 +151,7 @@ async fn test_malformed_device_uuids() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Test that malformed UUIDs are handled gracefully
     assert!(true, "Backend handles malformed UUIDs gracefully");
@@ -176,7 +176,7 @@ async fn test_database_connection_edge_cases() {
     let mut config = ServerConfig::dev_mode();
     config.credentials = CredentialStore::Environment;
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Test database edge cases with real containerized database
     assert!(
@@ -202,7 +202,7 @@ async fn test_concurrent_initialization() {
                 config.loxone.url = url.parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                LoxoneBackend::initialize(config).await
+                LoxoneFrameworkBackend::initialize(config).await
             })
         })
         .collect();
@@ -242,7 +242,7 @@ async fn test_resource_exhaustion_handling() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let result = LoxoneBackend::initialize(config).await;
+    let result = LoxoneFrameworkBackend::initialize(config).await;
 
     // Should handle service unavailable gracefully
     match result {

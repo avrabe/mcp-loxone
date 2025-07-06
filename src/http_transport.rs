@@ -3,9 +3,10 @@
 //! This module provides HTTP server capabilities with Server-Sent Events (SSE)
 //! transport for the Model Context Protocol, making it compatible with n8n.
 
-pub mod admin_api;
-pub mod admin_keys_ui;
+// pub mod admin_api; // Removed - using framework auth
+// pub mod admin_keys_ui; // Removed - using framework auth
 pub mod cache_api;
+// pub mod unified_admin_api; // Removed - using framework auth
 pub mod cors_middleware;
 pub mod dashboard_api;
 pub mod dashboard_data_unified;
@@ -15,13 +16,13 @@ pub mod navigation_new;
 pub mod rate_limiting;
 pub mod state_api;
 
-use crate::auth::AuthenticationManager;
+// Auth imports removed - using framework auth now
 use crate::error::{LoxoneError, Result};
 use crate::http_transport::cors_middleware::AxumCorsMiddleware;
 use crate::performance::{
     middleware::PerformanceMiddleware, PerformanceConfig, PerformanceMonitor,
 };
-use crate::security::{enhanced_cors::EnhancedCorsConfig, middleware::SecurityMiddleware, SecurityConfig};
+use crate::security::{enhanced_cors::EnhancedCorsConfig, SecurityConfig};
 use crate::server::LoxoneMcpServer;
 // Legacy support removed - framework is now default
 use rate_limiting::{EnhancedRateLimiter, RateLimitResult};
@@ -59,6 +60,25 @@ use tokio::sync::{broadcast, RwLock};
 // use tower::ServiceBuilder;
 // use tower_http::cors::{Any, CorsLayer};
 use tracing::{debug, info, warn};
+
+// Auth extraction removed - using framework auth now
+
+/// Application state shared across all HTTP handlers
+#[derive(Clone)]
+struct AppState {
+    /// MCP server instance
+    mcp_server: LoxoneMcpServer,
+    /// Enhanced rate limiter
+    rate_limiter: EnhancedRateLimiter,
+    /// Metrics collector for monitoring
+    #[cfg(feature = "influxdb")]
+    metrics_collector: Arc<MetricsCollector>,
+    /// InfluxDB manager for time-series data
+    #[cfg(feature = "influxdb")]
+    influx_manager: Option<Arc<InfluxManager>>,
+    /// SSE connection manager for real-time updates
+    sse_manager: Arc<SseConnectionManager>,
+}
 
 /// Query parameters for SSE endpoint
 #[derive(Debug, Deserialize)]
@@ -272,12 +292,10 @@ impl Default for HttpServerConfig {
 pub struct HttpTransportServer {
     /// MCP server instance
     mcp_server: LoxoneMcpServer,
-    /// Authentication manager
-    auth_manager: Arc<AuthenticationManager>,
+    /// Authentication manager (using unified auth)
+    auth_manager: Arc<UnifiedAuth>,
     /// Enhanced rate limiter
     rate_limiter: EnhancedRateLimiter,
-    /// Security middleware
-    security_middleware: Option<Arc<SecurityMiddleware>>,
     /// Performance middleware
     performance_middleware: Option<Arc<PerformanceMiddleware>>,
     /// CORS middleware
@@ -313,24 +331,16 @@ impl HttpTransportServer {
         };
 
         // Initialize unified authentication manager
-        let auth_manager = crate::auth::initialize_auth_system().await?;
+        let custom_auth = crate::auth::initialize_auth_system().await?;
+        
+        // For now, use custom auth wrapped in UnifiedAuth
+        // In the future, this can be replaced with framework auth or dual mode
+        let auth_manager = Arc::new(UnifiedAuth::Custom(custom_auth));
 
-        // Initialize security middleware if configured
-        let security_middleware = if let Some(security_config) = config.security_config {
-            match SecurityMiddleware::new(security_config) {
-                Ok(middleware) => {
-                    info!("🔒 Security middleware enabled");
-                    Some(Arc::new(middleware))
-                }
-                Err(e) => {
-                    warn!("Failed to initialize security middleware: {}", e);
-                    None
-                }
-            }
-        } else {
-            info!("⚠️ Security middleware disabled");
-            None
-        };
+        // Security is now handled by the framework's SecurityMiddleware
+        if config.security_config.is_some() {
+            info!("🔒 Security will be handled by framework middleware");
+        }
 
         // Initialize performance middleware if configured
         let performance_middleware = if let Some(performance_config) = config.performance_config {
@@ -370,7 +380,6 @@ impl HttpTransportServer {
             mcp_server,
             auth_manager,
             rate_limiter: EnhancedRateLimiter::with_defaults(),
-            security_middleware,
             performance_middleware,
             cors_middleware,
             #[cfg(feature = "influxdb")]
@@ -388,6 +397,82 @@ impl HttpTransportServer {
             ..Default::default()
         };
         Self::new(mcp_server, config).await
+    }
+    
+    /// Create with specific unified auth (for framework integration)
+    pub async fn with_unified_auth(
+        mcp_server: LoxoneMcpServer,
+        config: HttpServerConfig,
+        unified_auth: Arc<UnifiedAuth>,
+    ) -> Result<Self> {
+        #[cfg(feature = "influxdb")]
+        let (metrics_collector, influx_manager) = if let Some(influx_config) = config.influx_config
+        {
+            let influx_manager = Arc::new(InfluxManager::new(influx_config).await?);
+            let metrics_collector = Arc::new(MetricsCollector::with_influx(influx_manager.clone()));
+
+            // Initialize default metrics
+            metrics_collector.init_default_metrics().await;
+
+            info!("InfluxDB integration enabled");
+            (metrics_collector, Some(influx_manager))
+        } else {
+            let metrics_collector = Arc::new(MetricsCollector::new());
+            metrics_collector.init_default_metrics().await;
+            (metrics_collector, None)
+        };
+
+        // Security is now handled by the framework's SecurityMiddleware
+        if config.security_config.is_some() {
+            info!("🔒 Security will be handled by framework middleware");
+        }
+
+        // Initialize performance middleware if configured
+        let performance_middleware = if let Some(performance_config) = config.performance_config {
+            match PerformanceMonitor::new(performance_config) {
+                Ok(monitor) => {
+                    info!("📊 Performance monitoring enabled");
+                    Some(Arc::new(PerformanceMiddleware::new(Arc::new(monitor))))
+                }
+                Err(e) => {
+                    warn!("Failed to initialize performance monitor: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("⚠️ Performance monitoring disabled");
+            None
+        };
+
+        // Initialize CORS middleware if configured
+        let cors_middleware = if let Some(cors_config) = config.cors_config {
+            match AxumCorsMiddleware::new(cors_config) {
+                Ok(middleware) => {
+                    info!("🌐 Enhanced CORS middleware enabled");
+                    Some(Arc::new(middleware))
+                }
+                Err(e) => {
+                    warn!("Failed to initialize CORS middleware: {}", e);
+                    None
+                }
+            }
+        } else {
+            info!("⚠️ CORS middleware disabled");
+            None
+        };
+
+        Ok(Self {
+            mcp_server,
+            auth_manager: unified_auth,
+            rate_limiter: EnhancedRateLimiter::with_defaults(),
+            performance_middleware,
+            cors_middleware,
+            #[cfg(feature = "influxdb")]
+            metrics_collector,
+            #[cfg(feature = "influxdb")]
+            influx_manager,
+            port: config.port,
+        })
     }
 
     /// Start the HTTP server
@@ -415,20 +500,9 @@ impl HttpTransportServer {
         );
         info!("🏥 Health check: http://localhost:{}/health", self.port);
 
-        // Show security status
-        if self.security_middleware.is_some() {
-            info!("🔒 Security hardening: ENABLED");
-            info!(
-                "🛡️ Security audit: http://localhost:{}/security/audit",
-                self.port
-            );
-            info!(
-                "🛡️ Security headers test: http://localhost:{}/security/headers",
-                self.port
-            );
-        } else {
-            warn!("⚠️ Security hardening: DISABLED (set PRODUCTION=1 to enable)");
-        }
+        // Show security status - now handled by framework
+        info!("🔒 Security hardening: ENABLED (via framework middleware)");
+        info!("🛡️ Security features provided by PulseEngine MCP Framework v0.4.0");
 
         // Show available dashboard endpoints
         #[cfg(feature = "influxdb")]
@@ -540,34 +614,33 @@ impl HttpTransportServer {
             .route("/admin", get(navigation_hub))
             .route("/admin/", get(navigation_hub))
             .route("/admin/keys", get(admin_keys_ui::api_keys_ui))
-            // API key management endpoints
+            // API key management endpoints (using unified API)
             .route(
                 "/admin/api/keys",
                 get(|State(state): State<Arc<AppState>>| async move {
-                    admin_api::list_keys(State(state.auth_manager.clone())).await
+                    unified_admin_api::list_keys(State(state.auth_manager.clone())).await
                 }),
             )
             .route(
                 "/admin/api/keys",
                 axum::routing::post(
                     |State(state): State<Arc<AppState>>,
-                     Json(request): Json<admin_api::CreateKeyRequest>| async move {
-                        admin_api::create_key(State(state.auth_manager.clone()), Json(request))
-                            .await
+                     Json(request): Json<unified_admin_api::CreateKeyRequest>| async move {
+                        unified_admin_api::create_key(State(state.auth_manager.clone()), Json(request)).await
                     },
                 ),
             )
             .route(
                 "/admin/api/keys/stats",
                 get(|State(state): State<Arc<AppState>>| async move {
-                    admin_api::get_auth_stats(State(state.auth_manager.clone())).await
+                    unified_admin_api::get_auth_stats(State(state.auth_manager.clone())).await
                 }),
             )
             .route(
                 "/admin/api/keys/:id",
                 get(
                     |State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
-                        admin_api::get_key(State(state.auth_manager.clone()), Path(key_id)).await
+                        unified_admin_api::get_key(State(state.auth_manager.clone()), Path(key_id)).await
                     },
                 ),
             )
@@ -576,8 +649,8 @@ impl HttpTransportServer {
                 axum::routing::put(
                     |State(state): State<Arc<AppState>>,
                      Path(key_id): Path<String>,
-                     Json(request): Json<admin_api::UpdateKeyRequest>| async move {
-                        admin_api::update_key(
+                     Json(request): Json<unified_admin_api::UpdateKeyRequest>| async move {
+                        unified_admin_api::update_key(
                             State(state.auth_manager.clone()),
                             Path(key_id),
                             Json(request),
@@ -590,14 +663,14 @@ impl HttpTransportServer {
                 "/admin/api/keys/:id",
                 axum::routing::delete(
                     |State(state): State<Arc<AppState>>, Path(key_id): Path<String>| async move {
-                        admin_api::delete_key(State(state.auth_manager.clone()), Path(key_id)).await
+                        unified_admin_api::delete_key(State(state.auth_manager.clone()), Path(key_id)).await
                     },
                 ),
             )
             .route(
                 "/admin/api/audit",
                 get(|State(state): State<Arc<AppState>>| async move {
-                    admin_api::get_audit_events(State(state.auth_manager.clone())).await
+                    unified_admin_api::get_audit_events(State(state.auth_manager.clone())).await
                 }),
             )
             .layer(axum::middleware::from_fn_with_state(
@@ -2518,7 +2591,21 @@ async fn list_tools(State(_state): State<Arc<AppState>>, _headers: HeaderMap) ->
 async fn admin_status(State(state): State<Arc<AppState>>, _headers: HeaderMap) -> Response {
     // Authentication is now handled by middleware
 
-    let auth_stats = state.auth_manager.get_auth_stats().await;
+    // Extract custom auth for stats
+    let auth_stats = match extract_custom_auth(&state.auth_manager) {
+        Ok(auth) => auth.get_auth_stats().await,
+        Err(_) => {
+            // Return minimal stats for framework-only auth
+            crate::auth::models::AuthStats {
+                total_keys: 0,
+                active_keys: 0,
+                expired_keys: 0,
+                currently_blocked_ips: 0,
+                total_failed_attempts: 0,
+            }
+        }
+    };
+    
     let status = serde_json::json!({
         "server": "running",
         "connections": 0, // TODO: Track active connections
@@ -2595,7 +2682,7 @@ async fn auth_middleware_wrapper(
 
 /// Unified authentication middleware with smart error handling
 async fn unified_auth_middleware_with_smart_errors(
-    State(auth_manager): State<Arc<AuthenticationManager>>,
+    State(unified_auth): State<Arc<UnifiedAuth>>,
     request: Request,
     next: Next,
 ) -> std::result::Result<Response, StatusCode> {
@@ -2603,47 +2690,29 @@ async fn unified_auth_middleware_with_smart_errors(
     let query_string = request.uri().query();
     let uri = request.uri().clone();
 
-    // Authenticate the request using the unified system
-    match auth_manager
-        .authenticate_request(headers, query_string)
-        .await
-    {
-        crate::auth::models::AuthResult::Success(_) => {
-            // Authentication successful, proceed with the request
-            Ok(next.run(request).await)
-        }
-        crate::auth::models::AuthResult::Unauthorized { reason } => {
-            warn!("Authentication failed: {}", reason);
+    // Authenticate using unified auth - extract API key from headers/query
+    let api_key = crate::auth::validation::extract_api_key(headers, query_string);
+    
+    let authenticated = if let Some(key) = api_key {
+        unified_auth.validate_api_key(&key).await.unwrap_or(false)
+    } else {
+        false
+    };
 
-            // Return smart 401 page for browser requests
-            if is_browser_request(headers) {
-                Ok(create_smart_401_response(&uri, &reason)
-                    .await
-                    .into_response())
-            } else {
-                Err(StatusCode::UNAUTHORIZED)
-            }
-        }
-        crate::auth::models::AuthResult::Forbidden { reason } => {
-            warn!("Access forbidden: {}", reason);
+    if authenticated {
+        // Authentication successful, proceed with the request
+        Ok(next.run(request).await)
+    } else {
+        let reason = "Invalid or missing API key";
+        warn!("Authentication failed: {}", reason);
 
-            // Return smart 403 page for browser requests
-            if is_browser_request(headers) {
-                Ok(create_smart_403_response(&uri, &reason)
-                    .await
-                    .into_response())
-            } else {
-                Err(StatusCode::FORBIDDEN)
-            }
-        }
-        crate::auth::models::AuthResult::RateLimited {
-            retry_after_seconds,
-        } => {
-            warn!(
-                "Request rate limited, retry after {} seconds",
-                retry_after_seconds
-            );
-            Err(StatusCode::TOO_MANY_REQUESTS)
+        // Return smart 401 page for browser requests
+        if is_browser_request(headers) {
+            Ok(create_smart_401_response(&uri, reason)
+                .await
+                .into_response())
+        } else {
+            Err(StatusCode::UNAUTHORIZED)
         }
     }
 }

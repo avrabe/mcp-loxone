@@ -4,7 +4,7 @@
 //! using the pulseengine-mcp framework and mock infrastructure.
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use serial_test::serial;
@@ -790,7 +790,7 @@ mod tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let _backend = LoxoneBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test resource system integration
                 assert!(true, "Resource backend integration successful");
@@ -828,7 +828,7 @@ mod tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let _backend = LoxoneBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test resource discovery simulation
                 assert!(true, "Resource discovery simulation successful");
@@ -860,7 +860,7 @@ mod tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let _backend = LoxoneBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test resource caching simulation
                 assert!(true, "Resource caching simulation successful");
@@ -883,7 +883,7 @@ mod tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let result = LoxoneBackend::initialize(config).await;
+                let result = LoxoneFrameworkBackend::initialize(config).await;
 
                 // Should handle resource errors gracefully
                 match result {
@@ -923,7 +923,7 @@ mod tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let _backend = LoxoneBackend::initialize(config).await.unwrap();
+                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test resource pagination simulation
                 assert!(true, "Resource pagination simulation successful");

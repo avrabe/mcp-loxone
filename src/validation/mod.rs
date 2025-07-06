@@ -11,6 +11,7 @@ pub mod schema;
 use crate::error::{LoxoneError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use tracing::{debug, warn};
 
 /// Validation result with detailed information
@@ -212,14 +213,14 @@ pub struct ValidationContext {
     /// Request timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
     /// Validation configuration
-    pub config: ValidationConfig,
+    pub config: Arc<ValidationConfig>,
     /// Additional context data
     pub metadata: HashMap<String, serde_json::Value>,
 }
 
 impl ValidationContext {
     /// Create new validation context
-    pub fn new(request_id: String, config: ValidationConfig) -> Self {
+    pub fn new(request_id: String, config: Arc<ValidationConfig>) -> Self {
         Self {
             request_id,
             client_info: None,
@@ -312,12 +313,12 @@ pub trait Validator: Send + Sync {
 pub struct CompositeValidator {
     validators: Vec<Box<dyn Validator>>,
     #[allow(dead_code)]
-    config: ValidationConfig,
+    config: Arc<ValidationConfig>,
 }
 
 impl CompositeValidator {
     /// Create new composite validator
-    pub fn new(config: ValidationConfig) -> Self {
+    pub fn new(config: Arc<ValidationConfig>) -> Self {
         Self {
             validators: Vec::new(),
             config,

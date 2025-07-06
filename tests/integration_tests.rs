@@ -3,7 +3,7 @@
 //! Tests the complete integration of Loxone MCP tools with the pulseengine-mcp framework
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use serial_test::serial;
@@ -24,7 +24,7 @@ async fn test_loxone_backend_integration() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
     assert!(
         backend.is_ok(),
         "Loxone backend should initialize with mock server"
@@ -44,7 +44,7 @@ async fn test_device_control_integration() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let backend = LoxoneBackend::initialize(config).await.unwrap();
+    let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Once we know the exact MCP tool execution API, test actual device control
     // For now, verify the backend can be created and is functional
@@ -68,7 +68,7 @@ async fn test_sensor_monitoring_integration() {
     config.loxone.url = mock_server.url().parse().unwrap();
     config.credentials = CredentialStore::Environment;
 
-    let backend = LoxoneBackend::initialize(config).await.unwrap();
+    let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Test actual sensor monitoring through MCP tools
     assert!(true, "Sensor monitoring backend integration successful");

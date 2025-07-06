@@ -4,7 +4,7 @@
 //! specification and adheres to best practices using the pulseengine-mcp framework.
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use rstest::*;
 use serial_test::serial;
 
@@ -26,7 +26,7 @@ async fn test_mcp_backend_initialization() {
     std::env::set_var("LOXONE_PASSWORD", "test_password");
 
     // Test that LoxoneBackend can be initialized with pulseengine-mcp framework
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
     assert!(
         backend.is_ok(),
         "Backend should initialize successfully with mock server"
@@ -46,7 +46,7 @@ async fn test_mcp_capabilities() {
     std::env::set_var("LOXONE_USERNAME", "test_user");
     std::env::set_var("LOXONE_PASSWORD", "test_password");
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // Test capabilities using pulseengine-mcp framework patterns
     // TODO: Once we have the exact capability query API from pulseengine-mcp,
@@ -67,7 +67,7 @@ async fn test_mcp_tool_listing() {
     std::env::set_var("LOXONE_USERNAME", "test_user");
     std::env::set_var("LOXONE_PASSWORD", "test_password");
 
-    let _backend = LoxoneBackend::initialize(config).await.unwrap();
+    let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
     // TODO: Test tool listing through pulseengine-mcp framework
     // Expected tools:
@@ -99,7 +99,7 @@ async fn test_mcp_error_handling() {
     std::env::set_var("LOXONE_USERNAME", "test_user");
     std::env::set_var("LOXONE_PASSWORD", "test_password");
 
-    let backend = LoxoneBackend::initialize(config).await;
+    let backend = LoxoneFrameworkBackend::initialize(config).await;
 
     // Backend should handle errors gracefully
     match backend {

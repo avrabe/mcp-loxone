@@ -9,11 +9,12 @@ async fn test_development_auth_config() {
         enabled: true,
         ..Default::default()
     };
-    
+
     // Create auth manager
-    let auth_manager = AuthenticationManager::new(auth_config).await
+    let auth_manager = AuthenticationManager::new(auth_config)
+        .await
         .expect("Failed to create auth manager");
-    
+
     // Verify auth manager was created successfully
     // Just check that we can create it without panicking
 }
@@ -25,11 +26,12 @@ async fn test_disabled_auth_config() {
         enabled: false,
         ..Default::default()
     };
-    
+
     // Create auth manager
-    let auth_manager = AuthenticationManager::new(auth_config).await
+    let auth_manager = AuthenticationManager::new(auth_config)
+        .await
         .expect("Failed to create disabled auth manager");
-    
+
     // Verify auth manager was created successfully
     // Just check that we can create it without panicking
 }

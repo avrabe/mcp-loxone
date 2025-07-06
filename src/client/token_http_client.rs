@@ -3,7 +3,7 @@
 //! This module provides HTTP-based communication with Loxone
 //! Miniservers using token-based authentication (recommended for V9+).
 
-use crate::auth::token_validator::{TokenValidationResult, TokenValidator, ValidationConfig};
+// Token validation removed with custom auth - using simpler validation
 use crate::client::{
     auth::TokenAuthClient,
     command_queue::{CommandPriority, CommandQueue, QueuedCommand},

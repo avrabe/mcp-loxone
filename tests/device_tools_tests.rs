@@ -4,7 +4,7 @@
 
 use loxone_mcp_rust::client::LoxoneDevice;
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use serde_json::json;
@@ -524,7 +524,7 @@ mod tests {
         config.loxone.url = mock_server.url().parse().unwrap();
         config.credentials = CredentialStore::Environment;
 
-        let _backend = LoxoneBackend::initialize(config).await.unwrap();
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
         // Test device error handling
         assert!(true, "Device error handling successful");
@@ -555,7 +555,7 @@ mod tests {
         config.loxone.url = mock_server.url().parse().unwrap();
         config.credentials = CredentialStore::Environment;
 
-        let _backend = LoxoneBackend::initialize(config).await.unwrap();
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
         // Test device state monitoring
         assert!(true, "Device state monitoring successful");
@@ -596,7 +596,7 @@ mod tests {
         config.loxone.url = mock_server.url().parse().unwrap();
         config.credentials = CredentialStore::Environment;
 
-        let _backend = LoxoneBackend::initialize(config).await.unwrap();
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
         // Test device type specific actions
         assert!(true, "Device type specific actions successful");

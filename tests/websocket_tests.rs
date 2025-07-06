@@ -4,7 +4,7 @@
 //! and proper environment isolation.
 
 use loxone_mcp_rust::config::CredentialStore;
-use loxone_mcp_rust::framework_integration::backend::LoxoneBackend;
+use loxone_mcp_rust::server::framework_backend::LoxoneFrameworkBackend;
 use loxone_mcp_rust::ServerConfig;
 use rstest::*;
 use serial_test::serial;
@@ -44,7 +44,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test WebSocket upgrade simulation
                 assert!(true, "WebSocket upgrade simulation successful");
@@ -65,7 +65,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test WebSocket connection simulation
                 assert!(true, "WebSocket connection mock successful");
@@ -96,7 +96,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test WebSocket event simulation
                 assert!(true, "WebSocket event simulation successful");
@@ -134,7 +134,7 @@ mod websocket_integration_tests {
                 config.loxone.max_retries = 3;
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await;
+                let backend = LoxoneFrameworkBackend::initialize(config).await;
 
                 // Should eventually succeed after retries
                 assert!(
@@ -168,7 +168,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test binary message simulation
                 assert!(true, "WebSocket binary message simulation successful");
@@ -206,7 +206,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test auth fallback simulation
                 assert!(true, "WebSocket auth fallback simulation successful");
@@ -241,7 +241,7 @@ mod websocket_integration_tests {
                 config.loxone.url = mock_server.url().parse().unwrap();
                 config.credentials = CredentialStore::Environment;
 
-                let backend = LoxoneBackend::initialize(config).await.unwrap();
+                let backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
                 // Test state update simulation
                 assert!(true, "WebSocket state update simulation successful");

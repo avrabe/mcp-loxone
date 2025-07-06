@@ -7,6 +7,8 @@ use super::{
 };
 use crate::error::Result;
 use serde_json::{Map, Value};
+#[cfg(test)]
+use std::sync::Arc;
 use tracing::debug;
 
 /// Input sanitizer that cleans and normalizes data
@@ -538,7 +540,7 @@ mod tests {
             enable_sanitization: false,
             ..Default::default()
         };
-        let context = ValidationContext::new("test".to_string(), validation_config);
+        let context = ValidationContext::new("test".to_string(), Arc::new(validation_config));
 
         let data = json!("  unsanitized  ");
         let result = sanitizer.validate_request(&data, &context).await.unwrap();

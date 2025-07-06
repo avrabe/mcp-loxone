@@ -13,7 +13,7 @@ A Model Context Protocol (MCP) server that enables programmatic control of Loxon
 - **Comprehensive Control**: 17 MCP tools for device control + 25+ resources for data access
 - **MCP Compliant**: Proper separation of tools (actions) and resources (read-only data)
 - **Multiple Transports**: stdio for Claude Desktop, HTTP/SSE for web integrations  
-- **Enterprise Security**: API key authentication with role-based access control
+- **Enhanced Security**: Framework-based authentication with advanced features
 - **Performance Optimized**: Connection pooling, intelligent caching, batch operations
 - **Framework Integration**: Built on PulseEngine MCP framework for standardized protocol handling
 
@@ -35,16 +35,24 @@ cargo build --release
 
 ### Configuration
 
-1. **Set up credentials** (interactive):
+1. **Basic Setup**:
    ```bash
    cargo run --bin loxone-mcp-setup
    ```
 
-2. **Or use environment variables**:
+2. **Environment variables**:
    ```bash
    export LOXONE_HOST="http://192.168.1.100"
    export LOXONE_USER="your-username"
    export LOXONE_PASS="your-password"
+   ```
+
+3. **Production with Infisical** (optional):
+   ```bash
+   export INFISICAL_PROJECT_ID="your-project-id"
+   export INFISICAL_CLIENT_ID="your-client-id"
+   export INFISICAL_CLIENT_SECRET="your-client-secret"
+   export INFISICAL_ENVIRONMENT="production"
    ```
 
 ## Usage
@@ -113,7 +121,12 @@ The server uses an async Rust architecture with:
 
 ## Security
 
-- **Authentication**: API key based with role support (admin, operator, viewer)
+- **Framework Authentication**: Enhanced security with PulseEngine MCP v0.4.0
+  - API Key Management with role-based permissions
+  - JWT tokens for stateless sessions  
+  - Encrypted storage with AES-GCM
+  - Vault integration (Infisical support)
+  - 8 predefined security profiles
 - **Rate Limiting**: Configurable per-role limits
 - **Input Validation**: All inputs sanitized and validated
 - **Audit Logging**: Comprehensive activity logging

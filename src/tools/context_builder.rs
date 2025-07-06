@@ -19,13 +19,13 @@ use std::sync::Arc;
 pub struct ToolContextBuilder {
     /// Cached Loxone client reference
     client: Arc<dyn LoxoneClient>,
-    
+
     /// Cached client context reference
     context: Arc<ClientContext>,
-    
+
     /// Cached value resolver reference
     value_resolver: Arc<UnifiedValueResolver>,
-    
+
     /// Cached state manager reference (optional)
     state_manager: Option<Arc<StateManager>>,
 }
@@ -45,7 +45,7 @@ impl ToolContextBuilder {
             state_manager,
         }
     }
-    
+
     /// Build a new ToolContext instance
     ///
     /// This method clones the Arc references, which is cheap since Arc uses
@@ -58,7 +58,7 @@ impl ToolContextBuilder {
             self.state_manager.clone(),
         )
     }
-    
+
     /// Build a new ToolContext instance without state manager
     ///
     /// Some tools don't need the state manager, so this provides a way to
@@ -71,7 +71,7 @@ impl ToolContextBuilder {
             None,
         )
     }
-    
+
     /// Update the client reference
     ///
     /// Useful if the client needs to be swapped out (e.g., for testing)
@@ -79,25 +79,25 @@ impl ToolContextBuilder {
         self.client = client;
         self
     }
-    
+
     /// Update the context reference
     pub fn with_context(mut self, context: Arc<ClientContext>) -> Self {
         self.context = context;
         self
     }
-    
+
     /// Update the value resolver reference
     pub fn with_value_resolver(mut self, value_resolver: Arc<UnifiedValueResolver>) -> Self {
         self.value_resolver = value_resolver;
         self
     }
-    
+
     /// Update the state manager reference
     pub fn with_state_manager(mut self, state_manager: Option<Arc<StateManager>>) -> Self {
         self.state_manager = state_manager;
         self
     }
-    
+
     /// Create a lightweight reference that can be passed around
     ///
     /// This is useful when you need to pass the builder to multiple functions
@@ -135,7 +135,7 @@ impl<'a> ToolContextBuilderRef<'a> {
             self.state_manager.cloned(),
         )
     }
-    
+
     /// Build without state manager
     pub fn build_without_state_manager(&self) -> ToolContext {
         ToolContext::with_services(
@@ -156,14 +156,14 @@ pub trait ServerContextBuilderExt {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     // Mock implementations would go here for testing
-    
+
     #[test]
     fn test_builder_creates_identical_contexts() {
         // This would test that multiple calls to build() create equivalent contexts
     }
-    
+
     #[test]
     fn test_builder_ref_works_correctly() {
         // This would test that the reference builder creates the same contexts
