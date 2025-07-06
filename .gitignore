@@ -93,6 +93,9 @@ sensor_state_log.json
 SESSION_SUMMARY.md
 RUST_SETUP_COMPLETE.md
 
+# Refactoring documentation (temporary)
+REFACTORING_*.md
+
 # Node.js (for MCP testing)
 node_modules/
 package-lock.json
