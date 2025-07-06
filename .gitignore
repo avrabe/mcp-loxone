@@ -96,6 +96,9 @@ RUST_SETUP_COMPLETE.md
 # Refactoring documentation (temporary)
 REFACTORING_*.md
 
+# Testing strategy documentation (temporary)
+TESTING_STRATEGY.md
+
 # Node.js (for MCP testing)
 node_modules/
 package-lock.json
