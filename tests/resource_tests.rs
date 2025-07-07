@@ -784,17 +784,27 @@ mod tests {
     async fn test_resource_backend_integration(test_server_config: ServerConfig) {
         let mock_server = MockLoxoneServer::start().await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = test_server_config.clone();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // This closure runs synchronously, so we need to use block_on
+                // But we're already in a tokio test, so this should work
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = test_server_config.clone();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with resource system
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with resource system
     }
 
     #[tokio::test]
@@ -821,17 +831,26 @@ mod tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with resource discovery mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with resource discovery mock
     }
 
     #[tokio::test]
@@ -852,17 +871,26 @@ mod tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with resource caching mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with resource caching mock
     }
 
     #[tokio::test]
@@ -874,21 +902,30 @@ mod tests {
             .mock_error_response("/data/LoxAPP3.json", 503, "Service Unavailable")
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let result = LoxoneFrameworkBackend::initialize(config).await;
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Should handle resource errors gracefully
-                assert!(
-                    result.is_ok() || result.is_err(),
-                    "Backend should handle resource errors without panicking"
-                );
-            })
-        });
+        let result = LoxoneFrameworkBackend::initialize(config).await;
+
+        // Should handle resource errors gracefully
+        assert!(
+            result.is_ok() || result.is_err(),
+            "Backend should handle resource errors without panicking"
+        );
     }
 
     #[tokio::test]
@@ -914,16 +951,25 @@ mod tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with resource pagination mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with resource pagination mock
     }
 }
