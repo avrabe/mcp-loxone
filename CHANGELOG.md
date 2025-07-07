@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-01-07
+
+### Added
+- **Credential ID System**: Complete UUID-based credential identification system
+  - New `loxone-mcp-auth` binary with full CRUD operations (create, read, update, delete, test)
+  - Credential registry with JSON metadata storage (ID, name, host, port, timestamps)
+  - Integration with existing credential backends (keychain, Infisical, environment variables)
+  - `--credential-id` parameter support in main server and setup tools
+  - Comprehensive migration guide from environment variables to credential IDs
+
+### Enhanced
+- **Authentication Management**: 
+  - Centralized credential metadata management with CredentialRegistry
+  - Enhanced credential loading infrastructure in main.rs
+  - Interactive and non-interactive credential management workflows
+  - Connection testing and validation functionality
+  
+- **Developer Experience**:
+  - Clear migration path from environment variables
+  - Detailed error messages and user guidance
+  - Updated documentation across all guides and security docs
+  
+### Removed
+- **Legacy Binaries**: Cleaned up redundant tools
+  - `test_connection.rs` - replaced by `loxone-mcp-auth test`
+  - `verify_credentials.rs` - replaced by credential validation in auth binary
+  - `update_host.rs` - replaced by `loxone-mcp-auth update`
+  - `test_auth_framework.rs` - no longer needed after framework migration
+
+### Security
+- Enhanced credential security with UUID-based identification
+- Backward compatibility maintained with environment variables
+- Only metadata stored in registry, sensitive data remains in secure backends
+- Comprehensive validation and error handling
+
 ## [0.4.0] - 2025-01-06
 
 ### Changed
