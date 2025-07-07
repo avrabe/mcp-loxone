@@ -38,17 +38,26 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = test_server_config.clone();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = test_server_config.clone();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with WebSocket upgrade mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with WebSocket upgrade mock
     }
 
     #[tokio::test]
@@ -58,17 +67,26 @@ mod websocket_integration_tests {
         // Mock WebSocket connection handshake
         mock_server.mock_websocket_handshake().await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with WebSocket connection mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with WebSocket connection mock
     }
 
     #[tokio::test]
@@ -88,17 +106,26 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with WebSocket event mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with WebSocket event mock
     }
 
     #[tokio::test]
@@ -124,22 +151,31 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.loxone.max_retries = 3;
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let backend = LoxoneFrameworkBackend::initialize(config).await;
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.loxone.max_retries = 3;
+        config.credentials = CredentialStore::Environment;
 
-                // Should eventually succeed after retries
-                assert!(
-                    backend.is_ok() || backend.is_err(),
-                    "Reconnection simulation completed"
-                );
-            })
-        });
+        let backend = LoxoneFrameworkBackend::initialize(config).await;
+
+        // Should eventually succeed after retries
+        assert!(
+            backend.is_ok() || backend.is_err(),
+            "Reconnection simulation completed"
+        );
     }
 
     #[tokio::test]
@@ -159,17 +195,26 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with binary message mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with binary message mock
     }
 
     #[tokio::test]
@@ -196,17 +241,26 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with auth fallback mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with auth fallback mock
     }
 
     #[tokio::test]
@@ -230,16 +284,25 @@ mod websocket_integration_tests {
             .mount(&mock_server.server)
             .await;
 
-        with_test_env(|| {
-            tokio::runtime::Runtime::new().unwrap().block_on(async {
-                let mut config = ServerConfig::dev_mode();
-                config.loxone.url = mock_server.url().parse().unwrap();
-                config.credentials = CredentialStore::Environment;
+        // Set test environment variables
+        temp_env::with_vars(
+            [
+                ("LOXONE_USERNAME", Some("test_user")),
+                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_URL", Some(mock_server.url())),
+                ("LOXONE_LOG_LEVEL", Some("debug")),
+            ],
+            || {
+                // Environment variables are set for this scope
+            },
+        );
 
-                let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+        let mut config = ServerConfig::dev_mode();
+        config.loxone.url = mock_server.url().parse().unwrap();
+        config.credentials = CredentialStore::Environment;
 
-                // Backend successfully initialized with state update mock
-            })
-        });
+        let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
+
+        // Backend successfully initialized with state update mock
     }
 }
