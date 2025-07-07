@@ -35,6 +35,32 @@ cargo build --release
 
 ### Configuration
 
+#### 🆕 Credential ID System (Recommended)
+
+1. **Quick Setup with Credential ID**:
+   ```bash
+   # Interactive setup with ID generation
+   cargo run --bin loxone-mcp-setup --generate-id --name "Main House"
+   
+   # Store credentials manually
+   cargo run --bin loxone-mcp-auth store \
+     --name "Office" \
+     --host 192.168.1.100 \
+     --username admin \
+     --password secure123
+   ```
+
+2. **Manage Multiple Servers**:
+   ```bash
+   # List stored credentials
+   cargo run --bin loxone-mcp-auth list
+   
+   # Test connections
+   cargo run --bin loxone-mcp-auth test <credential-id>
+   ```
+
+#### Legacy Environment Variables
+
 1. **Basic Setup**:
    ```bash
    cargo run --bin loxone-mcp-setup
@@ -55,18 +81,38 @@ cargo build --release
    export INFISICAL_ENVIRONMENT="production"
    ```
 
+#### 🔄 Migration from Environment Variables
+
+If you're currently using environment variables, see the [**Credential Migration Guide**](CREDENTIAL_MIGRATION_GUIDE.md) for step-by-step instructions to migrate to the new Credential ID system.
+
 ## Usage
 
 ### Claude Desktop Integration
 
-Add to your Claude Desktop configuration:
-
+#### With Credential ID (Recommended)
 ```json
 {
   "mcpServers": {
     "loxone": {
       "command": "/path/to/loxone-mcp-server",
-      "args": ["stdio"]
+      "args": ["stdio", "--credential-id", "abc123def-456-789"]
+    }
+  }
+}
+```
+
+#### Legacy Environment Variables
+```json
+{
+  "mcpServers": {
+    "loxone": {
+      "command": "/path/to/loxone-mcp-server",
+      "args": ["stdio"],
+      "env": {
+        "LOXONE_HOST": "192.168.1.100",
+        "LOXONE_USER": "admin",
+        "LOXONE_PASS": "password"
+      }
     }
   }
 }
@@ -74,14 +120,24 @@ Add to your Claude Desktop configuration:
 
 ### HTTP Server (for n8n, web clients)
 
+#### With Credential ID
 ```bash
-./loxone-mcp-server http --port 3001
+cargo run --bin loxone-mcp-server http --port 3001 --credential-id abc123def-456-789
+```
+
+#### Legacy Mode
+```bash
+cargo run --bin loxone-mcp-server http --port 3001
 ```
 
 ### Verify Installation
 
 ```bash
-cargo run --bin loxone-mcp-verify
+# Test with credential ID
+cargo run --bin loxone-mcp-auth test <credential-id>
+
+# Or list available credentials
+cargo run --bin loxone-mcp-auth list
 ```
 
 ## Available Tools & Resources

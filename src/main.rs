@@ -13,12 +13,57 @@ use pulseengine_mcp_server::{middleware::MiddlewareStack, GenericServerHandler};
 use pulseengine_mcp_transport::{create_transport, Transport};
 
 use loxone_mcp_rust::{
+    config::credentials::create_best_credential_manager,
     server::framework_backend::create_loxone_backend, Result, ServerConfig as LoxoneServerConfig,
 };
 
 use clap::{Parser, Subcommand};
-use std::sync::Arc;
+use serde::{Deserialize, Serialize};
+use std::{collections::HashMap, path::PathBuf, sync::Arc};
 use tracing::info;
+
+/// Stored credential metadata (matches loxone-mcp-auth.rs)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StoredCredential {
+    id: String,
+    name: String,
+    host: String,
+    port: u16,
+    created_at: chrono::DateTime<chrono::Utc>,
+    last_used: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Credential registry for managing multiple credentials
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct CredentialRegistry {
+    credentials: HashMap<String, StoredCredential>,
+}
+
+impl CredentialRegistry {
+    /// Registry file path
+    fn registry_path() -> PathBuf {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".loxone-mcp")
+            .join("credential-registry.json")
+    }
+
+    /// Load registry from disk
+    fn load() -> Result<Self> {
+        let path = Self::registry_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+
+        let data = std::fs::read_to_string(&path)?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
+    /// Get credential by ID
+    fn get_credential(&self, id: &str) -> Option<&StoredCredential> {
+        self.credentials.get(id)
+    }
+}
 
 /// Loxone MCP Server Configuration
 #[derive(Parser, Debug)]
@@ -45,6 +90,10 @@ struct Config {
     /// Loxone password
     #[arg(long, global = true, env = "LOXONE_PASS")]
     loxone_password: Option<String>,
+
+    /// Credential ID (from loxone-mcp-auth)
+    #[arg(long, global = true)]
+    credential_id: Option<String>,
 
     /// Server information (auto-populated by framework)
     #[clap(skip)]
@@ -131,37 +180,32 @@ impl McpConfiguration for Config {
     }
 
     fn validate(&self) -> std::result::Result<(), pulseengine_mcp_cli::CliError> {
+        // Check if we have credential ID or direct credentials
+        let has_credential_id = self.credential_id.is_some();
+        let has_direct_credentials = self.loxone_host.is_some()
+            && self.loxone_user.is_some()
+            && self.loxone_password.is_some();
+
         // Validate Loxone credentials if not in offline mode
         match &self.transport {
             TransportCommand::Stdio { offline } => {
-                if !offline
-                    && (self.loxone_host.is_none()
-                        || self.loxone_user.is_none()
-                        || self.loxone_password.is_none())
-                {
+                if !offline && !has_credential_id && !has_direct_credentials {
                     return Err(pulseengine_mcp_cli::CliError::configuration(
-                        "Loxone credentials required. Set LOXONE_HOST, LOXONE_USER, and LOXONE_PASS or use --offline mode"
+                        "Loxone credentials required. Use --credential-id <id>, set LOXONE_HOST/LOXONE_USER/LOXONE_PASS, or use --offline mode"
                     ));
                 }
             }
             TransportCommand::Http { dev_mode, .. } => {
-                if !dev_mode
-                    && (self.loxone_host.is_none()
-                        || self.loxone_user.is_none()
-                        || self.loxone_password.is_none())
-                {
+                if !dev_mode && !has_credential_id && !has_direct_credentials {
                     return Err(pulseengine_mcp_cli::CliError::configuration(
-                        "Loxone credentials required. Set LOXONE_HOST, LOXONE_USER, and LOXONE_PASS or use --dev-mode"
+                        "Loxone credentials required. Use --credential-id <id>, set LOXONE_HOST/LOXONE_USER/LOXONE_PASS, or use --dev-mode"
                     ));
                 }
             }
             TransportCommand::StreamableHttp { .. } => {
-                if self.loxone_host.is_none()
-                    || self.loxone_user.is_none()
-                    || self.loxone_password.is_none()
-                {
+                if !has_credential_id && !has_direct_credentials {
                     return Err(pulseengine_mcp_cli::CliError::configuration(
-                        "Loxone credentials required. Set LOXONE_HOST, LOXONE_USER, and LOXONE_PASS"
+                        "Loxone credentials required. Use --credential-id <id> or set LOXONE_HOST/LOXONE_USER/LOXONE_PASS"
                     ));
                 }
             }
@@ -206,6 +250,33 @@ fn get_default_logging_config() -> DefaultLoggingConfig {
     }
 }
 
+/// Load credentials from credential ID
+async fn load_credentials_by_id(credential_id: &str) -> Result<(String, String, String)> {
+    // Load registry
+    let registry = CredentialRegistry::load()?;
+
+    // Find credential by ID
+    let stored = registry.get_credential(credential_id)
+        .ok_or_else(|| loxone_mcp_rust::LoxoneError::config(
+            format!("Credential ID '{credential_id}' not found. Use 'loxone-mcp-auth list' to see available credentials")
+        ))?;
+
+    // Load actual credentials from storage
+    let manager = create_best_credential_manager().await?;
+
+    // Set host for retrieval (the credential manager needs this)
+    std::env::set_var("LOXONE_HOST", format!("{}:{}", stored.host, stored.port));
+
+    let credentials = manager.get_credentials().await.map_err(|e| {
+        loxone_mcp_rust::LoxoneError::config(format!(
+            "Failed to load credentials for ID '{credential_id}': {e}"
+        ))
+    })?;
+
+    let host = format!("{}:{}", stored.host, stored.port);
+    Ok((host, credentials.username, credentials.password))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Parse CLI arguments using framework
@@ -226,6 +297,19 @@ async fn main() -> Result<()> {
         env!("CARGO_PKG_VERSION")
     );
 
+    // Load credentials (either from credential ID or direct parameters)
+    let (loxone_host, loxone_user, _loxone_password) =
+        if let Some(credential_id) = &config.credential_id {
+            info!("Loading credentials from ID: {}", credential_id);
+            load_credentials_by_id(credential_id).await?
+        } else {
+            (
+                config.loxone_host.clone().unwrap_or_default(),
+                config.loxone_user.clone().unwrap_or_default(),
+                config.loxone_password.clone().unwrap_or_default(),
+            )
+        };
+
     // Create Loxone configuration
     let loxone_config = match &config.transport {
         TransportCommand::Stdio { offline } => {
@@ -235,16 +319,11 @@ async fn main() -> Result<()> {
             } else {
                 {
                     let mut server_config = LoxoneServerConfig::default();
-                    let host = config.loxone_host.clone().ok_or_else(|| {
-                        loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
-                    })?;
-                    server_config.loxone.url = format!("http://{host}").parse().map_err(|e| {
-                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
-                    })?;
-                    server_config.loxone.username =
-                        config.loxone_user.clone().ok_or_else(|| {
-                            loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER")
+                    server_config.loxone.url =
+                        format!("http://{loxone_host}").parse().map_err(|e| {
+                            loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
                         })?;
+                    server_config.loxone.username = loxone_user.clone();
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
                     // Let the adaptive client factory handle auth method selection based on server capabilities
@@ -259,16 +338,11 @@ async fn main() -> Result<()> {
             } else {
                 {
                     let mut server_config = LoxoneServerConfig::default();
-                    let host = config.loxone_host.clone().ok_or_else(|| {
-                        loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST")
-                    })?;
-                    server_config.loxone.url = format!("http://{host}").parse().map_err(|e| {
-                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
-                    })?;
-                    server_config.loxone.username =
-                        config.loxone_user.clone().ok_or_else(|| {
-                            loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER")
+                    server_config.loxone.url =
+                        format!("http://{loxone_host}").parse().map_err(|e| {
+                            loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
                         })?;
+                    server_config.loxone.username = loxone_user.clone();
                     server_config.loxone.timeout = std::time::Duration::from_secs(30);
                     server_config.loxone.verify_ssl = false;
                     // Let the adaptive client factory handle auth method selection based on server capabilities
@@ -278,17 +352,10 @@ async fn main() -> Result<()> {
         }
         TransportCommand::StreamableHttp { .. } => {
             let mut server_config = LoxoneServerConfig::default();
-            let host = config
-                .loxone_host
-                .clone()
-                .ok_or_else(|| loxone_mcp_rust::LoxoneError::config("Missing LOXONE_HOST"))?;
-            server_config.loxone.url = format!("https://{host}")
+            server_config.loxone.url = format!("https://{loxone_host}")
                 .parse()
                 .map_err(|e| loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}")))?;
-            server_config.loxone.username = config
-                .loxone_user
-                .clone()
-                .ok_or_else(|| loxone_mcp_rust::LoxoneError::config("Missing LOXONE_USER"))?;
+            server_config.loxone.username = loxone_user.clone();
             server_config.loxone.timeout = std::time::Duration::from_secs(30);
             server_config.loxone.verify_ssl = false;
             server_config

@@ -100,17 +100,11 @@ name = "loxone-mcp-setup"
 path = "src/bin/setup.rs"
 
 [[bin]]
-name = "loxone-mcp-verify"
-path = "src/bin/verify_credentials.rs"
+name = "loxone-mcp-auth"
+path = "src/bin/loxone-mcp-auth.rs"
 
-[[bin]]
-name = "loxone-mcp-update-host"
-path = "src/bin/update_host.rs"
 
-[[bin]]
-name = "loxone-mcp-test-connection"
-path = "src/bin/test_connection.rs"
-
+# Development utilities
 [[bin]]
 name = "loxone-mcp-test-endpoints"
 path = "src/bin/test_endpoints.rs"

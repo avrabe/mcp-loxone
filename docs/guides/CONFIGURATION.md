@@ -210,7 +210,7 @@ cargo run --bin loxone-mcp-setup -- \
   --password secretpass
 
 # Verify
-cargo run --bin loxone-mcp-verify
+cargo run --bin loxone-mcp-auth test <credential-id>
 ```
 
 **Pros:**

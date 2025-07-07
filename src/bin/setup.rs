@@ -11,15 +11,84 @@ use loxone_mcp_rust::{
     config::CredentialStore,
     Result,
 };
+use serde::{Deserialize, Serialize};
 use std::{
+    collections::HashMap,
     io::{self, Write},
+    path::PathBuf,
     process::Command,
     time::Duration,
 };
 use tracing::{error, info};
+use uuid::Uuid;
+
+/// Stored credential metadata (matches loxone-mcp-auth.rs)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct StoredCredential {
+    id: String,
+    name: String,
+    host: String,
+    port: u16,
+    created_at: chrono::DateTime<chrono::Utc>,
+    last_used: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+/// Credential registry for managing multiple credentials
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+struct CredentialRegistry {
+    credentials: HashMap<String, StoredCredential>,
+}
+
+impl CredentialRegistry {
+    /// Registry file path
+    fn registry_path() -> PathBuf {
+        dirs::home_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join(".loxone-mcp")
+            .join("credential-registry.json")
+    }
+
+    /// Load registry from disk
+    fn load() -> Result<Self> {
+        let path = Self::registry_path();
+        if !path.exists() {
+            return Ok(Self::default());
+        }
+
+        let data = std::fs::read_to_string(&path)?;
+        Ok(serde_json::from_str(&data)?)
+    }
+
+    /// Save registry to disk
+    fn save(&self) -> Result<()> {
+        let path = Self::registry_path();
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+
+        let data = serde_json::to_string_pretty(self)?;
+        std::fs::write(&path, data)?;
+        Ok(())
+    }
+
+    /// Add a credential
+    fn add_credential(&mut self, name: String, host: String, port: u16) -> String {
+        let id = Uuid::new_v4().to_string();
+        let credential = StoredCredential {
+            id: id.clone(),
+            name,
+            host,
+            port,
+            created_at: chrono::Utc::now(),
+            last_used: None,
+        };
+        self.credentials.insert(id.clone(), credential);
+        id
+    }
+}
 
 /// Available credential storage backends
-#[derive(Debug, Clone, ValueEnum)]
+#[derive(Debug, Clone, ValueEnum, PartialEq)]
 enum CredentialBackend {
     /// Automatic selection (Infisical → Environment → Keychain)
     Auto,
@@ -52,6 +121,14 @@ struct Args {
     /// Password for Miniserver
     #[arg(long)]
     password: Option<String>,
+
+    /// Friendly name for these credentials (e.g., "Main House", "Office")
+    #[arg(long)]
+    name: Option<String>,
+
+    /// Generate credential ID for easy server access
+    #[arg(long)]
+    generate_id: bool,
 
     /// SSE API key (optional)
     #[arg(long, alias = "api-key")]
@@ -93,14 +170,19 @@ async fn main() -> Result<()> {
     println!("────────────────────────────────────");
     println!("For a quick test, copy and run:\n");
     println!("```bash");
-    println!("# Option 1: Direct environment variables");
+    println!("# Option 1: Setup with credential ID (recommended)");
+    println!("cargo run --bin loxone-mcp-setup --generate-id");
+    println!("# Then use: cargo run --bin loxone-mcp-server stdio --credential-id <generated-id>");
+    println!("```\n");
+    println!("```bash");
+    println!("# Option 2: Direct environment variables");
     println!("export LOXONE_USER=\"admin\"");
     println!("export LOXONE_PASS=\"password\"");
     println!("export LOXONE_HOST=\"192.168.1.100\"");
     println!("cargo run --bin loxone-mcp-server");
     println!("```\n");
     println!("```bash");
-    println!("# Option 2: Keychain Setup (one-time)");
+    println!("# Option 3: Traditional keychain setup");
     println!("cargo run --bin loxone-mcp-setup");
     println!("# Follow the instructions...");
     println!("```\n");
@@ -422,6 +504,54 @@ async fn main() -> Result<()> {
         if credentials.api_key.is_some() {
             println!("   API Key: {}", "*".repeat(8));
         }
+
+        // Generate credential ID if requested
+        if args.generate_id || selected_backend != CredentialBackend::Environment {
+            let mut registry = CredentialRegistry::load()?;
+
+            // Determine name for the credential
+            let credential_name = if let Some(name) = &args.name {
+                name.clone()
+            } else if args.non_interactive {
+                format!("Miniserver-{}", host.replace(":", "-"))
+            } else {
+                let default_name = format!("Miniserver-{}", host.replace(":", "-"));
+                let input = get_manual_input(&format!(
+                    "Enter friendly name for this credential [{default_name}]: "
+                ))?;
+                if input.trim().is_empty() {
+                    default_name
+                } else {
+                    input.trim().to_string()
+                }
+            };
+
+            // Parse port from host
+            let (host_only, port) = if host.contains(':') {
+                let parts: Vec<&str> = host.split(':').collect();
+                (
+                    parts[0].to_string(),
+                    parts.get(1).and_then(|p| p.parse().ok()).unwrap_or(80),
+                )
+            } else {
+                (host.clone(), 80)
+            };
+
+            // Add to registry
+            let credential_id = registry.add_credential(credential_name.clone(), host_only, port);
+            registry.save()?;
+
+            println!("\n🔑 Credential ID generated!");
+            println!("   ID: {credential_id}");
+            println!("   Name: {credential_name}");
+            println!("\n🚀 Quick Start with Credential ID:");
+            println!("   cargo run --bin loxone-mcp-server stdio --credential-id {credential_id}");
+            println!("   cargo run --bin loxone-mcp-server http --port 3001 --credential-id {credential_id}");
+
+            // Store host information with the credential manager
+            std::env::set_var("LOXONE_HOST", &host);
+            info!("✅ Host information set for credential storage");
+        }
     }
 
     // Verify by reading back (skip for Environment backend)
@@ -441,9 +571,14 @@ async fn main() -> Result<()> {
 
     // Summary and next steps
     println!("\n📝 Next steps:");
-    println!("1. Test Rust server: cargo run --bin loxone-mcp-server");
-    println!("2. Verify credentials: cargo run --bin loxone-mcp-verify");
-    println!("3. Test connection: cargo run --bin loxone-mcp-test-connection");
+    if args.generate_id || !matches!(selected_backend, CredentialBackend::Environment) {
+        println!("1. Test with credential ID: cargo run --bin loxone-mcp-server stdio --credential-id <id>");
+        println!("2. List credential IDs: cargo run --bin loxone-mcp-auth list");
+        println!("3. Test credentials: cargo run --bin loxone-mcp-auth test <credential-id>");
+    } else {
+        println!("1. Test Rust server: cargo run --bin loxone-mcp-server");
+        println!("2. Test credentials: cargo run --bin loxone-mcp-auth test <credential-id>");
+    }
 
     if matches!(selected_backend, CredentialBackend::Infisical) {
         println!("\n🔐 Infisical Setup Complete!");
@@ -1091,8 +1226,7 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
 
     println!("\n📚 Weitere Hilfe:");
     println!("   • Setup erneut ausführen: cargo run --bin loxone-mcp-setup");
-    println!("   • Credentials prüfen: cargo run --bin loxone-mcp-verify");
-    println!("   • Verbindung testen: cargo run --bin loxone-mcp-test-connection");
+    println!("   • Credentials prüfen: cargo run --bin loxone-mcp-auth test <credential-id>");
 }
 
 /// Generate export script for environment variables

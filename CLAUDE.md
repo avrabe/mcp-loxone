@@ -34,22 +34,54 @@ cargo build
 ```
 
 ### Credential Configuration
+
+#### 🆕 Credential ID System (Recommended)
 ```bash
-# Setup Loxone credentials using environment variables (recommended for development)
+# Setup with credential ID generation (recommended)
+cargo run --bin loxone-mcp-setup --generate-id --name "Main House"
+
+# Use stored credentials with ID
+cargo run --bin loxone-mcp-server stdio --credential-id abc123def-456-789
+
+# Manage multiple credentials
+cargo run --bin loxone-mcp-auth store --name "Office" --host 192.168.2.100 --username admin --password secure123
+cargo run --bin loxone-mcp-auth list
+cargo run --bin loxone-mcp-auth show abc123def-456-789
+cargo run --bin loxone-mcp-auth test abc123def-456-789
+```
+
+#### Legacy Environment Variables
+```bash
+# Setup Loxone credentials using environment variables
 export LOXONE_USER="your-username"
 export LOXONE_PASS="your-password"
 export LOXONE_HOST="your-miniserver-ip"
 
-# Alternative: Interactive credential setup
+# Traditional interactive setup
 cargo run --bin loxone-mcp-setup
 
 # Verify credentials work
 cargo run --bin loxone-mcp-verify
 ```
 
-### Authentication Management
+### 🔄 Migration Guide
+
+If you're migrating from environment variables to the new credential ID system, see [CREDENTIAL_MIGRATION_GUIDE.md](CREDENTIAL_MIGRATION_GUIDE.md) for detailed instructions.
+
+### Credential Management (New)
 ```bash
-# Create API keys for secure access
+# Store and manage Loxone server credentials
+cargo run --bin loxone-mcp-auth store --name "Home" --host 192.168.1.100 --username admin --password secret123
+cargo run --bin loxone-mcp-auth list
+cargo run --bin loxone-mcp-auth show abc123def-456-789
+cargo run --bin loxone-mcp-auth test abc123def-456-789 --verbose
+cargo run --bin loxone-mcp-auth update abc123def-456-789 --name "Main House"
+cargo run --bin loxone-mcp-auth delete abc123def-456-789
+```
+
+### Authentication Management (Legacy)
+```bash
+# Create API keys for secure access  
 cargo run --bin loxone-mcp-auth create --name "Admin Key" --role admin
 cargo run --bin loxone-mcp-auth create --name "Dev Key" --role operator --expires 30
 
@@ -64,11 +96,25 @@ cargo run --bin loxone-mcp-auth audit --limit 50
 ```
 
 ### Running the Server
+
+#### With Credential ID (Recommended)
 ```bash
-# Development mode with MCP Inspector (recommended for testing)
-cargo run --bin loxone-mcp-server -- stdio
+# Claude Desktop integration
+cargo run --bin loxone-mcp-server stdio --credential-id abc123def-456-789
+
+# Web/HTTP clients (n8n, MCP Inspector)
+cargo run --bin loxone-mcp-server http --port 3001 --credential-id abc123def-456-789
+
+# Streamable HTTP for new MCP Inspector
+cargo run --bin loxone-mcp-server streamable-http --port 3001 --credential-id abc123def-456-789
+```
+
+#### Legacy Environment Variable Mode
+```bash
+# Development mode with MCP Inspector (requires env vars)
+cargo run --bin loxone-mcp-server stdio
 # Or for n8n/web clients:
-cargo run --bin loxone-mcp-server -- http --port 3001
+cargo run --bin loxone-mcp-server http --port 3001
 
 # Quick development server with hot reload
 make dev-run
@@ -355,6 +401,19 @@ make check
 - **Deployment Guide**: `docs/DEPLOYMENT.md`
 - **Troubleshooting**: `docs/TROUBLESHOOTING.md`
 - **Examples**: See `examples/` directory
+- **Migration Guide**: `CREDENTIAL_MIGRATION_GUIDE.md`
+
+## 📦 Available Binaries
+
+The project provides several command-line tools:
+
+### 🚀 Core Tools
+- **`loxone-mcp-server`** - Main MCP server with stdio/HTTP transport support
+- **`loxone-mcp-auth`** - Complete credential management (store, list, update, delete, test)
+- **`loxone-mcp-setup`** - Interactive credential setup with credential ID generation
+
+### 🔧 Development Tools
+- **`loxone-mcp-test-endpoints`** - Test multiple API endpoints (for development/debugging)
 
 ## 🔍 Debugging & Troubleshooting
 

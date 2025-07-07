@@ -209,8 +209,8 @@ cargo run --bin loxone-mcp-setup -- \
   --user admin \
   --password secretpass
 
-# Verify
-cargo run --bin loxone-mcp-verify
+# Test stored credentials
+cargo run --bin loxone-mcp-auth test <credential-id>
 ```
 
 **Pros:**

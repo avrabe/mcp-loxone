@@ -59,7 +59,7 @@ Credentials are stored securely using the system keychain:
 cargo run --bin loxone-mcp-setup
 
 # Verify credentials
-cargo run --bin loxone-mcp-verify
+cargo run --bin loxone-mcp-auth test <credential-id>
 ```
 
 ### Environment Variables (Development Only)
