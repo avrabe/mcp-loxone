@@ -37,8 +37,8 @@ This guide shows you how to set up the Loxone MCP server with the new Infisical-
 Simply set these environment variables:
 ```bash
 export LOXONE_HOST="http://192.168.1.100"     # Your Miniserver IP
-export LOXONE_USERNAME="admin"                # Your username  
-export LOXONE_PASSWORD="your-password"        # Your password
+export LOXONE_USER="admin"                # Your username  
+export LOXONE_PASS="your-password"        # Your password
 export LOXONE_SSE_API_KEY="your-api-key"      # Optional for web integrations
 ```
 

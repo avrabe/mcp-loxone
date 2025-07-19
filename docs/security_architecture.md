@@ -184,8 +184,8 @@ export SECURITY_LEVEL=production
 
 # 2. Configure Loxone connection
 export LOXONE_HOST=192.168.1.100
-export LOXONE_USERNAME=admin
-export LOXONE_PASSWORD=your-password
+export LOXONE_USER=admin
+export LOXONE_PASS=your-password
 
 # 3. Generate an API key
 cargo run --bin loxone-mcp-keys -- generate --role admin --name "Main"

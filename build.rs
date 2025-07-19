@@ -32,11 +32,6 @@ fn main() {
     // Native-specific configuration
     if !target.starts_with("wasm32") {
         println!("cargo:rustc-cfg=native");
-
-        // Enable keyring only on native targets
-        if cfg!(feature = "keyring-storage") {
-            println!("cargo:rustc-cfg=feature=\"keyring\"");
-        }
     }
 
     // Feature detection
@@ -48,7 +43,7 @@ fn main() {
 
 fn detect_features() {
     // Detect if we're building with specific features
-    let features = ["crypto", "websocket", "keyring-storage", "wasm-storage"];
+    let features = ["crypto", "websocket", "wasm-storage"];
 
     for feature in &features {
         if env::var(format!(
