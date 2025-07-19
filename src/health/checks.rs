@@ -375,14 +375,14 @@ impl HealthCheck for CredentialsHealthCheck {
         // Check if credentials are available
         // This is simplified - in production would check actual credential store
 
-        let has_username = std::env::var("LOXONE_USERNAME").is_ok();
-        let has_password = std::env::var("LOXONE_PASSWORD").is_ok();
+        let has_username = std::env::var("LOXONE_USER").is_ok();
+        let has_password = std::env::var("LOXONE_PASS").is_ok();
         let has_host = std::env::var("LOXONE_HOST").is_ok();
 
         if !has_username || !has_password || !has_host {
             let missing: Vec<&str> = [
-                (!has_username).then_some("LOXONE_USERNAME"),
-                (!has_password).then_some("LOXONE_PASSWORD"),
+                (!has_username).then_some("LOXONE_USER"),
+                (!has_password).then_some("LOXONE_PASS"),
                 (!has_host).then_some("LOXONE_HOST"),
             ]
             .into_iter()

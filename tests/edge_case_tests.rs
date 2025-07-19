@@ -24,8 +24,8 @@ async fn test_connection_timeout_handling() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -52,8 +52,8 @@ async fn test_invalid_server_response() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -85,8 +85,8 @@ async fn test_authentication_failure_recovery() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -104,8 +104,8 @@ async fn test_authentication_failure_recovery() {
 #[tokio::test]
 async fn test_network_unreachable() {
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = "http://unreachable.invalid:12345".parse().unwrap();
@@ -138,8 +138,8 @@ async fn test_malformed_device_uuids() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -179,8 +179,8 @@ async fn test_concurrent_initialization() {
     let mock_server = MockLoxoneServer::start().await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     // Test multiple concurrent backend initializations
     let tasks: Vec<_> = (0..5)
@@ -224,8 +224,8 @@ async fn test_resource_exhaustion_handling() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();

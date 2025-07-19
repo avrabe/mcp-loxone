@@ -22,8 +22,8 @@ async fn test_mcp_backend_initialization() {
     config.credentials = CredentialStore::Environment;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     // Test that LoxoneBackend can be initialized with pulseengine-mcp framework
     let backend = LoxoneFrameworkBackend::initialize(config).await;
@@ -43,8 +43,8 @@ async fn test_mcp_capabilities() {
     config.credentials = CredentialStore::Environment;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
@@ -64,8 +64,8 @@ async fn test_mcp_tool_listing() {
     config.credentials = CredentialStore::Environment;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let _backend = LoxoneFrameworkBackend::initialize(config).await.unwrap();
 
@@ -96,8 +96,8 @@ async fn test_mcp_error_handling() {
     config.credentials = CredentialStore::Environment;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let backend = LoxoneFrameworkBackend::initialize(config).await;
 

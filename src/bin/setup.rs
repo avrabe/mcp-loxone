@@ -7,97 +7,29 @@
 
 use clap::{Parser, ValueEnum};
 use loxone_mcp_rust::{
-    config::credentials::{create_best_credential_manager, CredentialManager, LoxoneCredentials},
-    config::CredentialStore,
+    config::{
+        credential_registry::CredentialRegistry,
+        credentials::{create_best_credential_manager, CredentialManager, LoxoneCredentials},
+        CredentialStore,
+    },
     Result,
 };
-use serde::{Deserialize, Serialize};
 use std::{
-    collections::HashMap,
     io::{self, Write},
-    path::PathBuf,
     process::Command,
     time::Duration,
 };
 use tracing::{error, info};
-use uuid::Uuid;
-
-/// Stored credential metadata (matches loxone-mcp-auth.rs)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct StoredCredential {
-    id: String,
-    name: String,
-    host: String,
-    port: u16,
-    created_at: chrono::DateTime<chrono::Utc>,
-    last_used: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-/// Credential registry for managing multiple credentials
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct CredentialRegistry {
-    credentials: HashMap<String, StoredCredential>,
-}
-
-impl CredentialRegistry {
-    /// Registry file path
-    fn registry_path() -> PathBuf {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".loxone-mcp")
-            .join("credential-registry.json")
-    }
-
-    /// Load registry from disk
-    fn load() -> Result<Self> {
-        let path = Self::registry_path();
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-
-        let data = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&data)?)
-    }
-
-    /// Save registry to disk
-    fn save(&self) -> Result<()> {
-        let path = Self::registry_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let data = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, data)?;
-        Ok(())
-    }
-
-    /// Add a credential
-    fn add_credential(&mut self, name: String, host: String, port: u16) -> String {
-        let id = Uuid::new_v4().to_string();
-        let credential = StoredCredential {
-            id: id.clone(),
-            name,
-            host,
-            port,
-            created_at: chrono::Utc::now(),
-            last_used: None,
-        };
-        self.credentials.insert(id.clone(), credential);
-        id
-    }
-}
 
 /// Available credential storage backends
 #[derive(Debug, Clone, ValueEnum, PartialEq)]
 enum CredentialBackend {
-    /// Automatic selection (Infisical → Environment → Keychain)
+    /// Automatic selection (Infisical → Environment)
     Auto,
     /// Infisical secret management
     Infisical,
     /// Environment variables
     Environment,
-    /// System keychain (macOS Keychain, Windows Credential Manager, Linux Secret Service)
-    Keychain,
     /// WASI Key-Value store (WASM only)
     #[cfg(target_arch = "wasm32")]
     WasiKeyValue,
@@ -126,9 +58,13 @@ struct Args {
     #[arg(long)]
     name: Option<String>,
 
-    /// Generate credential ID for easy server access
-    #[arg(long)]
+    /// Generate credential ID for easy server access (default: true, except for environment backend)
+    #[arg(long, default_value = "true")]
     generate_id: bool,
+
+    /// Disable credential ID generation (only store credentials without ID)
+    #[arg(long)]
+    no_credential_id: bool,
 
     /// SSE API key (optional)
     #[arg(long, alias = "api-key")]
@@ -170,8 +106,8 @@ async fn main() -> Result<()> {
     println!("────────────────────────────────────");
     println!("For a quick test, copy and run:\n");
     println!("```bash");
-    println!("# Option 1: Setup with credential ID (recommended)");
-    println!("cargo run --bin loxone-mcp-setup --generate-id");
+    println!("# Option 1: Setup with credential ID (default - recommended)");
+    println!("cargo run --bin loxone-mcp-setup");
     println!("# Then use: cargo run --bin loxone-mcp-server stdio --credential-id <generated-id>");
     println!("```\n");
     println!("```bash");
@@ -182,9 +118,9 @@ async fn main() -> Result<()> {
     println!("cargo run --bin loxone-mcp-server");
     println!("```\n");
     println!("```bash");
-    println!("# Option 3: Traditional keychain setup");
-    println!("cargo run --bin loxone-mcp-setup");
-    println!("# Follow the instructions...");
+    println!("# Option 3: Environment variables only (no credential ID)");
+    println!("cargo run --bin loxone-mcp-setup --backend environment --no-credential-id");
+    println!("# Then set variables and run: cargo run --bin loxone-mcp-server stdio");
     println!("```\n");
 
     // Determine which credential backend to use
@@ -465,8 +401,8 @@ async fn main() -> Result<()> {
         println!("────────────────────────────────");
         println!("\nCopy and run these commands to set up your environment:\n");
         println!("```bash");
-        println!("export LOXONE_USERNAME=\"{username}\"");
-        println!("export LOXONE_PASSWORD=\"{password}\"");
+        println!("export LOXONE_USER=\"{username}\"");
+        println!("export LOXONE_PASS=\"{password}\"");
         println!("export LOXONE_HOST=\"{host}\"");
         if let Some(api_key) = &credentials.api_key {
             println!("export LOXONE_API_KEY=\"{api_key}\"");
@@ -477,8 +413,8 @@ async fn main() -> Result<()> {
         println!("```bash");
         println!("# Save to file");
         println!("cat > loxone-env.sh << 'EOF'");
-        println!("export LOXONE_USERNAME=\"{username}\"");
-        println!("export LOXONE_PASSWORD=\"{password}\"");
+        println!("export LOXONE_USER=\"{username}\"");
+        println!("export LOXONE_PASS=\"{password}\"");
         println!("export LOXONE_HOST=\"{host}\"");
         if let Some(api_key) = &credentials.api_key {
             println!("export LOXONE_API_KEY=\"{api_key}\"");
@@ -505,24 +441,39 @@ async fn main() -> Result<()> {
             println!("   API Key: {}", "*".repeat(8));
         }
 
-        // Generate credential ID if requested
-        if args.generate_id || selected_backend != CredentialBackend::Environment {
+        // Generate credential ID by default (unless explicitly disabled or Environment backend)
+        let should_generate_id = args.generate_id
+            && !args.no_credential_id
+            && selected_backend != CredentialBackend::Environment;
+
+        if should_generate_id {
             let mut registry = CredentialRegistry::load()?;
 
             // Determine name for the credential
             let credential_name = if let Some(name) = &args.name {
-                name.clone()
+                validate_credential_name(name)?
             } else if args.non_interactive {
                 format!("Miniserver-{}", host.replace(":", "-"))
             } else {
                 let default_name = format!("Miniserver-{}", host.replace(":", "-"));
-                let input = get_manual_input(&format!(
-                    "Enter friendly name for this credential [{default_name}]: "
-                ))?;
-                if input.trim().is_empty() {
-                    default_name
-                } else {
-                    input.trim().to_string()
+                loop {
+                    let input = get_manual_input(&format!(
+                        "Enter friendly name for this credential [{default_name}]: "
+                    ))?;
+                    let name = if input.trim().is_empty() {
+                        default_name.clone()
+                    } else {
+                        input.trim().to_string()
+                    };
+
+                    match validate_credential_name(&name) {
+                        Ok(validated_name) => break validated_name,
+                        Err(e) => {
+                            println!("❌ Invalid name: {e}");
+                            println!("   Names must be 1-50 characters, contain only letters, numbers, spaces, and common punctuation");
+                            continue;
+                        }
+                    }
                 }
             };
 
@@ -538,7 +489,8 @@ async fn main() -> Result<()> {
             };
 
             // Add to registry
-            let credential_id = registry.add_credential(credential_name.clone(), host_only, port);
+            let credential_id =
+                registry.add_credential_with_id(credential_name.clone(), host_only, port);
             registry.save()?;
 
             println!("\n🔑 Credential ID generated!");
@@ -571,7 +523,11 @@ async fn main() -> Result<()> {
 
     // Summary and next steps
     println!("\n📝 Next steps:");
-    if args.generate_id || !matches!(selected_backend, CredentialBackend::Environment) {
+    let will_have_credential_id = args.generate_id
+        && !args.no_credential_id
+        && !matches!(selected_backend, CredentialBackend::Environment);
+
+    if will_have_credential_id {
         println!("1. Test with credential ID: cargo run --bin loxone-mcp-server stdio --credential-id <id>");
         println!("2. List credential IDs: cargo run --bin loxone-mcp-auth list");
         println!("3. Test credentials: cargo run --bin loxone-mcp-auth test <credential-id>");
@@ -668,7 +624,7 @@ fn setup_sse_api_key_interactive() -> Result<Option<String>> {
                 println!("⏭️  SSE setup skipped");
                 println!("   You can generate an API key later by:");
                 println!("   1. Running setup again, or");
-                println!("   2. Setting LOXONE_SSE_API_KEY environment variable");
+                println!("   2. Setting LOXONE_API_KEY environment variable");
                 return Ok(None);
             }
             _ => {
@@ -776,10 +732,7 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
         && std::env::var("INFISICAL_CLIENT_ID").is_ok()
         && std::env::var("INFISICAL_CLIENT_SECRET").is_ok();
 
-    #[cfg(feature = "keyring-storage")]
-    let keychain_available = true;
-    #[cfg(not(feature = "keyring-storage"))]
-    let keychain_available = false;
+    let _keychain_available = false;
 
     println!("Verfügbare Backends:");
     println!("  1. Auto (empfohlen) - Automatische Auswahl");
@@ -794,11 +747,8 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
         println!("                    # Für lokale Instanz: export INFISICAL_HOST=\"http://localhost:8080\"");
     }
 
-    if keychain_available {
-        println!("  3. Keychain ✅ - System Keychain (macOS/Windows/Linux)");
-    } else {
-        println!("  3. Keychain ❌ - System Keychain (feature not enabled)");
-    }
+    println!("  3. Keychain ❌ - System Keychain (disabled - unmaintained dependencies)");
+    println!("       Note: Keyring storage is currently disabled in this build");
     println!("  4. Environment - Umgebungsvariablen (temporär)");
 
     loop {
@@ -848,13 +798,14 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
                 }
             }
             "3" => {
-                if keychain_available {
-                    return Ok(CredentialBackend::Keychain);
-                } else {
-                    println!("\n❌ Keychain feature not enabled in this build!");
-                    println!("💡 Use Environment Variables (option 4) or rebuild with --features keyring-storage");
-                    continue;
-                }
+                println!("\n❌ Keychain storage is disabled due to unmaintained dependencies!");
+                println!("💡 Recommended alternatives:");
+                println!("   • Use Environment Variables (option 4)");
+                println!(
+                    "   • Use Auto backend (option 1) - falls back to environment variables"
+                );
+                println!("   • Use Infisical for team environments (option 2)");
+                continue;
             }
             "4" => {
                 println!(
@@ -909,8 +860,6 @@ async fn create_credential_manager_for_backend(
                     }
                 },
                 Some(CredentialStore::Environment),
-                #[cfg(feature = "keyring-storage")]
-                Some(CredentialStore::Keyring),
             ];
 
             for store in stores.into_iter().flatten() {
@@ -955,16 +904,6 @@ async fn create_credential_manager_for_backend(
         }
         CredentialBackend::Environment => {
             CredentialManager::new_async(CredentialStore::Environment).await
-        }
-        CredentialBackend::Keychain => {
-            #[cfg(feature = "keyring-storage")]
-            {
-                CredentialManager::new_async(CredentialStore::Keyring).await
-            }
-            #[cfg(not(feature = "keyring-storage"))]
-            Err(loxone_mcp_rust::error::LoxoneError::credentials(
-                "Keyring feature not enabled".to_string(),
-            ))
         }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::WasiKeyValue => {
@@ -1084,29 +1023,30 @@ fn show_environment_variables(
                 }
             }
         }
-        CredentialBackend::Keychain | CredentialBackend::Auto => {
-            println!("\n✅ Credentials are stored in Keychain - no environment variables needed!");
-            println!("   The server loads them automatically from the secure Keychain.");
-
+        CredentialBackend::Auto => {
+            println!("\n📋 Auto backend selected - using environment variables");
             println!(
-                "\n📌 Optional: You can set these environment variables to override Keychain:"
+                "   (Keychain storage is disabled, using environment variables)"
             );
+            println!("\n📌 Required: Set these environment variables for the server:");
             if export_format {
-                println!("\n# Optional (overrides Keychain):");
-                println!("# export LOXONE_USER=\"{username}\"");
-                println!("# export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("# export LOXONE_HOST=\"{host}\"");
+                println!("\n# Required (Keychain disabled):");
+
+                println!("export LOXONE_USER=\"{username}\"");
+                println!("export LOXONE_PASS=\"{}\"", credentials.password);
+                println!("export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("# export LOXONE_API_KEY=\"{api_key}\"");
+                    println!("export LOXONE_API_KEY=\"{api_key}\"");
                 }
             } else {
                 println!("\n```bash");
-                println!("# Optional (überschreibt Keychain):");
-                println!("# export LOXONE_USER=\"{username}\"");
-                println!("# export LOXONE_PASS=\"{}\"", credentials.password);
-                println!("# export LOXONE_HOST=\"{host}\"");
+                println!("# Required (Keychain disabled):");
+
+                println!("export LOXONE_USER=\"{username}\"");
+                println!("export LOXONE_PASS=\"{}\"", credentials.password);
+                println!("export LOXONE_HOST=\"{host}\"");
                 if let Some(ref api_key) = credentials.api_key {
-                    println!("# export LOXONE_API_KEY=\"{api_key}\"");
+                    println!("export LOXONE_API_KEY=\"{api_key}\"");
                 }
                 println!("```");
             }
@@ -1155,7 +1095,7 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
             println!("\n✨ Auto-Modus gewählt - der Server wird automatisch das beste verfügbare Backend verwenden:");
             println!("   1. Infisical (wenn konfiguriert)");
             println!("   2. Umgebungsvariablen");
-            println!("   3. System Keychain");
+            println!("   3. System Keychain (disabled)");
         }
         CredentialBackend::Infisical => {
             let infisical_host = std::env::var("INFISICAL_HOST")
@@ -1189,26 +1129,8 @@ fn show_backend_configuration_advice(backend: &CredentialBackend) {
             println!("\n⚠️  Environment Variables Konfiguration:");
             println!("   • Credentials sind nur temporär (verschwinden beim Neustart)");
             println!("   • Good for CI/CD and temporary tests");
-            println!("   • Für persistente Speicherung verwende Keychain oder Infisical");
+            println!("   • Für persistente Speicherung verwende Infisical");
             println!("   • Stelle sicher, dass die Variablen in deiner Shell gesetzt sind");
-        }
-        CredentialBackend::Keychain => {
-            println!("\n🔒 Keychain Konfiguration:");
-            println!("   • Credentials sind sicher im System Keychain gespeichert");
-            println!("   • Automatisches Laden beim Server-Start");
-            println!("   • Plattform-spezifisch:");
-            println!("     - macOS: Keychain Access App");
-            println!("     - Windows: Credential Manager");
-            println!("     - Linux: GNOME Keyring / KDE Wallet");
-
-            #[cfg(target_os = "macos")]
-            println!("\n   💡 macOS: Öffne 'Keychain Access' um Credentials zu verwalten");
-
-            #[cfg(target_os = "windows")]
-            println!("\n   💡 Windows: Öffne 'Credential Manager' um Credentials zu verwalten");
-
-            #[cfg(target_os = "linux")]
-            println!("\n   💡 Linux: Verwende 'seahorse' oder 'kwalletmanager' um Credentials zu verwalten");
         }
         #[cfg(target_arch = "wasm32")]
         CredentialBackend::WasiKeyValue => {
@@ -1247,12 +1169,12 @@ fn generate_export_script(
 
 echo "🔧 Loading Loxone MCP environment variables..."
 
-export LOXONE_USERNAME="{}"
-export LOXONE_PASSWORD="{}"
+export LOXONE_USER="{}"
+export LOXONE_PASS="{}"
 export LOXONE_HOST="{}"{}
 
 echo "✅ Environment configured for Loxone MCP server"
-echo "   User: $LOXONE_USERNAME"
+echo "   User: $LOXONE_USER"
 echo "   Host: $LOXONE_HOST"
 "#,
                 username,
@@ -1325,4 +1247,34 @@ echo "   Environment: $INFISICAL_ENVIRONMENT"
             println!("\n⚠️  Konnte export_env.sh nicht erstellen: {e}");
         }
     }
+}
+
+/// Validate and sanitize credential name
+fn validate_credential_name(name: &str) -> Result<String> {
+    let trimmed = name.trim();
+
+    if trimmed.is_empty() {
+        return Err(loxone_mcp_rust::error::LoxoneError::config(
+            "Credential name cannot be empty".to_string(),
+        ));
+    }
+
+    if trimmed.len() > 50 {
+        return Err(loxone_mcp_rust::error::LoxoneError::config(
+            "Credential name cannot exceed 50 characters".to_string(),
+        ));
+    }
+
+    // Allow letters, numbers, spaces, hyphens, underscores, and periods
+    let valid_chars = trimmed.chars().all(|c| {
+        c.is_alphanumeric() || c.is_whitespace() || matches!(c, '-' | '_' | '.' | '(' | ')')
+    });
+
+    if !valid_chars {
+        return Err(loxone_mcp_rust::error::LoxoneError::config(
+            "Credential name contains invalid characters".to_string(),
+        ));
+    }
+
+    Ok(trimmed.to_string())
 }

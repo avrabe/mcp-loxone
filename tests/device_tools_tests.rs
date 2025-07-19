@@ -517,8 +517,8 @@ mod tests {
             .await;
 
         // Set environment variables
-        std::env::set_var("LOXONE_USERNAME", "test_user");
-        std::env::set_var("LOXONE_PASSWORD", "test_password");
+        std::env::set_var("LOXONE_USER", "test_user");
+        std::env::set_var("LOXONE_PASS", "test_password");
 
         let mut config = ServerConfig::dev_mode();
         config.loxone.url = mock_server.url().parse().unwrap();
@@ -548,8 +548,8 @@ mod tests {
         }
 
         // Set environment variables
-        std::env::set_var("LOXONE_USERNAME", "test_user");
-        std::env::set_var("LOXONE_PASSWORD", "test_password");
+        std::env::set_var("LOXONE_USER", "test_user");
+        std::env::set_var("LOXONE_PASS", "test_password");
 
         let mut config = ServerConfig::dev_mode();
         config.loxone.url = mock_server.url().parse().unwrap();
@@ -589,8 +589,8 @@ mod tests {
         }
 
         // Set environment variables
-        std::env::set_var("LOXONE_USERNAME", "test_user");
-        std::env::set_var("LOXONE_PASSWORD", "test_password");
+        std::env::set_var("LOXONE_USER", "test_user");
+        std::env::set_var("LOXONE_PASS", "test_password");
 
         let mut config = ServerConfig::dev_mode();
         config.loxone.url = mock_server.url().parse().unwrap();

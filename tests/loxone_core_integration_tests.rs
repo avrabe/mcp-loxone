@@ -19,8 +19,8 @@ mod common;
 #[tokio::test]
 async fn test_server_initialization() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
     let backend = LoxoneFrameworkBackend::initialize(config).await;
@@ -33,8 +33,8 @@ async fn test_server_initialization() {
 #[tokio::test]
 async fn test_offline_mode() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::offline_mode();
     let backend = LoxoneFrameworkBackend::initialize(config).await;
@@ -51,8 +51,8 @@ async fn test_offline_mode() {
 #[ignore = "This test hangs due to DNS resolution timeout for invalid hosts"]
 async fn test_config_validation() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     // Test invalid configuration
     let mut config = ServerConfig::default();
@@ -72,8 +72,8 @@ async fn test_config_validation() {
 #[tokio::test]
 async fn test_weather_storage_integration() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
 
@@ -121,8 +121,8 @@ fn test_device_type_classification() {
 #[tokio::test]
 async fn test_mcp_protocol_compliance() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
     let backend = LoxoneFrameworkBackend::initialize(config).await;
@@ -140,8 +140,8 @@ async fn test_mcp_protocol_compliance() {
 #[tokio::test]
 async fn test_concurrent_operations() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
 
@@ -165,8 +165,8 @@ async fn test_concurrent_operations() {
 #[tokio::test]
 async fn test_memory_cleanup() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
 
@@ -186,8 +186,8 @@ async fn test_memory_cleanup() {
 #[tokio::test]
 async fn test_weather_pipeline_integration() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
     let backend = LoxoneFrameworkBackend::initialize(config).await;
@@ -206,8 +206,8 @@ async fn test_weather_pipeline_integration() {
 #[tokio::test]
 async fn test_resource_system() {
     // Set up test environment with dummy credentials
-    std::env::set_var("LOXONE_USERNAME", "test");
-    std::env::set_var("LOXONE_PASSWORD", "test");
+    std::env::set_var("LOXONE_USER", "test");
+    std::env::set_var("LOXONE_PASS", "test");
 
     let config = ServerConfig::dev_mode();
     let backend = LoxoneFrameworkBackend::initialize(config).await;

@@ -37,8 +37,8 @@ pub fn test_server_config() -> ServerConfig {
 /// Environment variables for clean testing
 pub fn get_test_env_vars() -> Vec<(&'static str, Option<&'static str>)> {
     vec![
-        ("LOXONE_USERNAME", Some("test_user")),
-        ("LOXONE_PASSWORD", Some("test_password")),
+        ("LOXONE_USER", Some("test_user")),
+        ("LOXONE_PASS", Some("test_password")),
         ("LOXONE_URL", Some("http://localhost:8080")),
         ("LOXONE_LOG_LEVEL", Some("debug")),
     ]
@@ -189,7 +189,7 @@ mod tests {
     #[test]
     fn test_with_env_isolation() {
         with_test_env(|| {
-            assert_eq!(std::env::var("LOXONE_USERNAME").unwrap(), "test_user");
+            assert_eq!(std::env::var("LOXONE_USER").unwrap(), "test_user");
         });
     }
 }

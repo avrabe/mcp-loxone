@@ -15,6 +15,10 @@ use std::{
 };
 use tracing::{debug, info};
 
+// Default configuration constants (must match src/config/mod.rs)
+const DEFAULT_DNS_SERVER: &str = "8.8.8.8";
+const DEFAULT_DNS_PORT: u16 = 80;
+
 /// Discovered Loxone server information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DiscoveredServer {
@@ -374,11 +378,11 @@ fn get_local_ip() -> Result<String> {
 
     // Use configurable DNS server for connectivity check
     let dns_server =
-        std::env::var("DISCOVERY_DNS_SERVER").unwrap_or_else(|_| "8.8.8.8".to_string());
+        std::env::var("DISCOVERY_DNS_SERVER").unwrap_or_else(|_| DEFAULT_DNS_SERVER.to_string());
     let dns_port = std::env::var("DISCOVERY_DNS_PORT")
         .ok()
         .and_then(|p| p.parse().ok())
-        .unwrap_or(80);
+        .unwrap_or(DEFAULT_DNS_PORT);
     let connect_addr = format!("{dns_server}:{dns_port}");
 
     let socket = Socket::new(Domain::IPV4, Type::DGRAM, None)?;

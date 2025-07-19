@@ -51,8 +51,8 @@ cargo build --release
 
 # Or use environment variables
 export LOXONE_HOST="192.168.1.100"
-export LOXONE_USERNAME="your-username"
-export LOXONE_PASSWORD="your-password"
+export LOXONE_USER="your-username"
+export LOXONE_PASS="your-password"
 ```
 
 ### Step 4: Test Connection

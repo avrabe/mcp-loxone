@@ -39,10 +39,8 @@ impl SecurityKeychain {
         let username = Self::get_password("LoxoneMCP", "LOXONE_USER")?;
         let password = Self::get_password("LoxoneMCP", "LOXONE_PASS")?;
         let host = Self::get_password("LoxoneMCP", "LOXONE_HOST").ok();
-        // Try new name first, then old name for backward compatibility
-        let api_key = Self::get_password("LoxoneMCP", "LOXONE_API_KEY")
-            .or_else(|_| Self::get_password("LoxoneMCP", "LOXONE_SSE_API_KEY"))
-            .ok();
+        // Get API key using the standard variable name
+        let api_key = Self::get_password("LoxoneMCP", "LOXONE_API_KEY").ok();
 
         Ok((username, password, host, api_key))
     }

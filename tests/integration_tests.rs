@@ -17,8 +17,8 @@ async fn test_loxone_backend_integration() {
     let mock_server = MockLoxoneServer::start().await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -37,8 +37,8 @@ async fn test_device_control_integration() {
     let mock_server = MockLoxoneServer::start().await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();
@@ -60,8 +60,8 @@ async fn test_sensor_monitoring_integration() {
         .await;
 
     // Set environment variables
-    std::env::set_var("LOXONE_USERNAME", "test_user");
-    std::env::set_var("LOXONE_PASSWORD", "test_password");
+    std::env::set_var("LOXONE_USER", "test_user");
+    std::env::set_var("LOXONE_PASS", "test_password");
 
     let mut config = ServerConfig::dev_mode();
     config.loxone.url = mock_server.url().parse().unwrap();

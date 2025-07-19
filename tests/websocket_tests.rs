@@ -41,8 +41,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -70,8 +70,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -109,8 +109,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -154,8 +154,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -198,8 +198,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -244,8 +244,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
@@ -287,8 +287,8 @@ mod websocket_integration_tests {
         // Set test environment variables
         temp_env::with_vars(
             [
-                ("LOXONE_USERNAME", Some("test_user")),
-                ("LOXONE_PASSWORD", Some("test_password")),
+                ("LOXONE_USER", Some("test_user")),
+                ("LOXONE_PASS", Some("test_password")),
                 ("LOXONE_URL", Some(mock_server.url())),
                 ("LOXONE_LOG_LEVEL", Some("debug")),
             ],
