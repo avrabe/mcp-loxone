@@ -801,9 +801,7 @@ fn select_credential_backend_interactive() -> Result<CredentialBackend> {
                 println!("\n❌ Keychain storage is disabled due to unmaintained dependencies!");
                 println!("💡 Recommended alternatives:");
                 println!("   • Use Environment Variables (option 4)");
-                println!(
-                    "   • Use Auto backend (option 1) - falls back to environment variables"
-                );
+                println!("   • Use Auto backend (option 1) - falls back to environment variables");
                 println!("   • Use Infisical for team environments (option 2)");
                 continue;
             }
@@ -1025,9 +1023,7 @@ fn show_environment_variables(
         }
         CredentialBackend::Auto => {
             println!("\n📋 Auto backend selected - using environment variables");
-            println!(
-                "   (Keychain storage is disabled, using environment variables)"
-            );
+            println!("   (Keychain storage is disabled, using environment variables)");
             println!("\n📌 Required: Set these environment variables for the server:");
             if export_format {
                 println!("\n# Required (Keychain disabled):");
