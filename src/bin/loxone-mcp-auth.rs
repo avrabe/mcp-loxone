@@ -7,105 +7,15 @@ use clap::{Parser, Subcommand};
 use loxone_mcp_rust::{
     client::create_client,
     config::{
+        credential_registry::CredentialRegistry,
         credentials::{create_best_credential_manager, LoxoneCredentials},
         AuthMethod, CredentialStore, LoxoneConfig,
     },
     Result,
 };
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, time::Duration};
+use std::time::Duration;
 use tracing::{error, info};
 use url::Url;
-use uuid::Uuid;
-
-/// Stored credential metadata
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct StoredCredential {
-    /// Unique credential ID
-    id: String,
-    /// Friendly name
-    name: String,
-    /// Host information
-    host: String,
-    /// Port
-    port: u16,
-    /// Creation timestamp
-    created_at: chrono::DateTime<chrono::Utc>,
-    /// Last used timestamp
-    last_used: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-/// Credential registry for managing multiple credentials
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct CredentialRegistry {
-    /// Map of credential ID to metadata
-    credentials: HashMap<String, StoredCredential>,
-}
-
-impl CredentialRegistry {
-    /// Registry file path
-    fn registry_path() -> PathBuf {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".loxone-mcp")
-            .join("credential-registry.json")
-    }
-
-    /// Load registry from disk
-    fn load() -> Result<Self> {
-        let path = Self::registry_path();
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-
-        let data = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&data)?)
-    }
-
-    /// Save registry to disk
-    fn save(&self) -> Result<()> {
-        let path = Self::registry_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
-        let data = serde_json::to_string_pretty(self)?;
-        std::fs::write(&path, data)?;
-        Ok(())
-    }
-
-    /// Add a credential
-    fn add_credential(&mut self, name: String, host: String, port: u16) -> String {
-        let id = Uuid::new_v4().to_string();
-        let credential = StoredCredential {
-            id: id.clone(),
-            name,
-            host,
-            port,
-            created_at: chrono::Utc::now(),
-            last_used: None,
-        };
-        self.credentials.insert(id.clone(), credential);
-        id
-    }
-
-    /// Get credential by ID
-    fn get_credential(&self, id: &str) -> Option<&StoredCredential> {
-        self.credentials.get(id)
-    }
-
-    /// Update last used timestamp
-    fn mark_used(&mut self, id: &str) {
-        if let Some(cred) = self.credentials.get_mut(id) {
-            cred.last_used = Some(chrono::Utc::now());
-        }
-    }
-
-    /// Remove credential
-    fn remove_credential(&mut self, id: &str) -> bool {
-        self.credentials.remove(id).is_some()
-    }
-}
 
 /// Loxone MCP Authentication and Credential Management
 #[derive(Parser, Debug)]
@@ -130,7 +40,7 @@ enum Commands {
         host: String,
 
         /// Miniserver port
-        #[arg(short, long, default_value = "80")]
+        #[arg(long, default_value = "80")]
         port: u16,
 
         /// Miniserver username
@@ -173,19 +83,19 @@ enum Commands {
         credential_id: String,
 
         /// New name
-        #[arg(short, long)]
+        #[arg(long)]
         name: Option<String>,
 
         /// New username
-        #[arg(short, long)]
+        #[arg(long)]
         username: Option<String>,
 
         /// New password
-        #[arg(short, long)]
+        #[arg(long)]
         password: Option<String>,
 
         /// Test connection after update
-        #[arg(short, long, default_value = "true")]
+        #[arg(long, default_value = "true")]
         test: bool,
     },
 
@@ -212,9 +122,7 @@ enum Commands {
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum StorageBackend {
-    /// System keychain (default)
-    Keychain,
-    /// Environment variables
+    /// Environment variables (default)
     Environment,
     /// Infisical secret management
     #[cfg(feature = "infisical")]
@@ -282,15 +190,8 @@ async fn main() -> Result<()> {
                     }
                 }
                 _ => {
-                    // Default to keychain or best available
-                    #[cfg(feature = "keyring-storage")]
-                    {
-                        CredentialStore::Keyring
-                    }
-                    #[cfg(not(feature = "keyring-storage"))]
-                    {
-                        CredentialStore::Environment
-                    }
+                    // Default to environment variables (keyring disabled)
+                    CredentialStore::Environment
                 }
             };
 
@@ -314,7 +215,7 @@ async fn main() -> Result<()> {
             manager.store_credentials(&credentials).await?;
 
             // Add to registry
-            let credential_id = registry.add_credential(name, host.clone(), port);
+            let credential_id = registry.add_credential_with_id(name, host.clone(), port);
             registry.save()?;
 
             info!("✅ Credentials stored successfully!");
@@ -480,7 +381,7 @@ async fn main() -> Result<()> {
 
             info!("🗑️  Deleting credential: {}", credential_id);
 
-            if registry.remove_credential(&credential_id) {
+            if registry.remove_credential(&credential_id).is_some() {
                 registry.save()?;
                 info!("✅ Credential deleted successfully!");
                 info!("   Note: The actual credentials may still be stored in the backend");

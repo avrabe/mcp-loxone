@@ -38,13 +38,13 @@ pub struct CredentialManager {
 
 // Credential key constants (shared across all backends)
 impl CredentialManager {
-    #[allow(dead_code)] // Used in keyring feature
+    #[allow(dead_code)] // Legacy constant (keyring disabled)
     const SERVICE_NAME: &'static str = "LoxoneMCP";
     #[allow(dead_code)] // Used in environment variable access
-    const USERNAME_KEY: &'static str = "LOXONE_USERNAME";
+    const USERNAME_KEY: &'static str = "LOXONE_USER";
     #[allow(dead_code)] // Used in environment variable access
-    const PASSWORD_KEY: &'static str = "LOXONE_PASSWORD";
-    #[allow(dead_code)] // Used in keyring feature
+    const PASSWORD_KEY: &'static str = "LOXONE_PASS";
+    #[allow(dead_code)] // Used in environment variable access
     const HOST_KEY: &'static str = "LOXONE_HOST";
     #[allow(dead_code)] // Used in environment variable access
     const API_KEY_KEY: &'static str = "LOXONE_API_KEY";
@@ -96,9 +96,6 @@ impl CredentialManager {
     /// Store credentials securely
     pub async fn store_credentials(&self, credentials: &LoxoneCredentials) -> Result<()> {
         match &self.store {
-            #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => self.store_keyring(credentials).await,
-
             CredentialStore::Environment => self.store_environment(credentials).await,
 
             #[cfg(target_arch = "wasm32")]
@@ -115,9 +112,6 @@ impl CredentialManager {
     /// Retrieve credentials
     pub async fn get_credentials(&self) -> Result<LoxoneCredentials> {
         match &self.store {
-            #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => self.get_keyring().await,
-
             CredentialStore::Environment => self.get_environment().await,
 
             #[cfg(target_arch = "wasm32")]
@@ -134,9 +128,6 @@ impl CredentialManager {
     /// Clear stored credentials
     pub async fn clear_credentials(&self) -> Result<()> {
         match &self.store {
-            #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => self.clear_keyring().await,
-
             CredentialStore::Environment => {
                 // Cannot clear environment variables
                 Err(LoxoneError::credentials(
@@ -173,123 +164,8 @@ impl CredentialManager {
     /// Get both credentials and host URL in a single operation
     /// This method provides compatibility for existing code
     pub async fn get_credentials_with_host(&self) -> Result<(LoxoneCredentials, Option<String>)> {
-        match &self.store {
-            #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => self.get_keyring_with_host().await,
-            _ => {
-                let credentials = self.get_credentials().await?;
-                Ok((credentials, None))
-            }
-        }
-    }
-}
-
-// Native keyring implementation
-#[cfg(feature = "keyring-storage")]
-impl CredentialManager {
-    async fn store_keyring(&self, _credentials: &LoxoneCredentials) -> Result<()> {
-        // Keyring storage is disabled due to unmaintained dependencies
-        Err(LoxoneError::credentials(
-            "Keyring storage is disabled due to unmaintained dependencies",
-        ))
-    }
-
-    async fn get_keyring(&self) -> Result<LoxoneCredentials> {
-        // Keyring storage is disabled due to unmaintained dependencies
-        Err(LoxoneError::credentials(
-            "Keyring storage is disabled due to unmaintained dependencies",
-        ))
-    }
-
-    async fn get_keyring_with_host(&self) -> Result<(LoxoneCredentials, Option<String>)> {
-        #[cfg(feature = "keyring-storage")]
-        {
-            // Try security command-line tool first (often avoids prompts on macOS)
-            #[cfg(target_os = "macos")]
-            {
-                use crate::config::security_keychain::SecurityKeychain;
-
-                if SecurityKeychain::is_available() {
-                    tracing::debug!("Trying macOS security command for keychain access...");
-                    match SecurityKeychain::get_all_credentials() {
-                        Ok((username, password, host_url, api_key)) => {
-                            tracing::info!(
-                                "✅ Credentials loaded via security command (no prompts)"
-                            );
-                            let credentials = LoxoneCredentials {
-                                username,
-                                password,
-                                api_key,
-                                #[cfg(feature = "crypto-openssl")]
-                                public_key: None,
-                            };
-                            return Ok((credentials, host_url));
-                        }
-                        Err(e) => {
-                            tracing::debug!(
-                                "Security command failed, falling back to keyring crate: {}",
-                                e
-                            );
-                            // Fall through to keyring crate
-                        }
-                    }
-                }
-            }
-
-            // Keyring feature is disabled, return error
-            Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            ))
-        }
-
-        #[cfg(not(feature = "keyring-storage"))]
-        {
-            Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            ))
-        }
-    }
-
-    /// Get host URL from keychain (for Python compatibility)
-    pub async fn get_host_url(&self) -> Result<String> {
-        match &self.store {
-            #[cfg(feature = "keyring-storage")]
-            CredentialStore::Keyring => Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            )),
-            _ => Err(LoxoneError::credentials(
-                "Host URL only available from keyring",
-            )),
-        }
-    }
-
-    /// Store host URL in keychain (for Python compatibility)
-    #[cfg(feature = "keyring-storage")]
-    pub async fn store_host_url(&self, _host_url: &str) -> Result<()> {
-        match &self.store {
-            CredentialStore::Keyring => Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            )),
-            _ => Err(LoxoneError::credentials(
-                "Host URL storage only available for keyring",
-            )),
-        }
-    }
-
-    async fn clear_keyring(&self) -> Result<()> {
-        #[cfg(feature = "keyring-storage")]
-        {
-            Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            ))
-        }
-
-        #[cfg(not(feature = "keyring-storage"))]
-        {
-            Err(LoxoneError::credentials(
-                "Keyring storage is disabled due to unmaintained dependencies",
-            ))
-        }
+        let credentials = self.get_credentials().await?;
+        Ok((credentials, None))
     }
 }
 
@@ -297,7 +173,7 @@ impl CredentialManager {
 impl CredentialManager {
     async fn store_environment(&self, _credentials: &LoxoneCredentials) -> Result<()> {
         Err(LoxoneError::credentials(
-            "Cannot store credentials in environment variables. Set LOXONE_USERNAME and LOXONE_PASSWORD manually."
+            "Cannot store credentials in environment variables. Set LOXONE_USER and LOXONE_PASS manually."
         ))
     }
 
@@ -316,10 +192,8 @@ impl CredentialManager {
             ))
         })?;
 
-        // Try new name first, then fall back to old name for compatibility
-        let api_key = env::var("LOXONE_API_KEY")
-            .or_else(|_| env::var("LOXONE_SSE_API_KEY"))
-            .ok();
+        // Load API key using the standard variable name
+        let api_key = env::var("LOXONE_API_KEY").ok();
 
         Ok(LoxoneCredentials {
             username,
@@ -616,13 +490,13 @@ impl MultiBackendCredentialManager {
 }
 
 /// Factory function to create the best available credential manager
-/// Priority order: Infisical -> Environment -> WASI/LocalStorage -> Keychain (fallback)
+/// Priority order: Infisical -> Environment -> WASI/LocalStorage
 pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialManager> {
     let mut stores = Vec::new();
     let mut infisical_configured = false;
     // Check if environment variables for Loxone are configured
     let env_configured =
-        std::env::var("LOXONE_USERNAME").is_ok() && std::env::var("LOXONE_PASSWORD").is_ok();
+        std::env::var("LOXONE_USER").is_ok() && std::env::var("LOXONE_PASS").is_ok();
 
     // Try Infisical first if configured (preferred for team environments)
     #[cfg(feature = "infisical")]
@@ -659,12 +533,6 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
         stores.push(CredentialStore::LocalStorage);
     }
 
-    // Try keyring on native platforms as final fallback
-    #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
-    {
-        stores.push(CredentialStore::Keyring);
-    }
-
     let manager = MultiBackendCredentialManager::new(stores).await?;
 
     // Log which backend will actually be used based on what's configured
@@ -672,36 +540,17 @@ pub async fn create_best_credential_manager() -> Result<MultiBackendCredentialMa
         tracing::info!("📋 Credential source: Infisical (team configuration)");
     } else if env_configured {
         tracing::info!("📋 Credential source: Environment variables");
-        tracing::debug!("Using LOXONE_USERNAME and LOXONE_PASSWORD");
+        tracing::debug!("Using LOXONE_USER and LOXONE_PASS");
     } else {
-        #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
-        {
-            tracing::info!("📋 Credential source: System keychain (fallback)");
-            tracing::info!(
-                "💡 Tip: Set LOXONE_USERNAME and LOXONE_PASSWORD for direct configuration"
-            );
-        }
-        #[cfg(not(all(feature = "keyring-storage", not(target_arch = "wasm32"))))]
-        {
-            tracing::warn!(
-                "⚠️  No credentials configured. Set LOXONE_USERNAME and LOXONE_PASSWORD"
-            );
-        }
+        tracing::warn!("⚠️  No credentials configured. Set LOXONE_USER and LOXONE_PASS");
     }
 
     // Only show setup instructions if no backend is configured
     if !infisical_configured && !env_configured {
-        #[cfg(all(feature = "keyring-storage", not(target_arch = "wasm32")))]
-        {
-            tracing::info!("🔧 Run setup to configure credentials: ./loxone-mcp-rust setup");
-        }
-        #[cfg(not(all(feature = "keyring-storage", not(target_arch = "wasm32"))))]
-        {
-            tracing::info!("🔧 Configure credentials with environment variables:");
-            tracing::info!("   export LOXONE_USERNAME=\"your-username\"");
-            tracing::info!("   export LOXONE_PASSWORD=\"your-password\"");
-            tracing::info!("   export LOXONE_HOST=\"192.168.1.100\"");
-        }
+        tracing::info!("🔧 Configure credentials with environment variables:");
+        tracing::info!("   export LOXONE_USER=\"your-username\"");
+        tracing::info!("   export LOXONE_PASS=\"your-password\"");
+        tracing::info!("   export LOXONE_HOST=\"192.168.1.100\"");
     }
 
     Ok(manager)

@@ -1,5 +1,6 @@
 //! Configuration management for the Loxone MCP server
 
+pub mod credential_registry;
 pub mod credentials;
 
 #[cfg(target_os = "macos")]
@@ -225,10 +226,6 @@ pub struct WebSocketConfig {
 /// Credential storage options
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum CredentialStore {
-    /// Use system keyring (not available in WASM)
-    #[cfg(feature = "keyring-storage")]
-    Keyring,
-
     /// Use environment variables
     Environment,
 
@@ -416,11 +413,7 @@ impl Default for CredentialStore {
         // Native environment preferences
         #[cfg(not(target_arch = "wasm32"))]
         {
-            #[cfg(feature = "keyring-storage")]
-            return CredentialStore::Keyring;
-
-            #[cfg(not(feature = "keyring-storage"))]
-            return CredentialStore::Environment;
+            CredentialStore::Environment
         }
     }
 }
@@ -518,8 +511,16 @@ impl ServerConfig {
                 .map_err(|e| LoxoneError::config(format!("Invalid LOXONE_HOST: {e}")))?;
         }
 
-        if let Ok(username) = env::var("LOXONE_USERNAME") {
+        if let Ok(username) = env::var("LOXONE_USER") {
             config.loxone.username = username;
+        }
+
+        // Validate that password is available if username is set via environment
+        // Note: Password is not stored in config for security, but we validate it exists
+        if !config.loxone.username.is_empty() && env::var("LOXONE_PASS").is_err() {
+            tracing::warn!(
+                "LOXONE_USER is set but LOXONE_PASS is missing. Credential manager will be used instead."
+            );
         }
 
         if let Ok(timeout) = env::var("LOXONE_TIMEOUT") {

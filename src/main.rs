@@ -13,57 +13,16 @@ use pulseengine_mcp_server::{middleware::MiddlewareStack, GenericServerHandler};
 use pulseengine_mcp_transport::{create_transport, Transport};
 
 use loxone_mcp_rust::{
-    config::credentials::create_best_credential_manager,
-    server::framework_backend::create_loxone_backend, Result, ServerConfig as LoxoneServerConfig,
+    config::{
+        credential_registry::CredentialRegistry, credentials::create_best_credential_manager,
+    },
+    server::framework_backend::create_loxone_backend,
+    Result, ServerConfig as LoxoneServerConfig,
 };
 
 use clap::{Parser, Subcommand};
-use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, path::PathBuf, sync::Arc};
+use std::sync::Arc;
 use tracing::info;
-
-/// Stored credential metadata (matches loxone-mcp-auth.rs)
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct StoredCredential {
-    id: String,
-    name: String,
-    host: String,
-    port: u16,
-    created_at: chrono::DateTime<chrono::Utc>,
-    last_used: Option<chrono::DateTime<chrono::Utc>>,
-}
-
-/// Credential registry for managing multiple credentials
-#[derive(Debug, Clone, Serialize, Deserialize, Default)]
-struct CredentialRegistry {
-    credentials: HashMap<String, StoredCredential>,
-}
-
-impl CredentialRegistry {
-    /// Registry file path
-    fn registry_path() -> PathBuf {
-        dirs::home_dir()
-            .unwrap_or_else(|| PathBuf::from("."))
-            .join(".loxone-mcp")
-            .join("credential-registry.json")
-    }
-
-    /// Load registry from disk
-    fn load() -> Result<Self> {
-        let path = Self::registry_path();
-        if !path.exists() {
-            return Ok(Self::default());
-        }
-
-        let data = std::fs::read_to_string(&path)?;
-        Ok(serde_json::from_str(&data)?)
-    }
-
-    /// Get credential by ID
-    fn get_credential(&self, id: &str) -> Option<&StoredCredential> {
-        self.credentials.get(id)
-    }
-}
 
 /// Loxone MCP Server Configuration
 #[derive(Parser, Debug)]
@@ -123,7 +82,7 @@ enum TransportCommand {
         enable_sse: bool,
 
         /// API key for authentication
-        #[arg(long, env = "MCP_API_KEY")]
+        #[arg(long, env = "LOXONE_API_KEY")]
         api_key: Option<String>,
 
         /// Enable development mode (no auth)
@@ -277,6 +236,22 @@ async fn load_credentials_by_id(credential_id: &str) -> Result<(String, String, 
     Ok((host, credentials.username, credentials.password))
 }
 
+/// Try to auto-detect credentials from available credential managers
+async fn try_auto_detect_credentials() -> Result<(String, String, String)> {
+    // Create best available credential manager
+    let manager = create_best_credential_manager().await?;
+
+    // Try to get credentials
+    let credentials = manager.get_credentials().await?;
+
+    // Get host from environment variable
+    let host = std::env::var("LOXONE_HOST").map_err(|_| {
+        loxone_mcp_rust::LoxoneError::config("LOXONE_HOST environment variable not set".to_string())
+    })?;
+
+    Ok((host, credentials.username, credentials.password))
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Parse CLI arguments using framework
@@ -297,18 +272,46 @@ async fn main() -> Result<()> {
         env!("CARGO_PKG_VERSION")
     );
 
-    // Load credentials (either from credential ID or direct parameters)
-    let (loxone_host, loxone_user, _loxone_password) =
-        if let Some(credential_id) = &config.credential_id {
-            info!("Loading credentials from ID: {}", credential_id);
-            load_credentials_by_id(credential_id).await?
-        } else {
-            (
-                config.loxone_host.clone().unwrap_or_default(),
-                config.loxone_user.clone().unwrap_or_default(),
-                config.loxone_password.clone().unwrap_or_default(),
-            )
-        };
+    // Load credentials with clear precedence order:
+    // 1. Credential ID (if provided)
+    // 2. Direct CLI arguments / environment variables
+    // 3. Auto-detect from credential manager (fallback)
+    let (loxone_host, loxone_user, _loxone_password) = if let Some(credential_id) =
+        &config.credential_id
+    {
+        info!("🔑 Loading credentials from ID: {}", credential_id);
+        load_credentials_by_id(credential_id).await?
+    } else if config.loxone_host.is_some()
+        && config.loxone_user.is_some()
+        && config.loxone_password.is_some()
+    {
+        info!("🔑 Using direct CLI credentials");
+        (
+            config.loxone_host.clone().unwrap(),
+            config.loxone_user.clone().unwrap(),
+            config.loxone_password.clone().unwrap(),
+        )
+    } else {
+        // Try to auto-detect credentials from best available backend
+        info!("🔍 Auto-detecting credentials from available backends...");
+        match try_auto_detect_credentials().await {
+            Ok((host, user, pass)) => {
+                info!("✅ Auto-detected credentials from credential manager");
+                (host, user, pass)
+            }
+            Err(e) => {
+                return Err(loxone_mcp_rust::LoxoneError::config(format!(
+                        "No credentials available. Please either:\n\
+                         1. Use --credential-id <id> (run 'loxone-mcp-auth list' to see available IDs)\n\
+                         2. Set --loxone-host, --loxone-user, --loxone-password\n\
+                         3. Set environment variables LOXONE_HOST, LOXONE_USER, LOXONE_PASS\n\
+                         4. Run 'loxone-mcp-setup' to configure credentials\n\
+                         \n\
+                         Error details: {e}"
+                    )));
+            }
+        }
+    };
 
     // Create Loxone configuration
     let loxone_config = match &config.transport {
