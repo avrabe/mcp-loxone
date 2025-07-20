@@ -5,6 +5,54 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-01-20
+
+### Added
+- **Framework Upgrade**: Migration to pulseengine-mcp 0.5.0
+  - Enhanced server capabilities with elicitation support
+  - Tool output schema definitions for better type safety
+  - Structured content support in tool call results
+  - Improved framework authentication and security features
+
+### Changed
+- **BREAKING: Environment Variable Standardization**:
+  - `LOXONE_USERNAME` → `LOXONE_USER` (across all components)
+  - `LOXONE_PASSWORD` → `LOXONE_PASS` (across all components)  
+  - `MCP_API_KEY` → `LOXONE_API_KEY` (namespace consistency)
+  - Updated 277 tests and 15+ source files for complete consistency
+
+- **Authentication System Consolidation**:
+  - Consolidated duplicate credential structures into shared `credential_registry.rs`
+  - Unified credential loading with clear precedence order
+  - Removed duplicate StoredCredential/CredentialRegistry implementations from binaries
+
+### Removed
+- **Security Enhancement**: Complete keyring/keychain removal
+  - Removed unmaintained keyring dependency (security risk)
+  - Removed entire `src/auth/` module (8 files, 200+ lines)
+  - Simplified credential storage to Environment and Infisical only
+  - All clippy warnings resolved and code quality improved
+
+### Fixed
+- **Framework Compatibility**: Updated all pulseengine-mcp dependencies 0.4.0 → 0.5.0
+- **API Updates**: Fixed breaking changes in framework structures
+- **Code Quality**: Zero clippy warnings with strict settings
+- **Testing**: All 270 tests pass with new standardized variables
+
+### Migration Guide
+Users upgrading from 0.5.0 must update environment variables:
+```bash
+# Old (0.5.0)
+export LOXONE_USERNAME="admin"
+export LOXONE_PASSWORD="secret"
+export MCP_API_KEY="key123"
+
+# New (0.6.0)  
+export LOXONE_USER="admin"
+export LOXONE_PASS="secret"
+export LOXONE_API_KEY="key123"
+```
+
 ## [0.5.0] - 2025-01-07
 
 ### Added
