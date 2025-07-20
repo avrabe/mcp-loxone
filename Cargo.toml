@@ -61,7 +61,7 @@ futures-util = "0.3"
 
 [package]
 name = "loxone-mcp-rust"
-version = "0.5.0"
+version = "0.6.0"
 edition = "2021"
 authors = ["Ralf Anton Beier <ralf_beier@me.com>"]
 license = "MIT OR Apache-2.0"
@@ -112,15 +112,15 @@ path = "src/bin/test_endpoints.rs"
 
 [dependencies]
 # MCP Framework (from crates.io)
-pulseengine-mcp-logging = "0.4.0"
-pulseengine-mcp-protocol = { version = "0.4.0", optional = true }
-pulseengine-mcp-server = { version = "0.4.0", optional = true }
-pulseengine-mcp-transport = { version = "0.4.0", optional = true }
-pulseengine-mcp-auth = { version = "0.4.0", optional = true }
-pulseengine-mcp-security = { version = "0.4.0", optional = true }
-pulseengine-mcp-monitoring = { version = "0.4.0", optional = true }
-pulseengine-mcp-cli = { version = "0.4.0", optional = true }
-pulseengine-mcp-cli-derive = { version = "0.4.0", optional = true }
+pulseengine-mcp-logging = "0.5.0"
+pulseengine-mcp-protocol = { version = "0.5.0", optional = true }
+pulseengine-mcp-server = { version = "0.5.0", optional = true }
+pulseengine-mcp-transport = { version = "0.5.0", optional = true }
+pulseengine-mcp-auth = { version = "0.5.0", optional = true }
+pulseengine-mcp-security = { version = "0.5.0", optional = true }
+pulseengine-mcp-monitoring = { version = "0.5.0", optional = true }
+pulseengine-mcp-cli = { version = "0.5.0", optional = true }
+pulseengine-mcp-cli-derive = { version = "0.5.0", optional = true }
 
 # Legacy MCP Foundation (to be removed after migration)
 # Legacy mcp-foundation removed - framework is now default

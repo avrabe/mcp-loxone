@@ -6,10 +6,10 @@ authors = ["Ralf Anton Beier"]
 description = "Minimal MCP server example using the framework"
 
 [dependencies]
-pulseengine-mcp-protocol = "0.4.0"
-pulseengine-mcp-server = "0.4.0"
-pulseengine-mcp-auth = "0.4.0"
-pulseengine-mcp-transport = "0.4.0"
+pulseengine-mcp-protocol = "0.5.0"
+pulseengine-mcp-server = "0.5.0"
+pulseengine-mcp-auth = "0.5.0"
+pulseengine-mcp-transport = "0.5.0"
 
 tokio = { workspace = true }
 serde = { workspace = true }
