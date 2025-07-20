@@ -86,6 +86,7 @@ impl McpBackend for LoxoneFrameworkBackend {
                     list_changed: Some(false),
                 }),
                 sampling: None,
+                elicitation: None,
             },
             server_info: Implementation {
                 name: "loxone-mcp-rust".to_string(),

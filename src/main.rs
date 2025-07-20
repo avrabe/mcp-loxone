@@ -190,6 +190,7 @@ fn get_default_server_info() -> ServerInfo {
             prompts: Some(pulseengine_mcp_protocol::PromptsCapability { list_changed: None }),
             logging: None,
             sampling: None,
+            elicitation: None,
         },
         server_info: Implementation {
             name: env!("CARGO_PKG_NAME").to_string(),

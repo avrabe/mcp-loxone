@@ -81,6 +81,7 @@ impl McpBackend for HelloWorldBackend {
                 prompts: None,
                 logging: None,
                 sampling: None,
+                elicitation: None,
             },
             server_info: Implementation {
                 name: "Hello World MCP Server".to_string(),
@@ -117,6 +118,7 @@ impl McpBackend for HelloWorldBackend {
                     },
                     "required": ["name"]
                 }),
+                output_schema: None,
             },
             Tool {
                 name: "count_greetings".to_string(),
@@ -125,6 +127,7 @@ impl McpBackend for HelloWorldBackend {
                     "type": "object",
                     "properties": {}
                 }),
+                output_schema: None,
             },
         ];
 
@@ -162,6 +165,7 @@ impl McpBackend for HelloWorldBackend {
                 Ok(CallToolResult {
                     content: vec![Content::text(message)],
                     is_error: None,
+                    structured_content: None,
                 })
             }
 
@@ -173,6 +177,7 @@ impl McpBackend for HelloWorldBackend {
                 Ok(CallToolResult {
                     content: vec![Content::text(format!("Total greetings sent: {count}"))],
                     is_error: None,
+                    structured_content: None,
                 })
             }
 
