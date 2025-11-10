@@ -5,6 +5,69 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2025-11-10
+
+### Added
+- **MCP Protocol 2025-06-18 Support**: Upgraded to pulseengine-mcp 0.13.0
+  - Full MCP specification 2025-06-18 compliance
+  - JSON serialization for all tool responses (breaking change from v0.13.0)
+  - `NumberOrString` type support for flexible request IDs
+  - `_meta` fields across protocol types for extensibility
+
+- **Enhanced Server Capabilities**:
+  - ✅ **Sampling capability enabled** - Server can now initiate LLM calls
+  - ✅ **Elicitation capability enabled** - Server can request structured user input
+  - Better integration with Claude Desktop and MCP Inspector
+  - Server-initiated agentic behaviors for intelligent automation
+
+### Changed
+- **BREAKING: All Tool Return Types Must Implement Serialize**
+  - Tool responses now use JSON serialization instead of Debug format
+  - Ensures proper structured content in MCP tool call results
+  - Fixed `LoxoneWeatherConfig` to include Serialize/Deserialize traits
+
+- **Framework Dependencies**:
+  - Updated all pulseengine-mcp crates from 0.5.0 → 0.13.0
+  - `pulseengine-mcp-protocol`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-server`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-transport`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-auth`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-security`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-monitoring`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-cli`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-cli-derive`: 0.5.0 → 0.13.0
+  - `pulseengine-mcp-logging`: 0.5.0 → 0.13.0
+
+### Fixed
+- **Serialization Compliance**: Added Serialize/Deserialize to `LoxoneWeatherConfig`
+- **Type Safety**: All 30+ tools now fully compliant with JSON serialization requirement
+- **Protocol Compatibility**: Updated to latest MCP specification (2025-06-18)
+
+### Migration Guide
+
+#### For Developers
+If you've added custom tool types, ensure they implement `Serialize`:
+```rust
+// Before (0.6.0)
+#[derive(Debug, Clone)]
+pub struct MyToolResult { ... }
+
+// After (0.7.0) - Required!
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MyToolResult { ... }
+```
+
+#### New Capabilities Available
+The server now advertises sampling and elicitation capabilities:
+- **Sampling**: Use for server-initiated LLM completions in automation scenarios
+- **Elicitation**: Request structured input from users for better UX
+
+### Technical Details
+- **Tested Against**: MCP Inspector, Claude Desktop
+- **Protocol Version**: MCP 2025-06-18
+- **Rust Version**: 1.79+
+- **All Tests Passing**: 270+ tests verified with new framework
+
 ## [0.6.0] - 2025-01-20
 
 ### Added

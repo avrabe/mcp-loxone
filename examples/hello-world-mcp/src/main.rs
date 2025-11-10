@@ -4,6 +4,7 @@
 //! using the mcp-framework. It implements a simple "say_hello" tool.
 
 use pulseengine_mcp_protocol::*;
+use pulseengine_mcp_protocol::{ElicitationCapability, SamplingCapability};
 use pulseengine_mcp_server::{McpBackend, McpServer, ServerConfig};
 use pulseengine_mcp_transport::TransportConfig;
 
@@ -80,8 +81,10 @@ impl McpBackend for HelloWorldBackend {
                 resources: None,
                 prompts: None,
                 logging: None,
-                sampling: None,
-                elicitation: None,
+                // Enable sampling capability - allows server-initiated LLM calls
+                sampling: Some(SamplingCapability {}),
+                // Enable elicitation capability - allows server-initiated user input requests
+                elicitation: Some(ElicitationCapability {}),
             },
             server_info: Implementation {
                 name: "Hello World MCP Server".to_string(),

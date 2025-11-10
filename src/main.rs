@@ -176,11 +176,7 @@ impl McpConfiguration for Config {
 // We'll use lazy_static or provide these at runtime
 fn get_default_server_info() -> ServerInfo {
     ServerInfo {
-        protocol_version: pulseengine_mcp_protocol::ProtocolVersion {
-            major: 0,
-            minor: 1,
-            patch: 0,
-        },
+        protocol_version: pulseengine_mcp_protocol::ProtocolVersion::default(),
         capabilities: ServerCapabilities {
             tools: Some(pulseengine_mcp_protocol::ToolsCapability { list_changed: None }),
             resources: Some(pulseengine_mcp_protocol::ResourcesCapability {
@@ -189,8 +185,10 @@ fn get_default_server_info() -> ServerInfo {
             }),
             prompts: Some(pulseengine_mcp_protocol::PromptsCapability { list_changed: None }),
             logging: None,
-            sampling: None,
-            elicitation: None,
+            // Enable sampling capability - allows server-initiated LLM calls
+            sampling: Some(pulseengine_mcp_protocol::SamplingCapability {}),
+            // Enable elicitation capability - allows server-initiated user input requests
+            elicitation: Some(pulseengine_mcp_protocol::ElicitationCapability {}),
         },
         server_info: Implementation {
             name: env!("CARGO_PKG_NAME").to_string(),
@@ -520,7 +518,7 @@ async fn main() -> Result<()> {
                     tracing::error!("Request handling error: {}", e);
                     pulseengine_mcp_protocol::Response {
                         jsonrpc: "2.0".to_string(),
-                        id: serde_json::Value::Null,
+                        id: None,  // v0.13.0: id is now Option<NumberOrString>
                         result: None,
                         error: Some(pulseengine_mcp_protocol::Error::internal_error(
                             e.to_string(),

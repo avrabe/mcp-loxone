@@ -85,8 +85,10 @@ impl McpBackend for LoxoneFrameworkBackend {
                 tools: Some(ToolsCapability {
                     list_changed: Some(false),
                 }),
-                sampling: None,
-                elicitation: None,
+                // Enable sampling capability - allows server-initiated LLM calls
+                sampling: Some(pulseengine_mcp_protocol::SamplingCapability {}),
+                // Enable elicitation capability - allows server-initiated user input requests
+                elicitation: Some(pulseengine_mcp_protocol::ElicitationCapability {}),
             },
             server_info: Implementation {
                 name: "loxone-mcp-rust".to_string(),

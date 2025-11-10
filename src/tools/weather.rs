@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// Loxone weather device configuration
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LoxoneWeatherConfig {
     /// Temperature calibration offset in Celsius
     pub temperature_offset: f64,
