@@ -412,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_device_filtering_logic() {
-        let devices = vec![
+        let devices = [
             LoxoneDevice {
                 uuid: "1".to_string(),
                 name: "Living Room Light".to_string(),

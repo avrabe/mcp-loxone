@@ -151,7 +151,9 @@ pub async fn get_security_system_status(_input: Value, ctx: Arc<ToolContext>) ->
     // Check alarm system status
     for device in &security_devices {
         if device.device_type.contains("Alarm") || device.device_type.contains("Security") {
-            let states = client.get_device_states(&[device.uuid.clone()]).await?;
+            let states = client
+                .get_device_states(std::slice::from_ref(&device.uuid))
+                .await?;
             if let Some(state) = states.get(&device.uuid) {
                 alarm_status.insert(
                     device.uuid.clone(),
@@ -355,7 +357,9 @@ pub async fn control_door_lock(input: Value, ctx: Arc<ToolContext>) -> Result<Va
     );
 
     // Get current lock status
-    let lock_states = client.get_device_states(&[request.lock_id.clone()]).await?;
+    let lock_states = client
+        .get_device_states(std::slice::from_ref(&request.lock_id))
+        .await?;
     let current_state = lock_states
         .get(&request.lock_id)
         .ok_or_else(|| anyhow!("Lock not found: {}", request.lock_id))?;
@@ -653,7 +657,9 @@ pub async fn control_motion_detectors(input: Value, ctx: Arc<ToolContext>) -> Re
                 .await
                 .map(|_| format!("Test signal sent to: {}", detector.name)),
             "status" => {
-                let states = client.get_device_states(&[detector.uuid.clone()]).await?;
+                let states = client
+                    .get_device_states(std::slice::from_ref(&detector.uuid))
+                    .await?;
                 if let Some(state) = states.get(&detector.uuid) {
                     Ok(format!("Status for {}: {:?}", detector.name, state))
                 } else {
