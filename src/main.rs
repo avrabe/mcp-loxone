@@ -518,7 +518,7 @@ async fn main() -> Result<()> {
                     tracing::error!("Request handling error: {}", e);
                     pulseengine_mcp_protocol::Response {
                         jsonrpc: "2.0".to_string(),
-                        id: None,  // v0.13.0: id is now Option<NumberOrString>
+                        id: None, // v0.13.0: id is now Option<NumberOrString>
                         result: None,
                         error: Some(pulseengine_mcp_protocol::Error::internal_error(
                             e.to_string(),

@@ -287,7 +287,7 @@ pub fn decrypt_aes_cbc(
     iv: &[u8; 16],
     ciphertext: &[u8],
 ) -> Result<Vec<u8>, EncryptionError> {
-    if ciphertext.len() % 16 != 0 {
+    if !ciphertext.len().is_multiple_of(16) {
         return Err(EncryptionError::DecryptionFailed(
             "Ciphertext length must be multiple of 16".to_string(),
         ));

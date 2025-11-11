@@ -112,6 +112,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["device", "action"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "control_multiple_devices".into(),
@@ -133,6 +137,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["devices", "action"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "control_rolladen_unified".into(),
@@ -163,6 +171,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["scope", "action"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "discover_rolladen_capabilities".into(),
@@ -172,6 +184,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "control_lights_unified".into(),
@@ -202,6 +218,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["scope", "action"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "discover_lighting_capabilities".into(),
@@ -211,6 +231,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "control_audio_zone".into(),
@@ -233,6 +257,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["zone_name", "action"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "set_audio_volume".into(),
@@ -251,6 +279,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["zone_name", "volume"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "get_health_check".into(),
@@ -261,6 +293,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "get_health_status".into(),
@@ -270,6 +306,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "discover_new_sensors".into(),
@@ -285,6 +325,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "get_sensor_state_history".into(),
@@ -303,6 +347,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["uuid"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "get_recent_sensor_changes".into(),
@@ -317,6 +365,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             // Workflow Tools
             Tool {
@@ -365,6 +417,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["name", "description", "steps"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "execute_workflow_demo".into(),
@@ -385,6 +441,10 @@ impl ServerHandler for LoxoneMcpServer {
                     },
                     "required": ["workflow_name"]
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "list_predefined_workflows".into(),
@@ -394,6 +454,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "get_workflow_examples".into(),
@@ -404,6 +468,10 @@ impl ServerHandler for LoxoneMcpServer {
                     "properties": {},
                     "required": []
                 }),
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
         ];
 
@@ -447,10 +515,15 @@ impl ServerHandler for LoxoneMcpServer {
                     .record_error(&request.name, &req_ctx.id, &e, req_ctx.elapsed())
                     .await;
 
-                return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Resource limit exceeded: {}",
-                    e
-                ))]));
+                return Ok(CallToolResult {
+                    content: vec![Content::text(format!(
+                        "Resource limit exceeded: {}",
+                        e
+                    ))],
+                    is_error: Some(true),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                });
             }
         };
 
@@ -469,10 +542,15 @@ impl ServerHandler for LoxoneMcpServer {
                 // Record rate limit hit in metrics
                 get_metrics().record_rate_limit_hit().await;
 
-                return Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Rate limit exceeded for tool '{}'. Please try again in a few seconds.",
-                    request.name
-                ))]));
+                return Ok(CallToolResult {
+                    content: vec![Content::text(format!(
+                        "Rate limit exceeded for tool '{}'. Please try again in a few seconds.",
+                        request.name
+                    ))],
+                    is_error: Some(true),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                });
             }
             RateLimitResult::AllowedBurst => {
                 warn!(
@@ -510,10 +588,15 @@ impl ServerHandler for LoxoneMcpServer {
                     .await;
 
                 // Convert cached JSON back to CallToolResult
-                return Ok(CallToolResult::success(vec![Content::text(
-                    serde_json::to_string_pretty(&cached_result)
-                        .unwrap_or_else(|_| "{}".to_string()),
-                )]));
+                return Ok(CallToolResult {
+                    content: vec![Content::text(
+                        serde_json::to_string_pretty(&cached_result)
+                            .unwrap_or_else(|_| "{}".to_string()),
+                    )],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                });
             }
         }
 
@@ -545,10 +628,15 @@ impl ServerHandler for LoxoneMcpServer {
                 )
                 .await;
 
-            return Ok(CallToolResult::error(vec![Content::text(format!(
-                "Invalid parameters for tool '{}': {}",
-                request.name, validation_error
-            ))]));
+            return Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Invalid parameters for tool '{}': {}",
+                    request.name, validation_error
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            });
         }
 
         let result = match request.name.as_ref() {

@@ -122,6 +122,10 @@ impl McpBackend for HelloWorldBackend {
                     "required": ["name"]
                 }),
                 output_schema: None,
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
             Tool {
                 name: "count_greetings".to_string(),
@@ -131,6 +135,10 @@ impl McpBackend for HelloWorldBackend {
                     "properties": {}
                 }),
                 output_schema: None,
+                // v0.13.0 new fields
+                title: None,
+                annotations: None,
+                icons: None,
             },
         ];
 
@@ -169,6 +177,7 @@ impl McpBackend for HelloWorldBackend {
                     content: vec![Content::text(message)],
                     is_error: None,
                     structured_content: None,
+                    _meta: None, // v0.13.0 new field
                 })
             }
 
@@ -181,6 +190,7 @@ impl McpBackend for HelloWorldBackend {
                     content: vec![Content::text(format!("Total greetings sent: {count}"))],
                     is_error: None,
                     structured_content: None,
+                    _meta: None, // v0.13.0 new field
                 })
             }
 

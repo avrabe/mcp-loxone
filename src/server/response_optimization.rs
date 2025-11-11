@@ -20,9 +20,14 @@ impl OptimizedResponses {
             "rooms": [],
             "note": "No rooms match the current criteria"
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "[]".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "[]".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty devices response for a room
@@ -32,9 +37,14 @@ impl OptimizedResponses {
             "device_count": 0,
             "devices": []
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty devices response for system-wide queries
@@ -43,9 +53,14 @@ impl OptimizedResponses {
             "total_devices": 0,
             "devices": []
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty lights response
@@ -64,9 +79,14 @@ impl OptimizedResponses {
                 "results": []
             })
         };
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty blinds/rolladen response
@@ -85,9 +105,14 @@ impl OptimizedResponses {
                 "results": []
             })
         };
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty devices by type response
@@ -104,9 +129,14 @@ impl OptimizedResponses {
                 "note": "No device types found in the system"
             })
         };
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty audio zones response
@@ -115,9 +145,14 @@ impl OptimizedResponses {
             "total_zones": 0,
             "zones": []
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create an empty sensors response
@@ -126,9 +161,14 @@ impl OptimizedResponses {
             "total_sensors": 0,
             "sensors": []
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create a device not found response (returns empty device info rather than error)
@@ -138,9 +178,14 @@ impl OptimizedResponses {
             "found": false,
             "suggestion": "Use discover_all_devices or get_devices_by_type to find available devices"
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create a room not found response (returns empty room info rather than error)
@@ -150,9 +195,14 @@ impl OptimizedResponses {
             "found": false,
             "suggestion": "Use list_rooms to see available rooms"
         });
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 
     /// Create a successful operation response with empty affected items
@@ -173,9 +223,14 @@ impl OptimizedResponses {
                 "status": "completed"
             })
         };
-        CallToolResult::success(vec![Content::text(
-            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-        )])
+        CallToolResult {
+            content: vec![Content::text(
+                serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+            )],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }
     }
 }
 
@@ -207,9 +262,14 @@ impl ResponseOptimizer for Result<CallToolResult, pulseengine_mcp_protocol::Erro
                     "found": false,
                     "suggestion": suggestion.unwrap_or("Check available items using discovery tools")
                 });
-                CallToolResult::success(vec![Content::text(
-                    serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
-                )])
+                CallToolResult {
+                    content: vec![Content::text(
+                        serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+                    )],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                }
             }
         }
     }

@@ -40,7 +40,12 @@ impl LoxoneMcpServer {
         });
 
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Get devices in a specific room
@@ -57,7 +62,12 @@ impl LoxoneMcpServer {
 
         let content =
             serde_json::to_string_pretty(&room_devices).unwrap_or_else(|_| "[]".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Control a specific device
@@ -67,14 +77,24 @@ impl LoxoneMcpServer {
         action: String,
     ) -> std::result::Result<CallToolResult, pulseengine_mcp_protocol::Error> {
         match self.client.send_command(&device_id, &action).await {
-            Ok(_) => Ok(CallToolResult::success(vec![Content::text(format!(
-                "Successfully executed {} on device {}",
-                action, device_id
-            ))])),
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
-                "Failed to control device: {}",
-                e
-            ))])),
+            Ok(_) => Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Successfully executed {} on device {}",
+                    action, device_id
+                ))],
+                is_error: Some(false),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            }),
+            Err(e) => Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Failed to control device: {}",
+                    e
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            }),
         }
     }
 
@@ -108,15 +128,30 @@ impl LoxoneMcpServer {
 
                 let content =
                     serde_json::to_string_pretty(&status).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+                    content: vec![Content::text(content)],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                })
             }
-            Ok(false) => Ok(CallToolResult::success(vec![Content::text(
-                "⚠️ Loxone system is online but may have issues".to_string(),
-            )])),
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
-                "❌ System check failed: {}",
-                e
-            ))])),
+            Ok(false) => Ok(CallToolResult {
+                content: vec![Content::text(
+                    "⚠️ Loxone system is online but may have issues".to_string(),
+                )],
+                is_error: Some(false),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            }),
+            Err(e) => Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "❌ System check failed: {}",
+                    e
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            }),
         }
     }
 
@@ -174,7 +209,12 @@ impl LoxoneMcpServer {
         });
 
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Enhanced control_device that accepts device name or UUID
@@ -225,12 +265,22 @@ impl LoxoneMcpServer {
                     });
                     let content =
                         serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-                    Ok(CallToolResult::success(vec![Content::text(content)]))
+                    Ok(CallToolResult {
+                        content: vec![Content::text(content)],
+                        is_error: Some(false),
+                        structured_content: None,
+                        _meta: None,  // v0.13.0 new field
+                    })
                 }
-                Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
-                    "Failed to control device {}: {}",
-                    device_obj.name, e
-                ))])),
+                Err(e) => Ok(CallToolResult {
+                    content: vec![Content::text(format!(
+                        "Failed to control device {}: {}",
+                        device_obj.name, e
+                    ))],
+                    is_error: Some(true),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                }),
             }
         } else {
             Ok(OptimizedResponses::device_not_found(&device))
@@ -258,14 +308,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+                content: vec![Content::text(content)],
+                is_error: Some(false),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
-                "Error: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Error: {}",
+                    response
+                        .message
+                        .unwrap_or_else(|| "Unknown error".to_string())
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         }
     }
 
@@ -299,7 +359,12 @@ impl LoxoneMcpServer {
             "success" => {
                 let content = serde_json::to_string_pretty(&tool_response.data)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+                    content: vec![Content::text(content)],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                })
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
@@ -328,7 +393,12 @@ impl LoxoneMcpServer {
             "success" => {
                 let content = serde_json::to_string_pretty(&tool_response.data)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+                    content: vec![Content::text(content)],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                })
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
@@ -367,7 +437,12 @@ impl LoxoneMcpServer {
             "success" => {
                 let content = serde_json::to_string_pretty(&tool_response.data)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+                    content: vec![Content::text(content)],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                })
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
@@ -396,7 +471,12 @@ impl LoxoneMcpServer {
             "success" => {
                 let content = serde_json::to_string_pretty(&tool_response.data)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+                    content: vec![Content::text(content)],
+                    is_error: Some(false),
+                    structured_content: None,
+                    _meta: None,  // v0.13.0 new field
+                })
             }
             _ => {
                 let error_msg = tool_response.message.unwrap_or_else(|| "Unknown error".to_string());
@@ -431,14 +511,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+                content: vec![Content::text(content)],
+                is_error: Some(false),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
-                "Error: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Error: {}",
+                    response
+                        .message
+                        .unwrap_or_else(|| "Unknown error".to_string())
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         }
     }
 
@@ -467,14 +557,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+                content: vec![Content::text(content)],
+                is_error: Some(false),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
-                "Error: {}",
-                response
-                    .message
-                    .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            Ok(CallToolResult {
+                content: vec![Content::text(format!(
+                    "Error: {}",
+                    response
+                        .message
+                        .unwrap_or_else(|| "Unknown error".to_string())
+                ))],
+                is_error: Some(true),
+                structured_content: None,
+                _meta: None,  // v0.13.0 new field
+            })
         }
     }
 
@@ -518,7 +618,12 @@ impl LoxoneMcpServer {
         });
 
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Get devices filtered by type
@@ -564,7 +669,12 @@ impl LoxoneMcpServer {
 
             let content =
                 serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
             // Show available device types
             let mut device_types = std::collections::HashMap::new();
@@ -582,7 +692,12 @@ impl LoxoneMcpServer {
 
             let content =
                 serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -608,14 +723,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
+            Ok(CallToolResult {
+            content: vec![Content::text(format!(
                 "Error: {}",
                 response
                     .message
                     .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            ))],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -638,14 +763,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
+            Ok(CallToolResult {
+            content: vec![Content::text(format!(
                 "Error: {}",
                 response
                     .message
                     .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            ))],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -668,14 +803,24 @@ impl LoxoneMcpServer {
             serde_json::to_string_pretty(&response.data).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(format!(
+            Ok(CallToolResult {
+            content: vec![Content::text(format!(
                 "Error: {}",
                 response
                     .message
                     .unwrap_or_else(|| "Unknown error".to_string())
-            ))]))
+            ))],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -692,7 +837,12 @@ impl LoxoneMcpServer {
 
         let result = crate::tools::audio::get_audio_zones(context).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Control an audio zone
@@ -712,7 +862,12 @@ impl LoxoneMcpServer {
         let result =
             crate::tools::audio::control_audio_zone(context, zone_name, action, value).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Get available audio sources
@@ -728,7 +883,12 @@ impl LoxoneMcpServer {
 
         let result = crate::tools::audio::get_audio_sources(context).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Set audio zone volume
@@ -746,7 +906,12 @@ impl LoxoneMcpServer {
 
         let result = crate::tools::audio::set_audio_volume(context, zone_name, volume).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Get door/window activity
@@ -764,7 +929,12 @@ impl LoxoneMcpServer {
         let logger = self.context.get_sensor_logger().await;
         let result = crate::tools::sensors::get_door_window_activity(context, hours, logger).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Get logging statistics
@@ -781,7 +951,12 @@ impl LoxoneMcpServer {
         let logger = self.context.get_sensor_logger().await;
         let result = crate::tools::sensors::get_logging_statistics(context, logger).await;
         let content = serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-        Ok(CallToolResult::success(vec![Content::text(content)]))
+        Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
     }
 
     /// Perform comprehensive health check
@@ -821,12 +996,22 @@ impl LoxoneMcpServer {
 
                 let content =
                     serde_json::to_string_pretty(&report_json).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
-            Err(e) => Ok(CallToolResult::error(vec![Content::text(format!(
+            Err(e) => Ok(CallToolResult {
+            content: vec![Content::text(format!(
                 "Health check failed: {}",
                 e
-            ))])),
+            ))],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        }),
         }
     }
 
@@ -877,7 +1062,12 @@ impl LoxoneMcpServer {
 
                 let content =
                     serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
             Err(e) => {
                 let result = serde_json::json!({
@@ -890,7 +1080,12 @@ impl LoxoneMcpServer {
 
                 let content =
                     serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
         }
     }
@@ -912,9 +1107,19 @@ impl LoxoneMcpServer {
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -935,9 +1140,19 @@ impl LoxoneMcpServer {
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -959,9 +1174,19 @@ impl LoxoneMcpServer {
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -984,9 +1209,19 @@ impl LoxoneMcpServer {
         let content = serde_json::to_string_pretty(&response).unwrap_or_else(|_| "{}".to_string());
 
         if response.status == "success" {
-            Ok(CallToolResult::success(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         } else {
-            Ok(CallToolResult::error(vec![Content::text(content)]))
+            Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
         }
     }
 
@@ -1197,13 +1432,23 @@ impl LoxoneMcpServer {
             Ok(data) => {
                 let content =
                     serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
             Err(e) => {
                 let error_content = serde_json::json!({"error": e.to_string()});
                 let content = serde_json::to_string_pretty(&error_content)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::error(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
         }
     }
@@ -1233,13 +1478,23 @@ impl LoxoneMcpServer {
             Ok(data) => {
                 let content =
                     serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
             Err(e) => {
                 let error_content = serde_json::json!({"error": e.to_string()});
                 let content = serde_json::to_string_pretty(&error_content)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::error(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
         }
     }
@@ -1264,13 +1519,23 @@ impl LoxoneMcpServer {
             Ok(data) => {
                 let content =
                     serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
             Err(e) => {
                 let error_content = serde_json::json!({"error": e.to_string()});
                 let content = serde_json::to_string_pretty(&error_content)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::error(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
         }
     }
@@ -1294,13 +1559,23 @@ impl LoxoneMcpServer {
             Ok(data) => {
                 let content =
                     serde_json::to_string_pretty(&data).unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::success(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(false),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
             Err(e) => {
                 let error_content = serde_json::json!({"error": e.to_string()});
                 let content = serde_json::to_string_pretty(&error_content)
                     .unwrap_or_else(|_| "{}".to_string());
-                Ok(CallToolResult::error(vec![Content::text(content)]))
+                Ok(CallToolResult {
+            content: vec![Content::text(content)],
+            is_error: Some(true),
+            structured_content: None,
+            _meta: None,  // v0.13.0 new field
+        })
             }
         }
     }
