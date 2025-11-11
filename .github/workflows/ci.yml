@@ -68,8 +68,13 @@ jobs:
         env:
           RUST_BACKTRACE: 1
 
-      - name: Test with all features
-        run: cargo test --all-features --verbose
+      - name: Free disk space before all-features test
+        run: |
+          cargo clean
+          df -h
+
+      - name: Test library with all features
+        run: cargo test --lib --all-features --verbose
         env:
           RUST_BACKTRACE: 1
 
