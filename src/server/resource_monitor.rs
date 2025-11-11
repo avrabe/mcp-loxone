@@ -413,7 +413,7 @@ mod tests {
         let limits = ResourceLimits {
             max_concurrent_requests: 2,
             max_cpu_percent: None,  // Disable CPU checks in tests
-            max_memory_bytes: None,  // Disable memory checks in tests
+            max_memory_bytes: None, // Disable memory checks in tests
             ..Default::default()
         };
 
@@ -446,7 +446,7 @@ mod tests {
         // Use test-friendly limits that don't check actual system resources
         let limits = ResourceLimits {
             max_cpu_percent: None,  // Disable CPU checks to avoid CI failures
-            max_memory_bytes: None,  // Disable memory checks to avoid CI failures
+            max_memory_bytes: None, // Disable memory checks to avoid CI failures
             max_concurrent_requests: 100,
             ..Default::default()
         };
