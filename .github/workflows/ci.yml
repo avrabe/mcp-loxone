@@ -135,7 +135,7 @@ jobs:
 
       - name: Upload release artifacts
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rust-binary-${{ matrix.target }}
           path: target/release/loxone-mcp-server*
@@ -204,7 +204,7 @@ jobs:
   #         ls -la target/wasm32-wasip2/release/
 
   #     - name: Upload WASM artifacts
-  #       uses: actions/upload-artifact@v4
+  #       uses: actions/upload-artifact@v6
   #       with:
   #         name: rust-wasm-binary
   #         path: target/wasm32-wasip2/release/*.wasm
@@ -269,7 +269,7 @@ jobs:
           fi
 
       - name: Upload documentation
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: rust-documentation
           path: target/doc/
