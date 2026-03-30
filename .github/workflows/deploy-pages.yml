@@ -166,7 +166,7 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
 
       - name: Comment on PR with deployment URL
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
