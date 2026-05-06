@@ -726,6 +726,7 @@ impl LoxoneMcpServer {
     pub async fn list_devices(
         &self,
         room: Option<String>,
+        _filter: Option<String>,
     ) -> std::result::Result<serde_json::Value, String> {
         self.ensure_connected()?;
 
@@ -771,6 +772,7 @@ impl LoxoneMcpServer {
     pub async fn get_device_info(
         &self,
         device_id: String,
+        _detail: Option<String>,
     ) -> std::result::Result<serde_json::Value, String> {
         self.ensure_connected()?;
 

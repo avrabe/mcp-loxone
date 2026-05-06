@@ -260,9 +260,47 @@ async fn main() -> Result<()> {
                 use loxone_mcp_rust::config::credentials::LoxoneCredentials;
                 use loxone_mcp_rust::services::SensorTypeRegistry;
 
-                let loxone_url: url::Url = format!("http://{host}").parse().map_err(|e| {
-                    loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
-                })?;
+                // Resolve the Loxone host URL
+                // Supports: plain IPs, explicit URLs, and dns.loxonecloud.com/<ms-id> redirect
+                let loxone_url: url::Url = if host.starts_with("http://") || host.starts_with("https://") {
+                    host.parse().map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
+                    })?
+                } else if host.starts_with("dns.loxonecloud.com") {
+                    // Cloud redirect: dns.loxonecloud.com/<ms-id>
+                    let redirect_url = format!("https://{host}");
+                    info!("🌐 Resolving Loxone cloud redirect: {redirect_url}");
+                    let client = reqwest::Client::builder()
+                        .redirect(reqwest::redirect::Policy::none())
+                        .build()
+                        .map_err(|e| {
+                            loxone_mcp_rust::LoxoneError::config(format!("Failed to create HTTP client: {e}"))
+                        })?;
+                    let resp = client.head(&redirect_url).send().await.map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::connection(format!(
+                            "Failed to reach Loxone cloud redirect: {e}"
+                        ))
+                    })?;
+                    let location = resp.headers().get(reqwest::header::LOCATION)
+                        .and_then(|v| v.to_str().ok())
+                        .ok_or_else(|| {
+                            loxone_mcp_rust::LoxoneError::connection(
+                                "No redirect location from Loxone cloud — Miniserver may be offline".to_string()
+                            )
+                        })?;
+                    info!("✅ Resolved cloud redirect → {location}");
+                    let mut resolved: url::Url = location.parse().map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::config(format!("Invalid redirect URL: {e}"))
+                    })?;
+                    // Strip the path — only keep scheme + host + port as base URL
+                    resolved.set_path("");
+                    resolved
+                } else {
+                    // Local IP or hostname
+                    format!("http://{host}").parse().map_err(|e| {
+                        loxone_mcp_rust::LoxoneError::config(format!("Invalid URL: {e}"))
+                    })?
+                };
 
                 let loxone_cfg = loxone_mcp_rust::config::LoxoneConfig {
                     url: loxone_url,
