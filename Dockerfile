@@ -6,34 +6,25 @@
 FROM rust:1.94-alpine AS builder
 
 # Install build dependencies
+# perl + make are needed because openssl-sys vendors and builds OpenSSL from source
 RUN apk add --no-cache \
     musl-dev \
     openssl-dev \
     pkgconfig \
-    ca-certificates
+    ca-certificates \
+    perl \
+    make
 
 # Create app directory
 WORKDIR /app
 
-# Copy manifest files
-COPY Cargo.toml Cargo.lock ./
-
-# Create dummy main.rs to cache dependencies
-RUN mkdir src && \
-    echo "fn main() {}" > src/main.rs && \
-    echo "fn main() {}" > src/lib.rs
-
-# Build dependencies (this layer will be cached)
-RUN cargo build --release && \
-    rm -rf src
-
-# Copy actual source code
+# Copy manifest and source
+COPY Cargo.toml Cargo.lock build.rs ./
 COPY src ./src
-COPY build.rs ./
+COPY tests ./tests
 
-# Build the actual application
-RUN touch src/main.rs src/lib.rs && \
-    cargo build --release --bin loxone-mcp-server
+# Build the server binary
+RUN cargo build --release --bin loxone-mcp-server
 
 # Stage 2: Create minimal runtime image
 FROM alpine:3.21
