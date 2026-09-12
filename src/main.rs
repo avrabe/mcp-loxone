@@ -10,6 +10,7 @@ use pulseengine_mcp_server::McpServerBuilder;
 
 use loxone_mcp_rust::{
     Result, ServerConfig as LoxoneServerConfig,
+    client::LoxoneClient,
     config::{
         credential_registry::CredentialRegistry, credentials::create_best_credential_manager,
     },
@@ -279,7 +280,7 @@ async fn main() -> Result<()> {
                     public_key: None,
                 };
 
-                let client = LoxoneHttpClient::new(loxone_cfg, credentials)
+                let mut client = LoxoneHttpClient::new(loxone_cfg, credentials)
                     .await
                     .map_err(|e| {
                         loxone_mcp_rust::LoxoneError::connection(format!(
@@ -287,7 +288,8 @@ async fn main() -> Result<()> {
                         ))
                     })?;
 
-                let context = Arc::new(ClientContext::new());
+                client.connect().await?;
+                let context = client.context().clone();
                 let client_arc: Arc<dyn loxone_mcp_rust::client::LoxoneClient> = Arc::new(client);
                 let sensor_registry = Arc::new(SensorTypeRegistry::new());
                 let value_resolver =
