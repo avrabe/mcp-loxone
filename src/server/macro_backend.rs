@@ -244,7 +244,13 @@ impl LoxoneMcpServer {
         };
 
         let client = self.get_client()?;
-        let light_types = &["Switch", "Dimmer", "LightController", "ColorPicker"];
+        let light_types = &[
+            "Switch",
+            "Dimmer",
+            "LightController",
+            "LightControllerV2",
+            "ColorPicker",
+        ];
 
         match scope.to_lowercase().as_str() {
             "device" => {
@@ -385,7 +391,7 @@ impl LoxoneMcpServer {
 
             if matches!(
                 control_type,
-                "Switch" | "Dimmer" | "LightController" | "ColorPicker"
+                "Switch" | "Dimmer" | "LightController" | "LightControllerV2" | "ColorPicker"
             ) {
                 light_uuids.push(uuid.clone());
                 light_info.push((uuid.clone(), control.clone()));
@@ -455,7 +461,11 @@ impl LoxoneMcpServer {
             .await
             .map_err(|e| format!("Failed to get structure: {e}"))?;
 
-        let climate_types = &["IRoomController", "Intelligent Room Controller"];
+        let climate_types = &[
+            "IRoomController",
+            "IRoomControllerV2",
+            "Intelligent Room Controller",
+        ];
 
         // Try to find the thermostat: first by direct UUID/name, then by room
         let thermostat = Self::find_control_by_id_or_name(&structure, &room);
@@ -546,7 +556,7 @@ impl LoxoneMcpServer {
 
             if matches!(
                 control_type,
-                "IRoomController" | "Intelligent Room Controller"
+                "IRoomController" | "IRoomControllerV2" | "Intelligent Room Controller"
             ) {
                 climate_uuids.push(uuid.clone());
                 climate_info.push((uuid.clone(), control.clone()));
@@ -1655,7 +1665,7 @@ impl LoxoneMcpServer {
             .await
             .map_err(|e| format!("Failed to get structure: {e}"))?;
 
-        let scene_types = &["LightController", "MoodSwitch"];
+        let scene_types = &["LightController", "LightControllerV2", "MoodSwitch"];
 
         // If scene looks like a UUID, send command directly
         if scene.contains('-') && scene.len() > 30 {
@@ -1786,7 +1796,7 @@ impl LoxoneMcpServer {
         for (uuid, control) in &structure.controls {
             let control_type = control.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
-            if matches!(control_type, "LightController" | "MoodSwitch") {
+            if matches!(control_type, "LightController" | "LightControllerV2" | "MoodSwitch") {
                 let name = control
                     .get("name")
                     .and_then(|v| v.as_str())
