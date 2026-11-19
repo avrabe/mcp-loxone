@@ -1,28 +1,18 @@
-//! Macro-based MCP server implementation
+//! Loxone MCP server: tool implementations.
 //!
-//! This module uses pulseengine-mcp-macros 0.17.0 to dramatically simplify
-//! tool and resource definitions. The macros auto-generate:
-//! - Tool registration and discovery
-//! - JSON schema generation from Rust types
-//! - Parameter validation
-//! - Error handling
+//! The methods here hold the tool logic. `super::rmcp_tools` exposes them
+//! over MCP via the official Rust SDK (rmcp).
 
 use crate::client::{ClientContext, LoxoneClient, LoxoneStructure};
 use crate::config::ServerConfig;
 use crate::services::{StateManager, UnifiedValueResolver};
-use pulseengine_mcp_macros::{mcp_server, mcp_tools};
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tracing::{info, warn};
 
 /// Loxone MCP Server with macro-based tool definitions
 ///
-/// This struct holds the context needed for tool execution and uses
-/// the `#[mcp_server]` macro for automatic backend generation.
-#[mcp_server(
-    name = "Loxone MCP Server",
-    description = "High-performance MCP server for Loxone home automation"
-)]
+/// This struct holds the context needed for tool execution.
 #[derive(Clone, Default)]
 #[allow(dead_code)]
 pub struct LoxoneMcpServer {
@@ -191,8 +181,7 @@ impl LoxoneMcpServer {
     }
 }
 
-/// All MCP tools defined in a single impl block
-#[mcp_tools]
+/// Tool implementations (exposed over MCP in `super::rmcp_tools`)
 impl LoxoneMcpServer {
     // ========================================================================
     // LIGHTING TOOLS

@@ -10,6 +10,8 @@ use std::time::Duration;
 
 const DEFAULT_URL: &str = "http://localhost:3001";
 const MCP_ENDPOINT: &str = "/mcp";
+/// Streamable HTTP requires clients to accept both JSON and SSE responses.
+const ACCEPT: &str = "application/json, text/event-stream";
 
 #[derive(Parser)]
 #[command(name = "loxone-cli")]
@@ -209,7 +211,7 @@ impl McpClient {
         });
 
         let url = format!("{}{}", self.base_url, MCP_ENDPOINT);
-        let mut req = self.http.post(&url).json(&body);
+        let mut req = self.http.post(&url).header("Accept", ACCEPT).json(&body);
 
         if let Some(sid) = &self.session_id {
             req = req.header("Mcp-Session-Id", sid);
@@ -277,15 +279,13 @@ impl McpClient {
         )
         .await?;
 
-        // Send initialized notification
-        let id = self.next_id();
+        // Send initialized notification (a notification carries no id)
         let body = json!({
             "jsonrpc": "2.0",
-            "method": "notifications/initialized",
-            "id": id
+            "method": "notifications/initialized"
         });
         let url = format!("{}{}", self.base_url, MCP_ENDPOINT);
-        let mut req = self.http.post(&url).json(&body);
+        let mut req = self.http.post(&url).header("Accept", ACCEPT).json(&body);
         if let Some(sid) = &self.session_id {
             req = req.header("Mcp-Session-Id", sid);
         }
@@ -306,11 +306,19 @@ impl McpClient {
             )
             .await?;
 
+        let is_error = result
+            .get("isError")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+
         // Extract text content from MCP tool result
         if let Some(content) = result.get("content").and_then(|c| c.as_array())
             && let Some(first) = content.first()
             && let Some(text) = first.get("text").and_then(|t| t.as_str())
         {
+            if is_error {
+                return Err(text.to_string());
+            }
             // Try to parse the inner JSON
             if let Ok(parsed) = serde_json::from_str::<Value>(text) {
                 return Ok(parsed);

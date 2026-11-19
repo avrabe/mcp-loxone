@@ -7,7 +7,7 @@ members = [
 resolver = "2"
 
 [workspace.package]
-rust-version = "1.85"
+rust-version = "1.88"
 
 [workspace.dependencies]
 # Core dependencies
@@ -111,16 +111,6 @@ name = "loxone-mcp-test-endpoints"
 path = "src/bin/test_endpoints.rs"
 
 [dependencies]
-# MCP Framework (from crates.io) - Upgraded to 0.17.0 with macros support
-# Note: cli, cli-derive, monitoring dropped (stuck at 0.14.0, incompatible)
-pulseengine-mcp-logging = "=0.17.0"
-pulseengine-mcp-protocol = { version = "=0.17.0", optional = true }
-pulseengine-mcp-server = { version = "=0.17.0", optional = true }
-pulseengine-mcp-transport = { version = "=0.17.0", optional = true }
-pulseengine-mcp-auth = { version = "=0.17.0", optional = true }
-pulseengine-mcp-security = { version = "=0.17.0", optional = true }
-# Macros crate for simplified tool/resource definitions
-pulseengine-mcp-macros = { version = "=0.17.0", optional = true }
 
 # Async runtime
 tokio = { version = "1.50", features = ["rt-multi-thread", "rt", "io-util", "sync", "macros", "time", "fs"] }
@@ -228,6 +218,9 @@ lz4 = "1.28"
 tempfile = { version = "3.26" }
 toml = "0.8.23"
 
+# Official MCP SDK
+rmcp = { version = "3.11", features = ["server", "macros", "transport-io", "transport-streamable-http-server"], optional = true }
+
 # Turso database support
 libsql = { version = "0.10", optional = true }
 
@@ -238,14 +231,9 @@ dirs = "6.0"
 [features]
 default = ["crypto-openssl", "websocket", "infisical", "discovery", "http-server", "influxdb", "framework-migration", "turso"]
 
-# Framework features (now default) - using 0.17.0 crates with macros
+# MCP framework: the official Rust SDK (rmcp)
 framework-migration = [
-    "pulseengine-mcp-protocol",
-    "pulseengine-mcp-server",
-    "pulseengine-mcp-transport",
-    "pulseengine-mcp-auth",
-    "pulseengine-mcp-security",
-    "pulseengine-mcp-macros",
+    "rmcp",
     "http-server",
     "websocket"
 ]

@@ -19,7 +19,7 @@
 An async Rust MCP server that connects AI assistants to Loxone Miniservers. Control lights, blinds, climate, security, audio, and more — all through standardized MCP tools and resources.
 
 > [!NOTE]
-> Built on the [PulseEngine MCP framework](https://github.com/pulseengine) v0.17.0 for standardized protocol handling, authentication, and transport layers.
+> Built on [rmcp](https://github.com/modelcontextprotocol/rust-sdk), the official Rust SDK for the Model Context Protocol (stdio and streamable HTTP transports).
 
 ## Features
 
@@ -271,6 +271,6 @@ at your option.
 
 &nbsp;
 
-<sub>Built on <a href="https://github.com/pulseengine">PulseEngine</a> MCP framework — async Rust for the Model Context Protocol</sub>
+<sub>Built on <a href="https://github.com/modelcontextprotocol/rust-sdk">rmcp</a>, the official Rust SDK for the Model Context Protocol</sub>
 
 </div>
