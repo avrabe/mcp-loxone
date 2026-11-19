@@ -1,24 +1,5 @@
 version: 2
 updates:
-  # Enable version updates for Python dependencies
-  - package-ecosystem: "pip"
-    directory: "/"
-    schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "03:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - "r"
-    labels:
-      - "dependencies"
-      - "python"
-    commit-message:
-      prefix: "chore"
-      include: "scope"
-    pull-request-branch-name:
-      separator: "-"
-
   # Enable version updates for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
