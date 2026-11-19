@@ -46,7 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        rust: ["1.85", "1.94", "stable"]  # 1.85 is MSRV for Rust 2024 edition
+        rust: ["1.88", "1.94", "stable"]  # 1.88 is the MSRV (rmcp 3.x)
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       

@@ -1,12 +1,9 @@
 //! Loxone MCP Server - Main Entry Point
 //!
-//! Uses pulseengine-mcp 0.17.0 framework with macros support.
-//!
-//! This server supports two modes:
-//! - Macro-based: Uses #[mcp_server] and #[mcp_tools] for simplified tool definitions
-//! - Legacy: Uses manual McpBackend implementation for complex HTTP setups
+//! Serves the Loxone tools over MCP (stdio or streamable HTTP) with the
+//! official Rust SDK (rmcp).
 
-use pulseengine_mcp_server::McpServerBuilder;
+use rmcp::ServiceExt;
 
 use loxone_mcp_rust::{
     Result, ServerConfig as LoxoneServerConfig,
@@ -109,7 +106,7 @@ impl Config {
 
         tracing_subscriber::registry()
             .with(filter)
-            .with(fmt::layer().compact())
+            .with(fmt::layer().compact().with_writer(std::io::stderr))
             .init();
     }
 
@@ -310,11 +307,9 @@ async fn main() -> Result<()> {
 
     match config.transport {
         TransportCommand::Stdio { offline } => {
-            LoxoneMcpServer::configure_stdio_logging();
-
             let server = if offline {
                 info!("🚀 Starting MCP server in offline mode (stdio)");
-                LoxoneMcpServer::with_defaults()
+                LoxoneMcpServer::default()
             } else {
                 info!("🚀 Starting MCP server with Loxone connection (stdio)");
                 build_mcp_server(
@@ -326,11 +321,11 @@ async fn main() -> Result<()> {
                 .await?
             };
 
-            let mut mcp_server = server.serve_stdio().await.map_err(|e| {
+            let service = server.serve(rmcp::transport::stdio()).await.map_err(|e| {
                 loxone_mcp_rust::LoxoneError::connection(format!("Failed to start server: {e}"))
             })?;
             info!("✅ Server started (stdio)");
-            mcp_server.run().await.map_err(|e| {
+            service.waiting().await.map_err(|e| {
                 loxone_mcp_rust::LoxoneError::connection(format!("Server error: {e}"))
             })?;
         }
@@ -338,7 +333,7 @@ async fn main() -> Result<()> {
         TransportCommand::Http { port, dev_mode, .. } => {
             let server = if dev_mode {
                 warn!("Development mode enabled — no auth, localhost only");
-                LoxoneMcpServer::with_defaults()
+                LoxoneMcpServer::default()
             } else {
                 info!(
                     "🚀 Starting MCP server with Loxone connection (HTTP port {})",
@@ -352,19 +347,7 @@ async fn main() -> Result<()> {
                 )
                 .await?
             };
-
-            let serve_result: std::result::Result<
-                pulseengine_mcp_server::McpServer<LoxoneMcpServer>,
-                _,
-            > = server.serve_http(port).await;
-            let mut mcp_server = serve_result.map_err(|e| {
-                loxone_mcp_rust::LoxoneError::connection(format!("Failed to start server: {e}"))
-            })?;
-            info!("✅ Server started (HTTP port {})", port);
-            let run_result: std::result::Result<(), _> = mcp_server.run().await;
-            run_result.map_err(|e| {
-                loxone_mcp_rust::LoxoneError::connection(format!("Server error: {e}"))
-            })?;
+            serve_streamable_http(server, port).await?;
         }
 
         TransportCommand::StreamableHttp { port, .. } => {
@@ -379,21 +362,38 @@ async fn main() -> Result<()> {
                 config.insecure,
             )
             .await?;
-
-            let serve_result: std::result::Result<
-                pulseengine_mcp_server::McpServer<LoxoneMcpServer>,
-                _,
-            > = server.serve_http(port).await;
-            let mut mcp_server = serve_result.map_err(|e| {
-                loxone_mcp_rust::LoxoneError::connection(format!("Failed to start server: {e}"))
-            })?;
-            info!("✅ Server started (Streamable HTTP port {})", port);
-            let run_result: std::result::Result<(), _> = mcp_server.run().await;
-            run_result.map_err(|e| {
-                loxone_mcp_rust::LoxoneError::connection(format!("Server error: {e}"))
-            })?;
+            serve_streamable_http(server, port).await?;
         }
     }
 
     Ok(())
+}
+
+/// Serve MCP over streamable HTTP at `http://127.0.0.1:<port>/mcp` until Ctrl-C.
+async fn serve_streamable_http(server: LoxoneMcpServer, port: u16) -> Result<()> {
+    use rmcp::transport::streamable_http_server::{
+        StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
+    };
+
+    let ct = tokio_util::sync::CancellationToken::new();
+    let service = StreamableHttpService::new(
+        move || Ok(server.clone()),
+        LocalSessionManager::default().into(),
+        StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
+    );
+    let router = axum::Router::new().nest_service("/mcp", service);
+
+    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {
+        loxone_mcp_rust::LoxoneError::connection(format!("Failed to bind {addr}: {e}"))
+    })?;
+    info!("✅ Server started (streamable HTTP at http://{addr}/mcp)");
+
+    axum::serve(listener, router)
+        .with_graceful_shutdown(async move {
+            let _ = tokio::signal::ctrl_c().await;
+            ct.cancel();
+        })
+        .await
+        .map_err(|e| loxone_mcp_rust::LoxoneError::connection(format!("Server error: {e}")))
 }

@@ -9,9 +9,10 @@ pub mod macro_backend;
 pub mod models;
 pub mod rate_limiter;
 pub mod request_coalescing;
-pub mod request_context;
 pub mod resource_monitor;
 pub mod response_cache;
+#[cfg(feature = "rmcp")]
+pub mod rmcp_tools;
 pub mod schema_validation;
 
 // Legacy MCP Resources enabled for weather storage integration
@@ -22,7 +23,6 @@ pub mod subscription;
 
 pub use framework_backend::*;
 pub use models::*;
-pub use request_context::*;
 
 /// Dummy metrics collector for HTTP transport compatibility
 pub struct DummyMetricsCollector;
