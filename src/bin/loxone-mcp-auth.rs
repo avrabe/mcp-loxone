@@ -251,7 +251,7 @@ async fn main() -> Result<()> {
             }
 
             let mut credentials: Vec<_> = registry.credentials.values().collect();
-            credentials.sort_by(|a, b| a.created_at.cmp(&b.created_at));
+            credentials.sort_by_key(|a| a.created_at);
 
             for (idx, cred) in credentials.iter().enumerate() {
                 if detailed {

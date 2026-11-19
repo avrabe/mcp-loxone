@@ -172,7 +172,7 @@ async fn test_live_connection_and_structure() {
 
     // Print room names
     println!("\n  Rooms:");
-    for (_uuid, room_data) in &structure.rooms {
+    for room_data in structure.rooms.values() {
         if let Some(name) = room_data.get("name").and_then(|v| v.as_str()) {
             println!("    - {name}");
         }
@@ -351,7 +351,7 @@ async fn test_live_device_inventory() {
     // Count controls by type
     let mut type_counts: HashMap<String, usize> = HashMap::new();
 
-    for (_uuid, control) in &structure.controls {
+    for control in structure.controls.values() {
         let control_type = control
             .get("type")
             .and_then(|v| v.as_str())
@@ -424,7 +424,7 @@ async fn test_live_light_toggle() {
 
     // Read initial state
     let initial_states = client
-        .get_device_states(&[uuid.clone()])
+        .get_device_states(std::slice::from_ref(uuid))
         .await
         .unwrap_or_default();
     let initial_state = initial_states.get(uuid).cloned();
@@ -453,7 +453,7 @@ async fn test_live_light_toggle() {
 
     // Read changed state
     let changed_states = client
-        .get_device_states(&[uuid.clone()])
+        .get_device_states(std::slice::from_ref(uuid))
         .await
         .unwrap_or_default();
     let changed_state = changed_states.get(uuid).cloned();
@@ -470,7 +470,7 @@ async fn test_live_light_toggle() {
 
     // Verify restoration
     let final_states = client
-        .get_device_states(&[uuid.clone()])
+        .get_device_states(std::slice::from_ref(uuid))
         .await
         .unwrap_or_default();
     let final_state = final_states.get(uuid).cloned();

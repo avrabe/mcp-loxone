@@ -590,14 +590,14 @@ impl UnifiedValueResolver {
                     }
                 }
                 // Binary sensors
-                SensorType::MotionDetector | SensorType::DoorWindowContact => {
-                    if numeric != 0.0 && numeric != 1.0 {
-                        return ValidationStatus::OutOfRange {
-                            min: 0.0,
-                            max: 1.0,
-                            actual: numeric,
-                        };
-                    }
+                SensorType::MotionDetector | SensorType::DoorWindowContact
+                    if numeric != 0.0 && numeric != 1.0 =>
+                {
+                    return ValidationStatus::OutOfRange {
+                        min: 0.0,
+                        max: 1.0,
+                        actual: numeric,
+                    };
                 }
                 _ => {}
             }
