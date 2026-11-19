@@ -113,14 +113,14 @@ path = "src/bin/test_endpoints.rs"
 [dependencies]
 # MCP Framework (from crates.io) - Upgraded to 0.17.0 with macros support
 # Note: cli, cli-derive, monitoring dropped (stuck at 0.14.0, incompatible)
-pulseengine-mcp-logging = "0.17.0"
-pulseengine-mcp-protocol = { version = "0.17.0", optional = true }
-pulseengine-mcp-server = { version = "0.17.0", optional = true }
-pulseengine-mcp-transport = { version = "0.17.0", optional = true }
-pulseengine-mcp-auth = { version = "0.17.0", optional = true }
-pulseengine-mcp-security = { version = "0.17.0", optional = true }
+pulseengine-mcp-logging = "=0.17.0"
+pulseengine-mcp-protocol = { version = "=0.17.0", optional = true }
+pulseengine-mcp-server = { version = "=0.17.0", optional = true }
+pulseengine-mcp-transport = { version = "=0.17.0", optional = true }
+pulseengine-mcp-auth = { version = "=0.17.0", optional = true }
+pulseengine-mcp-security = { version = "=0.17.0", optional = true }
 # Macros crate for simplified tool/resource definitions
-pulseengine-mcp-macros = { version = "0.17.0", optional = true }
+pulseengine-mcp-macros = { version = "=0.17.0", optional = true }
 
 # Async runtime
 tokio = { version = "1.50", features = ["rt-multi-thread", "rt", "io-util", "sync", "macros", "time", "fs"] }

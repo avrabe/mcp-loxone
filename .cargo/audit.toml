@@ -20,4 +20,8 @@ ignore = [
     "RUSTSEC-2026-0099",
     "RUSTSEC-2026-0104",
     "RUSTSEC-2026-0382",
+    # webpki-roots 0.25.4, the last 0.25 release: pinned pulseengine-mcp-transport
+    # =0.17.0 (upstream archived) -> tokio-tungstenite 0.20. Distrusted emSign
+    # roots; affects outbound TLS client trust only.
+    "RUSTSEC-2026-0381",
 ]
