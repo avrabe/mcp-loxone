@@ -143,12 +143,10 @@ impl ReportDestination {
             ReportDestination::Email { smtp_config } => {
                 smtp_config.validate()?;
             }
-            ReportDestination::Slack { webhook_url } => {
-                if webhook_url.is_empty() {
-                    return Err(LoxoneError::invalid_input(
-                        "Slack webhook URL cannot be empty",
-                    ));
-                }
+            ReportDestination::Slack { webhook_url } if webhook_url.is_empty() => {
+                return Err(LoxoneError::invalid_input(
+                    "Slack webhook URL cannot be empty",
+                ));
             }
             _ => {}
         }

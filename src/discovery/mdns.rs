@@ -196,11 +196,7 @@ fn is_likely_loxone_service(fullname: &str, properties: &TxtProperties) -> bool 
 
     // For HTTP services, we'll let them through and filter later
     // since Loxone devices might advertise as generic HTTP services
-    if fullname_lower.contains("_http._tcp") {
-        return true;
-    }
-
-    false
+    fullname_lower.contains("_http._tcp")
 }
 
 /// Extract a meaningful device name from mDNS service info

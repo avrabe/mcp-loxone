@@ -674,7 +674,7 @@ impl StateHistory {
             .map(|(uuid, changes)| (uuid.clone(), changes.len() as u64))
             .collect();
 
-        device_activity.sort_by(|a, b| b.1.cmp(&a.1));
+        device_activity.sort_by_key(|d| std::cmp::Reverse(d.1));
         self.change_statistics.most_active_devices = device_activity.into_iter().take(10).collect();
     }
 

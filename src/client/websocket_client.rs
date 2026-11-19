@@ -1130,11 +1130,7 @@ impl LoxoneWebSocketClient {
         }
 
         // Check state name filter
-        if !filter.states.is_empty() && !filter.states.contains(&update.state) {
-            return false;
-        }
-
-        true
+        filter.states.is_empty() || filter.states.contains(&update.state)
     }
 
     /// Check if a state update matches the given advanced filter

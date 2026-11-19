@@ -268,7 +268,7 @@ impl SimpleWeatherStorage {
                 all_points.extend(param_data.iter().cloned());
             }
             // Sort by timestamp (newest first)
-            all_points.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            all_points.sort_by_key(|p| std::cmp::Reverse(p.timestamp));
             Ok(all_points.into_iter().take(50).collect())
         } else {
             Ok(Vec::new())
@@ -301,7 +301,7 @@ impl SimpleWeatherStorage {
         if let Some(device_data) = data.get(device_uuid) {
             if let Some(param_data) = device_data.get(parameter_name) {
                 let mut points = param_data.clone();
-                points.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+                points.sort_by_key(|p| std::cmp::Reverse(p.timestamp));
                 Ok(points.into_iter().take(limit).collect())
             } else {
                 Ok(Vec::new())

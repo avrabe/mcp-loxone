@@ -394,7 +394,7 @@ impl EnhancedCacheManager {
 
             // Prefetch top co-accessed devices
             let mut top_devices: Vec<_> = frequency_map.into_iter().collect();
-            top_devices.sort_by(|a, b| b.1.cmp(&a.1));
+            top_devices.sort_by_key(|d| std::cmp::Reverse(d.1));
 
             for (device_uuid, _) in top_devices.iter().take(5) {
                 // Check if device needs prefetching based on access pattern
