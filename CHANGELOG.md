@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **MCP framework: rmcp (official Rust SDK) replaces pulseengine-mcp 0.17.0**, whose upstream is archived.
+  - Tool names, descriptions and parameters are unchanged (27 tools).
+  - A failing tool now returns a result with `isError: true` and the message as text, instead of a JSON-RPC error.
+  - Optional parameters are typed `["<type>", "null"]` in `inputSchema`.
+  - The server advertises only the `tools` capability (it never had prompts or resources).
+- **MSRV raised to 1.88** (required by rmcp 3.x).
+- HTTP transport: streamable HTTP at `http://127.0.0.1:<port>/mcp`. The legacy `/messages` and `/sse` endpoints are gone.
+- Logs go to stderr in every mode, so stdout carries only JSON-RPC in stdio mode.
+
+### Fixed
+- `list_devices` and `get_device_info` advertised a non-object `inputSchema`, so strict MCP clients such as OpenClaw and OpenCode rejected the server (#37).
+- `loxone-cli` sends the `Accept` header streamable HTTP requires, sends `notifications/initialized` without an `id`, and reports tool errors as errors.
+
 ## [0.7.0] - 2025-11-10
 
 ### Added
