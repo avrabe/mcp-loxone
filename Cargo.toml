@@ -229,8 +229,7 @@ tempfile = { version = "3.26" }
 toml = "0.8.23"
 
 # Turso database support
-libsql = { version = "0.9", optional = true }
-sqlx = { version = "0.8.1", default-features = false, features = ["runtime-tokio-rustls", "sqlite", "chrono", "uuid", "json"], optional = true }
+libsql = { version = "0.10", optional = true }
 
 # Additional native dependencies
 socket2 = { version = "0.5", optional = true }
@@ -259,7 +258,7 @@ discovery = ["socket2", "mdns-sd"]
 mdns = ["mdns-sd"]
 http-server = ["axum", "tower", "tower-http"]
 influxdb = ["influxdb2", "influxdb2-derive"]
-turso = ["libsql", "sqlx"]
+turso = ["libsql"]
 wasm = []
 test-utils = []
 
@@ -293,9 +292,6 @@ httpmock = "0.7"
 # General mocking
 mockall = "0.13"
 
-# Containers & external services
-testcontainers = "0.23"
-testcontainers-modules = "0.11"
 
 # Test utilities
 rstest = "0.23"

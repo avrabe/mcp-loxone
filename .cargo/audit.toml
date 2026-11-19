@@ -1,14 +1,23 @@
 # Cargo audit configuration
 
 [advisories]
-# Ignore vulnerabilities that don't affect our usage
-
-# RSA timing side-channel vulnerability in sqlx-mysql
-# We don't use MySQL functionality, only SQLite
-# No fix is available for this vulnerability
-ignore = ["RUSTSEC-2023-0071"]
-
-# Instant crate is unmaintained but still works
-# This is a transitive dependency through influxdb2
-# Not a security vulnerability, just maintenance status
-# ignore = ["RUSTSEC-2024-0384"]
+# Each ignore names the only path that pulls the crate in. Remove an entry as
+# soon as `cargo tree -i <crate>@<version>` comes back empty.
+#
+# libsql 0.10.0 (latest release, used by the `turso` feature) still depends on
+# hyper-rustls 0.25 (rustls 0.22, rustls-webpki 0.102) and tonic 0.11
+# (hyper 0.14, h2 0.3). No fixed libsql release exists yet; tracked in the
+# issue linked from the PR that added these lines.
+ignore = [
+    # h2 0.3.27: unbounded empty DATA frames (libsql -> tonic 0.11 -> hyper 0.14)
+    "RUSTSEC-2026-0258",
+    # rustls 0.22.4 (libsql -> hyper-rustls 0.25)
+    "RUSTSEC-2026-0346",
+    "RUSTSEC-2026-0349",
+    # rustls-webpki 0.102.8 (libsql -> hyper-rustls 0.25 -> rustls 0.22)
+    "RUSTSEC-2026-0049",
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+    "RUSTSEC-2026-0382",
+]
