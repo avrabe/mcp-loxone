@@ -2,7 +2,6 @@ target/
 .git/
 .github/
 docs/
-tests/
 examples/
 loxone-mcp-rust/
 *.md
