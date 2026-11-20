@@ -19,7 +19,7 @@ services:
       - LOXONE_USER=${LOXONE_USER:-admin}
       - LOXONE_PASS=${LOXONE_PASS:-password}
       - LOXONE_HOST=${LOXONE_HOST:-192.168.1.100}
-      - LOXONE_API_KEY=${LOXONE_API_KEY:-your-api-key}
+      - LOXONE_API_KEY=${LOXONE_API_KEY:?set LOXONE_API_KEY (clients send it as Authorization: Bearer <key>)}
       
       # Optional: Infisical configuration
       - INFISICAL_PROJECT_ID=${INFISICAL_PROJECT_ID:-}

@@ -4,6 +4,8 @@
 
 pub mod framework_backend;
 pub mod health_check;
+#[cfg(feature = "http-server")]
+pub mod http_auth;
 pub mod loxone_batch_executor;
 pub mod macro_backend;
 pub mod models;

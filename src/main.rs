@@ -72,7 +72,7 @@ enum TransportCommand {
         #[arg(long)]
         enable_sse: bool,
 
-        /// API key for authentication
+        /// API key clients must send as `Authorization: Bearer <key>` (required unless --dev-mode)
         #[arg(long, env = "LOXONE_API_KEY")]
         api_key: Option<String>,
 
@@ -89,6 +89,10 @@ enum TransportCommand {
         /// Port to listen on
         #[arg(short, long, default_value = "3001")]
         port: u16,
+
+        /// API key clients must send as `Authorization: Bearer <key>`
+        #[arg(long, env = "LOXONE_API_KEY")]
+        api_key: Option<String>,
 
         /// Enable CORS
         #[arg(long)]
@@ -126,22 +130,38 @@ impl Config {
                     ));
                 }
             }
-            TransportCommand::Http { dev_mode, .. } => {
+            TransportCommand::Http {
+                dev_mode, api_key, ..
+            } => {
                 if !dev_mode && !has_credential_id && !has_direct_credentials {
                     return Err(loxone_mcp_rust::LoxoneError::config(
                         "Loxone credentials required. Use --credential-id <id>, set LOXONE_HOST/LOXONE_USER/LOXONE_PASS, or use --dev-mode",
                     ));
                 }
+                if !dev_mode {
+                    require_api_key(api_key.as_deref())?;
+                }
             }
-            TransportCommand::StreamableHttp { .. } => {
+            TransportCommand::StreamableHttp { api_key, .. } => {
                 if !has_credential_id && !has_direct_credentials {
                     return Err(loxone_mcp_rust::LoxoneError::config(
                         "Loxone credentials required. Use --credential-id <id> or set LOXONE_HOST/LOXONE_USER/LOXONE_PASS",
                     ));
                 }
+                require_api_key(api_key.as_deref())?;
             }
         }
         Ok(())
+    }
+}
+
+/// HTTP transports require a non-empty API key (issue #46).
+fn require_api_key(api_key: Option<&str>) -> Result<()> {
+    match api_key {
+        Some(k) if !k.trim().is_empty() => Ok(()),
+        _ => Err(loxone_mcp_rust::LoxoneError::config(
+            "HTTP mode requires an API key: pass --api-key <key> or set LOXONE_API_KEY. Clients send it as `Authorization: Bearer <key>`. Use `http --dev-mode` for unauthenticated local testing.",
+        )),
     }
 }
 
@@ -332,7 +352,12 @@ async fn main() -> Result<()> {
             })?;
         }
 
-        TransportCommand::Http { port, dev_mode, .. } => {
+        TransportCommand::Http {
+            port,
+            dev_mode,
+            api_key,
+            ..
+        } => {
             let server = if dev_mode {
                 warn!("Development mode enabled — no auth, localhost only");
                 LoxoneMcpServer::default()
@@ -349,10 +374,11 @@ async fn main() -> Result<()> {
                 )
                 .await?
             };
-            serve_streamable_http(server, port).await?;
+            let api_key = if dev_mode { None } else { api_key };
+            serve_streamable_http(server, port, api_key).await?;
         }
 
-        TransportCommand::StreamableHttp { port, .. } => {
+        TransportCommand::StreamableHttp { port, api_key, .. } => {
             info!(
                 "🚀 Starting MCP server with Loxone connection (Streamable HTTP port {})",
                 port
@@ -364,7 +390,7 @@ async fn main() -> Result<()> {
                 config.insecure,
             )
             .await?;
-            serve_streamable_http(server, port).await?;
+            serve_streamable_http(server, port, api_key).await?;
         }
     }
 
@@ -372,7 +398,14 @@ async fn main() -> Result<()> {
 }
 
 /// Serve MCP over streamable HTTP at `http://127.0.0.1:<port>/mcp` until Ctrl-C.
-async fn serve_streamable_http(server: LoxoneMcpServer, port: u16) -> Result<()> {
+///
+/// With `api_key`, every request must carry `Authorization: Bearer <key>`;
+/// `None` is only passed for `http --dev-mode`.
+async fn serve_streamable_http(
+    server: LoxoneMcpServer,
+    port: u16,
+    api_key: Option<String>,
+) -> Result<()> {
     use rmcp::transport::streamable_http_server::{
         StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
     };
@@ -383,7 +416,18 @@ async fn serve_streamable_http(server: LoxoneMcpServer, port: u16) -> Result<()>
         LocalSessionManager::default().into(),
         StreamableHttpServerConfig::default().with_cancellation_token(ct.child_token()),
     );
-    let router = axum::Router::new().nest_service("/mcp", service);
+    let mut router = axum::Router::new().nest_service("/mcp", service);
+    match api_key {
+        Some(key) => {
+            let digest = loxone_mcp_rust::server::http_auth::ApiKeyDigest::new(&key);
+            router = router.layer(axum::middleware::from_fn_with_state(
+                digest,
+                loxone_mcp_rust::server::http_auth::require_bearer,
+            ));
+            info!("🔐 Bearer API key required on /mcp");
+        }
+        None => warn!("⚠️  No API key: /mcp is unauthenticated (dev mode)"),
+    }
 
     let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
     let listener = tokio::net::TcpListener::bind(addr).await.map_err(|e| {

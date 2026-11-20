@@ -129,12 +129,14 @@ Add to your `claude_desktop_config.json`:
 ### HTTP Server (n8n, MCP Inspector)
 
 ```bash
-# Standard HTTP/SSE
-loxone-mcp-server http --port 3001 --credential-id <id>
+# HTTP
+LOXONE_API_KEY=<key> loxone-mcp-server http --port 3001 --credential-id <id>
 
 # Streamable HTTP (new MCP Inspector)
-loxone-mcp-server streamable-http --port 3001 --credential-id <id>
+LOXONE_API_KEY=<key> loxone-mcp-server streamable-http --port 3001 --credential-id <id>
 ```
+
+HTTP clients must send `Authorization: Bearer <key>` (the value of `LOXONE_API_KEY` or `--api-key`); requests without it get `401`. The server listens on `127.0.0.1` only. `http --dev-mode` skips the key for local testing.
 
 ### OpenClaw Integration
 

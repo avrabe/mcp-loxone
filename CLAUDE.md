@@ -103,10 +103,10 @@ cargo run --bin loxone-mcp-auth audit --limit 50
 cargo run --bin loxone-mcp-server stdio --credential-id abc123def-456-789
 
 # Web/HTTP clients (n8n, MCP Inspector)
-cargo run --bin loxone-mcp-server http --port 3001 --credential-id abc123def-456-789
+LOXONE_API_KEY=<key> cargo run --bin loxone-mcp-server http --port 3001 --credential-id abc123def-456-789
 
 # Streamable HTTP for new MCP Inspector
-cargo run --bin loxone-mcp-server streamable-http --port 3001 --credential-id abc123def-456-789
+LOXONE_API_KEY=<key> cargo run --bin loxone-mcp-server streamable-http --port 3001 --credential-id abc123def-456-789
 ```
 
 #### Legacy Environment Variable Mode
@@ -114,7 +114,7 @@ cargo run --bin loxone-mcp-server streamable-http --port 3001 --credential-id ab
 # Development mode with MCP Inspector (requires env vars)
 cargo run --bin loxone-mcp-server stdio
 # Or for n8n/web clients:
-cargo run --bin loxone-mcp-server http --port 3001
+LOXONE_API_KEY=<key> cargo run --bin loxone-mcp-server http --port 3001
 
 # Quick development server with hot reload
 make dev-run
@@ -232,7 +232,7 @@ src/
 cargo build --release
 
 # Run production server
-./target/release/loxone-mcp-server http --port 3001
+LOXONE_API_KEY=<key> ./target/release/loxone-mcp-server http --port 3001
 ```
 
 ### WebAssembly (Edge/Browser)
