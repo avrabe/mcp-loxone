@@ -1796,7 +1796,10 @@ impl LoxoneMcpServer {
         for (uuid, control) in &structure.controls {
             let control_type = control.get("type").and_then(|v| v.as_str()).unwrap_or("");
 
-            if matches!(control_type, "LightController" | "LightControllerV2" | "MoodSwitch") {
+            if matches!(
+                control_type,
+                "LightController" | "LightControllerV2" | "MoodSwitch"
+            ) {
                 let name = control
                     .get("name")
                     .and_then(|v| v.as_str())
