@@ -257,7 +257,7 @@ async fn main() -> Result<()> {
             let user = loxone_user.to_string();
             let pass = loxone_password.to_string();
             async move {
-                use loxone_mcp_rust::client::{ClientContext, LoxoneHttpClient};
+                use loxone_mcp_rust::client::LoxoneHttpClient;
                 use loxone_mcp_rust::config::credentials::LoxoneCredentials;
                 use loxone_mcp_rust::services::SensorTypeRegistry;
 
