@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Not verified
+These changes passed CI and local end-to-end checks against local builds (`http` with and without the API key, `http --dev-mode`, `stdio --offline`, `loxone-cli`) with no Miniserver connected. They have not been run against:
+- a live Miniserver (`tests/live_miniserver_tests.rs` needs one),
+- n8n or the MCP Inspector over the new streamable HTTP endpoint with the Bearer key.
+
+### Known issues
+- Docker: HTTP mode binds `127.0.0.1` inside the container, so a published port can't reach it (#48).
+
 ### Security
 - **HTTP transports require an API key** (#46). `http` (unless `--dev-mode`) and `streamable-http` refuse to start without `--api-key` / `LOXONE_API_KEY`, and reject requests without `Authorization: Bearer <key>` with `401`. `loxone-cli` takes `--api-key` / `LOXONE_API_KEY` and passes it to a server it auto-starts. docker-compose no longer has a default key.
 
