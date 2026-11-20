@@ -34,6 +34,10 @@ struct Cli {
     #[arg(long, default_value = "3001")]
     port: u16,
 
+    /// API key sent as `Authorization: Bearer <key>` (also passed to an auto-started server)
+    #[arg(long, env = "LOXONE_API_KEY", hide_env_values = true)]
+    api_key: Option<String>,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -184,10 +188,18 @@ struct McpClient {
 }
 
 impl McpClient {
-    fn new(base_url: &str) -> Self {
+    fn new(base_url: &str, api_key: Option<&str>) -> Self {
+        let mut headers = reqwest::header::HeaderMap::new();
+        if let Some(key) = api_key
+            && let Ok(mut value) = reqwest::header::HeaderValue::from_str(&format!("Bearer {key}"))
+        {
+            value.set_sensitive(true);
+            headers.insert(reqwest::header::AUTHORIZATION, value);
+        }
         Self {
             http: reqwest::Client::builder()
                 .timeout(Duration::from_secs(30))
+                .default_headers(headers)
                 .build()
                 .expect("Failed to create HTTP client"),
             base_url: base_url.trim_end_matches('/').to_string(),
@@ -369,6 +381,9 @@ async fn ensure_server_running(cli: &Cli) -> Result<(), String> {
     if let Some(cid) = &cli.credential_id {
         cmd.arg("--credential-id").arg(cid);
     }
+    if let Some(key) = &cli.api_key {
+        cmd.env("LOXONE_API_KEY", key);
+    }
 
     cmd.stdin(Stdio::null())
         .stdout(Stdio::null())
@@ -545,7 +560,7 @@ async fn main() {
 async fn run(cli: Cli) -> Result<(), String> {
     ensure_server_running(&cli).await?;
 
-    let mut client = McpClient::new(&cli.url);
+    let mut client = McpClient::new(&cli.url, cli.api_key.as_deref());
     client.initialize().await?;
 
     let result = match &cli.command {

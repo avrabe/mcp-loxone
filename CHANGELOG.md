@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- **HTTP transports require an API key** (#46). `http` (unless `--dev-mode`) and `streamable-http` refuse to start without `--api-key` / `LOXONE_API_KEY`, and reject requests without `Authorization: Bearer <key>` with `401`. `loxone-cli` takes `--api-key` / `LOXONE_API_KEY` and passes it to a server it auto-starts. docker-compose no longer has a default key.
+
 ### Changed
 - **MCP framework: rmcp (official Rust SDK) replaces pulseengine-mcp 0.17.0**, whose upstream is archived.
   - Tool names, descriptions and parameters are unchanged (27 tools).
